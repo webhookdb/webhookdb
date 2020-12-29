@@ -1,0 +1,412 @@
+<style type="text/css">
+/* Box sizing:http://paulirish.com/2012/box-sizing-border-box-ftw/ */
+*, :before, :after {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+/* Client-specific Styles and Reset */
+
+#outlook a {
+    padding:0;
+}
+
+body{
+    width:100%;
+    min-width: 100%;
+    -webkit-text-size-adjust:100%;
+    -ms-text-size-adjust:100%;
+    margin:0;
+    padding:0;
+}
+
+/* .ExternalClass applies to Outlook.com (the artist formerly known as Hotmail)	*/
+
+.ExternalClass {
+    width:100%;
+}
+
+.ExternalClass,
+.ExternalClass p,
+.ExternalClass span,
+.ExternalClass font,
+.ExternalClass td,
+.ExternalClass div {
+    line-height: 100%;
+}
+
+#backgroundTable {
+    margin:0;
+    padding:0;
+    width:100%;
+    line-height: 100%;
+}
+
+img {
+    outline:none;
+    text-decoration:none;
+    -ms-interpolation-mode: bicubic;
+    /*max-width: 100%;*/
+}
+
+center {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0;
+}
+
+a img {
+    border: none;
+    vertical-align: text-bottom;
+}
+
+table {
+    border-spacing: 0;
+    border-collapse: collapse;
+}
+
+td {
+    word-break: break-word;
+    -webkit-hyphens: none;
+    -moz-hyphens: none;
+    hyphens: none;
+    border-collapse: collapse;
+}
+
+table, tr, td {
+    padding: 0;
+    vertical-align: top;
+    text-align: left;
+}
+
+body, h1, h2, h3, h4, h5, h6, p, td, li, blockquote {
+    color: #747F7B;
+    font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+    font-weight: normal;
+    padding:0;
+    margin: 0;
+    text-align: left;
+    line-height: 1.3;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #3D4542;
+    word-break: normal;
+    margin: 0 0 10px 0;
+}
+
+h1 {
+    font-size: 20px;
+    font-weight: bold;
+}
+h2 {
+    font-size: 18px;
+    font-weight: bold;
+}
+h3 {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+body, p {
+    font-size: 16px;
+    line-height: 22px;
+}
+
+p, ul, ol {
+    margin-bottom: 12px;
+}
+
+ul.list-buffer li,
+ol.list-buffer li,
+menu.list-buffer li,
+dl.list-buffer dd {
+    margin-bottom: 0.5em;
+}
+
+ul.no-bullets ,
+ol.no-bullets li {
+    list-style: none;
+}
+
+a, a:visited {
+    color: #00A19A;
+    text-decoration: none;
+}
+
+a:hover, a:active {
+    color: #007473;
+}
+
+.wrapper {
+    max-width: 600px;
+    width: 600px;
+    margin: 0 auto;
+}
+.main-wrapper {
+    max-width: 600px;
+    background-color: #FFFFFF;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.box-border {
+    border: 1px solid #E3E3E3;
+}
+
+.bg-alternate {
+    background-color: #DFDFD5;
+}
+
+.bg-box {
+    background-color: #ffffff;
+    border-radius: 4px;
+}
+
+/** GUTTERS AND BUFFERS
+---------------------------------------- **/
+.gutter-left-none, .gutter-none {padding-left: 0; }
+.gutter-right-none, .gutter-none {padding-right: 0; }
+.gutter-left-tiny, .gutter-tiny {padding-left: 6px; }
+.gutter-right-tiny, .gutter-tiny {padding-right: 6px; }
+.gutter-left-small, .gutter-small {padding-left: 16px; }
+.gutter-right-small, .gutter-small {padding-right: 16px; }
+.gutter-left-medium, .gutter-medium, .gutter, .gutter-left {padding-left: 32px; }
+.gutter-right-medium, .gutter-medium, .gutter, .gutter-right {padding-right: 32px; }
+.gutter-left-large, .gutter-large {padding-left: 48px; }
+.gutter-right-large, .gutter-large {padding-right: 48px; }
+.buffer-top-none,.buffer-none {margin-top: 0; }
+.buffer-bottom-none,.buffer-none {margin-bottom: 0; }
+.buffer-top-tiny,.buffer-tiny {margin-top: 6px; }
+.buffer-bottom-tiny,.buffer-tiny {margin-bottom: 6px; }
+.buffer-top-small,.buffer-small {margin-top: 16px; }
+.buffer-bottom-small,.buffer-small {margin-bottom: 16px; }
+.buffer-top-medium,.buffer-medium,.buffer,.buffer-top {margin-top: 32px; }
+.buffer-bottom-medium,.buffer-medium,.buffer,.buffer-bottom {margin-bottom: 32px; }
+.buffer-top-large,.buffer-large {margin-top: 48px; }
+.buffer-bottom-large,.buffer-large {margin-bottom: 48px; }
+.padder-top-none,.padder-none {padding-top: 0; }
+.padder-bottom-none,.padder-none {padding-bottom: 0; }
+.padder-top-tiny,.padder-tiny {padding-top: 6px; }
+.padder-bottom-tiny,.padder-tiny {padding-bottom: 6px; }
+.padder-top-small,.padder-small {padding-top: 16px; }
+.padder-bottom-small,.padder-small {padding-bottom: 16px; }
+.padder-top-medium,.padder-medium,.padder,.padder-top {padding-top: 32px; }
+.padder-bottom-medium,.padder-medium,.padder,.padder-bottom {padding-bottom: 32px; }
+.padder-top-large,.padder-large {padding-top: 48px; }
+.padder-bottom-large,.padder-large {padding-bottom: 48px; }
+
+.spacer-main {padding: 38px 40px;}
+
+/** TYPOGRAPHY
+---------------------------------------- **/
+.text-xxl {
+    font-size: 34px;
+}
+
+.text-large {
+    font-size: 28px;
+}
+
+.text-small {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.text-tiny {
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.text-teenytiny {
+    font-size: 8px;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-light {
+    font-weight: 200;
+}
+
+.text-semibold {
+    font-weight: 400;
+}
+
+.text-emphasis {
+    font-weight: 400;
+    color: #3d4542;
+}
+
+.text-italic {
+    font-style: italic;
+}
+
+.text-highlight {
+    font-weight: 600;
+    color: #ffa300;
+}
+
+.text-alternate {
+    color: #A2AFA9;
+}
+
+.text-uppercase {
+    text-transform: uppercase;
+}
+
+.text-contrast { color: #FFFFFF !important; }
+
+.text-default { color: #747f7b !important; }
+
+.text-strong { color: #3d4542 !important; }
+
+.text-alert { color: #E2482D !important; }
+
+.text-warn { color: #f59523 !important; }
+
+.text-info { color: #3b9bbe !important; }
+
+.text-success { color: #55B475 !important; }
+
+.pre-wrap {
+    white-space: pre-wrap;
+}
+
+hr {
+    position: relative;
+    display: block;
+    height: 1px;
+    margin: 16px 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid #e3e3e3;
+}
+
+blockquote {
+    font-weight: 100;
+    font-size: 18px;
+    border: none;
+    outline: none;
+}
+
+/** BUTTONS
+---------------------------------------- **/
+.btn, .btn-alt, .btn-soft, .btn-facebook, .btn-twitter, .btn-instagram {
+    padding: 15px;
+    border-radius: 4px;
+    font-size: 16px;
+    text-align: center;
+    font-weight: bold;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-facebook, .btn-twitter, .btn-instagram {
+  padding: 0;
+}
+
+.btn a,
+.btn-alt a,
+.btn-soft a,
+.btn-twitter a,
+.btn-facebook a,
+.btn-instagram a { display: block; }
+
+.btn:hover, .btn-alt:hover, .btn-soft:hover, .card-tab-btn:hover, .btn-linkedin:hover {
+    text-decoration: none;
+}
+
+.btn {
+    background-color: #70c3b6;
+}
+.btn:hover, .btn:focus, .btn:active {
+    background-color: #63b4a7;
+}
+.btn a,
+.btn a:hover,
+.btn a:visited { color: #fff; }
+
+.btn-alt {
+    border: 1px solid #00A19A;
+    background-color: transparent;
+}
+.btn-alt:hover, .btn-alt:focus, .btn-alt:active {
+    border-color: #006E69;
+}
+.btn-alt a,
+.btn-alt a:visited { color: #00A19A; }
+.btn-alt a:hover { color: #006E69; }
+
+.btn-soft {
+    background-color: #EFEFEF;
+    color: #00A19A;
+}
+.btn-soft:hover, .btn-soft:focus, .btn-soft:active {
+    background-color: #D3D3D3;
+}
+.btn-soft a,
+.btn-soft a:visited,
+.btn-soft a:hover { color: #00A19A; }
+
+.btn-medium {
+    font-size: 14px;
+    padding: 12px;
+}
+
+.btn-small {
+    font-size: 12px;
+    padding: 8px;
+}
+
+.btn-block {
+    max-width: 100%;
+    display: block;
+}
+
+.btn-facebook {
+    background-color: #3a589a;
+}
+.btn-twitter {
+    background-color: #00b2f3;
+}
+.btn-instagram {
+    background-color: #7f4b30;
+}
+.btn-facebook a,
+.btn-twitter a,
+.btn-instagram { color: #fff; }
+
+/** TABLES
+---------------------------------------- **/
+table.full-width { width: 100%!important; min-width: 100%; }
+th, td {
+    padding: 6px 0;
+}
+
+tr.bordered th,
+tr.bordered td
+{
+    border-top: 1px solid #E3E3E3;
+}
+
+/** Small screen media queries
+---------------------------------------- **/
+@media only screen and (max-width: 600px) {
+    .wrapper {
+        width: 95% !important;
+    }
+    .full-width-for-small-only {
+        width: 100% !important;
+    }
+    .spacer-main { padding: 30px 10px !important; }
+}
+</style>

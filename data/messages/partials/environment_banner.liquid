@@ -1,0 +1,9 @@
+{% if environment.name != 'production' %}
+    <table class="full-width" style="background:#ffdcdc; width: 100%">
+        <tr>
+            <td>
+                <a href="{{ app_url }}" target="_blank"><h5 class="text-center text-uppercase text-emphasis padder-none buffer-none" >sent from {{ environment.name }}</h5></a>
+            </td>
+        </tr>
+    </table>
+{% endif %}

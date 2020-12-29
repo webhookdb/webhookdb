@@ -1,0 +1,23 @@
+version: "3.4"
+
+services:
+  db:
+    image: "postgres:11"
+    ports:
+      - "18005:5432"
+    environment:
+      POSTGRES_USER: 'webhookdb'
+      POSTGRES_PASSWORD: 'webhookdb'
+      POSTGRES_DB: 'webhookdb'
+  test_db:
+    image: "postgres:11"
+    ports:
+      - "18006:5432"
+    environment:
+      POSTGRES_USER: 'webhookdb'
+      POSTGRES_PASSWORD: 'webhookdb'
+      POSTGRES_DB: 'webhookdb_test'
+  sidekiq_redis:
+    image: "redis:5"
+    ports:
+      - "18007:6379"

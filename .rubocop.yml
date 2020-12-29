@@ -1,0 +1,121 @@
+require:
+  - rubocop-performance
+  - rubocop-rake
+  - rubocop-sequel
+
+inherit_from: .rubocop_todo.yml
+
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+
+Layout/ParameterAlignment:
+  EnforcedStyle: with_fixed_indentation
+Layout/CaseIndentation:
+  EnforcedStyle: end
+  IndentOneStep: true
+  IndentationWidth: 2
+Layout/DotPosition:
+  EnforcedStyle: trailing
+Layout/ElseAlignment:
+  Enabled: false
+Layout/EmptyLineAfterGuardClause:
+  Enabled: false
+Layout/EndAlignment:
+  Enabled: false
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+Layout/MultilineOperationIndentation:
+  EnforcedStyle: indented
+Layout/SpaceAroundEqualsInParameterDefault:
+  EnforcedStyle: no_space
+Layout/SpaceInsideHashLiteralBraces:
+  EnforcedStyle: no_space
+
+# https://rubocop.readthedocs.io/en/latest/cops_metrics/#metrics
+Metrics/AbcSize:
+  Enabled: false
+Metrics/BlockLength:
+  Enabled: false
+Metrics/ClassLength:
+  Enabled: false
+Metrics/CyclomaticComplexity:
+  Enabled: false
+Layout/LineLength:
+  Max: 120
+  # Allow comments to be long
+  IgnoredPatterns: ['\A#']
+Metrics/MethodLength:
+  Enabled: false
+Metrics/ModuleLength:
+  Enabled: false
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Lint/BinaryOperatorWithIdenticalOperands:
+  Enabled: false
+Lint/ConstantDefinitionInBlock:
+  Exclude:
+    - 'spec/**/*'
+Lint/EmptyBlock:
+  Enabled: false
+Lint/UselessAssignment:
+  Exclude:
+    - 'spec/**/*'
+    - 'webdriver/**/*'
+
+# https://rubocop.readthedocs.io/en/latest/cops_naming/
+Naming/AccessorMethodName:
+  Enabled: false
+Naming/PredicateName:
+  Exclude:
+    - 'spec/**/*'
+    - 'lib/webhookdb/spec_helpers.rb'
+    - 'lib/webhookdb/spec_helpers/*.rb'
+Naming/MethodParameterName:
+  Enabled: false
+
+Sequel/ColumnDefault:
+  Enabled: false
+Sequel/ConcurrentIndex:
+  Enabled: false
+
+# https://rubocop.readthedocs.io/en/latest/cops_style/
+Style/AccessModifierDeclarations:
+  EnforcedStyle: inline
+Style/AndOr:
+  EnforcedStyle: conditionals
+Style/CaseEquality:
+  Enabled: false
+Style/ClassAndModuleChildren:
+  EnforcedStyle: compact
+Style/FormatStringToken:
+  Enabled: false
+Style/Documentation:
+  Enabled: false
+Style/FormatString:
+  EnforcedStyle: percent
+Style/NumericPredicate:
+  IgnoredMethods: ['where']
+Style/RedundantReturn:
+  Enabled: false
+Style/RedundantSelf:
+  Enabled: false
+Style/StringConcatenation:
+  Enabled: false
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+Style/SymbolArray:
+  EnforcedStyle: brackets
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: consistent_comma
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+Style/TrailingUnderscoreVariable:
+  Enabled: false
+Style/WordArray:
+  EnforcedStyle: brackets

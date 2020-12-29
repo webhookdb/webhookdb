@@ -1,0 +1,38 @@
+{% expose subject %}Welcome to WEBHOOKDB{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    Thanks for signing up for Webhookdb, by Lithic Technology.
+    We built Webhookdb because we were tired of trying to keep multiple calendars and free/busy states in sync,
+    and hope it solves that problem for you, too!
+</p>
+<ul class="list-buffer">
+    <li>
+        From <a href="{{ app_url }}">webhookdb.lithic.tech</a>,
+        you can add additional Google accounts to synchronize.
+    </li>
+    <li>
+        When you add or edit an event, you should do it on the "right" calendar.
+        Add work appointments on your work calendar, personal ones on your personal calendar, etc.
+    </li>
+    <li>
+        Changes are copied to the accounts hooked together in Webhookdb,
+        with color coding so the "source" fo the event is easy to identify.
+        Only you can see the details of the copied events, though- so even if you have a public work calendar,
+        coworkers will not be able to see details of your personal calendar events,
+        just that you are busy.
+    </li>
+    <li>If you are currently sharing calendars between multiple accounts in Google,
+        you can hide all but one. Normally you'll keep your personal calendar
+        (which now reflects all events) visible, and hide the others.
+    </li>
+</ul>
+
+<p>
+    And finally &mdash; we're here to help!
+    Email <a href="mailto:webhookdb@lithic.tech" target="_blank">webhookdb@lithic.tech</a>
+    if you need anything or want to say "hi".
+</p>
+
+{% partial 'signoff' %}

@@ -1,0 +1,17 @@
+{% expose subject %}Your Webhookdb Verification Code{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    The verification code you requested is:
+</p>
+
+<p>
+    {{ token }}
+</p>
+
+<p>
+    If you didn&rsquo;t submit a request, you should get in contact with us by replying to this email.
+</p>
+
+{% partial 'signoff' %}

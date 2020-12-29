@@ -1,0 +1,34 @@
+name: PR Checks
+on: pull_request
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Set up ruby
+        uses: ruby/setup-ruby@v1
+      - uses: actions/cache@v1
+        with:
+          path: vendor/bundle
+          key: bundle-use-ruby-${{ hashFiles('.ruby-version') }}-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            bundle-use-ruby-${{ hashFiles('.ruby-version') }}-
+      - name: Install dependencies
+        run: |
+          sudo apt-get -yqq install libpq-dev
+          gem install bundler -v '2.1.2'
+          bundle config path vendor/bundle
+          bundle install --jobs 4 --retry 3
+      - name: Start backing services
+        run: docker-compose up -d
+      - name: Run rubocop
+        run: bundle exec rubocop
+      - name: Run specs
+        env:
+          RACK_ENV: test
+        run: |
+          bundle exec rake db:migrate
+          bundle exec rspec spec/
