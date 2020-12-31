@@ -6,6 +6,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
+  after(:each) do
+    Webhookdb::Services::Fake.reset
+  end
 
   describe "POST /v1/service_integrations/:opaque_id" do
     it "publishes an event with the data for the webhook", :async do
@@ -45,6 +48,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
       header "X-My-Test", "abc"
       post "/v1/service_integrations/xyz", foo: 1
       expect(last_response).to have_status(400)
+    end
+
+    it "401s if the webhook fails verification" do
+      Webhookdb::Services::Fake.webhook_verified = false
+      Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")
+      post "/v1/service_integrations/xyz"
+      expect(last_response).to have_status(401)
     end
   end
 end

@@ -25,7 +25,6 @@ Sequel.migration do
       text :opaque_id, null: false, unique: true
       text :service_name, null: false
       text :webhook_secret, default: ""
-      text :backfill_secret, null: false
       text :table_name, null: false
       index [:organization_id, :table_name], name: :unique_tablename_in_org, unique: true
     end

@@ -7,9 +7,4 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   plugin :soft_deletes
 
   many_to_one :organization, class: "Webhookdb::Organization"
-
-  def initialize(*)
-    super
-    self.backfill_secret ||= SecureRandom.hex(8)
-  end
 end

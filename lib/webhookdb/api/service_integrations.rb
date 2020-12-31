@@ -19,6 +19,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       post do
         sint = lookup!
         svc = Webhookdb::Services.create_service(sint)
+        merror!(401, "Webhook verification failed") unless svc.webhook_http_request_verified?(request)
         sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
         env["api.format"] = :binary
         content_type svc.webhook_response_content_type

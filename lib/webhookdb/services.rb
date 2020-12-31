@@ -19,6 +19,10 @@ class Webhookdb::Services
       @service_integration = service_integration
     end
 
+    def webhook_http_request_verified?(request)
+      raise NotImplementedError
+    end
+
     def webhook_response_body
       return "ok"
     end
