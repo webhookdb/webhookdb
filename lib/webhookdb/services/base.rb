@@ -12,37 +12,23 @@ class Webhookdb::Services::Base
     return self.service_integration.table_name.to_sym
   end
 
+  # Return a [status, headers, body] triple of the response for the webhook.
+  # By default, if the webhook is not verified, we return a 401, otherwise we return success.
+  # If the webhook needs extra validation or behavior (like Twilio requires special headers),
+  # you can override this entirely and not bother overriding `_webhook_verified?`.
+  def webhook_response(request)
+    return [202, {"Content-Type" => "text/plain"}, "ok"] if self._webhook_verified?(request)
+    return [401, {"Content-Type" => "text/plain"}, ""]
+  end
+
   # Check if the webhook is verified using the http request.
   # We must do this immediatley in the endpoint itself,
   # since verification may include info specific to the request content
   # (like, it can be whitespace sensitive).
   #
   # @return [Boolean] if the webhook is verified.
-  def webhook_http_request_verified?(request)
+  def _webhook_verified?(request)
     raise NotImplementedError
-  end
-
-  # The string body the webhook response with.
-  # Some webhooks (twilio) require a meaningful response.
-  #
-  # @return [String]
-  def webhook_response_body
-    return "ok"
-  end
-
-  # Headers to respond with. Normally empty.
-  #
-  # @return [Hash]
-  def webhook_response_headers
-    return {}
-  end
-
-  # If using a custom response body,
-  # you probably need to override the content type too.
-  #
-  # @return [String]
-  def webhook_response_content_type
-    return "text/plain"
   end
 
   def create_table

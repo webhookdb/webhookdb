@@ -25,10 +25,11 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it "handles webhooks" do
-      expect(svc.webhook_http_request_verified?(Rack::Request.new({}))).to be_falsey
-      expect(svc.webhook_response_body).to be_a(String)
-      expect(svc.webhook_response_content_type).to be_a(String)
-      expect(svc.webhook_response_headers).to be_a(Hash)
+      status, headers, body = svc.webhook_response(Rack::Request.new({}))
+      expect(status).to be_a(Integer)
+      expect(headers).to be_a(Hash)
+      expect(headers).to include("Content-Type")
+      expect(body).to be_a(String)
     end
   end
 

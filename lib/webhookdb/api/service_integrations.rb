@@ -19,13 +19,16 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       post do
         sint = lookup!
         svc = Webhookdb::Services.service_instance(sint)
-        merror!(401, "Webhook verification failed") unless svc.webhook_http_request_verified?(request)
-        sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
+        s_status, s_headers, s_body = svc.webhook_response(request)
+
+        if s_status < 400
+          sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
+        end
+
         env["api.format"] = :binary
-        content_type svc.webhook_response_content_type
-        svc.webhook_response_headers.each { |k, v| header k, v }
-        body svc.webhook_response_body
-        status 202
+        s_headers.each { |k, v| header k, v }
+        body s_body
+        status s_status
       end
     end
   end

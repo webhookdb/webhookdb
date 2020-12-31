@@ -1,16 +1,8 @@
 # frozen_string_literal: true
 
 class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
-  def webhook_http_request_verified?(_request)
-    return false
-  end
-
-  def webhook_response_body
-    return '<Response></Response>'
-  end
-
-  def webhook_response_content_type
-    return 'text/xml'
+  def webhook_response(_request)
+    return [202, {"Content-Type" => "text/xml"}, "<Response></Response>"]
   end
 
   def _remote_key_column
@@ -35,14 +27,14 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
 
   def _prepare_for_insert(_headers, body)
     return {
-      twilio_id: body['sid'],
-      date_created: Time.parse(body['date_created']),
-      date_sent: Time.parse(body['date_sent']),
-      date_updated: Time.parse(body['date_updated']),
-      direction: body['direction'],
-      from: body['from'],
-      status: body['status'],
-      to: body['to'],
+      twilio_id: body["sid"],
+      date_created: Time.parse(body["date_created"]),
+      date_sent: Time.parse(body["date_sent"]),
+      date_updated: Time.parse(body["date_updated"]),
+      direction: body["direction"],
+      from: body["from"],
+      status: body["status"],
+      to: body["to"],
     }
   end
 end
