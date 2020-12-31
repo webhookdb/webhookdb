@@ -1,7 +1,13 @@
 # frozen_string_literal: true
 
 class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
-  def webhook_response(_request)
+  def webhook_response(request)
+    auth = request.get_header("Authorization")
+    if auth.nil? || !auth.match(/^Basic /)
+      return [401, {"Content-Type" => "text/plain", "WWW-Authenticate" => 'Basic realm="Webhookdb"'}, ""]
+    end
+    user_and_pass = Base64.decode64(auth.gsub(/^Basic /, ""))
+    return [401, {"Content-Type" => "text/plain"}, ""] if user_and_pass != self.service_integration.webhook_secret
     return [202, {"Content-Type" => "text/xml"}, "<Response></Response>"]
   end
 

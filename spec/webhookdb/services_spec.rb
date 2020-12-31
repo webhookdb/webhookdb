@@ -181,5 +181,34 @@ RSpec.describe Webhookdb::Services, :db do
         J
       end
     end
+
+    describe "webhook validation" do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1") }
+      let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+      it "returns a 401 as per spec if there is no Authorization header" do
+        req = Rack::Request.new({})
+        status, headers, _body = svc.webhook_response(req)
+        expect(status).to eq(401)
+        expect(headers).to include("WWW-Authenticate" => 'Basic realm="Webhookdb"')
+      end
+
+      it "returns a 401 for an invalid Authorization header" do
+        sint.update(webhook_secret: "secureuser:pass")
+        req = Rack::Request.new({})
+        req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
+        status, headers, _body = svc.webhook_response(req)
+        expect(status).to eq(401)
+        expect(headers).to_not include("WWW-Authenticate")
+      end
+
+      it "returns a 200 with a valid Authorization header" do
+        sint.update(webhook_secret: "user:pass")
+        req = Rack::Request.new({})
+        req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
+        status, _headers, _body = svc.webhook_response(req)
+        expect(status).to eq(202)
+      end
+    end
   end
 end
