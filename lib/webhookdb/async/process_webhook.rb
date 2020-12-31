@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "webhookdb/async/job"
-require "webhookdb/processor"
 
 class Webhookdb::Async::ProcessWebhook
   extend Webhookdb::Async::Job
@@ -11,6 +10,7 @@ class Webhookdb::Async::ProcessWebhook
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
     kwargs = event.payload[1].symbolize_keys
-    Webhookdb::Processor.process(sint, **kwargs)
+    svc = Webhookdb::Services.service_instance(sint)
+    svc.upsert_webhook(**kwargs)
   end
 end

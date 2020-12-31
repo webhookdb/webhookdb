@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "webhookdb/async/job"
-require "webhookdb/processor"
 
 class Webhookdb::Async::CreateMirrorTable
   extend Webhookdb::Async::Job

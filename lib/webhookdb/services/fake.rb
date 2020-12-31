@@ -31,16 +31,24 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return self.class.webhook_response_content_type || super
   end
 
-  def _create_table_sql
-    tbl = self.service_integration.table_name
-    return <<~SQL
-      CREATE TABLE #{tbl} (
-        pk bigserial PRIMARY KEY,
-        data jsonb NOT NULL,
-        my_id text UNIQUE,
-        other_field int
-      );
-      CREATE INDEX IF NOT EXISTS other_field_idx ON #{tbl} (other_field);
-    SQL
+  def _remote_key_column
+    return Webhookdb::Services::Column.new(:my_id, "text")
+  end
+
+  def _denormalized_columns
+    return [
+      Webhookdb::Services::Column.new(:at, "timestamptz"),
+    ]
+  end
+
+  def _update_where_expr
+    return Sequel[self.table_sym][:at] < Sequel[:excluded][:at]
+  end
+
+  def _prepare_for_insert(_headers, body)
+    return {
+      my_id: body["my_id"],
+      at: Time.parse(body["at"]),
+    }
   end
 end
