@@ -23,6 +23,13 @@ RSpec.describe Webhookdb::Services, :db do
       expect(svc.dataset.all).to have_length(1)
       expect(svc.dataset.first[:data]).to eq(body)
     end
+
+    it "handles webhooks" do
+      expect(svc.webhook_http_request_verified?(Rack::Request.new({}))).to be_falsey
+      expect(svc.webhook_response_body).to be_a(String)
+      expect(svc.webhook_response_content_type).to be_a(String)
+      expect(svc.webhook_response_headers).to be_a(Hash)
+    end
   end
 
   shared_examples "a service implementation that prevents overwriting new data with old" do |name|
@@ -79,6 +86,98 @@ RSpec.describe Webhookdb::Services, :db do
           "my_id" => "abc",
           "at" => "Thu, 30 Jul 2016 21:12:33 +0000",
         }
+      end
+    end
+  end
+
+  describe "twilio sms v1" do
+    it_behaves_like "a service implementation", "twilio_sms_v1" do
+      let(:body) do
+        JSON.parse(<<~J)
+            {
+            "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "api_version": "2010-04-01",
+            "body": "body",
+            "date_created": "Thu, 30 Jul 2015 20:12:31 +0000",
+            "date_sent": "Thu, 30 Jul 2015 20:12:33 +0000",
+            "date_updated": "Thu, 30 Jul 2015 20:12:33 +0000",
+            "direction": "outbound-api",
+            "error_code": null,
+            "error_message": null,
+            "from": "+15017122661",
+            "messaging_service_sid": "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "num_media": "0",
+            "num_segments": "1",
+            "price": null,
+            "price_unit": null,
+            "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "status": "sent",
+            "subresource_uris": {
+              "media": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            },
+            "to": "+15558675310",
+            "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          }
+        J
+      end
+    end
+
+    it_behaves_like "a service implementation that prevents overwriting new data with old", "twilio_sms_v1" do
+      let(:old_body) do
+        JSON.parse(<<~J)
+            {
+            "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "api_version": "2010-04-01",
+            "body": "body",
+            "date_created": "Thu, 30 Jul 2015 20:12:31 +0000",
+            "date_sent": "Thu, 30 Jul 2015 20:12:33 +0000",
+            "date_updated": "Thu, 30 Jul 2015 20:12:33 +0000",
+            "direction": "outbound-api",
+            "error_code": null,
+            "error_message": null,
+            "from": "+15017122661",
+            "messaging_service_sid": "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "num_media": "0",
+            "num_segments": "1",
+            "price": null,
+            "price_unit": null,
+            "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "status": "sent",
+            "subresource_uris": {
+              "media": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            },
+            "to": "+15558675310",
+            "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          }
+        J
+      end
+      let(:new_body) do
+        JSON.parse(<<~J)
+            {
+            "account_sid": "ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "api_version": "2010-04-01",
+            "body": "body",
+            "date_created": "Thu, 30 Jul 2015 20:12:31 +0000",
+            "date_sent": "Thu, 30 Jul 2015 20:12:33 +0000",
+            "date_updated": "Thu, 30 Jul 2016 20:12:33 +0000",
+            "direction": "outbound-api",
+            "error_code": null,
+            "error_message": null,
+            "from": "+15017122661",
+            "messaging_service_sid": "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "num_media": "0",
+            "num_segments": "1",
+            "price": null,
+            "price_unit": null,
+            "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "status": "sent",
+            "subresource_uris": {
+              "media": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            },
+            "to": "+15558675310",
+            "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          }
+        J
       end
     end
   end

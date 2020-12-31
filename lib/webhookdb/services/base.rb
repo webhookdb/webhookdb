@@ -58,14 +58,14 @@ class Webhookdb::Services::Base
       "CREATE TABLE #{tbl} (",
       "  pk bigserial PRIMARY KEY,",
       "  data jsonb NOT NULL,",
-      "  #{remote_key_col.name} #{remote_key_col.type} UNIQUE NOT NULL",
+      "  \"#{remote_key_col.name}\" #{remote_key_col.type} UNIQUE NOT NULL",
     ]
     denormalized_columns.each do |col|
-      lines << ",  #{col.name} #{col.type} #{col.modifiers}"
+      lines << ",  \"#{col.name}\" #{col.type} #{col.modifiers}"
     end
     lines << ");"
     denormalized_columns.each do |col|
-      lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (#{col.name})"
+      lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
     end
     return lines.join("\n")
   end

@@ -26,4 +26,6 @@ end
 require "webhookdb/services/column"
 require "webhookdb/services/base"
 require "webhookdb/services/fake"
+require "webhookdb/services/twilio_sms_v1"
 Webhookdb::Services.register("fake_v1", ->(sint) { Webhookdb::Services::Fake.new(sint) })
+Webhookdb::Services.register("twilio_sms_v1", ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) })
