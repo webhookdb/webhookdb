@@ -3,7 +3,7 @@
 require "webhookdb/async/job"
 require "webhookdb/processor"
 
-class Webhookdb::Async::WebhookProcessor
+class Webhookdb::Async::ProcessWebhook
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.webhook"

@@ -60,7 +60,19 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "WebhookProcessor" do
+  describe "CreateMirrorTable" do
+    it "creates the table for the service integration" do
+      sint = nil
+      expect do
+        sint = Webhookdb::Fixtures.service_integration.create
+      end.to perform_async_job(Webhookdb::Async::CreateMirrorTable)
+
+      expect(sint).to_not be_nil
+      expect(Webhookdb::Customer.db.table_exists?(sint&.table_name)).to be_truthy
+    end
+  end
+
+  describe "ProcessWebhook" do
     it "passes the payload off to the processor" do
       sint = Webhookdb::Fixtures.service_integration.create
       expect(Webhookdb::Processor).to receive(:process).with(be === sint, headers: {"X-A" => "b"}, body: {"foo" => 1})
@@ -70,7 +82,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           sint.id,
           {headers: {"X-A" => "b"}, body: {"foo" => 1}},
         )
-      end.to perform_async_job(Webhookdb::Async::WebhookProcessor)
+      end.to perform_async_job(Webhookdb::Async::ProcessWebhook)
     end
   end
 end

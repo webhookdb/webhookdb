@@ -34,9 +34,17 @@ class Webhookdb::Services
     def webhook_response_content_type
       return "text/plain"
     end
+
+    def create_table
+      self.service_integration.db << self._create_table_sql
+    end
+
+    def _create_table_sql
+      raise NotImplementedError
+    end
   end
 
-  def self.create_service(service_integration)
+  def self.service_instance(service_integration)
     name = service_integration.service_name
     (cls = @registered[name]) or raise(InvalidService, name)
     return cls[service_integration]
