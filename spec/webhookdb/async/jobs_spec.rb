@@ -59,4 +59,18 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       )
     end
   end
+
+  describe "WebhookProcessor" do
+    it "passes the payload off to the processor" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      expect(Webhookdb::Processor).to receive(:process).with(be === sint, headers: {"X-A" => "b"}, body: {"foo" => 1})
+      expect do
+        Webhookdb.publish(
+          "webhookdb.serviceintegration.webhook",
+          sint.id,
+          {headers: {"X-A" => "b"}, body: {"foo" => 1}},
+        )
+      end.to perform_async_job(Webhookdb::Async::WebhookProcessor)
+    end
+  end
 end

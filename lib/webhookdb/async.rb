@@ -122,6 +122,7 @@ module Webhookdb::Async
   JOBS = [
     "webhookdb/async/emailer",
     "webhookdb/async/message_dispatched",
+    "webhookdb/async/webhook_processor",
     "webhookdb/async/reset_code_create_dispatch",
   ].freeze
 
