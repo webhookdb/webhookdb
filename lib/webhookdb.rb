@@ -206,5 +206,6 @@ module Webhookdb
   end
 end
 
-require "webhookdb/phone_number"
 require "webhookdb/aggregate_result"
+require "webhookdb/phone_number"
+require "webhookdb/services"
