@@ -2,7 +2,6 @@
 
 require "webhookdb"
 require "webhookdb/fixtures"
-require "webhookdb/customer/reset_code"
 
 module Webhookdb::Fixtures::ResetCodes
   extend Webhookdb::Fixtures

@@ -74,15 +74,22 @@ class Webhookdb::Services::Base
     return []
   end
 
-  def upsert_webhook(headers:, body:)
+  def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
     inserting = {data: body.to_json}
-    inserting.merge!(self._prepare_for_insert(headers, body))
+    inserting.merge!(self._prepare_for_insert(body))
     self.dataset.insert_conflict(
       target: remote_key_col.name,
       update: inserting,
       update_where: self._update_where_expr,
     ).insert(inserting)
+  end
+
+  # Upsert a backfill payload into the database.
+  # By default, assume the webhook and backfill payload are the same shape
+  # and just use upsert_webhook(body: payload).
+  def upsert_backfill_payload(payload)
+    self.upsert_webhook(body: payload)
   end
 
   # The argument for insert_conflict update_where clause.
@@ -97,12 +104,52 @@ class Webhookdb::Services::Base
   #
   # @abstract
   # @return [Hash]
-  def _prepare_for_insert(headers, body)
+  def _prepare_for_insert(body)
     raise NotImplementedError
   end
 
   # @return [Sequel::Dataset]
   def dataset
     return self.service_integration.db[self.table_sym]
+  end
+
+  # In order to backfill, we need to:
+  # - Iterate through pages of records from the external service
+  # - Upsert each record
+  # The caveats/complexities are:
+  # - The backfill method should take care of retrying fetches for failed pages.
+  # - That means it needs to keep track of some pagination token.
+  def backfill
+    raise Webhookdb::Services::CredentialsMissing if
+      self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
+    pagination_token = nil
+    loop do
+      page, next_pagination_token = self._fetch_backfill_page_with_retry(pagination_token)
+      pagination_token = next_pagination_token
+      page.each do |item|
+        self.upsert_webhook(body: item)
+      end
+      break if pagination_token.blank?
+    end
+  end
+
+  def max_backfill_retry_attempts
+    return 3
+  end
+
+  def wait_for_retry_attempt(attempt:)
+    return sleep(attempt)
+  end
+
+  def _fetch_backfill_page_with_retry(pagination_token, attempt: 1)
+    return self._fetch_backfill_page(pagination_token)
+  rescue RuntimeError => e
+    raise e if attempt >= self.max_backfill_retry_attempts
+    self.wait_for_retry_attempt(attempt: attempt)
+    return self._fetch_backfill_page_with_retry(pagination_token, attempt: attempt + 1)
+  end
+
+  def _fetch_backfill_page(pagination_token)
+    raise NotImplementedError
   end
 end

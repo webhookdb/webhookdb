@@ -5,7 +5,6 @@ require "securerandom"
 
 require "webhookdb"
 require "webhookdb/fixtures"
-require "webhookdb/customer"
 
 module Webhookdb::Fixtures::Customers
   extend Webhookdb::Fixtures

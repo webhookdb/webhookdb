@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
+require "httparty"
+
 class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
+  include Appydays::Loggable
+
   def webhook_response(request)
     auth = request.get_header("Authorization")
     if auth.nil? || !auth.match(/^Basic /)
@@ -31,7 +35,7 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     return Sequel[self.table_sym][:date_updated] < Sequel[:excluded][:date_updated]
   end
 
-  def _prepare_for_insert(_headers, body)
+  def _prepare_for_insert(body)
     return {
       twilio_id: body["sid"],
       date_created: Time.parse(body["date_created"]),
@@ -42,5 +46,23 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
       status: body["status"],
       to: body["to"],
     }
+  end
+
+  def _fetch_backfill_page(pagination_token)
+    unless (url = pagination_token)
+      date_send_max = Date.tomorrow
+      url = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
+        "?PageSize=100&DateSend%3C=#{date_send_max}"
+    end
+    url = "https://api.twilio.com" + url
+    response = HTTParty.get(
+      url,
+      basic_auth: {username: self.service_integration.backfill_key,
+                   password: self.service_integration.backfill_secret,},
+      logger: self.logger,
+    )
+    raise response if response.code >= 300
+    data = response.parsed_response
+    return data["messages"], data["next_page_uri"]
   end
 end
