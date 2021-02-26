@@ -33,7 +33,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return Sequel[self.table_sym][:at] < Sequel[:excluded][:at]
   end
 
-  def _prepare_for_insert(_headers, body)
+  def _prepare_for_insert(body)
     return {
       my_id: body["my_id"],
       at: Time.parse(body["at"]),

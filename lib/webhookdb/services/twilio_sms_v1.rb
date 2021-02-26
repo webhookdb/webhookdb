@@ -31,7 +31,7 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     return Sequel[self.table_sym][:date_updated] < Sequel[:excluded][:date_updated]
   end
 
-  def _prepare_for_insert(_headers, body)
+  def _prepare_for_insert(body)
     return {
       twilio_id: body["sid"],
       date_created: Time.parse(body["date_created"]),

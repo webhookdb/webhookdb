@@ -74,10 +74,10 @@ class Webhookdb::Services::Base
     return []
   end
 
-  def upsert_webhook(headers:, body:)
+  def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
     inserting = {data: body.to_json}
-    inserting.merge!(self._prepare_for_insert(headers, body))
+    inserting.merge!(self._prepare_for_insert(body))
     self.dataset.insert_conflict(
       target: remote_key_col.name,
       update: inserting,
@@ -97,7 +97,7 @@ class Webhookdb::Services::Base
   #
   # @abstract
   # @return [Hash]
-  def _prepare_for_insert(headers, body)
+  def _prepare_for_insert(body)
     raise NotImplementedError
   end
 
