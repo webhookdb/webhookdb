@@ -85,6 +85,13 @@ class Webhookdb::Services::Base
     ).insert(inserting)
   end
 
+  # Upsert a backfill payload into the database.
+  # By default, assume the webhook and backfill payload are the same shape
+  # and just use upsert_webhook(body: payload).
+  def upsert_backfill_payload(payload)
+    self.upsert_webhook(body: payload)
+  end
+
   # The argument for insert_conflict update_where clause.
   # Used to conditionally update, like updating only if a row is newer than what's stored.
   def _update_where_expr
@@ -104,5 +111,45 @@ class Webhookdb::Services::Base
   # @return [Sequel::Dataset]
   def dataset
     return self.service_integration.db[self.table_sym]
+  end
+
+  # In order to backfill, we need to:
+  # - Iterate through pages of records from the external service
+  # - Upsert each record
+  # The caveats/complexities are:
+  # - The backfill method should take care of retrying fetches for failed pages.
+  # - That means it needs to keep track of some pagination token.
+  def backfill
+    raise Webhookdb::Services::CredentialsMissing if
+      self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
+    pagination_token = nil
+    loop do
+      page, next_pagination_token = self._fetch_backfill_page_with_retry(pagination_token)
+      pagination_token = next_pagination_token
+      page.each do |item|
+        self.upsert_webhook(body: item)
+      end
+      break if pagination_token.blank?
+    end
+  end
+
+  def max_backfill_retry_attempts
+    return 3
+  end
+
+  def wait_for_retry_attempt(attempt:)
+    return sleep(attempt)
+  end
+
+  def _fetch_backfill_page_with_retry(pagination_token, attempt: 1)
+    return self._fetch_backfill_page(pagination_token)
+  rescue RuntimeError => e
+    raise e if attempt >= self.max_backfill_retry_attempts
+    self.wait_for_retry_attempt(attempt: attempt)
+    return self._fetch_backfill_page_with_retry(pagination_token, attempt: attempt + 1)
+  end
+
+  def _fetch_backfill_page(pagination_token)
+    raise NotImplementedError
   end
 end

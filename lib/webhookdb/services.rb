@@ -5,6 +5,8 @@ class Webhookdb::Services
 
   class InvalidService < RuntimeError; end
 
+  class CredentialsMissing < RuntimeError; end
+
   singleton_attr_reader :registered
   @registered = {}
 

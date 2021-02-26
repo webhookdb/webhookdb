@@ -13,4 +13,10 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   # @!attribute service_name
   #   @return [String] Lookup name of the service
+
+  # @!attribute backfill_key
+  #   @return [String] Key for backfilling.
+
+  # @!attribute backfill_secret
+  #   @return [String] Password/secret for backfilling.
 end

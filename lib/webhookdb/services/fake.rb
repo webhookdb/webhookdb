@@ -5,10 +5,12 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   singleton_attr_accessor :webhook_response
   singleton_attr_accessor :webhook_verified
+  singleton_attr_accessor :backfill_responses
 
   def self.reset
     self.webhook_response = nil
     self.webhook_verified = true
+    self.backfill_responses = {}
   end
 
   def webhook_response(request)
@@ -38,5 +40,9 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
       my_id: body["my_id"],
       at: Time.parse(body["at"]),
     }
+  end
+
+  def _fetch_backfill_page(pagination_token)
+    return self.class.backfill_responses[pagination_token]
   end
 end
