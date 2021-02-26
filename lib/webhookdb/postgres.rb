@@ -50,6 +50,8 @@ module Webhookdb::Postgres
     "webhookdb/idempotency",
     "webhookdb/message/body",
     "webhookdb/message/delivery",
+    "webhookdb/organization",
+    "webhookdb/service_integration",
     "webhookdb/role",
   ].freeze
 

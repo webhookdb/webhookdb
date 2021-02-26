@@ -4,7 +4,6 @@ require "securerandom"
 
 require "webhookdb"
 require "webhookdb/fixtures"
-require "webhookdb/service_integration"
 
 module Webhookdb::Fixtures::ServiceIntegrations
   extend Webhookdb::Fixtures

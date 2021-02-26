@@ -4,7 +4,6 @@ require "securerandom"
 
 require "webhookdb"
 require "webhookdb/fixtures"
-require "webhookdb/organization"
 
 module Webhookdb::Fixtures::Organizations
   extend Webhookdb::Fixtures

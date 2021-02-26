@@ -3,7 +3,6 @@
 require "faker"
 
 require "webhookdb/fixtures"
-require "webhookdb/message/delivery"
 
 module Webhookdb::Fixtures::MessageDeliveries
   extend Webhookdb::Fixtures
