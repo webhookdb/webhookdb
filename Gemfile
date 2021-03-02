@@ -65,3 +65,5 @@ group :test_group do
   gem "watir"
   gem "webmock"
 end
+
+gem "appydays", "~> 0.1.2"
