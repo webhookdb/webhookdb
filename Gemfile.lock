@@ -264,7 +264,7 @@ PLATFORMS
 DEPENDENCIES
   activesupport
   amazing_print
-  appydays (~> 0.1.2)
+  appydays
   aws-sdk-s3
   bcrypt
   biz
