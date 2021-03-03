@@ -4,6 +4,7 @@ source "https://rubygems.org"
 ruby "2.7.2"
 
 gem "activesupport"
+gem "appydays"
 gem "aws-sdk-s3"
 gem "bcrypt"
 gem "biz"
