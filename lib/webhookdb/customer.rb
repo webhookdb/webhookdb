@@ -3,7 +3,6 @@
 require "appydays/configurable"
 require "bcrypt"
 require "openssl"
-
 require "webhookdb/postgres/model"
 
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)

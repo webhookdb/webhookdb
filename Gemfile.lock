@@ -307,6 +307,9 @@ DEPENDENCIES
   sentry-raven
   sequel
   sequel-annotate
+  sequel-money-fields
+  sequel-soft-deletes
+  sequel-tstzrange-fields
   sequel_pg
   sequel_postgresql_triggers
   sidekiq
