@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "webhookdb/postgres/model"
+require "sequel/plugins/money_fields"
+require "sequel/plugins/tstzrange_fields"
 
 # A placeholder model for the magical mixin classes (imaged, ticketable, annotated).
 # We can't easily test these things with non-Webhookdb::Postgres::Model subclasses,

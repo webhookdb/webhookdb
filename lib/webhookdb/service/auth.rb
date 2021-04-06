@@ -110,7 +110,7 @@ class Webhookdb::Service::Auth
 
     def is?
       return false unless self.warden.authenticated?(:admin)
-      return self.warden.session(:admin)["impersonating"].present? ? true : false
+      return self.warden.session(:admin)["impersonating"].present?
     end
 
     def on(target_customer)

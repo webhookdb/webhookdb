@@ -9,9 +9,7 @@ RSpec.describe "uploads", :integration, pending: "Add AWS creds and create bucke
     expect(response).to party_status(200)
     expect(response).to party_response(
       match(
-        # rubocop:disable Layout/LineLength
         url: match(%r{https://webhookdb-public-1\.s3\.us-west-\d\.amazonaws.com/[a-z]+/testing/[a-z0-9]+-testing.txt\?}),
-        # rubocop:enable Layout/LineLength
       ),
     )
 

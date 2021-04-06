@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/postgres/model"
+require "sequel/plugins/soft_deletes"
 
 class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integrations)
   plugin :timestamps

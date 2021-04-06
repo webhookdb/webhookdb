@@ -245,7 +245,6 @@ RSpec.describe Webhookdb::Services, :db do
 
       let(:page1_items) { [{}, {}] }
       let(:page2_items) { [{}] }
-      # rubocop:disable Layout/LineLength
       let(:page1_response) do
         <<~R
           {
@@ -390,8 +389,6 @@ RSpec.describe Webhookdb::Services, :db do
           to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"})
       end
     end
-    # rubocop:enable Layout/LineLength
-
     describe "webhook validation" do
       let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1") }
       let(:svc) { Webhookdb::Services.service_instance(sint) }
