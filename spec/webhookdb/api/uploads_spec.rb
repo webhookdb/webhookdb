@@ -21,9 +21,7 @@ RSpec.describe Webhookdb::API::Uploads, :db do
 
       expect(last_response).to have_status(200)
 
-      # rubocop:disable Layout/LineLength
       url_regexp = %r{https://my-bucket\.s3\.us-.*-.*\.amazonaws\.com/test/testing/[a-z0-9]+-test\.txt\?.*X-Amz-Algorithm=}
-      # rubocop:enable Layout/LineLength
       expect(last_response).to have_json_body.
         that_includes(url: match(url_regexp))
     end
