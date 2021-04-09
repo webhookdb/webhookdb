@@ -43,6 +43,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _fetch_backfill_page(pagination_token)
+    raise "No backfill responses configured" if self.class.backfill_responses.blank?
     return self.class.backfill_responses[pagination_token]
   end
 end
