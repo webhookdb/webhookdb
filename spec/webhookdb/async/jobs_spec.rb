@@ -48,22 +48,22 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       Webhookdb::Services::Fake.backfill_responses = {
         nil => [page1_items, nil],
       }
-      fake_sint_1 = Webhookdb::Fixtures.service_integration.create(
+      fake_sint_one = Webhookdb::Fixtures.service_integration.create(
         backfill_key: "bfkey",
         backfill_secret: "bfsek",
         service_name: "fake_v1",
       )
-      fake_sint_2 = Webhookdb::Fixtures.service_integration.create(
+      fake_sint_two = Webhookdb::Fixtures.service_integration.create(
         backfill_key: "bfkey123",
         backfill_secret: "bfsek123",
         service_name: "fake_v1",
       )
-      Webhookdb::Services.service_instance(fake_sint_1).create_table
-      Webhookdb::Services.service_instance(fake_sint_2).create_table
+      Webhookdb::Services.service_instance(fake_sint_one).create_table
+      Webhookdb::Services.service_instance(fake_sint_two).create_table
       # Webhookdb::Jobs::Backfill.new._perform(Webhookdb::Event.new('x', 'y', [sint.id]))
       Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
-      expect(Webhookdb::Services.service_instance(fake_sint_1).dataset.all).to have_length(2)
-      expect(Webhookdb::Services.service_instance(fake_sint_2).dataset.all).to have_length(2)
+      expect(Webhookdb::Services.service_instance(fake_sint_one).dataset.all).to have_length(2)
+      expect(Webhookdb::Services.service_instance(fake_sint_two).dataset.all).to have_length(2)
     end
   end
 
