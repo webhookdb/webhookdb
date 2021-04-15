@@ -2,6 +2,7 @@
 
 require "webhookdb/async"
 require "webhookdb/jobs/backfill"
+require "webhookdb/jobs/twilioscheduledbackfill"
 require "webhookdb/messages/specs"
 require "rspec/eventually"
 
@@ -33,6 +34,36 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         )
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
       expect(Webhookdb::Services.service_instance(sint).dataset.all).to have_length(2)
+    end
+  end
+
+  describe "TwilioScheduledBackfill" do
+    let(:page1_items) do
+      [
+        {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+        {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+      ]
+    end
+    it "starts backfill process for all integrations associated with a service" do
+      Webhookdb::Services::Fake.backfill_responses = {
+        nil => [page1_items, nil],
+      }
+      fake_sint_1 = Webhookdb::Fixtures.service_integration.create(
+        backfill_key: "bfkey",
+        backfill_secret: "bfsek",
+        service_name: "fake_v1",
+      )
+      fake_sint_2 = Webhookdb::Fixtures.service_integration.create(
+        backfill_key: "bfkey123",
+        backfill_secret: "bfsek123",
+        service_name: "fake_v1",
+      )
+      Webhookdb::Services.service_instance(fake_sint_1).create_table
+      Webhookdb::Services.service_instance(fake_sint_2).create_table
+      # Webhookdb::Jobs::Backfill.new._perform(Webhookdb::Event.new('x', 'y', [sint.id]))
+      Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
+      expect(Webhookdb::Services.service_instance(fake_sint_1).dataset.all).to have_length(2)
+      expect(Webhookdb::Services.service_instance(fake_sint_2).dataset.all).to have_length(2)
     end
   end
 
