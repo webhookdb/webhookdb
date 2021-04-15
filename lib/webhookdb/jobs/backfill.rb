@@ -6,7 +6,7 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::Backfill
   extend Webhookdb::Async::Job
 
-  on "webhookdb.service.backfill"
+  on "webhookdb.serviceintegration.backfill"
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)

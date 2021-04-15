@@ -7,19 +7,11 @@ class Webhookdb::Jobs::TwilioScheduledBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron "*/10 * * * * *"
-  splay 10.seconds
+  splay 0
 
   def _perform
-    # uses the fake service in test mode so that we can mock backfill responses
-    service_name = if ENV["SERVICE_DEVMODE"]
-                     "fake_v1"
-    else
-      "twilio_sms_v1"
-                   end
-
-    Webhookdb::ServiceIntegration.dataset.where_each(service_name: service_name) do |sint|
-      svc = Webhookdb::Services.service_instance(sint)
-      svc.backfill
+    Webhookdb::ServiceIntegration.dataset.where_each(service_name: "twilio_sms_v1") do |sint|
+      sint.publish_immediate("backfill", sint.id)
     end
   end
 end

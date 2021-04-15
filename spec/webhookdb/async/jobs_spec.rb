@@ -30,7 +30,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       # Webhookdb::Jobs::Backfill.new._perform(Webhookdb::Event.new('x', 'y', [sint.id]))
       expect do
         Webhookdb.publish(
-          "webhookdb.service.backfill", sint.id,
+          "webhookdb.serviceintegration.backfill", sint.id,
         )
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
       expect(Webhookdb::Services.service_instance(sint).dataset.all).to have_length(2)
@@ -44,26 +44,16 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
       ]
     end
-    it "starts backfill process for all integrations associated with a service" do
-      Webhookdb::Services::Fake.backfill_responses = {
-        nil => [page1_items, nil],
-      }
-      fake_sint_one = Webhookdb::Fixtures.service_integration.create(
-        backfill_key: "bfkey",
-        backfill_secret: "bfsek",
+    it "enqueues backfill job for all twilio service integrations" do
+      twilio_sint = Webhookdb::Fixtures.service_integration.create(
+        service_name: "twilio_sms_v1",
+      )
+      fake_sint = Webhookdb::Fixtures.service_integration.create(
         service_name: "fake_v1",
       )
-      fake_sint_two = Webhookdb::Fixtures.service_integration.create(
-        backfill_key: "bfkey123",
-        backfill_secret: "bfsek123",
-        service_name: "fake_v1",
-      )
-      Webhookdb::Services.service_instance(fake_sint_one).create_table
-      Webhookdb::Services.service_instance(fake_sint_two).create_table
-      # Webhookdb::Jobs::Backfill.new._perform(Webhookdb::Event.new('x', 'y', [sint.id]))
-      Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
-      expect(Webhookdb::Services.service_instance(fake_sint_one).dataset.all).to have_length(2)
-      expect(Webhookdb::Services.service_instance(fake_sint_two).dataset.all).to have_length(2)
+      expect do
+        Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
+      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id])
     end
   end
 
