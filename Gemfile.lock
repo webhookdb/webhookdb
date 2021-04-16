@@ -234,8 +234,7 @@ GEM
       monetize
       money
       sequel
-    sequel-soft-deletes (0.1.2)
-      sqlite3
+    sequel-soft-deletes (0.1.3)
     sequel-tstzrange-fields (0.1.1)
       activesupport
       pg
