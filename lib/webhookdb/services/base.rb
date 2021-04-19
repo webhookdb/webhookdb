@@ -122,6 +122,8 @@ class Webhookdb::Services::Base
   def backfill
     raise Webhookdb::Services::CredentialsMissing if
       self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
+    raise Webhookdb::ServiceIntegrations::TableDoesNotExist if
+      not self.service_integration.db.table_exists?(self.service_integration.table_name)
     pagination_token = nil
     loop do
       page, next_pagination_token = self._fetch_backfill_page_with_retry(pagination_token)

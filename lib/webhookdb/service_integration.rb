@@ -9,6 +9,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   many_to_one :organization, class: "Webhookdb::Organization"
 
+  class TableDoesNotExist < RuntimeError; end
+
   # @!attribute table_name
   #   @return [String] Name of the table
 
