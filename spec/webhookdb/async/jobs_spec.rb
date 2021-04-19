@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "webhookdb/async"
-require "webhookdb/jobs/backfill"
-require "webhookdb/jobs/twilioscheduledbackfill"
 require "webhookdb/messages/specs"
 require "rspec/eventually"
 

@@ -125,6 +125,8 @@ module Webhookdb::Async
     "webhookdb/async/message_dispatched",
     "webhookdb/async/process_webhook",
     "webhookdb/async/reset_code_create_dispatch",
+    "webhookdb/jobs/backfill",
+    "webhookdb/jobs/twilioscheduledbackfill",
   ].freeze
 
   require "webhookdb/async/job_logger"
