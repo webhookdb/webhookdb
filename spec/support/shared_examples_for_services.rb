@@ -4,6 +4,7 @@ RSpec.shared_examples "a service implementation" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:body) { raise NotImplementedError }
+  let(:expected_data) { body }
 
   it "can create its table" do
     svc.create_table
@@ -14,7 +15,7 @@ RSpec.shared_examples "a service implementation" do |name|
     svc.create_table
     svc.upsert_webhook(body: body)
     expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(body)
+    expect(svc.dataset.first[:data]).to eq(expected_data)
   end
 
   it "handles webhooks" do
@@ -32,16 +33,18 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:old_body) { raise NotImplementedError }
   let(:new_body) { raise NotImplementedError }
+  let(:expected_old_data) { old_body }
+  let(:expected_new_data) { new_body }
 
   it "will override older rows with newer ones" do
     svc.create_table
     svc.upsert_webhook(body: old_body)
     expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(old_body)
+    expect(svc.dataset.first[:data]).to eq(expected_old_data)
 
     svc.upsert_webhook(body: new_body)
     expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(new_body)
+    expect(svc.dataset.first[:data]).to eq(expected_new_data)
   end
 
   it "will not override newer rows with older ones" do
@@ -49,11 +52,12 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
 
     svc.upsert_webhook(body: new_body)
     expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(new_body)
+    expect(svc.dataset.first[:data]).to eq(expected_new_data)
 
     svc.upsert_webhook(body: old_body)
+    puts svc.dataset.all
     expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(new_body)
+    expect(svc.dataset.first[:data]).to eq(expected_new_data)
   end
 end
 
