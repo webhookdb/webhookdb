@@ -55,6 +55,26 @@ module Webhookdb::SpecHelpers::Service
     end
   end
 
+  def fake_request(input: "")
+    req = Rack::Request.new({"rack.input" => Rewindable.new(input)})
+    return req
+  end
+
+  class Rewindable < String
+    def initialize(s)
+      super
+      @s = s
+    end
+
+    def read(*)
+      return @s
+    end
+
+    def rewind(*)
+      nil
+    end
+  end
+
   # RSpec matcher for matching Rack::Test response body
   #
   # Expect that the response consists of JSON of some sort:

@@ -14,6 +14,7 @@ module Webhookdb::Fixtures::ServiceIntegrations
     self.service_name ||= "fake_v1"
     self.opaque_id ||= SecureRandom.hex(4)
     self.table_name ||= "#{self.service_name}_#{SecureRandom.hex(2)}"
+    self.api_url ||= "https://fake-url.com"
   end
 
   before_saving do |instance|

@@ -28,6 +28,10 @@ end
 require "webhookdb/services/column"
 require "webhookdb/services/base"
 require "webhookdb/services/fake"
+require "webhookdb/services/shopify_customer_v1"
+require "webhookdb/services/shopify_order_v1"
 require "webhookdb/services/twilio_sms_v1"
 Webhookdb::Services.register("fake_v1", ->(sint) { Webhookdb::Services::Fake.new(sint) })
+Webhookdb::Services.register("shopify_customer_v1", ->(sint) { Webhookdb::Services::ShopifyCustomerV1.new(sint) })
+Webhookdb::Services.register("shopify_order_v1", ->(sint) { Webhookdb::Services::ShopifyOrderV1.new(sint) })
 Webhookdb::Services.register("twilio_sms_v1", ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) })
