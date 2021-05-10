@@ -53,9 +53,6 @@ RSpec.configure do |config|
   if Webhookdb::INTEGRATION_TESTS_ENABLED
     require "webhookdb/spec_helpers/integration"
     config.include(Webhookdb::IntegrationSpecHelpers)
-  elsif Webhookdb::WEBDRIVER_TESTS_ENABLED
-    require "webhookdb/spec_helpers/webdriver"
-    config.include(Webhookdb::WebdriverSpecHelpers)
   else
     config.include(Webhookdb::SpecHelpers)
     require "webhookdb/spec_helpers/async"

@@ -64,7 +64,6 @@ Lint/EmptyBlock:
 Lint/UselessAssignment:
   Exclude:
     - 'spec/**/*'
-    - 'webdriver/**/*'
 
 # https://rubocop.readthedocs.io/en/latest/cops_naming/
 Naming/AccessorMethodName:

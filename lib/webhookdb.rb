@@ -37,7 +37,6 @@ module Webhookdb
   RACK_ENV = ENV["RACK_ENV"] || "development"
   VERSION = ENV["HEROKU_SLUG_COMMIT"] || "unknown-version"
   RELEASE = ENV["HEROKU_RELEASE_VERSION"] || "unknown-release"
-  WEBDRIVER_TESTS_ENABLED = ENV["WEBDRIVER_TESTS"] || false
   INTEGRATION_TESTS_ENABLED = ENV["INTEGRATION_TESTS"] || false
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"

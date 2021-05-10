@@ -3,5 +3,4 @@
 bundle exec rake release
 if [[ "${RUN_INTEGRATION_TESTS_ON_RELEASE}" = "true" ]]; then
     INTEGRATION_TESTS=true bundle exec rake specs:integration
-#    WEBDRIVER_TESTS=true bundle exec rake specs:webdriver
 fi

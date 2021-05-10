@@ -55,7 +55,6 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
     expect(svc.dataset.first[:data]).to eq(expected_new_data)
 
     svc.upsert_webhook(body: old_body)
-    puts svc.dataset.all
     expect(svc.dataset.all).to have_length(1)
     expect(svc.dataset.first[:data]).to eq(expected_new_data)
   end
