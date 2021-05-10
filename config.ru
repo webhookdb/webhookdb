@@ -16,6 +16,7 @@ require "webhookdb/api"
 require "webhookdb/async"
 require "webhookdb/service"
 
+require "webhookdb/api/auth"
 require "webhookdb/api/me"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/system"
@@ -29,6 +30,7 @@ require "webhookdb/admin_api/customers"
 module Webhookdb::App
   class API < Webhookdb::Service
     mount Webhookdb::API::System
+    mount Webhookdb::API::Auth
     mount Webhookdb::API::Me
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Uploads

@@ -141,7 +141,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
     it "removes the cookies" do
       post "/v1/auth/logout"
 
-      expect(last_response).to have_status(204)
+      expect(last_response).to have_status(200)
       expect(last_response["Set-Cookie"]).to include("=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00")
     end
   end

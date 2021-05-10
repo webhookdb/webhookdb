@@ -26,7 +26,8 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       c.reset_codes_dataset.usable.each(&:expire!)
       c.add_reset_code(transport: "email")
       status 202
-      present c, with: Webhookdb::API::CurrentCustomerEntity, env: env
+      message = "Please check your email #{email} for a login code."
+      present c, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: message
     end
 
     desc "Auth the current customer via OTP"
@@ -53,7 +54,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       end
 
       status 200
-      present me, with: Webhookdb::API::CurrentCustomerEntity, env: env
+      present me, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: "You are now logged in as #{email}"
     end
 
     post :logout do
@@ -66,8 +67,8 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       # Rack sends a cookie with an empty session, but let's tell the browser to actually delete the cookie.
       cookies.delete(Webhookdb::Service::SESSION_COOKIE, domain: options[:domain], path: options[:path])
 
-      status 204
-      body ""
+      status 200
+      present Hash.new, with: Webhookdb::API::BaseEntity, message: "You have logged out."
     end
   end
   end
