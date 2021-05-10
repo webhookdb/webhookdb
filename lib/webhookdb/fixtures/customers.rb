@@ -14,23 +14,14 @@ module Webhookdb::Fixtures::Customers
   fixtured_class Webhookdb::Customer
 
   base :customer do
-    self.first_name ||= Faker::Name.first_name
-    self.last_name ||= Faker::Name.last_name
+    self.name ||= Faker::Name.name
     self.email ||= Faker::Internet.email
-    self.phone ||= Faker::Webhookdb.us_phone
     self.password_digest ||= Webhookdb::Customer::PLACEHOLDER_PASSWORD_DIGEST
-    self.email_verified_at ||= Time.now
-    self.phone_verified_at ||= Time.now
   end
 
   before_saving do |instance|
     instance.organization ||= Webhookdb::Fixtures.organization.create
     instance
-  end
-
-  decorator :unverified do
-    self.email_verified_at = nil
-    self.phone_verified_at = nil
   end
 
   decorator :password do |pwd=nil|
@@ -56,9 +47,5 @@ module Webhookdb::Fixtures::Customers
 
   decorator :with_email do |username=nil|
     self.email = (username || Faker::Internet.username) + "@example.com"
-  end
-
-  decorator :with_phone, presave: true do |phone=nil|
-    self.phone = phone || Faker::PhoneNumber.cell_phone
   end
 end

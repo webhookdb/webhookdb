@@ -13,7 +13,6 @@ module Webhookdb::API
   class BaseEntity < Webhookdb::Service::Entities::Base; end
 
   class CustomerSettingsEntity < BaseEntity
-    expose :first_name
-    expose :last_name
+    expose :name
   end
 end

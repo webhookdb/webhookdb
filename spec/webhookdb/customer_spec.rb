@@ -9,7 +9,7 @@ RSpec.describe "Webhookdb::Customer", :db do
 
   describe "greeting" do
     it "uses the name if present" do
-      expect(described_class.new(first_name: "Huck", last_name: "Finn").greeting).to eq("Huck")
+      expect(described_class.new(name: "Huck Finn").greeting).to eq("Huck Finn")
     end
 
     it "uses the default if none can be parsed" do
@@ -88,80 +88,6 @@ RSpec.describe "Webhookdb::Customer", :db do
 
     it "fails if the password is not complex enough" do
       expect { customer.password = "" }.to raise_error(described_class::InvalidPassword)
-    end
-  end
-
-  describe "verification" do
-    let(:c) { Webhookdb::Fixtures.customer.unverified.instance }
-    after(:each) do
-      described_class.reset_configuration
-    end
-
-    it "does not change timestamp if already set" do
-      expect(c).to_not be_phone_verified
-      expect(c).to_not be_email_verified
-
-      c.verify_phone
-      c.verify_email
-      expect(c).to be_phone_verified
-      expect(c).to be_email_verified
-
-      expect { c.verify_phone }.to(not_change { c.phone_verified_at })
-      expect { c.verify_email }.to(not_change { c.email_verified_at })
-    end
-
-    it "verifies email if configured to skip" do
-      described_class.handle_verification_skipping(c)
-      expect(c).to_not be_email_verified
-      expect(c).to_not be_phone_verified
-
-      described_class.skip_email_verification = true
-      described_class.handle_verification_skipping(c)
-      expect(c).to be_email_verified
-      expect(c).to_not be_phone_verified
-    end
-
-    it "verifies phone if configured to skip" do
-      described_class.handle_verification_skipping(c)
-      expect(c).to_not be_phone_verified
-      expect(c).to_not be_email_verified
-
-      described_class.skip_phone_verification = true
-      described_class.handle_verification_skipping(c)
-      expect(c).to be_phone_verified
-      expect(c).to_not be_email_verified
-    end
-
-    it "verifies email and phone if allowlisted" do
-      described_class.skip_verification_allowlist = ["*autoverify@lithic.tech"]
-      c.email = "rob@lithic.tech"
-      described_class.handle_verification_skipping(c)
-      expect(c).to_not be_email_verified
-      expect(c).to_not be_phone_verified
-
-      c.email = "rob+autoverify@lithic.tech"
-      described_class.handle_verification_skipping(c)
-      expect(c).to be_email_verified
-      expect(c).to be_phone_verified
-    end
-  end
-
-  describe "onboarded?" do
-    let(:onboarded) do
-      Webhookdb::Fixtures.customer.create(
-        password: "password",
-      )
-    end
-    it "is true if name, email, phone, and password are set" do
-      c = onboarded
-
-      expect(c.refresh).to be_onboarded
-      expect(c.refresh.set(first_name: "")).to be_onboarded
-      expect(c.refresh.set(last_name: "")).to be_onboarded
-      expect(c.refresh.set(first_name: "", last_name: "")).to_not be_onboarded
-      expect(c.refresh.set(phone: "")).to_not be_onboarded
-      expect(c.refresh.set(email: "")).to_not be_onboarded
-      expect(c.refresh.set(password_digest: described_class::PLACEHOLDER_PASSWORD_DIGEST)).to_not be_onboarded
     end
   end
 end

@@ -6,61 +6,57 @@ require "name_of_person"
 require "webhookdb/api"
 
 class Webhookdb::API::Auth < Webhookdb::API::V1
-  ALL_TIMEZONES = Set.new(TZInfo::Timezone.all_identifiers)
-
   resource :auth do
-    desc "Log in using phone and password"
+    helpers do
+      def guard_logged_in!
+        merror!(403, "You must log out first", code: "already_logged_in") if current_customer?
+      end
+    end
+
     params do
-      optional :phone, us_phone: true, allow_blank: false
-      optional :email, allow_blank: false
-      exactly_one_of :phone, :email
-      requires :password, type: String, allow_blank: false
+      requires :email, allow_blank: false
     end
     post do
-      if current_customer?
-        env["warden"].logout
-        env["warden"].clear_strategies_cache!
+      guard_logged_in!
+      email = params[:email].strip.downcase
+      unless (c = Webhookdb::Customer[email: email])
+        self_org = Webhookdb::Organization.create(name: "Org for #{email}")
+        c = Webhookdb::Customer.create(organization: self_org, email: email, password: SecureRandom.hex(16))
       end
-      customer = authenticate!
-      status 200
-      present customer, with: Webhookdb::API::CurrentCustomerEntity, env: env
+      c.reset_codes_dataset.usable.each(&:expire!)
+      c.add_reset_code(transport: "email")
+      status 202
+      present c, with: Webhookdb::API::CurrentCustomerEntity, env: env
     end
 
-    desc "Verify the current customer phone number using the given token"
+    desc "Auth the current customer via OTP"
     params do
+      requires :email, allow_blank: false
       requires :token
     end
-    post :verify do
-      me = current_customer
-      begin
-        Webhookdb::Customer::ResetCode.use_code_with_token(params[:token]) do |code|
-          invalid!("Invalid verification code") unless code.customer === me
-          code.verify
-          code.customer.save_changes
-          me.refresh
+    post :login_otp do
+      guard_logged_in!
+      email = params[:email].strip.downcase
+      (me = Webhookdb::Customer[email: email]) or merror!(403, "No customer with that email", code: "user_not_found")
+      if me.should_skip_authentication?
+        nil
+      else
+        begin
+          Webhookdb::Customer::ResetCode.use_code_with_token(params[:token]) do |code|
+            invalid!("Invalid verification code") unless code.customer === me
+            code.customer.save_changes
+            me.refresh
+          end
+        rescue Webhookdb::Customer::ResetCode::Unusable
+          invalid!("Invalid verification code")
         end
-      rescue Webhookdb::Customer::ResetCode::Unusable
-        invalid!("Invalid verification code")
       end
 
       status 200
       present me, with: Webhookdb::API::CurrentCustomerEntity, env: env
     end
 
-    params do
-      requires :transport, values: ["sms", "email"]
-    end
-    post :resend_verification do
-      me = current_customer
-      me.db.transaction do
-        me.reset_codes_dataset.where(transport: params[:transport]).usable.each(&:expire!)
-        me.add_reset_code(transport: params[:transport])
-      end
-      body ""
-      status 204
-    end
-
-    delete do
+    post :logout do
       # Nope, cannot do this through Warden easily.
       # And really we should have server-based sessions we can expire,
       # but in the meantime, stomp on the cookie hard.
@@ -74,4 +70,4 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       body ""
     end
   end
-end
+  end

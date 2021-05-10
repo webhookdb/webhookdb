@@ -12,9 +12,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   class InvalidPassword < RuntimeError; end
 
   configurable(:customer) do
-    setting :skip_phone_verification, false
-    setting :skip_email_verification, false
-    setting :skip_verification_allowlist, [], convert: ->(s) { s.split }
+    setting :skip_authentication, false
+    setting :skip_authentication_allowlist, [], convert: ->(s) { s.split }
   end
 
   # The bcrypt hash cost. Changing this would invalidate all passwords!
@@ -45,18 +44,6 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
       emails = emails.map { |e| e.downcase.strip }
       return self.where(email: emails)
     end
-
-    def with_normalized_phone(*phones)
-      return self.where(phone: phones)
-    end
-  end
-
-  def self.with_normalized_phone(p)
-    return self.dataset.with_normalized_phone(p).first
-  end
-
-  def self.with_us_phone(p)
-    return self.with_normalized_phone(Webhookdb::PhoneNumber::US.normalize(p))
   end
 
   def self.with_email(e)
@@ -65,14 +52,10 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   # If the SKIP_PHONE|EMAIL_VERIFICATION are set, verify the phone/email.
   # Also verify phone and email if the customer email matches the allowlist.
-  def self.handle_verification_skipping(customer)
-    if self.skip_verification_allowlist.any? { |pattern| File.fnmatch(pattern, customer.email) }
-      customer.verify_email
-      customer.verify_phone
-      return
-    end
-    customer.verify_email if self.skip_email_verification
-    customer.verify_phone if self.skip_phone_verification
+  def should_skip_authentication?
+    return true if self.class.skip_authentication
+    return true if self.class.skip_authentication_allowlist.any? { |pattern| File.fnmatch(pattern, self.email) }
+    return false
   end
 
   def ensure_role(role_or_name)
@@ -85,24 +68,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     return self.roles.include?(Webhookdb::Role.admin_role)
   end
 
-  def name
-    return self._name(self.first_name, self.last_name)
-  end
-
-  protected def _name(fname, lname)
-    return [fname, lname].reject(&:blank?).join(" ")
-  end
-
   def greeting
-    return self.first_name.blank? ? "there" : self.first_name
-  end
-
-  def onboarded?
-    has_name = self.first_name.present? || self.last_name.present?
-    return has_name &&
-        self.email.present? &&
-        self.phone.present? &&
-        self.password_digest != PLACEHOLDER_PASSWORD_DIGEST
+    return self.name.present? ? self.name : 'there'
   end
 
   #
@@ -161,24 +128,6 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     return !self.email_verified? && !self.phone_verified?
   end
 
-  def verify_email
-    self.email_verified_at ||= Time.now
-    return self
-  end
-
-  def email_verified?
-    return !!self.email_verified_at
-  end
-
-  def verify_phone
-    self.phone_verified_at ||= Time.now
-    return self
-  end
-
-  def phone_verified?
-    return !!self.phone_verified_at
-  end
-
   #
   # :section: Sequel Hooks
   #
@@ -199,10 +148,6 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   def validate
     super
-    self.validates_presence(:phone)
-    self.validates_unique(:phone)
-    self.validates_format(Webhookdb::PhoneNumber::US::REGEXP, :phone, message: "is not an 11 digit US phone number")
-
     self.validates_presence(:email)
     self.validates_unique(:email)
     self.validates_operator(:==, self.email.downcase.strip, :email)

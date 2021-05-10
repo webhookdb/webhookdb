@@ -99,24 +99,6 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "ResetCodeCreateDispatch" do
-    it "sends an sms for an sms reset code" do
-      customer = Webhookdb::Fixtures.customer(phone: "12223334444").create
-      expect do
-        customer.add_reset_code(token: "12345", transport: "sms")
-      end.to perform_async_job(Webhookdb::Async::ResetCodeCreateDispatch)
-
-      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-        have_attributes(
-          template: "verification",
-          transport_type: "sms",
-          to: "12223334444",
-          bodies: contain_exactly(
-            have_attributes(content: "Your Webhookdb verification code is: 12345"),
-          ),
-        ),
-      )
-    end
-
     it "sends an email for an email reset code" do
       customer = Webhookdb::Fixtures.customer(email: "maryjane@lithic.tech").create
       expect do

@@ -31,14 +31,14 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       def make_matching_items
         return [
           Webhookdb::Fixtures.customer(email: "zim@zam.zom").create,
-          Webhookdb::Fixtures.customer(first_name: "Zim Zam").create,
+          Webhookdb::Fixtures.customer(name: "Zim Zam").create,
         ]
       end
 
       def make_non_matching_items
         return [
           admin,
-          Webhookdb::Fixtures.customer(first_name: "wibble wobble", email: "qux@wux").create,
+          Webhookdb::Fixtures.customer(name: "wibble wobble", email: "qux@wux").create,
         ]
       end
     end
@@ -82,7 +82,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     it "updates the customer" do
       customer = Webhookdb::Fixtures.customer.create
 
-      post "/admin/v1/customers/#{customer.id}", first_name: "b", last_name: "2", email: "b@gmail.com"
+      post "/admin/v1/customers/#{customer.id}", name: "b 2", email: "b@gmail.com"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id, name: "b 2", email: "b@gmail.com")
@@ -97,33 +97,6 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(roles: contain_exactly("existing", "to_add"))
       expect(customer.refresh.roles.map(&:name)).to contain_exactly("existing", "to_add")
-    end
-
-    it "removes phone and email verification time" do
-      customer = Webhookdb::Fixtures.customer.create
-
-      post "/admin/v1/customers/#{customer.id}", phone_verified: false, email_verified: false
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        id: customer.id, phone_verified_at: nil, email_verified_at: nil,
-      )
-    end
-
-    it "creates phone and email verification time" do
-      customer = Webhookdb::Fixtures.customer.create
-
-      now = Time.at(Time.now.to_i)
-      Timecop.freeze(now) do
-        post "/admin/v1/customers/#{customer.id}", phone_verified: true, email_verified: true
-      end
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        id: customer.id,
-        phone_verified_at: now,
-        email_verified_at: now,
-      )
     end
   end
 end

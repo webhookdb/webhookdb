@@ -5,8 +5,6 @@ require "grape"
 require "webhookdb/admin_api"
 
 class Webhookdb::AdminAPI::Customers < Webhookdb::AdminAPI::V1
-  ALL_TIMEZONES = Set.new(TZInfo::Timezone.all_identifiers)
-
   resource :customers do
     desc "Return all customers, newest first"
     params do
@@ -17,7 +15,7 @@ class Webhookdb::AdminAPI::Customers < Webhookdb::AdminAPI::V1
     get do
       ds = Webhookdb::Customer.dataset
       if (email_like = search_param_to_sql(params, :email))
-        name_like = search_param_to_sql(params, :first_name) | search_param_to_sql(params, :last_name)
+        name_like = search_param_to_sql(params, :name)
         ds = ds.where(email_like | name_like)
       end
 
@@ -35,14 +33,9 @@ class Webhookdb::AdminAPI::Customers < Webhookdb::AdminAPI::V1
 
       desc "Update the customer"
       params do
-        optional :first_name, type: String
-        optional :last_name, type: String
+        optional :name, type: String
         optional :note, type: String
         optional :email, type: String
-        optional :phone, type: Integer
-        optional :email_verified, type: Boolean
-        optional :phone_verified, type: Boolean
-        optional :timezone, type: String, values: ALL_TIMEZONES
         optional :roles, type: Array[String]
       end
       post do

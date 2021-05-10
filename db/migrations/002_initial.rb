@@ -22,6 +22,7 @@ Sequel.migration do
       timestamptz :soft_deleted_at
 
       foreign_key :organization_id, :organizations, null: false
+      text :api_url, null: false, unique: false, default: ""
       text :opaque_id, null: false, unique: true
       text :service_name, null: false
       text :webhook_secret, default: ""
@@ -41,16 +42,9 @@ Sequel.migration do
 
       citext :email, null: false, unique: true
       constraint(:lowercase_nospace_email, Sequel[:email] => Sequel.function(:btrim, Sequel.function(:lower, :email)))
-      timestamptz :email_verified_at
 
-      text :phone, null: false, unique: true
-      constraint(:numeric_phone, Sequel.lit("phone ~ '^[0-9]{11,15}$'"))
-      timestamptz :phone_verified_at
-
-      text :first_name, null: false, default: ""
-      text :last_name, null: false, default: ""
+      text :name, null: false, default: ""
       text :note, null: false, default: ""
-      text :timezone, null: false, default: "America/Los_Angeles"
 
       foreign_key :organization_id, :organizations, null: false
     end
