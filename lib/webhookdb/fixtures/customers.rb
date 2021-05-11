@@ -20,7 +20,7 @@ module Webhookdb::Fixtures::Customers
   end
 
   before_saving do |instance|
-    instance.organization ||= Webhookdb::Fixtures.organization.create
+    instance.organizations ||= Webhookdb::Fixtures.organization.create
     instance
   end
 

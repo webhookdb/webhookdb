@@ -34,8 +34,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   plugin :timestamps
   plugin :soft_deletes
 
-  many_to_one :organization, class: "Webhookdb::Organization"
   one_to_many :message_deliveries, key: :recipient_id, class: "Webhookdb::Message::Delivery"
+  many_to_many :organizations, class: "Webhookdb::Organization", join_table: :customers_organizations
   one_to_many :reset_codes, class: "Webhookdb::Customer::ResetCode", order: Sequel.desc([:created_at])
   many_to_many :roles, class: "Webhookdb::Role", join_table: :roles_customers
 

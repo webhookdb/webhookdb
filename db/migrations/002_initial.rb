@@ -45,9 +45,9 @@ Sequel.migration do
 
       text :name, null: false, default: ""
       text :note, null: false, default: ""
-
-      foreign_key :organization_id, :organizations, null: false
     end
+
+    create_join_table({customer_id: :customers, organization_id: :organizations}, name: :customers_organizations)
 
     create_table(:customer_reset_codes) do
       primary_key :id
