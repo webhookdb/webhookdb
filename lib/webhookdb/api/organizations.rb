@@ -15,7 +15,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       fields = params
       customer = Webhookdb::Customer[fields[:customer_id]]
       data = customer.organizations
-      present data, with: Webhookdb::AdminAPI::OrganizationEntity
+      if data.empty?
+        present({}, with: Webhookdb::AdminAPI::BaseEntity,
+                    message: "You aren't affiliated with any organizations yet.",)
+      else
+        present data, with: Webhookdb::AdminAPI::OrganizationEntity
+      end
     end
   end
 end

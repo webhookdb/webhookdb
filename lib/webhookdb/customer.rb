@@ -69,7 +69,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   end
 
   def greeting
-    return self.name.present? ? self.name : 'there'
+    return self.name.present? ? self.name : "there"
   end
 
   #

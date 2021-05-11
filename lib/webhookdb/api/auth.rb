@@ -21,7 +21,8 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       email = params[:email].strip.downcase
       unless (c = Webhookdb::Customer[email: email])
         self_org = Webhookdb::Organization.create(name: "Org for #{email}")
-        c = Webhookdb::Customer.create(organization: self_org, email: email, password: SecureRandom.hex(16))
+        c = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
+        c.add_organization(self_org)
       end
       c.reset_codes_dataset.usable.each(&:expire!)
       c.add_reset_code(transport: "email")
@@ -68,7 +69,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       cookies.delete(Webhookdb::Service::SESSION_COOKIE, domain: options[:domain], path: options[:path])
 
       status 200
-      present Hash.new, with: Webhookdb::API::BaseEntity, message: "You have logged out."
+      present({}, with: Webhookdb::API::BaseEntity, message: "You have logged out.")
     end
   end
   end

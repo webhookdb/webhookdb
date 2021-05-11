@@ -6,7 +6,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
-  let!(:customer) { Webhookdb::Fixtures.customer.create}
+  let!(:customer) { Webhookdb::Fixtures.customer.create }
 
   describe "GET /v1/organizations" do
     it "returns all organizations associated with customer" do
@@ -23,4 +23,3 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     end
   end
 end
-
