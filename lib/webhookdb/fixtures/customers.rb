@@ -20,7 +20,6 @@ module Webhookdb::Fixtures::Customers
   end
 
   before_saving do |instance|
-    instance.organizations ||= Webhookdb::Fixtures.organization.create
     instance
   end
 
@@ -47,5 +46,10 @@ module Webhookdb::Fixtures::Customers
 
   decorator :with_email do |username=nil|
     self.email = (username || Faker::Internet.username) + "@example.com"
+  end
+
+  decorator :in_org, presave: true do |org={}|
+    org = Webhookdb::Fixtures.organization.create(org) unless org.is_a?(Webhookdb::Organization)
+    self.add_organization_membership(organization: org)
   end
 end

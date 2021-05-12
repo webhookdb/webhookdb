@@ -2,36 +2,6 @@
 
 Sequel.migration do
   change do
-    create_table(:organizations) do
-      primary_key :id
-      timestamptz :created_at, null: false, default: Sequel.function(:now)
-      timestamptz :updated_at
-      timestamptz :soft_deleted_at
-
-      text :name, null: false, unique: true
-
-      text :readonly_connection_url
-      text :readwrite_connection_url
-      text :admin_connection_url
-    end
-
-    create_table(:service_integrations) do
-      primary_key :id
-      timestamptz :created_at, null: false, default: Sequel.function(:now)
-      timestamptz :updated_at
-      timestamptz :soft_deleted_at
-
-      foreign_key :organization_id, :organizations, null: false
-      text :api_url, null: false, unique: false, default: ""
-      text :opaque_id, null: false, unique: true
-      text :service_name, null: false
-      text :webhook_secret, default: ""
-      text :table_name, null: false
-      text :backfill_key, null: false, default: ""
-      text :backfill_secret, null: false, default: ""
-      index [:organization_id, :table_name], name: :unique_tablename_in_org, unique: true
-    end
-
     create_table(:customers) do
       primary_key :id
       timestamptz :created_at, null: false, default: Sequel.function(:now)
@@ -47,7 +17,32 @@ Sequel.migration do
       text :note, null: false, default: ""
     end
 
-    create_join_table({customer_id: :customers, organization_id: :organizations}, name: :customers_organizations)
+    create_table(:organizations) do
+      primary_key :id
+      timestamptz :created_at, null: false, default: Sequel.function(:now)
+      timestamptz :updated_at
+      timestamptz :soft_deleted_at
+
+      text :name, null: false, unique: true
+
+      text :readonly_connection_url
+      text :readwrite_connection_url
+      text :admin_connection_url
+    end
+
+    create_table(:organization_roles) do
+      primary_key :id
+      text :name, null: false, unique: true
+    end
+
+    create_table(:organization_memberships) do
+      primary_key :id
+      foreign_key :customer_id, :customers, null: false
+      foreign_key :organization_id, :organizations, null: false
+      foreign_key :organization_role_id, :organization_roles
+      boolean :verified, null: false, default: false
+      text :invitation_code
+    end
 
     create_table(:customer_reset_codes) do
       primary_key :id
@@ -70,13 +65,6 @@ Sequel.migration do
       timestamptz :last_run
       text :key, unique: true
     end
-
-    create_table(:roles) do
-      primary_key :id
-      text :name, null: false, unique: true
-    end
-
-    create_join_table({role_id: :roles, customer_id: :customers}, name: :roles_customers)
 
     create_table(:message_deliveries) do
       primary_key :id
@@ -101,6 +89,30 @@ Sequel.migration do
       text :mediatype, null: false
       foreign_key :delivery_id, :message_deliveries, null: false, on_delete: :cascade
       index :delivery_id
+    end
+
+    create_table(:roles) do
+      primary_key :id
+      text :name, null: false, unique: true
+    end
+
+    create_join_table({role_id: :roles, customer_id: :customers}, name: :roles_customers)
+
+    create_table(:service_integrations) do
+      primary_key :id
+      timestamptz :created_at, null: false, default: Sequel.function(:now)
+      timestamptz :updated_at
+      timestamptz :soft_deleted_at
+
+      foreign_key :organization_id, :organizations, null: false
+      text :api_url, null: false, unique: false, default: ""
+      text :opaque_id, null: false, unique: true
+      text :service_name, null: false
+      text :webhook_secret, default: ""
+      text :table_name, null: false
+      text :backfill_key, null: false, default: ""
+      text :backfill_secret, null: false, default: ""
+      index [:organization_id, :table_name], name: :unique_tablename_in_org, unique: true
     end
   end
 end

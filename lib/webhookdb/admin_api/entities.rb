@@ -22,7 +22,6 @@ module Webhookdb::AdminAPI
     expose :created_at
     expose :email
     expose :name
-    expose :name
     expose :note
   end
 
@@ -67,5 +66,11 @@ module Webhookdb::AdminAPI
 
   class OrganizationEntity < BaseEntity
     expose :name
+  end
+
+  class ServiceIntegrationEntity < BaseEntity
+    expose :opaque_id
+    expose :service_name
+    expose :table_name
   end
 end

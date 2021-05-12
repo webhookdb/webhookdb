@@ -15,4 +15,11 @@ module Webhookdb::API
   class CustomerSettingsEntity < BaseEntity
     expose :name
   end
+
+  class CLICustomerEntity < BaseEntity
+    expose :email
+    expose :indicator do |_instance, options|
+      options[:indicator]
+    end
+  end
 end
