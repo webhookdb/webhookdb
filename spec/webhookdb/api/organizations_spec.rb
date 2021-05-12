@@ -7,60 +7,79 @@ RSpec.describe Webhookdb::API::Organizations, :db do
 
   let(:app) { described_class.build_app }
 
-  before(:each) do
-    Webhookdb::Services::Fake.reset
-  end
-  after(:each) do
-    Webhookdb::Services::Fake.reset
-  end
+  let!(:customer) { Webhookdb::Fixtures.customer.create }
+  let!(:org) { Webhookdb::Fixtures.organization.create }
+  let!(:membership) { org.add_membership(customer: customer) }
 
-  let!(:test_customer) { Webhookdb::Fixtures.customer.create }
-  let!(:test_org) { Webhookdb::Fixtures.organization.create }
+  before(:each) do
+    login_as(customer)
+  end
 
   describe "GET /v1/organizations" do
     it "returns all organizations associated with customer" do
-      orgs = Array.new(2) { Webhookdb::Fixtures.organization.create }
-      _extra_org = Webhookdb::Fixtures.organization.create
+      other_org_in = Webhookdb::Fixtures.organization.with_member(customer).create
+      _org_not_in = Webhookdb::Fixtures.organization.create
 
-      orgs.each { |o| Webhookdb::OrganizationMembership.create(customer_id: test_customer.id, organization_id: o.id) }
-
-      get "/v1/organizations", customer_id: test_customer.id
+      get "/v1/organizations"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        of_length(2)
+        that_includes(items: have_same_ids_as(org, other_org_in))
     end
 
     it "returns a message if customer has no organizations" do
-      get "/v1/organizations", customer_id: test_customer.id
+      membership.destroy
+
+      get "/v1/organizations"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to match("You aren't affiliated with any organizations yet.")
+      expect(last_response).to have_json_body.that_includes(message: "You aren't affiliated with any organizations yet.")
     end
   end
 
-  describe "GET /v1/organizations/members" do
+  describe "GET /v1/organizations/:organization_id/members" do
     it "returns all customers associated with organization" do
       extra_customers = Array.new(3) { Webhookdb::Fixtures.customer.create }
+      extra_customers.each { |c| org.add_membership(customer: c) }
 
-      test_org.add_organization_membership(customer: test_customer)
-      extra_customers.each { |c| test_org.add_organization_membership(customer: c) }
-
-      expect(Webhookdb::OrganizationMembership.count).to eq(4)
-      puts Webhookdb::OrganizationMembership.select(:organization_id, :customer_id)
-
-      get "/v1/organizations/members", customer_id: test_customer.id, organization_id: test_org.id
+      get "/v1/organizations/#{org.id}/members"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        of_length(4)
+        that_includes(items: have_length(4))
     end
 
-    it "returns a message if customer has no organizations" do
-      get "/v1/organizations/members", customer_id: test_customer.id, organization_id: test_org.id
+    it "403s if the customer is not a member" do
+      membership.destroy
+
+      get "/v1/organizations/#{org.id}/members"
 
       expect(last_response).to have_status(403)
-      expect(last_response).to match("You don't have permissions with that organization.")
+      expect(last_response).to have_json_body.that_includes(error: include(message: "You don't have permissions with that organization."))
+    end
+  end
+
+  describe "GET v1/organizations/:organization_id/service_integrations" do
+    it "returns all service integrations associated with organization" do
+      login_as(customer)
+      integrations = Array.new(2) { Webhookdb::Fixtures.service_integration.create }
+      _extra_integrations = Webhookdb::Fixtures.service_integration.create
+
+      integrations.each { |i| org.add_service_integration(i) }
+      get "/v1/organizations/#{org.id}/service_integrations"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(items: have_same_ids_as(integrations))
+    end
+
+    it "returns a message if org has no service integrations" do
+      login_as(customer)
+      get "/v1/organizations/#{org.id}/service_integrations"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(message: "Organization doesn't have any integrations yet.")
     end
   end
 end

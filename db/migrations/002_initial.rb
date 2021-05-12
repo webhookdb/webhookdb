@@ -42,6 +42,7 @@ Sequel.migration do
       foreign_key :organization_role_id, :organization_roles
       boolean :verified, null: false, default: false
       text :invitation_code
+      text :status
     end
 
     create_table(:customer_reset_codes) do

@@ -63,14 +63,4 @@ module Webhookdb::AdminAPI
   class MessageDeliveryWithBodiesEntity < MessageDeliveryEntity
     expose :bodies, with: MessageBodyEntity
   end
-
-  class OrganizationEntity < BaseEntity
-    expose :name
-  end
-
-  class ServiceIntegrationEntity < BaseEntity
-    expose :opaque_id
-    expose :service_name
-    expose :table_name
-  end
 end

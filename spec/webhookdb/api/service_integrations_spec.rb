@@ -16,28 +16,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
 
   let!(:organization) { Webhookdb::Fixtures.organization.create }
 
-  describe "GET v1/service_integrations" do
-    it "returns all service integrations associated with organization" do
-      integrations = Array.new(2) { Webhookdb::Fixtures.service_integration.create }
-      _extra_integrations = Webhookdb::Fixtures.service_integration.create
-
-      integrations.each { |i| organization.add_service_integration(i) }
-
-      get "/v1/service_integrations", organization_id: organization.id
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.
-        of_length(2)
-    end
-
-    it "returns a message if org has no service integrations" do
-      get "/v1/service_integrations", organization_id: organization.id
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to match("Organization doesn't have any integrations yet.")
-    end
-  end
-
   describe "POST /v1/service_integrations/:opaque_id" do
     it "publishes an event with the data for the webhook", :async do
       sint = Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")

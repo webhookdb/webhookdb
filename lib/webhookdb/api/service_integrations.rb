@@ -6,25 +6,9 @@ require "webhookdb/api"
 require "webhookdb/aws"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
+  # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
+  # it is the url that customers should point their webhooks to
   resource :service_integrations do
-    desc "Return all integrations associated with organization"
-    params do
-      requires :organization_id, type: String
-    end
-    get do
-      org = Webhookdb::Organization[params[:organization_id]]
-      data = org.service_integrations
-      if data.empty?
-        present({}, with: Webhookdb::AdminAPI::BaseEntity,
-                    message: "Organization doesn't have any integrations yet.",)
-      else
-        present data, with: Webhookdb::AdminAPI::ServiceIntegrationEntity
-      end
-    end
-
-    # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
-    # it is the url that customers should point their webhooks to
-
     route_param :opaque_id, type: String do
       helpers do
         def lookup!
