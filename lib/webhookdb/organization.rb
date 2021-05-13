@@ -11,6 +11,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def before_create
     self.key ||= Webhookdb.to_slug(self.name)
+    super
   end
 
   def self.create_if_unique(params)

@@ -22,7 +22,7 @@ class Webhookdb::Services::Base
   end
 
   # Check if the webhook is verified using the http request.
-  # We must do this immediatley in the endpoint itself,
+  # We must do this immediately in the endpoint itself,
   # since verification may include info specific to the request content
   # (like, it can be whitespace sensitive).
   #

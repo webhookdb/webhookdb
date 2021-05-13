@@ -14,4 +14,19 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
   def organization_name
     return self.organization.name
   end
+
+  def set_status
+    self.status = self.organization_role.name unless self.organization_role.nil?
+    self.status = "invited" unless self.verified
+  end
+
+  def before_create
+    self.set_status
+    super
+  end
+
+  def before_save
+    self.set_status
+    super
+  end
 end

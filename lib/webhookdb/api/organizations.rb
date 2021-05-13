@@ -9,7 +9,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
   helpers do
     def lookup_org!
       customer = current_customer
-      membership = customer.organization_memberships_dataset[organization_id: params[:organization_id]]
+      membership = customer.memberships_dataset[organization_id: params[:organization_id]]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
       return membership.organization
     end
@@ -19,7 +19,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     desc "Return all organizations the customer is part of."
     get do
       customer = current_customer
-      orgs = Webhookdb::Organization.where(memberships: customer.organization_memberships_dataset).all
+      orgs = Webhookdb::Organization.where(memberships: customer.memberships_dataset).all
       message = orgs.empty? ? "You aren't affiliated with any organizations yet." : ""
       present_collection orgs, with: Webhookdb::API::OrganizationEntity, message: message
     end
@@ -43,9 +43,31 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           present_collection integrations, with: Webhookdb::API::ServiceIntegrationEntity, message: message
         end
       end
-    end
 
-    # POST
+      # POST
+
+      resource :invite do
+        desc "Generates an invitation code for a user, adds pending membership in the organization."
+        params do
+          requires :email, type: String, allow_blank: false
+        end
+        post do
+          customer = current_customer
+          org = lookup_org!
+          customer.db.transaction do
+            if Webhookdb::Customer[email: params[:email]].nil?
+              Webhookdb::Customer.create(email: params[:email], password: SecureRandom.hex(8))
+            end
+            invitee = Webhookdb::Customer[email: params[:email]]
+            merror!(400, "That person is already a member of the organization.") if invitee.member_of?(org)
+            invitation_code = "join-" + SecureRandom.hex(4)
+            membership = org.add_membership(customer: invitee, verified: false, invitation_code: invitation_code)
+            message = "An invitation has been sent to #{params[:email]}. Their invite code is: \n #{invitation_code}"
+            present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
+          end
+        end
+      end
+    end
 
     resource :create do
       desc "Creates a new organization and adds current customer as a member."
@@ -61,8 +83,9 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
             "to invite members to #{new_org.name}."
           present new_org, with: Webhookdb::API::OrganizationEntity, message: message
+          # TODO: Create & send email with invitation code
         end
       end
     end
   end
-  end
+end

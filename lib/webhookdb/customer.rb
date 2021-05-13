@@ -34,7 +34,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   plugin :timestamps
   plugin :soft_deletes
 
-  one_to_many :organization_memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :message_deliveries, key: :recipient_id, class: "Webhookdb::Message::Delivery"
   one_to_many :reset_codes, class: "Webhookdb::Customer::ResetCode", order: Sequel.desc([:created_at])
   many_to_many :roles, class: "Webhookdb::Role", join_table: :roles_customers
@@ -48,6 +48,11 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   def self.with_email(e)
     return self.dataset.with_email(e).first
+  end
+
+  # Helper function for dealing with organization memberships
+  def member_of?(org)
+    return !org.memberships_dataset[customer_id: self.id].nil?
   end
 
   # If the SKIP_PHONE|EMAIL_VERIFICATION are set, verify the phone/email.

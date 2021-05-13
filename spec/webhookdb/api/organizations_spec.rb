@@ -15,6 +15,8 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     login_as(customer)
   end
 
+  # GET
+
   describe "GET /v1/organizations" do
     it "returns all organizations associated with customer" do
       other_org_in = Webhookdb::Fixtures.organization.with_member(customer).create
@@ -38,8 +40,6 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       )
     end
   end
-
-  # GET
 
   describe "GET /v1/organizations/:organization_id/members" do
     it "returns all customers associated with organization" do
@@ -117,6 +117,53 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "An organization with that name already exists."),
+      )
+    end
+  end
+
+  describe "POST /v1/organizations/:organization_id/invite" do
+    it "creates invited customer if no customer with that email exists" do
+      nonexistent_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
+      expect(nonexistent_customer).to be_nil
+
+      post "/v1/organizations/#{org.id}/invite", email: "bugsbunny@aol.com"
+
+      invited_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
+      expect(invited_customer).to_not be_nil
+    end
+
+    it "creates correct organization membership for the invited customer" do
+      post "/v1/organizations/#{org.id}/invite", email: "daffyduck@hotmail.com"
+
+      invited_customer = Webhookdb::Customer[email: "daffyduck@hotmail.com"]
+      membership = Webhookdb::OrganizationMembership[customer_id: invited_customer.id, organization_id: org.id]
+
+      expect(membership).to_not be_nil
+      expect(membership.verified).to eq(false)
+      expect(membership.status).to eq("invited")
+      expect(membership.invitation_code).to include("join-")
+    end
+
+    it "returns correct status and response when successful" do
+      post "/v1/organizations/#{org.id}/invite", email: "elmerfudd@comcast.net"
+
+      invited_customer = Webhookdb::Customer[email: "elmerfudd@comcast.net"]
+      membership = Webhookdb::OrganizationMembership[customer_id: invited_customer.id, organization_id: org.id]
+
+      expect(last_response).to have_status(201)
+      expect(last_response).to have_json_body.
+        that_includes(message: include("An invitation has been sent to elmerfudd@comcast.net."))
+    end
+
+    it "returns 400 if customer is already a part of the organization" do
+      invited_customer = Webhookdb::Fixtures.customer.create(email: "porkypig@gmail.com")
+      org.add_membership(customer: invited_customer)
+
+      post "/v1/organizations/#{org.id}/invite", email: "porkypig@gmail.com"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "That person is already a member of the organization."),
       )
     end
   end

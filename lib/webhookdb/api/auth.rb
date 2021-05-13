@@ -23,7 +23,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       unless (c = Webhookdb::Customer[email: email])
         self_org = Webhookdb::Organization.create(name: "Org for #{email}")
         c = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
-        c.add_organization_membership(organization: self_org)
+        c.add_membership(organization: self_org)
       end
       c.reset_codes_dataset.usable.each(&:expire!)
       c.add_reset_code(transport: "email")

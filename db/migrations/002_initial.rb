@@ -41,7 +41,7 @@ Sequel.migration do
       foreign_key :customer_id, :customers, null: false
       foreign_key :organization_id, :organizations, null: false
       foreign_key :organization_role_id, :organization_roles
-      boolean :verified, null: false, default: false
+      boolean :verified, null: false, default: true
       text :invitation_code
       text :status
     end
