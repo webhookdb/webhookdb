@@ -16,6 +16,7 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
   end
 
   def set_status
+    self.status = ""
     self.status = self.organization_role.name unless self.organization_role.nil?
     self.status = "invited" unless self.verified
   end

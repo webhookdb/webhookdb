@@ -16,6 +16,6 @@ module Webhookdb::Fixtures::Organizations
 
   decorator :with_member, presave: true do |c={}|
     c = Webhookdb::Fixtures.customer.create(c) unless c.is_a?(Webhookdb::Customer)
-    self.add_membership(customer: c)
+    self.add_membership(customer: c, verified: true)
   end
 end

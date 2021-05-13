@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
 
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer: customer) }
+  let!(:membership) { org.add_membership(customer: customer, verified: true) }
 
   before(:each) do
     login_as(customer)
@@ -89,38 +89,6 @@ RSpec.describe Webhookdb::API::Organizations, :db do
 
   # POST
 
-  describe "POST v1/organizations/create" do
-    it "creates new organization and creates membership for current customer" do
-      post "v1/organizations/create", name: "Acme Corporation"
-
-      new_org = Webhookdb::Organization[name: "Acme Corporation"]
-      expect(new_org).to_not be_nil
-      expect(new_org.key).to eq("acme_corporation")
-
-      expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
-    end
-
-    it "returns correct message" do
-      post "v1/organizations/create", name: "Acme Corporation"
-
-      expect(last_response).to have_status(201)
-      expect(last_response).to have_json_body.that_includes(
-        message: include("Your organization identifier is: acme_corporation"),
-      )
-    end
-
-    it "errors if organization key is not unique" do
-      Webhookdb::Fixtures.organization(name: "Acme Corporation").create
-
-      post "v1/organizations/create", name: "Acme Corporation"
-
-      expect(last_response).to have_status(400)
-      expect(last_response).to have_json_body.that_includes(
-        error: include(message: "An organization with that name already exists."),
-      )
-    end
-  end
-
   describe "POST /v1/organizations/:organization_id/invite" do
     it "creates invited customer if no customer with that email exists" do
       nonexistent_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
@@ -164,6 +132,59 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "That person is already a member of the organization."),
+      )
+    end
+  end
+
+  describe "POST v1/organizations/create" do
+    it "creates new organization and creates membership for current customer" do
+      post "v1/organizations/create", name: "Acme Corporation"
+
+      new_org = Webhookdb::Organization[name: "Acme Corporation"]
+      expect(new_org).to_not be_nil
+      expect(new_org.key).to eq("acme_corporation")
+
+      expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
+    end
+
+    it "returns correct message" do
+      post "v1/organizations/create", name: "Acme Corporation"
+
+      expect(last_response).to have_status(201)
+      expect(last_response).to have_json_body.that_includes(
+        message: include("Your organization identifier is: acme_corporation"),
+      )
+    end
+
+    it "errors if organization key is not unique" do
+      Webhookdb::Fixtures.organization(name: "Acme Corporation").create
+
+      post "v1/organizations/create", name: "Acme Corporation"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "An organization with that name already exists."),
+      )
+    end
+  end
+
+  describe "POST v1/organizations/join" do
+    it "verifies organization membership and returns correct response" do
+      org.add_membership(customer: customer, invitation_code: "join-abcxyz")
+
+      post "v1/organizations/join", invitation_code: "join-abcxyz"
+
+      expect(last_response).to have_status(201)
+      expect(last_response).to have_json_body.
+        that_includes(message: "Congratulations! You are now a member of #{org.name}.")
+    end
+
+    it "returns 400 if invitation code is invalid" do
+      post "v1/organizations/join", invitation_code: "join-abcxyz"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Looks like that invite code is invalid. Please try again."),
       )
     end
   end

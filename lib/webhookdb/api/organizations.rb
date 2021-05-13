@@ -9,7 +9,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
   helpers do
     def lookup_org!
       customer = current_customer
-      membership = customer.memberships_dataset[organization_id: params[:organization_id]]
+      membership = customer.memberships_dataset[organization_id: params[:organization_id], verified: true]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
       return membership.organization
     end
@@ -84,6 +84,24 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             "to invite members to #{new_org.name}."
           present new_org, with: Webhookdb::API::OrganizationEntity, message: message
           # TODO: Create & send email with invitation code
+          # TODO: if membership exists but is not verified, maybe resend with new join code
+        end
+      end
+    end
+
+    resource :join do
+      desc "Allows user to verify membership in an organization with an invitation code."
+      params do
+        requires :invitation_code, type: String, allow_blank: false
+      end
+      post do
+        customer = current_customer
+        customer.db.transaction do
+          membership = customer.memberships_dataset[invitation_code: params[:invitation_code]]
+          merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
+          membership.verified = true
+          message = "Congratulations! You are now a member of #{membership.organization_name}."
+          present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
         end
       end
     end
