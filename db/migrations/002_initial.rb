@@ -24,6 +24,7 @@ Sequel.migration do
       timestamptz :soft_deleted_at
 
       text :name, null: false, unique: true
+      text :key, unique: true
 
       text :readonly_connection_url
       text :readwrite_connection_url

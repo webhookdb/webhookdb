@@ -26,6 +26,7 @@ module Webhookdb::API
   class OrganizationEntity < BaseEntity
     expose :id
     expose :name
+    expose :key
   end
 
   class ServiceIntegrationEntity < BaseEntity
