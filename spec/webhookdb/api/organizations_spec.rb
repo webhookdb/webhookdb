@@ -119,7 +119,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       invited_customer = Webhookdb::Customer[email: "elmerfudd@comcast.net"]
       membership = Webhookdb::OrganizationMembership[customer_id: invited_customer.id, organization_id: org.id]
 
-      expect(last_response).to have_status(201)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(message: include("An invitation has been sent to elmerfudd@comcast.net."))
     end
@@ -174,7 +174,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       test_customer_membership = org.memberships_dataset[customer: test_customer]
 
       expect(test_customer_membership).to be_nil
-      expect(last_response).to have_status(201)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         message: "roadrunner@wb.com is no longer a part of the Lithic Technology organization.",
       )
@@ -196,7 +196,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       )
       expect(troublemaker_memberships).to have_same_ids_as([membership_a, membership_b])
 
-      expect(last_response).to have_status(201)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         include(message: "Success! These users have now been assigned the role of troublemaker in #{org.name}."),
       )
@@ -241,7 +241,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     it "returns correct message" do
       post "v1/organizations/create", name: "Acme Corporation"
 
-      expect(last_response).to have_status(201)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         message: include("Your organization identifier is: acme_corporation"),
       )
@@ -265,7 +265,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
 
       post "v1/organizations/join", invitation_code: "join-abcxyz"
 
-      expect(last_response).to have_status(201)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(message: "Congratulations! You are now a member of #{org.name}.")
     end

@@ -70,6 +70,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             invitation_code = "join-" + SecureRandom.hex(4)
             membership = org.add_membership(customer: invitee, verified: false, invitation_code: invitation_code)
             message = "An invitation has been sent to #{params[:email]}. Their invite code is: \n #{invitation_code}"
+            status 200
             present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
           end
         end
@@ -88,6 +89,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             to_delete = org.memberships_dataset.where(customer: Webhookdb::Customer[email: params[:email]])
             merror!(400, "That user is not a member of #{org.name}.") if to_delete.empty?
             to_delete.delete
+            status 200
             present({}, with: Webhookdb::AdminAPI::BaseEntity,
                         message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
           end
@@ -110,6 +112,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             memberships.update(role_id: new_role.id)
             merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
             message = "Success! These users have now been assigned the role of #{new_role.name} in #{org.name}."
+            status 200
             present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message: message
           end
         end
@@ -129,6 +132,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           new_org.add_membership(customer: customer)
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
             "to invite members to #{new_org.name}."
+          status 200
           present new_org, with: Webhookdb::API::OrganizationEntity, message: message
           # TODO: Create & send email with invitation code
           # TODO: if membership exists but is not verified, maybe resend with new join code
@@ -148,6 +152,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
           membership.verified = true
           message = "Congratulations! You are now a member of #{membership.organization_name}."
+          status 200
           present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
         end
       end
