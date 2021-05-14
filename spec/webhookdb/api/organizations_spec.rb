@@ -181,6 +181,52 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     end
   end
 
+  describe "POST /v1/organizations/:organization_id/change_roles" do
+    it "changes the roles of customers and returns correct response" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      membership_a = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "pepelepew@yahoo.com"))
+      membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
+
+      post "v1/organizations/#{org.id}/change_roles", emails: ["pepelepew@yahoo.com", "marvinthe@martian.com"],
+                                                      role_name: "troublemaker"
+
+      troublemaker_memberships = org.memberships_dataset.where(
+        role_id: Webhookdb::OrganizationRole[name: "troublemaker"].id,
+      )
+      expect(troublemaker_memberships).to have_same_ids_as([membership_a, membership_b])
+
+      expect(last_response).to have_status(201)
+      expect(last_response).to have_json_body.that_includes(
+        include(message: "Success! These users have now been assigned the role of troublemaker in #{org.name}."),
+      )
+    end
+
+    it "errors if the customers are not a part of the organization" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+      Webhookdb::Fixtures.customer.create(email: "sylvester@yahoo.com")
+
+      post "/v1/organizations/#{org.id}/change_roles", emails: ["sylvester@yahoo.com"], role_name: "cat"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Those emails do not belong to members of #{org.name}."),
+      )
+    end
+
+    it "fails if request customer doesn't have admin privileges" do
+      org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "foghornleghorn@gmail.com"))
+
+      post "/v1/organizations/#{org.id}/change_roles", emails: ["foghornleghorn@gmail.com"],
+                                                       role_name: "twilio specialist"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+  end
+
   describe "POST v1/organizations/create" do
     it "creates new organization and creates membership for current customer" do
       post "v1/organizations/create", name: "Acme Corporation"
