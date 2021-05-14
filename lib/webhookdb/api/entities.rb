@@ -35,4 +35,8 @@ module Webhookdb::API
     expose :service_name
     expose :table_name
   end
+
+  class ServiceEntity < BaseEntity
+    expose :name
+  end
 end

@@ -166,17 +166,17 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     it "removes user from organization and returns correct message" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      test_customer = Webhookdb::Fixtures.customer.create(email: "chuckjones@wb.com")
+      test_customer = Webhookdb::Fixtures.customer.create(email: "roadrunner@wb.com")
       org.add_membership(customer: test_customer)
 
-      post "/v1/organizations/#{org.id}/remove", email: "chuckjones@wb.com"
+      post "/v1/organizations/#{org.id}/remove", email: "roadrunner@wb.com"
 
       test_customer_membership = org.memberships_dataset[customer: test_customer]
 
       expect(test_customer_membership).to be_nil
       expect(last_response).to have_status(201)
       expect(last_response).to have_json_body.that_includes(
-        message: "chuckjones@wb.com is no longer a part of the Lithic Technology organization.",
+        message: "roadrunner@wb.com is no longer a part of the Lithic Technology organization.",
       )
     end
   end
