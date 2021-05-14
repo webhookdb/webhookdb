@@ -10,6 +10,7 @@ RSpec.describe Webhookdb::API::Organizations, :db do
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
 
   before(:each) do
     login_as(customer)
@@ -132,6 +133,50 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "That person is already a member of the organization."),
+      )
+    end
+  end
+
+  describe "POST /v1/organizations/:organization_id/remove" do
+    it "fails if request customer doesn't have admin privileges" do
+      test_customer = Webhookdb::Fixtures.customer.create(email: "yosemitesam@gmail.com")
+      org.add_membership(customer: test_customer)
+
+      post "/v1/organizations/#{org.id}/remove", email: "yosemitesam@gmail.com"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+
+    it "fails if customer is not part of the organization" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+      test_customer = Webhookdb::Fixtures.customer.create(email: "tweetybird@yahoo.com")
+      expect(test_customer.memberships).to eq([])
+
+      post "/v1/organizations/#{org.id}/remove", email: "tweetybird@yahoo.com"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "That user is not a member of #{org.name}."),
+      )
+    end
+
+    it "removes user from organization and returns correct message" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      test_customer = Webhookdb::Fixtures.customer.create(email: "chuckjones@wb.com")
+      org.add_membership(customer: test_customer)
+
+      post "/v1/organizations/#{org.id}/remove", email: "chuckjones@wb.com"
+
+      test_customer_membership = org.memberships_dataset[customer: test_customer]
+
+      expect(test_customer_membership).to be_nil
+      expect(last_response).to have_status(201)
+      expect(last_response).to have_json_body.that_includes(
+        message: "chuckjones@wb.com is no longer a part of the Lithic Technology organization.",
       )
     end
   end

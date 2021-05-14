@@ -67,6 +67,26 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           end
         end
       end
+
+      resource :remove do
+        desc "Removes customers from an organization"
+        params do
+          requires :email, type: String, allow_blank: false
+        end
+        post do
+          customer = current_customer
+          org = lookup_org!
+          admin_membership = org.memberships_dataset[customer: customer, role: Webhookdb::OrganizationRole.admin_role]
+          merror!(400, "Permission denied: You don't have admin privileges with #{org.name}.") if admin_membership.nil?
+          customer.db.transaction do
+            to_delete = org.memberships_dataset.where(customer: Webhookdb::Customer[email: params[:email]])
+            merror!(400, "That user is not a member of #{org.name}.") if to_delete.empty?
+            to_delete.delete
+            present({}, with: Webhookdb::AdminAPI::BaseEntity,
+                        message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
+          end
+        end
+      end
     end
 
     resource :create do
