@@ -61,14 +61,23 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         post do
           customer = current_customer
           org = lookup_org!
+          ensure_admin!
           customer.db.transaction do
+            # cannot use find_or_create_or_find here because all customers must be created with a random password,
+            # which can't be included in find parameters
             if Webhookdb::Customer[email: params[:email]].nil?
               Webhookdb::Customer.create(email: params[:email], password: SecureRandom.hex(8))
             end
             invitee = Webhookdb::Customer[email: params[:email]]
-            merror!(400, "That person is already a member of the organization.") if invitee.member_of?(org)
+            merror!(400, "That person is already a member of the organization.") if invitee.verified_member_of?(org)
+
+            membership = Webhookdb::OrganizationMembership.find_or_create_or_find(organization: org, customer: invitee,
+                                                                                  verified: false,)
+            # set/reset the code
             invitation_code = "join-" + SecureRandom.hex(4)
-            membership = org.add_membership(customer: invitee, verified: false, invitation_code: invitation_code)
+            Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code: invitation_code)
+
+            Webhookdb.publish("webhookdb.organizationmembership.invite", membership.id)
             message = "An invitation has been sent to #{params[:email]}. Their invite code is: \n #{invitation_code}"
             status 200
             present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message

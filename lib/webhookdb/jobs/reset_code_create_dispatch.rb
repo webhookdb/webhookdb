@@ -3,7 +3,7 @@
 require "webhookdb/async/job"
 require "webhookdb/messages/verification"
 
-class Webhookdb::Async::ResetCodeCreateDispatch
+class Webhookdb::Jobs::ResetCodeCreateDispatch
   extend Webhookdb::Async::Job
 
   on "webhookdb.customer.resetcode.created"

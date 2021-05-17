@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 require "webhookdb/api/organizations"
+require "webhookdb/async"
 
-RSpec.describe Webhookdb::API::Organizations, :db do
+RSpec.describe Webhookdb::API::Organizations, :async, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -11,6 +12,10 @@ RSpec.describe Webhookdb::API::Organizations, :db do
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
   let!(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
+
+  before(:all) do
+    Webhookdb::Async.require_jobs
+  end
 
   before(:each) do
     login_as(customer)
@@ -91,7 +96,21 @@ RSpec.describe Webhookdb::API::Organizations, :db do
   # POST
 
   describe "POST /v1/organizations/:organization_id/invite" do
+    it "fails if request customer doesn't have admin privileges" do
+      test_customer = Webhookdb::Fixtures.customer.create(email: "granny@aol.com")
+      org.add_membership(customer: test_customer)
+
+      post "/v1/organizations/#{org.id}/invite", email: "granny@aol.com"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+
     it "creates invited customer if no customer with that email exists" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
       nonexistent_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
       expect(nonexistent_customer).to be_nil
 
@@ -102,6 +121,8 @@ RSpec.describe Webhookdb::API::Organizations, :db do
     end
 
     it "creates correct organization membership for the invited customer" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
       post "/v1/organizations/#{org.id}/invite", email: "daffyduck@hotmail.com"
 
       invited_customer = Webhookdb::Customer[email: "daffyduck@hotmail.com"]
@@ -113,18 +134,42 @@ RSpec.describe Webhookdb::API::Organizations, :db do
       expect(membership.invitation_code).to include("join-")
     end
 
-    it "returns correct status and response when successful" do
-      post "/v1/organizations/#{org.id}/invite", email: "elmerfudd@comcast.net"
+    it "behaves correctly if customer membership does not exist" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
 
-      invited_customer = Webhookdb::Customer[email: "elmerfudd@comcast.net"]
-      membership = Webhookdb::OrganizationMembership[customer_id: invited_customer.id, organization_id: org.id]
+      expect do
+        post "/v1/organizations/#{org.id}/invite", email: "speedygonzalez@nasa.org"
+      end.to perform_async_job(Webhookdb::Jobs::SendInvite)
 
+      # returns correct status and response
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(message: include("An invitation has been sent to speedygonzalez@nasa.org."))
+    end
+
+    it "behaves correctly if customer membership is unverified" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      test_customer = Webhookdb::Fixtures.customer.create(email: "elmerfudd@comcast.net")
+      org.add_membership(customer: test_customer, verified: false, invitation_code: "join-oldcode")
+
+      expect do
+        post "/v1/organizations/#{org.id}/invite", email: "elmerfudd@comcast.net"
+      end.to perform_async_job(Webhookdb::Jobs::SendInvite)
+
+      # generates a new invitation code
+      membership = Webhookdb::OrganizationMembership[customer: test_customer, organization: org]
+      expect(membership.invitation_code).to_not eq("join-oldcode")
+
+      # returns correct status and response
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(message: include("An invitation has been sent to elmerfudd@comcast.net."))
     end
 
     it "returns 400 if customer is already a part of the organization" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
       invited_customer = Webhookdb::Fixtures.customer.create(email: "porkypig@gmail.com")
       org.add_membership(customer: invited_customer)
 

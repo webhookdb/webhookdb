@@ -2,7 +2,7 @@
 
 require "webhookdb/async/job"
 
-class Webhookdb::Async::CreateMirrorTable
+class Webhookdb::Jobs::CreateMirrorTable
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.created"

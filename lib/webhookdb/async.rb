@@ -120,12 +120,13 @@ module Webhookdb::Async
 
   # Registry of all jobs that will be required when the async system is started/run.
   JOBS = [
+    "webhookdb/jobs/backfill",
     "webhookdb/jobs/create_mirror_table",
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/process_webhook",
+    "webhookdb/jobs/send_invite",
     "webhookdb/jobs/reset_code_create_dispatch",
-    "webhookdb/jobs/backfill",
     "webhookdb/jobs/twilioscheduledbackfill",
   ].freeze
 

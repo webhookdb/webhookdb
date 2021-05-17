@@ -2,7 +2,7 @@
 
 require "webhookdb/async/job"
 
-class Webhookdb::Async::ProcessWebhook
+class Webhookdb::Jobs::ProcessWebhook
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.webhook"

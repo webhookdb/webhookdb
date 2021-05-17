@@ -2,7 +2,7 @@
 
 require "webhookdb/async/job"
 
-class Webhookdb::Async::MessageDispatched
+class Webhookdb::Jobs::MessageDispatched
   extend Webhookdb::Async::Job
 
   on "webhookdb.message.delivery.dispatched"

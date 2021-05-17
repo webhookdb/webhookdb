@@ -51,8 +51,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   end
 
   # Helper function for dealing with organization memberships
-  def member_of?(org)
-    return !org.memberships_dataset[customer_id: self.id].nil?
+  def verified_member_of?(org)
+    return !org.memberships_dataset[customer_id: self.id, verified: true].nil?
   end
 
   # If the SKIP_PHONE|EMAIL_VERIFICATION are set, verify the phone/email.
