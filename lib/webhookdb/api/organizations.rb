@@ -189,6 +189,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           membership = customer.memberships_dataset[invitation_code: params[:invitation_code]]
           merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
           membership.verified = true
+          membership.save
           message = "Congratulations! You are now a member of #{membership.organization_name}."
           status 200
           present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
