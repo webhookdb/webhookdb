@@ -135,6 +135,31 @@ RSpec.describe Webhookdb::API::Auth, :db do
     ensure
       Webhookdb::Customer.reset_configuration
     end
+
+    it "logs the user in if the code is invalid and auth skipping is enabled for the customer email" do
+      Webhookdb::Customer.skip_authentication_allowlist = ["*@cats.org"]
+      customer.update(email: "meow@cats.org")
+
+      post "/v1/auth/login_otp", email: "meow@cats.org", token: "a"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: customer.id)
+    ensure
+      Webhookdb::Customer.reset_configuration
+    end
+
+    it "includes default organization information in response" do
+      Webhookdb::Customer.skip_authentication_allowlist = ["*@cats.org"]
+      customer.update(email: "meow@cats.org")
+
+      self_org = Webhookdb::Organization.create(name: "Org for meow@cats.org")
+      customer.add_membership(organization: self_org)
+
+      post "/v1/auth/login_otp", email: "meow@cats.org", token: "a"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(default_org_key: "org_for_meow_cats_org")
+    end
   end
 
   describe "POST /v1/auth/logout" do
