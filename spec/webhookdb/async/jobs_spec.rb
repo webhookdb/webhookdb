@@ -35,32 +35,12 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "TwilioScheduledBackfill" do
-    let(:page1_items) do
-      [
-        {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
-        {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
-      ]
-    end
-    it "enqueues backfill job for all twilio service integrations" do
-      twilio_sint = Webhookdb::Fixtures.service_integration.create(
-        service_name: "twilio_sms_v1",
-      )
-      fake_sint = Webhookdb::Fixtures.service_integration.create(
-        service_name: "fake_v1",
-      )
-      expect do
-        Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
-      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id])
-    end
-  end
-
   describe "CreateMirrorTable" do
     it "creates the table for the service integration" do
       sint = nil
       expect do
         sint = Webhookdb::Fixtures.service_integration.create
-      end.to perform_async_job(Webhookdb::Async::CreateMirrorTable)
+      end.to perform_async_job(Webhookdb::Jobs::CreateMirrorTable)
 
       expect(sint).to_not be_nil
       expect(Webhookdb::Customer.db.table_exists?(sint&.table_name)).to be_truthy
@@ -73,7 +53,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
       expect do
         Webhookdb::Messages::Testers::Basic.new.dispatch(email)
-      end.to perform_async_job(Webhookdb::Async::MessageDispatched)
+      end.to perform_async_job(Webhookdb::Jobs::MessageDispatched)
 
       expect(Webhookdb::Message::Delivery).to have_row(to: email).
         with_attributes(transport_message_id: be_a(String))
@@ -93,36 +73,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
             body: {"my_id" => "xyz", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
           },
         )
-      end.to perform_async_job(Webhookdb::Async::ProcessWebhook)
+      end.to perform_async_job(Webhookdb::Jobs::ProcessWebhook)
       expect(Webhookdb::Services.service_instance(sint).dataset.all).to have_length(1)
     end
   end
 
   describe "ResetCodeCreateDispatch" do
-    it "sends an sms for an sms reset code" do
-      customer = Webhookdb::Fixtures.customer(phone: "12223334444").create
-      expect do
-        customer.add_reset_code(token: "12345", transport: "sms")
-      end.to perform_async_job(Webhookdb::Async::ResetCodeCreateDispatch)
-
-      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-        have_attributes(
-          template: "verification",
-          transport_type: "sms",
-          to: "12223334444",
-          bodies: contain_exactly(
-            have_attributes(content: "Your Webhookdb verification code is: 12345"),
-          ),
-        ),
-      )
-    end
-
     it "sends an email for an email reset code" do
       customer = Webhookdb::Fixtures.customer(email: "maryjane@lithic.tech").create
       expect do
         customer.add_reset_code(token: "12345", transport: "email")
-      end.to perform_async_job(Webhookdb::Async::ResetCodeCreateDispatch)
-
+      end.to perform_async_job(Webhookdb::Jobs::ResetCodeCreateDispatch)
       expect(Webhookdb::Message::Delivery.all).to contain_exactly(
         have_attributes(
           template: "verification",
@@ -133,6 +94,49 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           ),
         ),
       )
+    end
+  end
+
+  describe "SendInvite" do
+    it "sends an email with an invitation code" do
+      customer = Webhookdb::Fixtures.customer(email: "lucy@lithic.tech").create
+      org = Webhookdb::Fixtures.organization.create
+      membership = Webhookdb::OrganizationMembership.create(customer: customer, organization: org,
+                                                            invitation_code: "join-abcxyz",)
+      expect do
+        Webhookdb.publish(
+          "webhookdb.organizationmembership.invite", membership.id,
+        )
+      end.to perform_async_job(Webhookdb::Jobs::SendInvite)
+      puts Webhookdb::Message::Delivery.all
+      expect(Webhookdb::Message::Delivery.first).to have_attributes(
+        template: "invite",
+        transport_type: "email",
+        to: "lucy@lithic.tech",
+        bodies: include(
+          have_attributes(content: match(/join-abcxyz/)),
+        ),
+      )
+    end
+  end
+
+  describe "TwilioScheduledBackfill" do
+    let(:page1_items) do
+      [
+        {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+        {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+      ]
+    end
+    it "enqueues backfill job for all twilio service integrations" do
+      twilio_sint = Webhookdb::Fixtures.service_integration.create(
+        service_name: "twilio_sms_v1",
+      )
+      fake_sint = Webhookdb::Fixtures.service_integration.create(
+        service_name: "fake_v1",
+      )
+      expect do
+        Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
+      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id])
     end
   end
 end

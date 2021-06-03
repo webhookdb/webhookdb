@@ -8,7 +8,7 @@ class Webhookdb::Service::Auth
 
   class PasswordStrategy < Warden::Strategies::Base
     def valid?
-      params["password"] && (params["phone"] || params["email"])
+      params["password"] && params["email"]
     end
 
     def authenticate!
@@ -17,18 +17,10 @@ class Webhookdb::Service::Auth
     end
 
     protected def lookup_customer
-      if params["phone"]
-        customer = Webhookdb::Customer.with_us_phone(params["phone"].strip)
-        if customer.nil?
-          fail!("No customer with that phone")
-          return nil
-        end
-      else
-        customer = Webhookdb::Customer.with_email(params["email"].strip)
-        if customer.nil?
-          fail!("No customer with that email")
-          return nil
-        end
+      customer = Webhookdb::Customer.with_email(params["email"].strip)
+      if customer.nil?
+        fail!("No customer with that email")
+        return nil
       end
       return customer if customer.authenticate(params["password"])
       fail!("Incorrect password")

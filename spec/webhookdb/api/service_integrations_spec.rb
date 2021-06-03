@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/api/service_integrations"
+require "webhookdb/admin_api/entities"
 
 RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
   include Rack::Test::Methods
@@ -12,6 +13,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
   after(:each) do
     Webhookdb::Services::Fake.reset
   end
+
+  let!(:organization) { Webhookdb::Fixtures.organization.create }
 
   describe "POST /v1/service_integrations/:opaque_id" do
     it "publishes an event with the data for the webhook", :async do

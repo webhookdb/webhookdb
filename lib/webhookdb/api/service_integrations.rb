@@ -6,6 +6,8 @@ require "webhookdb/api"
 require "webhookdb/aws"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
+  # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
+  # it is the url that customers should point their webhooks to
   resource :service_integrations do
     route_param :opaque_id, type: String do
       helpers do

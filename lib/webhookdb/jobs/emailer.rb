@@ -2,7 +2,7 @@
 
 require "webhookdb/async/scheduled_job"
 
-class Webhookdb::Async::Emailer
+class Webhookdb::Jobs::Emailer
   extend Webhookdb::Async::ScheduledJob
 
   cron "* * * * *"

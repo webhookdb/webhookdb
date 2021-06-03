@@ -1,0 +1,10 @@
+{% expose subject %}Welcome to WEBHOOKDB{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    You have been invited to the {{ organization_name }} organization on WebhookDB. To join the
+    organization, use the invite code {{ invite_code }} through the CLI.
+</p>
+
+{% partial 'signoff' %}

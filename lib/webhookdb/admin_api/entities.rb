@@ -22,13 +22,7 @@ module Webhookdb::AdminAPI
     expose :created_at
     expose :email
     expose :name
-    expose :first_name
-    expose :last_name
     expose :note
-    expose :phone
-    expose :email_verified_at
-    expose :phone_verified_at
-    expose :timezone
   end
 
   class CustomerResetCodes < BaseEntity

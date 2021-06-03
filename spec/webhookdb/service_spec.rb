@@ -254,7 +254,7 @@ RSpec.describe Webhookdb::Service, :db do
       get "/collection_array"
 
       expect(last_response).to have_status(200)
-      expect(last_response_json_body).to eq(
+      expect(last_response_json_body).to include(
         object: "list",
         items: [1, 2, 3],
         current_page: 1,
@@ -270,7 +270,7 @@ RSpec.describe Webhookdb::Service, :db do
       get "/collection_dataset"
 
       expect(last_response).to have_status(200)
-      expect(last_response_json_body).to eq(
+      expect(last_response_json_body).to include(
         object: "list",
         items: [{id: customer.id, note: customer.note}],
         current_page: 1,
@@ -284,7 +284,7 @@ RSpec.describe Webhookdb::Service, :db do
       get "/collection_direct"
 
       expect(last_response).to have_status(200)
-      expect(last_response_json_body).to eq(
+      expect(last_response_json_body).to include(
         object: "list",
         items: [5, 6, 7],
         current_page: 10,

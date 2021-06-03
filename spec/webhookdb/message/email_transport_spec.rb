@@ -48,7 +48,7 @@ RSpec.describe Webhookdb::Message::EmailTransport, :db do
         message_id: "abcdefg",
       )
 
-      customer = Webhookdb::Fixtures.customer(first_name: "Hugh", last_name: "Bode", email: "hi@lithic.tech").create
+      customer = Webhookdb::Fixtures.customer(name: "Hugh Bode", email: "hi@lithic.tech").create
 
       delivery = Webhookdb::Fixtures.message_delivery.email.to(customer).create
       described_class.new.send!(delivery)
