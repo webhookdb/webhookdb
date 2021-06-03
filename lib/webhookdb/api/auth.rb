@@ -10,7 +10,8 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
   resource :auth do
     helpers do
       def guard_logged_in!
-        merror!(403, "You must log out first", code: "already_logged_in") if current_customer?
+        return unless (c = current_customer?)
+        merror!(403, "You are already logged in as #{c.email}. You must log out first", code: "already_logged_in")
       end
     end
 

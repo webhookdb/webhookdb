@@ -47,12 +47,12 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "GET /v1/organizations/:organization_id/members" do
+  describe "GET /v1/organizations/:organization_key/members" do
     it "returns all customers associated with organization" do
       extra_customers = Array.new(3) { Webhookdb::Fixtures.customer.create }
       extra_customers.each { |c| org.add_membership(customer: c) }
 
-      get "/v1/organizations/#{org.id}/members"
+      get "/v1/organizations/#{org.key}/members"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -62,7 +62,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "403s if the customer is not a member" do
       membership.destroy
 
-      get "/v1/organizations/#{org.id}/members"
+      get "/v1/organizations/#{org.key}/members"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -71,13 +71,13 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "GET v1/organizations/:organization_id/service_integrations" do
+  describe "GET v1/organizations/:organization_key/service_integrations" do
     it "returns all service integrations associated with organization" do
       integrations = Array.new(2) { Webhookdb::Fixtures.service_integration.create }
       _extra_integrations = Webhookdb::Fixtures.service_integration.create
 
       integrations.each { |i| org.add_service_integration(i) }
-      get "/v1/organizations/#{org.id}/service_integrations"
+      get "/v1/organizations/#{org.key}/service_integrations"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -85,7 +85,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
 
     it "returns a message if org has no service integrations" do
-      get "/v1/organizations/#{org.id}/service_integrations"
+      get "/v1/organizations/#{org.key}/service_integrations"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -94,11 +94,11 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   end
 
   # POST
-  describe "POST v1/organizations/:organization_id/service_integrations/create" do
+  describe "POST v1/organizations/:organization_key/service_integrations/create" do
     it "creates a service integration" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       new_integration = Webhookdb::ServiceIntegration.where(service_name: "fake_v1", organization: org).first
       expect(new_integration).to_not be_nil
@@ -107,7 +107,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "returns a state machine step" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
@@ -115,7 +115,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
 
     it "fails if the current user is not an admin" do
-      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -124,12 +124,12 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_id/invite" do
+  describe "POST /v1/organizations/:organization_key/invite" do
     it "fails if request customer doesn't have admin privileges" do
       test_customer = Webhookdb::Fixtures.customer.create(email: "granny@aol.com")
       org.add_membership(customer: test_customer)
 
-      post "/v1/organizations/#{org.id}/invite", email: "granny@aol.com"
+      post "/v1/organizations/#{org.key}/invite", email: "granny@aol.com"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -143,7 +143,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       nonexistent_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
       expect(nonexistent_customer).to be_nil
 
-      post "/v1/organizations/#{org.id}/invite", email: "bugsbunny@aol.com"
+      post "/v1/organizations/#{org.key}/invite", email: "bugsbunny@aol.com"
 
       invited_customer = Webhookdb::Customer[email: "bugsbunny@aol.com"]
       expect(invited_customer).to_not be_nil
@@ -152,7 +152,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "creates correct organization membership for the invited customer" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.id}/invite", email: "daffyduck@hotmail.com"
+      post "/v1/organizations/#{org.key}/invite", email: "daffyduck@hotmail.com"
 
       invited_customer = Webhookdb::Customer[email: "daffyduck@hotmail.com"]
       membership = Webhookdb::OrganizationMembership[customer_id: invited_customer.id, organization_id: org.id]
@@ -167,7 +167,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
       expect do
-        post "/v1/organizations/#{org.id}/invite", email: "speedygonzalez@nasa.org"
+        post "/v1/organizations/#{org.key}/invite", email: "speedygonzalez@nasa.org"
       end.to perform_async_job(Webhookdb::Jobs::SendInvite)
 
       # returns correct status and response
@@ -183,7 +183,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       org.add_membership(customer: test_customer, verified: false, invitation_code: "join-oldcode")
 
       expect do
-        post "/v1/organizations/#{org.id}/invite", email: "elmerfudd@comcast.net"
+        post "/v1/organizations/#{org.key}/invite", email: "elmerfudd@comcast.net"
       end.to perform_async_job(Webhookdb::Jobs::SendInvite)
 
       # generates a new invitation code
@@ -202,7 +202,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       invited_customer = Webhookdb::Fixtures.customer.create(email: "porkypig@gmail.com")
       org.add_membership(customer: invited_customer)
 
-      post "/v1/organizations/#{org.id}/invite", email: "porkypig@gmail.com"
+      post "/v1/organizations/#{org.key}/invite", email: "porkypig@gmail.com"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -211,12 +211,12 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_id/remove" do
+  describe "POST /v1/organizations/:organization_key/remove" do
     it "fails if request customer doesn't have admin privileges" do
       test_customer = Webhookdb::Fixtures.customer.create(email: "yosemitesam@gmail.com")
       org.add_membership(customer: test_customer)
 
-      post "/v1/organizations/#{org.id}/remove", email: "yosemitesam@gmail.com"
+      post "/v1/organizations/#{org.key}/remove", email: "yosemitesam@gmail.com"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -229,7 +229,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       test_customer = Webhookdb::Fixtures.customer.create(email: "tweetybird@yahoo.com")
       expect(test_customer.memberships).to eq([])
 
-      post "/v1/organizations/#{org.id}/remove", email: "tweetybird@yahoo.com"
+      post "/v1/organizations/#{org.key}/remove", email: "tweetybird@yahoo.com"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -243,7 +243,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       test_customer = Webhookdb::Fixtures.customer.create(email: "roadrunner@wb.com")
       org.add_membership(customer: test_customer)
 
-      post "/v1/organizations/#{org.id}/remove", email: "roadrunner@wb.com"
+      post "/v1/organizations/#{org.key}/remove", email: "roadrunner@wb.com"
 
       test_customer_membership = org.memberships_dataset[customer: test_customer]
 
@@ -255,14 +255,14 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_id/change_roles" do
+  describe "POST /v1/organizations/:organization_key/change_roles" do
     it "changes the roles of customers and returns correct response" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
       membership_a = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "pepelepew@yahoo.com"))
       membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
 
-      post "v1/organizations/#{org.id}/change_roles", emails: ["pepelepew@yahoo.com", "marvinthe@martian.com"],
+      post "v1/organizations/#{org.key}/change_roles", emails: ["pepelepew@yahoo.com", "marvinthe@martian.com"],
                                                       role_name: "troublemaker"
 
       troublemaker_memberships = org.memberships_dataset.where(
@@ -280,7 +280,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       customer.memberships_dataset.update(role_id: admin_role.id)
       Webhookdb::Fixtures.customer.create(email: "sylvester@yahoo.com")
 
-      post "/v1/organizations/#{org.id}/change_roles", emails: ["sylvester@yahoo.com"], role_name: "cat"
+      post "/v1/organizations/#{org.key}/change_roles", emails: ["sylvester@yahoo.com"], role_name: "cat"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -291,7 +291,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if request customer doesn't have admin privileges" do
       org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "foghornleghorn@gmail.com"))
 
-      post "/v1/organizations/#{org.id}/change_roles", emails: ["foghornleghorn@gmail.com"],
+      post "/v1/organizations/#{org.key}/change_roles", emails: ["foghornleghorn@gmail.com"],
                                                        role_name: "twilio specialist"
 
       expect(last_response).to have_status(400)

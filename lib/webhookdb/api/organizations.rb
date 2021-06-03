@@ -9,7 +9,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
   helpers do
     def lookup_org!
       customer = current_customer
-      membership = customer.memberships_dataset[organization_id: params[:organization_id], verified: true]
+      organization = Webhookdb::Organization.where(key: params[:organization_key])
+      membership = customer.memberships_dataset[organization: organization, verified: true]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
       return membership.organization
     end
@@ -33,7 +34,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     # GET
 
-    route_param :organization_id, type: Integer do
+    route_param :organization_key, type: String do
       resource :members do
         desc "Return all customers associated with the organization"
         get do
