@@ -39,4 +39,13 @@ module Webhookdb::API
   class ServiceEntity < BaseEntity
     expose :name
   end
+
+  class StateMachineEntity < BaseEntity
+    expose :needs_input
+    expose :prompt
+    expose :prompt_is_secret
+    expose :post_to_url
+    expose :complete
+    expose :output
+  end
 end

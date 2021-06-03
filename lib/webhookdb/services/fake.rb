@@ -17,6 +17,18 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return self.class.webhook_response || super
   end
 
+  def process_state_change(_field, _value)
+    return self.calculate_create_state_machine(nil)
+  end
+
+  def calculate_create_state_machine(_organization)
+    return Webhookdb::Services::StateMachineStep.new
+  end
+
+  def calculate_backfill_state_machine(_organization)
+    return Webhookdb::Services::StateMachineStep.new.mark_complete
+  end
+
   def _webhook_verified?(_request)
     return self.class.webhook_verified
   end

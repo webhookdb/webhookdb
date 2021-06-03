@@ -21,6 +21,29 @@ class Webhookdb::Services::Base
     return [401, {"Content-Type" => "text/plain"}, ""]
   end
 
+  # Set the new service integration field and
+  # return the newly calculated state machine.
+  # @return [Webhookdb::Services::StateMachineStep]
+  def process_state_change(field, value)
+    self.db.transaction do
+      self.service_integration.send("#{field}=", value)
+      self.service_integration.save_changes
+      return self.calculate_state_machine
+    end
+  end
+
+  # @return [Webhookdb::Services::StateMachineStep]
+  def calculate_create_state_machine(organization)
+    # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
+    raise NotImplementedError
+  end
+
+  # @return [Webhookdb::Services::StateMachineStep]
+  def calculate_backfill_state_machine(organization)
+    # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
+    raise NotImplementedError
+  end
+
   # Check if the webhook is verified using the http request.
   # We must do this immediately in the endpoint itself,
   # since verification may include info specific to the request content

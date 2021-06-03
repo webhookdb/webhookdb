@@ -95,6 +95,36 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
   # POST
 
+  describe "POST v1/organizations/:organization_id/service_integrations/create" do
+    it "creates a service integration" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+
+      new_integration = Webhookdb::ServiceIntegration.where(service_name: "fake_v1", organization: org).first
+      expect(new_integration).to_not be_nil
+    end
+
+    it "returns a state machine step" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
+                                                            post_to_url: nil, complete: nil, output: nil,)
+    end
+
+    it "fails if the current user is not an admin" do
+      post "/v1/organizations/#{org.id}/service_integrations/create", service_name: "fake_v1"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+  end
+
   describe "POST /v1/organizations/:organization_id/invite" do
     it "fails if request customer doesn't have admin privileges" do
       test_customer = Webhookdb::Fixtures.customer.create(email: "granny@aol.com")

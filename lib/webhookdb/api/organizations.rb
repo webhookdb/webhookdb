@@ -43,11 +43,39 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       end
 
       resource :service_integrations do
+        helpers do
+          def lookup_sint!
+            sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
+            merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
+            return sint
+          end
+        end
+
         desc "Return all integrations associated with the organization."
         get do
           integrations = lookup_org!.service_integrations
           message = integrations.empty? ? "Organization doesn't have any integrations yet." : ""
           present_collection integrations, with: Webhookdb::API::ServiceIntegrationEntity, message: message
+        end
+
+        resource :create do
+          desc "Create service integration on a given organization"
+          params do
+            requires :service_name, type: String, allow_blank: false
+          end
+          post do
+            customer = current_customer
+            org = lookup_org!
+            ensure_admin!
+            customer.db.transaction do
+              sint = Webhookdb::ServiceIntegration.create(organization: org, table_name: params[:service_name],
+                                                          service_name: params[:service_name],
+                                                          opaque_id: SecureRandom.hex(6),)
+              state_machine = sint.calculate_create_state_machine
+              status 200
+              present state_machine, with: Webhookdb::API::StateMachineEntity
+            end
+          end
         end
       end
 

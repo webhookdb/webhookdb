@@ -941,5 +941,57 @@ RSpec.describe Webhookdb::Services, :db do
         expect(status).to eq(200)
       end
     end
+
+    describe "state machine calculation" do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_customer_v1") }
+      let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+      describe "calculate_create_state_machine" do
+        it "asks for webhook secret" do
+          state_machine = sint.calculate_create_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your secret here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match("We've made an endpoint available for Stripe Customer webhooks:")
+        end
+
+        it "confirms reciept of webhook secret, returns org database info" do
+          sint.webhook_secret = "whsec_abcasdf"
+          state_machine = sint.calculate_create_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match("Great! WebhookDB is now listening for Stripe Customer webhooks.")
+        end
+      end
+      describe "calculate_backfill_state_machine" do
+        it "it asks for backfill secret" do
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your Restricted Key here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match("In order to backfill Stripe Customers, we need an API key.")
+        end
+
+        it "confirms reciept of backfill secret, returns org database info" do
+          sint.backfill_secret = "whsec_abcasdf"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match(
+            "Great! We are going to start backfilling your Stripe Customer information.",
+          )
+        end
+      end
+    end
   end
 end
