@@ -55,6 +55,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
         end
       end
 
+      set_customer(me)
       status 200
       present me, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: "You are now logged in as #{email}"
     end

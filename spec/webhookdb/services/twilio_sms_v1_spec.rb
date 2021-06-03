@@ -248,6 +248,7 @@ RSpec.describe Webhookdb::Services, :db do
           to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"})
       end
     end
+
     describe "webhook validation" do
       let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1") }
       let(:svc) { Webhookdb::Services.service_instance(sint) }
@@ -274,6 +275,66 @@ RSpec.describe Webhookdb::Services, :db do
         req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
         status, _headers, _body = svc.webhook_response(req)
         expect(status).to eq(202)
+      end
+    end
+
+    describe "state machine calculation" do
+      let(:sint) do
+        Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1", backfill_secret: "",
+                                                       backfill_key: "",)
+      end
+      let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+      describe "calculate_create_state_machine" do
+        it "returns org database info" do
+          sint.webhook_secret = "whsec_abcasdf"
+          state_machine = sint.calculate_create_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match("Great! We've created your Twilio SMS Service Integration.")
+        end
+      end
+      describe "calculate_backfill_state_machine" do
+        it "asks for backfill key" do
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your Account SID here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match(
+            "In order to backfill Twilio SMS, we need your Account SID and Auth Token.",
+          )
+        end
+
+        it "asks for backfill secret" do
+          sint.backfill_key = "key_ghjkl"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your Auth Token here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to be_nil
+        end
+
+        it "returns org database info" do
+          sint.backfill_key = "key_ghjkl"
+          sint.backfill_secret = "whsec_abcasdf"
+          sint.api_url = "https://shopify_test.myshopify.com"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match(
+            "Great! We are going to start backfilling your Twilio SMS information.",
+          )
+        end
       end
     end
   end

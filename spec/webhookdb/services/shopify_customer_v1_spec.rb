@@ -383,5 +383,96 @@ RSpec.describe Webhookdb::Services, :db do
         expect(status).to eq(200)
       end
     end
+
+    describe "state machine calculation" do
+      let(:sint) do
+        Webhookdb::Fixtures.service_integration.create(service_name: "shopify_customer_v1", backfill_secret: "",
+                                                       backfill_key: "", api_url: "",)
+      end
+      let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+      describe "process_state_change" do
+        it "converts a shop name into an api url and updates the object" do
+          sint.process_state_change("shop_name", "looney-tunes")
+          expect(sint.api_url).to eq("https://looney-tunes.myshopify.com")
+        end
+      end
+
+      describe "calculate_create_state_machine" do
+        it "asks for webhook secret" do
+          state_machine = sint.calculate_create_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your secret here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match("We've made an endpoint available for Shopify Customer webhooks:")
+        end
+
+        it "confirms reciept of webhook secret, returns org database info" do
+          sint.webhook_secret = "whsec_abcasdf"
+          state_machine = sint.calculate_create_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match("Great! WebhookDB is now listening for Shopify Customer webhooks.")
+        end
+      end
+      describe "calculate_backfill_state_machine" do
+        it "asks for backfill key" do
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your API Key here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match(
+            "In order to backfill Shopify Customers, we need an API key and password.",
+          )
+        end
+
+        it "asks for backfill secret" do
+          sint.backfill_key = "key_ghjkl"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to eq("Paste or type your password here:")
+          expect(state_machine.prompt_is_secret).to eq(true)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to be_nil
+        end
+
+        it "asks for store name " do
+          sint.backfill_key = "key_ghjkl"
+          sint.backfill_secret = "whsec_abcasdf"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(true)
+          expect(state_machine.prompt).to match("Paste or type your shop name here:")
+          expect(state_machine.prompt_is_secret).to eq(false)
+          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/shop_name")
+          expect(state_machine.complete).to eq(false)
+          expect(state_machine.output).to match(
+            "Nice! Now we need the name of your shop so that we can construct the api url.",
+          )
+        end
+
+        it "returns org database info" do
+          sint.backfill_key = "key_ghjkl"
+          sint.backfill_secret = "whsec_abcasdf"
+          sint.api_url = "https://shopify_test.myshopify.com"
+          state_machine = sint.calculate_backfill_state_machine
+          expect(state_machine.needs_input).to eq(false)
+          expect(state_machine.prompt).to be_nil
+          expect(state_machine.prompt_is_secret).to be_nil
+          expect(state_machine.post_to_url).to be_nil
+          expect(state_machine.complete).to eq(true)
+          expect(state_machine.output).to match(
+            "Great! We are going to start backfilling your Shopify Customer information.",
+          )
+        end
+      end
+    end
   end
 end

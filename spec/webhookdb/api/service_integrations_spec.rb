@@ -2,13 +2,28 @@
 
 require "webhookdb/api/service_integrations"
 require "webhookdb/admin_api/entities"
+require "webhookdb/async"
 
-RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
+RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
+  let!(:customer) { Webhookdb::Fixtures.customer.create }
+  let!(:org) { Webhookdb::Fixtures.organization.create }
+  let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
+  let!(:sint) do
+    Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz", organization: org, service_name: "fake_v1",
+                                                   backfill_key: "qwerty",)
+  end
+
+  before(:all) do
+    Webhookdb::Async.require_jobs
+  end
+
   before(:each) do
     Webhookdb::Services::Fake.reset
+    login_as(customer)
   end
   after(:each) do
     Webhookdb::Services::Fake.reset
@@ -18,7 +33,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
 
   describe "POST /v1/service_integrations/:opaque_id" do
     it "publishes an event with the data for the webhook", :async do
-      sint = Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")
       header "X-My-Test", "abc"
       expect do
         post "/v1/service_integrations/xyz", foo: 1
@@ -37,8 +51,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
     end
 
     it "handles default response behavior" do
-      Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")
-
       post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(202)
@@ -48,7 +60,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
 
     it "returns the response from the configured service" do
       Webhookdb::Services::Fake.webhook_response = [203, {"Content-Type" => "text/xml"}, "<x></x>"]
-      Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")
 
       post "/v1/service_integrations/xyz"
 
@@ -58,7 +69,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
     end
 
     it "400s if there is no active service integration" do
-      Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz").soft_delete
+      sint.soft_delete
       header "X-My-Test", "abc"
       post "/v1/service_integrations/xyz", foo: 1
       expect(last_response).to have_status(400)
@@ -66,12 +77,52 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :db do
 
     it "does not publish if the webhook fails verification", :async do
       Webhookdb::Services::Fake.webhook_verified = false
-      Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz")
 
       expect do
         post "/v1/service_integrations/xyz"
         expect(last_response).to have_status(401)
       end.to_not publish("webhookdb.serviceintegration.webhook")
+    end
+  end
+
+  describe "POST /v1/service_integrations/:opaque_id/backfill" do
+    it "returns a state machine step" do
+      post "/v1/service_integrations/xyz/backfill"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
+                                                            post_to_url: nil, complete: true, output: nil,)
+    end
+
+    it "starts backfill process if setup is complete" do
+      Webhookdb::Services::Fake.backfill_responses = {
+        nil => [[], nil],
+      }
+
+      expect do
+        post "/v1/service_integrations/xyz/backfill"
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+    end
+  end
+
+  describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
+    it "calls the state machine with the given field and value and returns the result" do
+      post "/v1/service_integrations/xyz/transition/field_name", value: "open sesame"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
+                                                            post_to_url: nil, complete: nil, output: nil,)
+    end
+
+    it "403s if the current user cannot modify the integration" do
+      Webhookdb::Fixtures.service_integration.create(opaque_id: "abc") # create sint outside the customer org
+
+      post "/v1/service_integrations/abc/transition/field_name", value: "open sesame"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Sorry, you cannot modify this integration."),
+      )
     end
   end
 end

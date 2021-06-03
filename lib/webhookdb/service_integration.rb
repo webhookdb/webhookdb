@@ -9,6 +9,22 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   many_to_one :organization, class: "Webhookdb::Organization"
 
+  def process_state_change(field, value)
+    return Webhookdb::Services.service_instance(self).process_state_change(field, value)
+  end
+
+  def calculate_create_state_machine
+    return Webhookdb::Services.service_instance(self).calculate_create_state_machine(self.organization)
+  end
+
+  def calculate_backfill_state_machine
+    return Webhookdb::Services.service_instance(self).calculate_backfill_state_machine(self.organization)
+  end
+
+  def can_be_modified_by?(customer)
+    return customer.verified_member_of?(self.organization)
+  end
+
   # @!attribute table_name
   #   @return [String] Name of the table
 
