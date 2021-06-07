@@ -37,17 +37,17 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     # if the service integration doesn't exist, create it with some standard values
     step.needs_input = false
     step.output = %(
-        Great! We've created your Twilio SMS Service Integration.
-        You can query the database through your organization's Postgres connection string:
+Great! We've created your Twilio SMS Service Integration.
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM twilio_sms_v1"
+webhookdb db sql "SELECT * FROM twilio_sms_v1"
 
-        If you want to populate the Twilio SMS database, you'll need to set up backfill functionality.
-        Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
+If you want to populate the Twilio SMS database, you'll need to set up backfill functionality.
+Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
       )
     step.complete = true
     return step
@@ -59,12 +59,12 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     unless self.service_integration.backfill_key.present?
       step.needs_input = true
       step.output = %(
-        In order to backfill Twilio SMS, we need your Account SID and Auth Token.
-        Both of these values should be visible from the homepage of your Twilio admin Dashboard.
+In order to backfill Twilio SMS, we need your Account SID and Auth Token.
+Both of these values should be visible from the homepage of your Twilio admin Dashboard.
       )
       step.prompt = "Paste or type your Account SID here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
       step.complete = false
       return step
     end
@@ -73,24 +73,24 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
       step.needs_input = true
       step.prompt = "Paste or type your Auth Token here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
       step.complete = false
       return step
     end
 
     step.needs_input = false
     step.output = %(
-        Great! We are going to start backfilling your Twilio SMS information.
-        Twilio allows us to backfill your entire SMS history,
-        so you're in good shape.
+Great! We are going to start backfilling your Twilio SMS information.
+Twilio allows us to backfill your entire SMS history,
+so you're in good shape.
 
-        You can query the database through your organization's Postgres connection string:
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM twilio_sms_v1"
+webhookdb db sql "SELECT * FROM twilio_sms_v1"
       )
     step.complete = true
     return step

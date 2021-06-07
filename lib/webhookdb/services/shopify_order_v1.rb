@@ -53,38 +53,38 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
     unless self.service_integration.webhook_secret.present?
       step.needs_input = true
       step.output = %(
-        You are about to start reflecting Shopify Order info into webhookdb.
-        We've made an endpoint available for Shopify Order webhooks:
+You are about to start reflecting Shopify Order info into webhookdb.
+We've made an endpoint available for Shopify Order webhooks:
 
-        https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}
+https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}
 
-        From your Shopify admin dashboard, go to Settings -> Notifications.
-        Scroll down to the Webhook Section. You will need to create a separate webhook for each Customer
-        event, but you can use the URL above and select JSON as the desired format for all of them.
+From your Shopify admin dashboard, go to Settings -> Notifications.
+Scroll down to the Webhook Section. You will need to create a separate webhook for each Customer
+event, but you can use the URL above and select JSON as the desired format for all of them.
 
-        At the very bottom of the page, you should see a signing secret that will be used to verify all webhooks.
-        Copy that value.
+At the very bottom of the page, you should see a signing secret that will be used to verify all webhooks.
+Copy that value.
       )
       step.prompt = "Paste or type your secret here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/webhook_secret"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/webhook_secret"
       step.complete = false
       return step
     end
 
     step.needs_input = false
     step.output = %(
-        Great! WebhookDB is now listening for Shopify Order webhooks.
-        You can query the database through your organization's Postgres connection string:
+Great! WebhookDB is now listening for Shopify Order webhooks.
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM shopify_orders_v1"
+webhookdb db sql "SELECT * FROM shopify_orders_v1"
 
-        If you want to backfill existing Shopify Orders, we'll need your API key.
-        Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
+If you want to backfill existing Shopify Orders, we'll need your API key.
+Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
       )
     step.complete = true
     return step
@@ -96,17 +96,17 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
     unless self.service_integration.backfill_key.present?
       step.needs_input = true
       step.output = %(
-        In order to backfill Shopify Orders, we need an API key and password.
-        From your Shopify Dashboard, go to Apps and click the "Manage Private Apps" link at the bottom of the page.
-        Then click "Create Private App" and fill out the necessary information.
-        When you get to the "Admin API" section, select "Read Access" for the Order API and leave the rest as is.
-        Then hit "Save" and create the app.
-        You'll be presented with a page that has info about your app's credentials.
-        We need both the API key and password.
+In order to backfill Shopify Orders, we need an API key and password.
+From your Shopify Dashboard, go to Apps and click the "Manage Private Apps" link at the bottom of the page.
+Then click "Create Private App" and fill out the necessary information.
+When you get to the "Admin API" section, select "Read Access" for the Order API and leave the rest as is.
+Then hit "Save" and create the app.
+You'll be presented with a page that has info about your app's credentials.
+We need both the API key and password.
       )
       step.prompt = "Paste or type your API Key here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
       step.complete = false
       return step
     end
@@ -115,7 +115,7 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
       step.needs_input = true
       step.prompt = "Paste or type your password here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
       step.complete = false
       return step
     end
@@ -123,30 +123,30 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
     unless self.service_integration.api_url.present?
       step.needs_input = true
       step.output = %(
-        Nice! Now we need the name of your shop so that we can construct the api url.
-        This is the name that is used by Shopify for URL purposes—it should be
-        in the top left corner of your Admin Dashboard next to the Shopify logo.
+Nice! Now we need the name of your shop so that we can construct the api url.
+This is the name that is used by Shopify for URL purposes—it should be
+in the top left corner of your Admin Dashboard next to the Shopify logo.
       )
       step.prompt = "Paste or type your shop name here:"
       step.prompt_is_secret = false
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/shop_name"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/shop_name"
       step.complete = false
       return step
     end
 
     step.needs_input = false
     step.output = %(
-        Great! We are going to start backfilling your Shopify Order information.
-        Please note that Shopify only allows us to have access to orders made in the last 60 days,
-        so this history will not be comprehensive.
+Great! We are going to start backfilling your Shopify Order information.
+Please note that Shopify only allows us to have access to orders made in the last 60 days,
+so this history will not be comprehensive.
 
-        You can query the database through your organization's Postgres connection string:
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM shopify_orders_v1"
+webhookdb db sql "SELECT * FROM shopify_orders_v1"
       )
     step.complete = true
     return step

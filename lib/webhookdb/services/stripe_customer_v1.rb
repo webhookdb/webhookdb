@@ -52,37 +52,37 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
     unless self.service_integration.webhook_secret.present?
       step.needs_input = true
       step.output = %{
-        You are about to start reflecting Stripe Customer info into webhookdb.
-        We've made an endpoint available for Stripe Customer webhooks:
+You are about to start reflecting Stripe Customer info into webhookdb.
+We've made an endpoint available for Stripe Customer webhooks:
 
-        https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}
+https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}
 
-        From your Stripe Dashboard, go to Developers -> Webhooks -> Add Endpoint.
-        Use the URL above, and choose all of the Customers events.
-        Then click Add Endpoint.
+From your Stripe Dashboard, go to Developers -> Webhooks -> Add Endpoint.
+Use the URL above, and choose all of the Customers events.
+Then click Add Endpoint.
 
-        The page for the webhook will have a 'Signing Secret' section.
-        Reveal it, then copy the secret (it will start with `whsec_`).
+The page for the webhook will have a 'Signing Secret' section.
+Reveal it, then copy the secret (it will start with `whsec_`).
       }
       step.prompt = "Paste or type your secret here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/webhook_secret"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/webhook_secret"
       step.complete = false
       return step
     end
     step.needs_input = false
     step.output = %(
-        Great! WebhookDB is now listening for Stripe Customer webhooks.
-        You can query the database through your organization's Postgres connection string:
+Great! WebhookDB is now listening for Stripe Customer webhooks.
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM stripe_customers_v1"
+webhookdb db sql "SELECT * FROM stripe_customers_v1"
 
-        If you want to backfill existing Stripe Customers, we'll need your API key.
-        Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
+If you want to backfill existing Stripe Customers, we'll need your API key.
+Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
       )
     step.complete = true
     return step
@@ -94,31 +94,31 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
     unless self.service_integration.backfill_secret.present?
       step.needs_input = true
       step.output = %(
-          In order to backfill Stripe Customers, we need an API key.
-          From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
-          Create a key with Read access to Customers.
-          Submit, then copy the key when Stripe shows it to you:
-        )
+In order to backfill Stripe Customers, we need an API key.
+From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
+Create a key with Read access to Customers.
+Submit, then copy the key when Stripe shows it to you:
+)
       step.prompt = "Paste or type your Restricted Key here:"
       step.prompt_is_secret = true
-      step.post_to_url = "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
+      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
       step.complete = false
       return step
     end
 
     step.needs_input = false
     step.output = %(
-        Great! We are going to start backfilling your Stripe Customer information.
-        Stripe allows us to backfill your entire history,
-        so you're in good shape.
+Great! We are going to start backfilling your Stripe Customer information.
+Stripe allows us to backfill your entire history,
+so you're in good shape.
 
-        You can query the database through your organization's Postgres connection string:
+You can query the database through your organization's Postgres connection string:
 
-        #{organization.readonly_connection_url}
+#{organization.readonly_connection_url}
 
-        You can also run a query through the CLI:
+You can also run a query through the CLI:
 
-        webhookdb db sql "SELECT * FROM stripe_customers_v1"
+webhookdb db sql "SELECT * FROM stripe_customers_v1"
       )
     step.complete = true
     return step

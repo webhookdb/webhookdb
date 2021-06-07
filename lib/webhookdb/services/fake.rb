@@ -22,7 +22,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def calculate_create_state_machine(_organization)
-    return Webhookdb::Services::StateMachineStep.new
+    return Webhookdb::Services::StateMachineStep.new.mark_complete
   end
 
   def calculate_backfill_state_machine(_organization)

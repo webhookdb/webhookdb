@@ -69,9 +69,13 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             org = lookup_org!
             ensure_admin!
             customer.db.transaction do
-              sint = Webhookdb::ServiceIntegration.create(organization: org, table_name: params[:service_name],
-                                                          service_name: params[:service_name],
-                                                          opaque_id: SecureRandom.hex(6),)
+              sint = Webhookdb::ServiceIntegration[organization: org, table_name: params[:service_name],
+                                                   service_name: params[:service_name]]
+              if sint.nil?
+                sint = Webhookdb::ServiceIntegration.create(organization: org, table_name: params[:service_name],
+                                                            service_name: params[:service_name],
+                                                            opaque_id: SecureRandom.hex(6),)
+              end
               state_machine = sint.calculate_create_state_machine
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
