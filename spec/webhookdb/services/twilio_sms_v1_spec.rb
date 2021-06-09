@@ -303,7 +303,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to eq("Paste or type your Account SID here:")
           expect(state_machine.prompt_is_secret).to eq(true)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to match(
             "In order to backfill Twilio SMS, we need your Account SID and Auth Token.",
@@ -316,7 +316,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to eq("Paste or type your Auth Token here:")
           expect(state_machine.prompt_is_secret).to eq(true)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to be_nil
         end

@@ -4287,7 +4287,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to eq("Paste or type your secret here:")
           expect(state_machine.prompt_is_secret).to eq(true)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to match("We've made an endpoint available for Shopify Order webhooks:")
         end
@@ -4309,7 +4309,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to eq("Paste or type your API Key here:")
           expect(state_machine.prompt_is_secret).to eq(true)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to match(
             "In order to backfill Shopify Orders, we need an API key and password.",
@@ -4322,7 +4322,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to eq("Paste or type your password here:")
           expect(state_machine.prompt_is_secret).to eq(true)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to be_nil
         end
@@ -4334,7 +4334,7 @@ RSpec.describe Webhookdb::Services, :db do
           expect(state_machine.needs_input).to eq(true)
           expect(state_machine.prompt).to match("Paste or type your shop name here:")
           expect(state_machine.prompt_is_secret).to eq(false)
-          expect(state_machine.post_to_url).to eq("https://api.webhookdb.com/v1/service_integrations/#{sint.opaque_id}/transition/shop_name")
+          expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/shop_name")
           expect(state_machine.complete).to eq(false)
           expect(state_machine.output).to match(
             "Nice! Now we need the name of your shop so that we can construct the api url.",

@@ -171,13 +171,11 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         customer.db.transaction do
           new_org = Webhookdb::Organization.create_if_unique(name: params[:name])
           merror!(400, "An organization with that name already exists.") if new_org.nil?
-          new_org.add_membership(customer: customer)
+          new_org.add_membership(customer: customer, role: Webhookdb::OrganizationRole.admin_role, verified: true)
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
             "to invite members to #{new_org.name}."
           status 200
           present new_org, with: Webhookdb::API::OrganizationEntity, message: message
-          # TODO: Create & send email with invitation code
-          # TODO: if membership exists but is not verified, maybe resend with new join code
         end
       end
     end
@@ -193,7 +191,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           membership = customer.memberships_dataset[invitation_code: params[:invitation_code]]
           merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
           membership.verified = true
-          membership.save
+          membership.save_changes
           message = "Congratulations! You are now a member of #{membership.organization_name}."
           status 200
           present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message

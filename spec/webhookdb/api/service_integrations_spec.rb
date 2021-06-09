@@ -111,7 +111,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
-                                                            post_to_url: nil, complete: nil, output: nil,)
+                                                            post_to_url: nil, complete: true, output: nil,)
     end
 
     it "403s if the current user cannot modify the integration" do

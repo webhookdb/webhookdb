@@ -111,7 +111,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
-                                                            post_to_url: nil, complete: nil, output: nil,)
+                                                            post_to_url: nil, complete: true, output: nil,)
     end
 
     it "fails if the current user is not an admin" do
@@ -241,7 +241,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
       test_customer = Webhookdb::Fixtures.customer.create(email: "roadrunner@wb.com")
-      org.add_membership(customer: test_customer)
+      org.add_membership(customer: test_customer, verified: true)
 
       post "/v1/organizations/#{org.key}/remove", email: "roadrunner@wb.com"
 
@@ -292,7 +292,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "foghornleghorn@gmail.com"))
 
       post "/v1/organizations/#{org.key}/change_roles", emails: ["foghornleghorn@gmail.com"],
-                                                       role_name: "twilio specialist"
+                                                        role_name: "twilio specialist"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(

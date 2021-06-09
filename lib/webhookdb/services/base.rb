@@ -28,7 +28,6 @@ class Webhookdb::Services::Base
     self.db.transaction do
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
-      return self.calculate_state_machine
     end
   end
 
