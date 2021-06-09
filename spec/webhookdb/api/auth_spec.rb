@@ -55,6 +55,17 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(new_code).to_not be_expired
         expect(new_code).to have_attributes(transport: "email")
       end
+
+      it "creates new organization and membership for current customer if doesn't exist" do
+        post "/v1/auth", email: email
+
+        new_org = Webhookdb::Organization[name: "Org for #{email}"]
+        expect(new_org).to_not be_nil
+        expect(new_org.billing_email).to eq(email)
+
+        customer = Webhookdb::Customer.last
+        expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
+      end
     end
 
     describe "for an email matching an existing customer" do

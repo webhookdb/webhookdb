@@ -308,6 +308,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       new_org = Webhookdb::Organization[name: "Acme Corporation"]
       expect(new_org).to_not be_nil
       expect(new_org.key).to eq("acme_corporation")
+      expect(new_org.billing_email).to eq(customer.email)
 
       expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
     end
