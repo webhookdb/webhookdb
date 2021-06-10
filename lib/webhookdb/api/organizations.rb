@@ -133,11 +133,56 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             to_delete.delete
             status 200
             present({}, with: Webhookdb::AdminAPI::BaseEntity,
-                        message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
+                    message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
           end
         end
       end
 
+      resource :update do
+        desc "begins process of updating a field on an org"
+        params do
+          requires :field, type: String
+        end
+        post do
+          _customer = current_customer
+          org = lookup_org!
+          ensure_admin!
+          unless org.cli_editable_fields.include?(params[:field])
+            merror!(403, "That field is not editable from the command line")
+          end
+          state_machine = Webhookdb::Services::StateMachineStep.new
+          state_machine.needs_input = true
+          state_machine.output = "Great, looks like you can edit that field from the command line."
+          state_machine.prompt = "What is the new value? "
+          state_machine.prompt_is_secret = false
+          state_machine.post_to_url = "/v1/organizations/#{org.key}/update/#{params[:field]}"
+          state_machine.complete = false
+          status 200
+          present state_machine, with: Webhookdb::API::StateMachineEntity
+        end
+
+        route_param :field do
+          params do
+            requires :value
+          end
+          post do
+            customer = current_customer
+            org = lookup_org!
+            ensure_admin!
+            customer.db.transaction do
+              field = params[:field]
+              org.send("#{field}=", params[:value])
+              org.save
+              state_machine = Webhookdb::Services::StateMachineStep.new
+              state_machine.needs_input = false
+              state_machine.output = "You have successfully updated the organization #{org.name}."
+              state_machine.complete = true
+              status 200
+              present state_machine, with: Webhookdb::API::StateMachineEntity
+            end
+          end
+        end
+      end
       resource :change_roles do
         desc "Allows organization admin to change customer's role in an organization"
         params do
@@ -172,7 +217,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           new_org = Webhookdb::Organization.create_if_unique(name: params[:name])
           merror!(400, "An organization with that name already exists.") if new_org.nil?
           new_org.billing_email = customer.email
-          new_org.save
+          new_org.save_changes
           new_org.add_membership(customer: customer, role: Webhookdb::OrganizationRole.admin_role, verified: true)
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
             "to invite members to #{new_org.name}."
@@ -202,3 +247,4 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     end
   end
 end
+

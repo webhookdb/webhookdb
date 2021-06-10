@@ -22,7 +22,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       guard_logged_in!
       email = params[:email].strip.downcase
       unless (c = Webhookdb::Customer[email: email])
-        self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: "#{email}")
+        self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
         c = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
         c.add_membership(organization: self_org, role: Webhookdb::OrganizationRole.admin_role, verified: true)
       end

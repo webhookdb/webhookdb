@@ -14,11 +14,20 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     super
   end
 
+  def before_save
+    self.key ||= Webhookdb.to_slug(self.name)
+    super
+  end
+
   def self.create_if_unique(params)
     self.db.transaction(savepoint: true) do
       return Webhookdb::Organization.create(name: params[:name])
     end
   rescue Sequel::UniqueConstraintViolation
     return nil
+  end
+
+  def cli_editable_fields
+    return ["name", "billing_email"]
   end
 end

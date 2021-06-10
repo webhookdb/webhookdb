@@ -255,6 +255,72 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
+  describe "POST /v1/organizations/:organization_key/update" do
+    it "fails if request customer doesn't have admin privileges" do
+      post "/v1/organizations/#{org.key}/update", field: "name"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+
+    it "fails if proposed change field is not editable via the cli" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.key}/update", field: "opaque_id"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "That field is not editable from the command line"),
+      )
+    end
+
+    it "returns correct state machine" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.key}/update", field: "billing_email"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(needs_input: true,
+                                                            output: "Great, looks like you can edit that field from the command line.",
+                                                            prompt: "What is the new value? ", prompt_is_secret: false,
+                                                            post_to_url: "/v1/organizations/#{org.key}/update/billing_email",
+                                                            complete: false,)
+    end
+  end
+
+  describe "POST /v1/organizations/:organization_key/update/:field" do
+    it "fails if request customer doesn't have admin privileges" do
+      post "/v1/organizations/#{org.key}/update/name", value: "Road Runner Industries"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        )
+    end
+
+    it "updates org" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.key}/update/billing_email", value: "x@y.com"
+
+      updated_org = Webhookdb::Organization[id: org.id]
+      expect(updated_org.billing_email).to eq("x@y.com")
+    end
+
+    it "returns correct state machine" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.key}/update/billing_email", value: "x@y.com"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(needs_input: false,
+                                                            output: "You have successfully updated the organization #{org.name}.",
+                                                            complete: true,)
+    end
+  end
+
   describe "POST /v1/organizations/:organization_key/change_roles" do
     it "changes the roles of customers and returns correct response" do
       customer.memberships_dataset.update(role_id: admin_role.id)
@@ -263,7 +329,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
 
       post "v1/organizations/#{org.key}/change_roles", emails: ["pepelepew@yahoo.com", "marvinthe@martian.com"],
-                                                      role_name: "troublemaker"
+                                                       role_name: "troublemaker"
 
       troublemaker_memberships = org.memberships_dataset.where(
         role_id: Webhookdb::OrganizationRole[name: "troublemaker"].id,

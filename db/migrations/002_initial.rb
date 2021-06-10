@@ -25,7 +25,7 @@ Sequel.migration do
 
       text :name, null: false, unique: true
       text :key, unique: true
-      text :billing_email
+      text :billing_email, null: false, default: ""
 
       text :readonly_connection_url
       text :readwrite_connection_url
