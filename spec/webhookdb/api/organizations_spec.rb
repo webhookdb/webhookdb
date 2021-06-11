@@ -257,7 +257,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
   describe "POST /v1/organizations/:organization_key/update" do
     it "fails if request customer doesn't have admin privileges" do
-      post "/v1/organizations/#{org.key}/update", field: "name"
+      post "/v1/organizations/#{org.key}/update", field: 'name="Acme Corp"'
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -268,7 +268,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if proposed change field is not editable via the cli" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.key}/update", field: "opaque_id"
+      post "/v1/organizations/#{org.key}/update", field: "opaque_id=foobar"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -276,52 +276,24 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       )
     end
 
-    it "returns correct state machine" do
-      customer.memberships_dataset.update(role_id: admin_role.id)
-
-      post "/v1/organizations/#{org.key}/update", field: "billing_email"
-
-      expect(last_response).to have_status(200)
-      # rubocop:disable Layout/LineLength
-      expect(last_response).to have_json_body.that_includes(needs_input: true,
-                                                            output: "Great, looks like you can edit that field from the command line.",
-                                                            prompt: "What is the new value? ", prompt_is_secret: false,
-                                                            post_to_url: "/v1/organizations/#{org.key}/update/billing_email",
-                                                            complete: false,)
-      # rubocop:enable Layout/LineLength
-    end
-  end
-
-  describe "POST /v1/organizations/:organization_key/update/:field" do
-    it "fails if request customer doesn't have admin privileges" do
-      post "/v1/organizations/#{org.key}/update/name", value: "Road Runner Industries"
-
-      expect(last_response).to have_status(400)
-      expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
-      )
-    end
-
     it "updates org" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.key}/update/billing_email", value: "x@y.com"
+      post "/v1/organizations/#{org.key}/update", field: "billing_email=x@y.com"
 
       updated_org = Webhookdb::Organization[id: org.id]
       expect(updated_org.billing_email).to eq("x@y.com")
     end
 
-    it "returns correct state machine" do
+    it "returns correct response" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
-      post "/v1/organizations/#{org.key}/update/billing_email", value: "x@y.com"
+      post "/v1/organizations/#{org.key}/update", field: "billing_email=x@y.com"
 
       expect(last_response).to have_status(200)
-      # rubocop:disable Layout/LineLength
-      expect(last_response).to have_json_body.that_includes(needs_input: false,
-                                                            output: "You have successfully updated the organization #{org.name}.",
-                                                            complete: true,)
-      # rubocop:enable Layout/LineLength
+      expect(last_response).to have_json_body.that_includes(
+        message: "You have successfully updated the organization #{org.name}.",
+      )
     end
   end
 

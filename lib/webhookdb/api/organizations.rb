@@ -144,42 +144,20 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           requires :field, type: String
         end
         post do
-          _customer = current_customer
+          customer = current_customer
           org = lookup_org!
           ensure_admin!
-          unless org.cli_editable_fields.include?(params[:field])
+          field_name = params[:field].split("=")[0]
+          value = params[:field].split("=")[1]
+          unless org.cli_editable_fields.include?(field_name)
             merror!(403, "That field is not editable from the command line")
           end
-          state_machine = Webhookdb::Services::StateMachineStep.new
-          state_machine.needs_input = true
-          state_machine.output = "Great, looks like you can edit that field from the command line."
-          state_machine.prompt = "What is the new value? "
-          state_machine.prompt_is_secret = false
-          state_machine.post_to_url = "/v1/organizations/#{org.key}/update/#{params[:field]}"
-          state_machine.complete = false
-          status 200
-          present state_machine, with: Webhookdb::API::StateMachineEntity
-        end
-
-        route_param :field do
-          params do
-            requires :value
-          end
-          post do
-            customer = current_customer
-            org = lookup_org!
-            ensure_admin!
-            customer.db.transaction do
-              field = params[:field]
-              org.send("#{field}=", params[:value])
-              org.save_changes
-              state_machine = Webhookdb::Services::StateMachineStep.new
-              state_machine.needs_input = false
-              state_machine.output = "You have successfully updated the organization #{org.name}."
-              state_machine.complete = true
-              status 200
-              present state_machine, with: Webhookdb::API::StateMachineEntity
-            end
+          customer.db.transaction do
+            org.send("#{field_name}=", value)
+            org.save_changes
+            status 200
+            present org, with: Webhookdb::API::OrganizationEntity,
+                         message: "You have successfully updated the organization #{org.name}."
           end
         end
       end
