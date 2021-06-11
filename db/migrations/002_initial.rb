@@ -28,7 +28,6 @@ Sequel.migration do
       text :billing_email, null: false, default: ""
 
       text :readonly_connection_url
-      text :readwrite_connection_url
       text :admin_connection_url
     end
 
