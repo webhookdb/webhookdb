@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webhookdb/connection_cache"
+
 class Webhookdb::Services::Base
   # @return [Webhookdb::ServiceIntegration]
   attr_reader :service_integration
@@ -55,7 +57,9 @@ class Webhookdb::Services::Base
 
   def create_table
     cmd = self._create_table_sql
-    self.service_integration.db << cmd
+    self.admin_dataset do |ds|
+      ds.db << cmd
+    end
   end
 
   def _create_table_sql
@@ -100,11 +104,13 @@ class Webhookdb::Services::Base
     remote_key_col = self._remote_key_column
     inserting = {data: body.to_json}
     inserting.merge!(self._prepare_for_insert(body))
-    self.dataset.insert_conflict(
-      target: remote_key_col.name,
-      update: inserting,
-      update_where: self._update_where_expr,
-    ).insert(inserting)
+    self.admin_dataset do |ds|
+      ds.insert_conflict(
+        target: remote_key_col.name,
+        update: inserting,
+        update_where: self._update_where_expr,
+      ).insert(inserting)
+    end
   end
 
   # Upsert a backfill payload into the database.
@@ -130,9 +136,19 @@ class Webhookdb::Services::Base
     raise NotImplementedError
   end
 
-  # @return [Sequel::Dataset]
-  def dataset
-    return self.service_integration.db[self.table_sym]
+  def admin_dataset(&block)
+    self.with_dataset(self.service_integration.organization.admin_connection_url, &block)
+  end
+
+  def readonly_dataset(&block)
+    self.with_dataset(self.service_integration.organization.readonly_connection_url, &block)
+  end
+
+  protected def with_dataset(url, &block)
+    raise LocalJumpError if block.nil?
+    Webhookdb::ConnectionCache.borrow(url) do |conn|
+      yield(conn[self.table_sym])
+    end
   end
 
   # In order to backfill, we need to:

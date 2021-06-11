@@ -6,6 +6,8 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   plugin :timestamps
   plugin :soft_deletes
 
+  MAX_QUERY_ROWS = 1000
+
   one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
 
@@ -30,7 +32,70 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def cli_editable_fields
     return ["name", "billing_email"]
   end
+
+  # TODO: Test this explicitly, with truncation behavior
+  def execute_readonly_query(sql)
+    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url) do |conn|
+      ds = conn.fetch(sql)
+      r = QueryResult.new
+      r.columns = ds.columns
+      r.rows = []
+      ds.each do |row|
+        r.rows << row.values
+        if r.rows.length > MAX_QUERY_ROWS
+          r.max_rows_reached = true
+          break
+        end
+      end
+      return r
+    end
+  end
+
+  class QueryResult
+    attr_accessor :rows, :columns, :max_rows_reached
+  end
+
+  def dbname
+    raise Webhookdb::InvalidPrecondition, "no db has been created, call prepare_database_connections first" if
+      self.admin_connection_url.blank?
+    return URI(self.admin_connection_url).path.tr("/", "")
+  end
+
+  def admin_user
+    ur = URI(self.admin_connection_url)
+    return ur.user
+  end
+
+  def readonly_user
+    ur = URI(self.readonly_connection_url)
+    return ur.user
+  end
+
+  def prepare_database_connections
+    self.db.transaction do
+      self.lock!
+      raise Webhookdb::InvalidPrecondition, "connections already set" if self.admin_connection_url.present?
+      builder = Webhookdb::Organization::DbBuilder.prepare_database_connections(self)
+      self.admin_connection_url = builder.admin_url
+      self.readonly_connection_url = builder.readonly_url
+      self.save_changes
+    end
+  end
+
+  def remove_related_database
+    self.db.transaction do
+      self.lock!
+      Webhookdb::Organization::DbBuilder.remove_related_database(self)
+      self.admin_connection_url = ""
+      self.readonly_connection_url = ""
+      self.save_changes
+    end
+  end
 end
+
+require "webhookdb/organization/db_builder"
+
+# TODO: Remove readwrite url, just use admin
 
 # Table: organizations
 # --------------------------------------------------------------------------------------------------------------------------

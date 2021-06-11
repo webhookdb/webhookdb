@@ -17,10 +17,8 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       ]
     end
     it "starts backfill process" do
-      sint = Webhookdb::Fixtures.service_integration.create(
-        backfill_key: "bfkey",
-        backfill_secret: "bfsek",
-      )
+      sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
+      sint.organization.prepare_database_connections
       Webhookdb::Services::Fake.backfill_responses = {
         nil => [page1_items, nil],
       }
@@ -31,19 +29,29 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           "webhookdb.serviceintegration.backfill", sint.id,
         )
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      expect(Webhookdb::Services.service_instance(sint).dataset.all).to have_length(2)
+      Webhookdb::Services.service_instance(sint).readonly_dataset do |ds|
+        expect(ds.all).to have_length(2)
+      end
+    ensure
+      sint.organization.remove_related_database
     end
   end
 
   describe "CreateMirrorTable" do
     it "creates the table for the service integration" do
+      org = Webhookdb::Fixtures.organization.create
+      org.prepare_database_connections
       sint = nil
       expect do
-        sint = Webhookdb::Fixtures.service_integration.create
+        sint = Webhookdb::Fixtures.service_integration(organization: org).create
       end.to perform_async_job(Webhookdb::Jobs::CreateMirrorTable)
 
       expect(sint).to_not be_nil
-      expect(Webhookdb::Customer.db.table_exists?(sint&.table_name)).to be_truthy
+      Webhookdb::Services.service_instance(sint).admin_dataset do |ds|
+        expect(ds.db.table_exists?(sint&.table_name)).to be_truthy
+      end
+    ensure
+      org.remove_related_database
     end
   end
 
@@ -63,6 +71,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   describe "ProcessWebhook" do
     it "passes the payload off to the processor" do
       sint = Webhookdb::Fixtures.service_integration.create
+      sint.organization.prepare_database_connections
       Webhookdb::Services.service_instance(sint).create_table
       expect do
         Webhookdb.publish(
@@ -74,7 +83,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           },
         )
       end.to perform_async_job(Webhookdb::Jobs::ProcessWebhook)
-      expect(Webhookdb::Services.service_instance(sint).dataset.all).to have_length(1)
+      Webhookdb::Services.service_instance(sint).readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+      end
+    ensure
+      sint.organization.remove_related_database
     end
   end
 

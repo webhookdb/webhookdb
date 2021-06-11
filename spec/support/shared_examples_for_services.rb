@@ -6,16 +6,29 @@ RSpec.shared_examples "a service implementation" do |name|
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
 
-  it "can create its table" do
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "can create its table in its org db" do
     svc.create_table
-    expect(sint.db.table_exists?(svc.table_sym)).to be_truthy
+    svc.readonly_dataset do |ds|
+      expect(ds.db.table_exists?(svc.table_sym)).to be_truthy
+    end
+    expect(sint.db.table_exists?(svc.table_sym)).to be_falsey
   end
 
   it "can insert into its table" do
     svc.create_table
     svc.upsert_webhook(body: body)
-    expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(expected_data)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_data)
+    end
   end
 
   it "handles webhooks" do
@@ -36,27 +49,39 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   let(:expected_old_data) { old_body }
   let(:expected_new_data) { new_body }
 
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
   it "will override older rows with newer ones" do
     svc.create_table
-    svc.upsert_webhook(body: old_body)
-    expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(expected_old_data)
+    svc.readonly_dataset do |ds|
+      svc.upsert_webhook(body: old_body)
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_old_data)
 
-    svc.upsert_webhook(body: new_body)
-    expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(expected_new_data)
+      svc.upsert_webhook(body: new_body)
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_new_data)
+    end
   end
 
   it "will not override newer rows with older ones" do
     svc.create_table
 
-    svc.upsert_webhook(body: new_body)
-    expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(expected_new_data)
+    svc.readonly_dataset do |ds|
+      svc.upsert_webhook(body: new_body)
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_new_data)
 
-    svc.upsert_webhook(body: old_body)
-    expect(svc.dataset.all).to have_length(1)
-    expect(svc.dataset.first[:data]).to eq(expected_new_data)
+      svc.upsert_webhook(body: old_body)
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_new_data)
+    end
   end
 end
 
@@ -73,10 +98,20 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   let(:page1_items) { raise NotImplementedError }
   let(:page2_items) { raise NotImplementedError }
 
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
   it "upsert records for pages of results" do
     svc.create_table
     svc.backfill
-    expect(svc.dataset.all).to have_length(page1_items.length + page2_items.length)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(page1_items.length + page2_items.length)
+    end
   end
 
   it "retries the page fetch" do
@@ -89,7 +124,9 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     expect(svc).to receive(:_fetch_backfill_page).and_call_original
 
     svc.backfill
-    expect(svc.dataset.all).to have_length(page1_items.length + page2_items.length)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(page1_items.length + page2_items.length)
+    end
   end
 
   it "errors if backfill credentials are not present" do

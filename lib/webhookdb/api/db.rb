@@ -23,28 +23,28 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       get do
         _customer = current_customer
         org = lookup_org!
-        r = {tables: org.db.tables}
+        r = Webhookdb::ConnectionCache.borrow(org.readonly_connection_url) do |conn|
+          {tables: conn.tables}
+        end
         present r
       end
 
       resource :sql do
-        desc "Returns a list of all tables in the organization's db."
+        desc "Execute an arbitrary query against an org's connection string"
         params do
           requires :query, type: String, allow_blank: false
         end
-        get do
+        post do
           _customer = current_customer
           org = lookup_org!
-          ds = org.db.fetch(params[:query])
-          rows = []
-          ds.each do |row|
-            rows << row.values
-            break if rows.length >= 1000
+          begin
+            r = org.execute_readonly_query(params[:query])
+          rescue Sequel::DatabaseError => e
+            self.logger.error("db_query_database_error", error: e)
+            merror!(403, "You do not have permission to perform this query. Queries must be read-only.")
           end
-          # We probably want to add in the count, and whether things were truncated
-          # For the future
-          r = {rows: rows, columns: ds.columns}
-          present r
+          status 200
+          present({rows: r.rows, columns: r.columns, max_rows_reached: r.max_rows_reached})
         end
       end
     end
