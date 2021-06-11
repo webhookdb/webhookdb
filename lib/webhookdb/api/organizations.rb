@@ -133,7 +133,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             to_delete.delete
             status 200
             present({}, with: Webhookdb::AdminAPI::BaseEntity,
-                    message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
+                        message: "#{params[:email]} is no longer a part of the Lithic Technology organization.",)
           end
         end
       end
@@ -172,7 +172,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             customer.db.transaction do
               field = params[:field]
               org.send("#{field}=", params[:value])
-              org.save
+              org.save_changes
               state_machine = Webhookdb::Services::StateMachineStep.new
               state_machine.needs_input = false
               state_machine.output = "You have successfully updated the organization #{org.name}."
@@ -247,4 +247,3 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     end
   end
 end
-

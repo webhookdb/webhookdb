@@ -282,11 +282,13 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "/v1/organizations/#{org.key}/update", field: "billing_email"
 
       expect(last_response).to have_status(200)
+      # rubocop:disable Layout/LineLength
       expect(last_response).to have_json_body.that_includes(needs_input: true,
                                                             output: "Great, looks like you can edit that field from the command line.",
                                                             prompt: "What is the new value? ", prompt_is_secret: false,
                                                             post_to_url: "/v1/organizations/#{org.key}/update/billing_email",
                                                             complete: false,)
+      # rubocop:enable Layout/LineLength
     end
   end
 
@@ -297,7 +299,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
-        )
+      )
     end
 
     it "updates org" do
@@ -315,9 +317,11 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "/v1/organizations/#{org.key}/update/billing_email", value: "x@y.com"
 
       expect(last_response).to have_status(200)
+      # rubocop:disable Layout/LineLength
       expect(last_response).to have_json_body.that_includes(needs_input: false,
                                                             output: "You have successfully updated the organization #{org.name}.",
                                                             complete: true,)
+      # rubocop:enable Layout/LineLength
     end
   end
 
