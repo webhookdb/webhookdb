@@ -9,7 +9,13 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
   helpers do
     def lookup_org!
       customer = current_customer
-      organization = Webhookdb::Organization.where(key: params[:organization_key])
+      # Check to see if identifier is an integer, i.e. an ID.
+      # Otherwise treat it as a slug
+      if /\A\d+\z/.match(params[:identifier])
+        organization = Webhookdb::Organization.where(id: params[:identifier])
+      else
+        organization = Webhookdb::Organization.where(key: params[:identifier])
+      end
       membership = customer.memberships_dataset[organization: organization, verified: true]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
       return membership.organization
@@ -34,7 +40,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     # GET
 
-    route_param :organization_key, type: String do
+    route_param :identifier, type: String do
       resource :members do
         desc "Return all customers associated with the organization"
         get do
