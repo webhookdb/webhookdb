@@ -55,6 +55,35 @@ RSpec.describe Webhookdb::Postgres::Validations, :db do
     end
   end
 
+  context "all or none" do
+    it "validates that not all columns are set" do
+      instance.last_name = "Curie"
+      instance.validates_all_or_none(:first_name, :last_name)
+
+      expect(instance.errors).to include(:first_name)
+      expect(instance.errors[:first_name].first).to match(/must all be set or all be null/)
+    end
+
+    it "passes validation if all of the passed columns are set" do
+      instance.first_name = "Marie"
+      instance.last_name = "Curie"
+
+      expect do
+        instance.validates_all_or_none(:first_name, :last_name)
+      end.to_not(change do
+        instance.errors.count
+      end)
+    end
+
+    it "passes validation if none of the passed columns are set" do
+      expect do
+        instance.validates_all_or_none(:first_name, :last_name)
+      end.to_not(change do
+        instance.errors.count
+      end)
+    end
+  end
+
   context "at least one of" do
     it "validates that at least one column is set" do
       instance.validates_at_least_one_of(:first_name, :last_name)

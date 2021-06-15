@@ -11,6 +11,14 @@ module Webhookdb::Postgres::Validations
         set_cols.length > 1
   end
 
+  ### Ensures that either all of the passed columns are null or none of them are
+  def validates_all_or_none(*cols)
+    set_cols = cols.find_all { |col| !self[col].nil? }
+
+    self.errors.add(cols.first, "the columns #{cols[1..].join(', ')} must all be set or all be null") if
+      !set_cols.empty? && set_cols.length != cols.length
+  end
+
   ### Ensures that at least one of the passed columns is not null
   def validates_at_least_one_of(*cols)
     self.errors.add(cols.first, "must be set if all of #{cols[1..].join(', ')} are null") unless
