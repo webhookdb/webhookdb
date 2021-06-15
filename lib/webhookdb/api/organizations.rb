@@ -69,10 +69,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             org = lookup_org!
             ensure_admin!
             customer.db.transaction do
-              sint = Webhookdb::ServiceIntegration[organization: org, table_name: params[:service_name],
+              sint = Webhookdb::ServiceIntegration[organization: org,
                                                    service_name: params[:service_name]]
               if sint.nil?
-                sint = Webhookdb::ServiceIntegration.create(organization: org, table_name: params[:service_name],
+                sint = Webhookdb::ServiceIntegration.create(organization: org,
+                                                            table_name: (params[:service_name]
+                                                                         + "_#{SecureRandom.hex(2)}"),
                                                             service_name: params[:service_name],
                                                             opaque_id: SecureRandom.hex(6),)
               end

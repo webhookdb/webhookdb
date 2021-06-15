@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require "webhookdb/postgres/model"
+require "appydays/configurable"
 
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   plugin :timestamps
   plugin :soft_deletes
 
-  MAX_QUERY_ROWS = 1000
+  configurable(:organization) do
+    setting :max_query_rows, 1000
+  end
 
   one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
@@ -33,7 +36,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return ["name", "billing_email"]
   end
 
-  # TODO: Test this explicitly, with truncation behavior
   def execute_readonly_query(sql)
     return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url) do |conn|
       ds = conn.fetch(sql)
@@ -41,11 +43,11 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       r.columns = ds.columns
       r.rows = []
       ds.each do |row|
-        r.rows << row.values
-        if r.rows.length > MAX_QUERY_ROWS
+        if r.rows.length >= self.class.max_query_rows
           r.max_rows_reached = true
           break
         end
+        r.rows << row.values
       end
       return r
     end
@@ -90,6 +92,11 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       self.readonly_connection_url = ""
       self.save_changes
     end
+  end
+
+  def validate
+    super
+    validates_all_or_none(:admin_connection_url, :readonly_connection_url)
   end
 end
 
