@@ -17,6 +17,10 @@ module Webhookdb::API
     expose :name
   end
 
+  class DefaultOrganizationEntity < BaseEntity
+    expose :organization
+  end
+
   class OrganizationMembershipEntity < BaseEntity
     expose :id
     expose :customer_email, as: :email
