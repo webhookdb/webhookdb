@@ -10,15 +10,21 @@ class Webhookdb::API::Db < Webhookdb::API::V1
     helpers do
       def lookup_org!
         customer = current_customer
-        organization = Webhookdb::Organization.where(key: params[:organization_key])
-        merror!(400, "There is no organization with the key #{params[:organization_key]}") if organization.nil?
-        membership = customer.memberships_dataset[organization: organization, verified: true]
+        # Check to see if identifier is an integer, i.e. an ID.
+        # Otherwise treat it as a slug
+        org = if /\A\d+\z/.match?(params[:identifier])
+                Webhookdb::Organization[id: params[:identifier]]
+              else
+                Webhookdb::Organization[key: params[:identifier]]
+              end
+        merror!(403, "There is no organization with that identifier.") if org.nil?
+        membership = customer.memberships_dataset[organization: org, verified: true]
         merror!(403, "You don't have permissions with that organization.") if membership.nil?
         return membership.organization
       end
     end
 
-    route_param :organization_key, type: String do
+    route_param :identifier, type: String do
       desc "Returns a list of all tables in the organization's db."
       get do
         _customer = current_customer
