@@ -11,12 +11,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       customer = current_customer
       # Check to see if identifier is an integer, i.e. an ID.
       # Otherwise treat it as a slug
-      if /\A\d+\z/.match(params[:identifier])
-        organization = Webhookdb::Organization.where(id: params[:identifier])
+      org = if /\A\d+\z/.match?(params[:identifier])
+              Webhookdb::Organization.where(id: params[:identifier])
       else
-        organization = Webhookdb::Organization.where(key: params[:identifier])
-      end
-      membership = customer.memberships_dataset[organization: organization, verified: true]
+        Webhookdb::Organization.where(key: params[:identifier])
+                     end
+      membership = customer.memberships_dataset[organization: org, verified: true]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
       return membership.organization
     end
@@ -41,6 +41,15 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     # GET
 
     route_param :identifier, type: String do
+      desc "Return organization with the given identifier."
+      get do
+        customer = current_customer
+        org = lookup_org!
+        # create a nested object so that we can unmarshal the org as a single entity in the cli
+        org_object = {organization: {id: org.id, name: org.name, key: org.key}}
+        present org_object
+      end
+
       resource :members do
         desc "Return all customers associated with the organization"
         get do

@@ -47,7 +47,26 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "GET /v1/organizations/:organization_key/members" do
+  describe "GET /v1/organizations/:identifier" do
+    it "returns organization associated with identifier" do
+      get "/v1/organizations/#{org.key}"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(organization: include(id: org.id))
+    end
+
+    it "403s if the org does not exist or customer doesn't have permissions" do
+      get "/v1/organizations/fake_org"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "You don't have permissions with that organization."),
+      )
+    end
+  end
+
+  describe "GET /v1/organizations/:identifier/members" do
     it "returns all customers associated with organization" do
       extra_customers = Array.new(3) { Webhookdb::Fixtures.customer.create }
       extra_customers.each { |c| org.add_membership(customer: c) }
@@ -71,7 +90,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "GET v1/organizations/:organization_key/service_integrations" do
+  describe "GET v1/organizations/:identifier/service_integrations" do
     it "returns all service integrations associated with organization" do
       integrations = Array.new(2) { Webhookdb::Fixtures.service_integration.create }
       _extra_integrations = Webhookdb::Fixtures.service_integration.create
@@ -94,7 +113,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   end
 
   # POST
-  describe "POST v1/organizations/:organization_key/service_integrations/create" do
+  describe "POST v1/organizations/:identifier/service_integrations/create" do
     it "creates a service integration" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
@@ -124,7 +143,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_key/invite" do
+  describe "POST /v1/organizations/:identifier/invite" do
     it "fails if request customer doesn't have admin privileges" do
       test_customer = Webhookdb::Fixtures.customer.create(email: "granny@aol.com")
       org.add_membership(customer: test_customer)
@@ -211,7 +230,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_key/remove" do
+  describe "POST /v1/organizations/:identifier/remove" do
     it "fails if request customer doesn't have admin privileges" do
       test_customer = Webhookdb::Fixtures.customer.create(email: "yosemitesam@gmail.com")
       org.add_membership(customer: test_customer)
@@ -255,7 +274,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_key/update" do
+  describe "POST /v1/organizations/:identifier/update" do
     it "fails if request customer doesn't have admin privileges" do
       post "/v1/organizations/#{org.key}/update", field: 'name="Acme Corp"'
 
@@ -297,7 +316,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:organization_key/change_roles" do
+  describe "POST /v1/organizations/:identifier/change_roles" do
     it "changes the roles of customers and returns correct response" do
       customer.memberships_dataset.update(role_id: admin_role.id)
 
