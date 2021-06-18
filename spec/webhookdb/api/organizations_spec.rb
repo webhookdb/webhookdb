@@ -61,7 +61,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "You don't have permissions with that organization."),
+        error: include(message: "There is no organization with that identifier."),
       )
     end
   end
@@ -323,8 +323,14 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       membership_a = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "pepelepew@yahoo.com"))
       membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
 
-      post "v1/organizations/#{org.key}/change_roles", emails: ["pepelepew@yahoo.com", "marvinthe@martian.com"],
+      post "v1/organizations/#{org.key}/change_roles", emails: ["pepelepew@yahoo.com","marvinthe@martian.com"],
                                                        role_name: "troublemaker"
+
+
+      #       PG::UndefinedFunction: ERROR:  operator does not exist: citext = boolean
+      #       LINE 1: ..."customers"."id" FROM "customers" WHERE (("email" IN ('pepel...
+      #                                                              ^
+      # HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
 
       troublemaker_memberships = org.memberships_dataset.where(
         role_id: Webhookdb::OrganizationRole[name: "troublemaker"].id,
