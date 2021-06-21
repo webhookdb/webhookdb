@@ -90,8 +90,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       post "/v1/service_integrations/xyz/backfill"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
-                                                            post_to_url: nil, complete: true, output: nil,)
+      expect(last_response).to have_json_body.that_includes(needs_input: true , output: "Now let's test the backfill flow." , prompt: "Paste or type a string here:" , prompt_is_secret: false , post_to_url: match("/transition/backfill_secret"), complete: false)
     end
 
     it "starts backfill process if setup is complete" do
@@ -107,11 +106,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
     it "calls the state machine with the given field and value and returns the result" do
-      post "/v1/service_integrations/xyz/transition/field_name", value: "open sesame"
+      post "/v1/service_integrations/xyz/transition/webhook_secret", value: "webhook_secret"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
-                                                            post_to_url: nil, complete: true, output: nil,)
+      expect(last_response).to have_json_body.that_includes(needs_input: false, prompt: nil, prompt_is_secret: nil,
+                                                            post_to_url: nil, complete: true, output: match("The integration creation flow is working correctly"),)
     end
 
     it "403s if the current user cannot modify the integration" do
