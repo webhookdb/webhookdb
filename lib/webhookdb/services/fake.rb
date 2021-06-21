@@ -22,17 +22,17 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
       case field
-      when "webhook_secret"
-        return self.calculate_create_state_machine(self.service_integration.organization)
-      when "backfill_secret"
-        return self.calculate_backfill_state_machine(self.service_integration.organization)
+        when "webhook_secret"
+          return self.calculate_create_state_machine(self.service_integration.organization)
+        when "backfill_secret"
+          return self.calculate_backfill_state_machine(self.service_integration.organization)
       else
-        return
+          return
       end
     end
   end
 
-  def calculate_create_state_machine(organization)
+  def calculate_create_state_machine(_organization)
     step = Webhookdb::Services::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
@@ -46,12 +46,13 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     end
 
     step.needs_input = false
-    step.output = "The integration creation flow is working correctly. Here is the integration's opaque id, which you'll need to enter in a second: #{self.service_integration.opaque_id}"
+    step.output = "The integration creation flow is working correctly. Here is " \
+"the integration's opaque id, which you'll need to enter in a second: #{self.service_integration.opaque_id}"
     step.complete = true
     return step
   end
 
-  def calculate_backfill_state_machine(organization)
+  def calculate_backfill_state_machine(_organization)
     step = Webhookdb::Services::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.backfill_secret.present?

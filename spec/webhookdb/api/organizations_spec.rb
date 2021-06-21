@@ -129,7 +129,12 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(needs_input: true, output: "You're creating a fake_v1 service integration.", prompt: "Paste or type your fake API secret here:", prompt_is_secret: false, post_to_url: match("/transition/webhook_secret"), complete: false)
+      expect(last_response).to have_json_body.that_includes(
+        needs_input: true,
+        output: "You're creating a fake_v1 service integration.",
+        prompt: "Paste or type your fake API secret here:",
+        prompt_is_secret: false, post_to_url: match("/transition/webhook_secret"), complete: false,
+      )
     end
 
     it "fails if the current user is not an admin" do
@@ -324,7 +329,6 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       post "v1/organizations/#{org.key}/change_roles", emails: "pepelepew@yahoo.com,marvinthe@martian.com",
                                                        role_name: "troublemaker"
-
 
       #       PG::UndefinedFunction: ERROR:  operator does not exist: citext = boolean
       #       LINE 1: ..."customers"."id" FROM "customers" WHERE (("email" IN ('pepel...

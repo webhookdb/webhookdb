@@ -44,7 +44,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     route_param :identifier, type: String do
       desc "Return organization with the given identifier."
       get do
-        customer = current_customer
+        _customer = current_customer
         org = lookup_org!
         # create a nested object so that we can unmarshal the org as a single entity in the cli
         org_object = {organization: {id: org.id, name: org.name, key: org.key}}
