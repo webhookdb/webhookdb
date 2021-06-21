@@ -129,8 +129,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(needs_input: nil, prompt: nil, prompt_is_secret: nil,
-                                                            post_to_url: nil, complete: true, output: nil,)
+      expect(last_response).to have_json_body.that_includes(needs_input: true, output: "You're creating a fake_v1 service integration.", prompt: "Paste or type your fake API secret here:", prompt_is_secret: false, post_to_url: match("/transition/webhook_secret"), complete: false)
     end
 
     it "fails if the current user is not an admin" do
@@ -323,7 +322,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       membership_a = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "pepelepew@yahoo.com"))
       membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
 
-      post "v1/organizations/#{org.key}/change_roles", emails: ["pepelepew@yahoo.com","marvinthe@martian.com"],
+      post "v1/organizations/#{org.key}/change_roles", emails: "pepelepew@yahoo.com,marvinthe@martian.com",
                                                        role_name: "troublemaker"
 
 
@@ -347,7 +346,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       customer.memberships_dataset.update(role_id: admin_role.id)
       Webhookdb::Fixtures.customer.create(email: "sylvester@yahoo.com")
 
-      post "/v1/organizations/#{org.key}/change_roles", emails: ["sylvester@yahoo.com"], role_name: "cat"
+      post "/v1/organizations/#{org.key}/change_roles", emails: "sylvester@yahoo.com", role_name: "cat"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -358,7 +357,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if request customer doesn't have admin privileges" do
       org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "foghornleghorn@gmail.com"))
 
-      post "/v1/organizations/#{org.key}/change_roles", emails: ["foghornleghorn@gmail.com"],
+      post "/v1/organizations/#{org.key}/change_roles", emails: "foghornleghorn@gmail.com",
                                                         role_name: "twilio specialist"
 
       expect(last_response).to have_status(400)
