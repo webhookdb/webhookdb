@@ -26,6 +26,7 @@ Sequel.migration do
       text :name, null: false, unique: true
       text :key, unique: true
       text :billing_email, null: false, default: ""
+      text :stripe_customer_id, null: false, default: ""
 
       text :readonly_connection_url
       text :admin_connection_url
@@ -44,6 +45,17 @@ Sequel.migration do
       boolean :verified, null: false, default: true
       text :invitation_code
       text :status
+    end
+
+    create_table(:subscriptions) do
+      primary_key :id
+      timestamptz :created_at, null: false, default: Sequel.function(:now)
+      timestamptz :updated_at
+      timestamptz :soft_deleted_at
+      text :stripe_id, null: false, default: ""
+      text :stripe_customer_id, null: false, default: ""
+
+      jsonb :stripe_json, default: "{}"
     end
 
     create_table(:customer_reset_codes) do

@@ -54,6 +54,7 @@ module Webhookdb::Postgres
     "webhookdb/organization_membership",
     "webhookdb/organization_role",
     "webhookdb/service_integration",
+    "webhookdb/subscription",
     "webhookdb/role",
   ].freeze
 
