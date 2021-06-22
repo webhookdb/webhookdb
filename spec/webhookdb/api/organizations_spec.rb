@@ -330,11 +330,6 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "v1/organizations/#{org.key}/change_roles", emails: "pepelepew@yahoo.com,marvinthe@martian.com",
                                                        role_name: "troublemaker"
 
-      #       PG::UndefinedFunction: ERROR:  operator does not exist: citext = boolean
-      #       LINE 1: ..."customers"."id" FROM "customers" WHERE (("email" IN ('pepel...
-      #                                                              ^
-      # HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
-
       troublemaker_memberships = org.memberships_dataset.where(
         role_id: Webhookdb::OrganizationRole[name: "troublemaker"].id,
       )

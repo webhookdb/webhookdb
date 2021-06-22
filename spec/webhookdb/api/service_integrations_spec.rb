@@ -110,7 +110,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
     it "calls the state machine with the given field and value and returns the result" do
-      post "/v1/service_integrations/xyz/transition/webhook_secret", value: "webhook_secret"
+      post "/v1/service_integrations/xyz/transition/webhook_secret", value: "open sesame"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(

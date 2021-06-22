@@ -9,13 +9,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
   helpers do
     def lookup_org!
       customer = current_customer
-      # Check to see if identifier is an integer, i.e. an ID.
-      # Otherwise treat it as a slug
-      org = if /\A\d+\z/.match?(params[:identifier])
-              Webhookdb::Organization[id: params[:identifier]]
-      else
-        Webhookdb::Organization[key: params[:identifier]]
-            end
+      org = Webhookdb::Organization.lookup_by_identifier(params[:identifier])
       merror!(403, "There is no organization with that identifier.") if org.nil?
       membership = customer.memberships_dataset[organization: org, verified: true]
       merror!(403, "You don't have permissions with that organization.") if membership.nil?
@@ -182,7 +176,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       resource :change_roles do
         desc "Allows organization admin to change customer's role in an organization"
         params do
-          requires :emails, type: String
+          requires :emails, type: Array[String], coerce_with: ->(val) { val.split(",") }
           requires :role_name, type: String
         end
         post do
@@ -191,8 +185,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           ensure_admin!
           customer.db.transaction do
             new_role = Webhookdb::OrganizationRole.find_or_create_or_find(name: params[:role_name])
-            emails = params[:emails].split(",")
-            memberships = org.memberships_dataset.where(customer: Webhookdb::Customer.where(email: emails))
+            memberships = org.memberships_dataset.where(customer: Webhookdb::Customer.where(email: params[:emails]))
             memberships.update(role_id: new_role.id)
             merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
             message = "Success! These users have now been assigned the role of #{new_role.name} in #{org.name}."

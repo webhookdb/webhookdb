@@ -10,13 +10,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
     helpers do
       def lookup_org!
         customer = current_customer
-        # Check to see if identifier is an integer, i.e. an ID.
-        # Otherwise treat it as a slug
-        org = if /\A\d+\z/.match?(params[:identifier])
-                Webhookdb::Organization[id: params[:identifier]]
-              else
-                Webhookdb::Organization[key: params[:identifier]]
-              end
+        org = Webhookdb::Organization.lookup_by_identifier(params[:identifier])
         merror!(403, "There is no organization with that identifier.") if org.nil?
         membership = customer.memberships_dataset[organization: org, verified: true]
         merror!(403, "You don't have permissions with that organization.") if membership.nil?

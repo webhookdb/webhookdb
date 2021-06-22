@@ -36,6 +36,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return ["name", "billing_email"]
   end
 
+  def self.lookup_by_identifier(identifier)
+    # Check to see if identifier is an integer, i.e. an ID.
+    # Otherwise treat it as a slug
+    org = if /\A\d+\z/.match?(identifier)
+            Webhookdb::Organization[id: identifier]
+          else
+            Webhookdb::Organization[key: identifier]
+          end
+    return org
+  end
+
   def execute_readonly_query(sql)
     return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url) do |conn|
       ds = conn.fetch(sql)
