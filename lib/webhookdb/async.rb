@@ -125,6 +125,7 @@ module Webhookdb::Async
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/process_webhook",
+    "webhookdb/jobs/prepare_database_connections",
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/reset_code_create_dispatch",
     "webhookdb/jobs/twilioscheduledbackfill",

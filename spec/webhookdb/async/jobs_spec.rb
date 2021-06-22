@@ -68,6 +68,24 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "PrepareDatabaseConnections" do
+    it "creates the database urls for the organization" do
+      org = nil
+      expect do
+        org = Webhookdb::Fixtures.organization.create
+      end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
+
+      expect(org).to_not be_nil
+
+      # re-retrieve the org
+      org = Webhookdb::Organization[id: org.id]
+      expect(org.admin_connection_url).to_not be_nil
+      expect(org.readonly_connection_url).to_not be_nil
+    ensure
+      org.remove_related_database
+    end
+  end
+
   describe "ProcessWebhook" do
     it "passes the payload off to the processor" do
       sint = Webhookdb::Fixtures.service_integration.create
