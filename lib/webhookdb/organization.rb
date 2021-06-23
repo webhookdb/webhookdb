@@ -20,14 +20,8 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def after_create
-    Stripe::Customer.create({
-                              name: self.name,
-                              email: self.billing_email,
-                              metadata: {
-                                org_id: self.id,
-                              },
-                            })
-    
+    Webhookdb.publish("webhookdb.organization.created", self.id)
+    super
   end
 
   def before_save

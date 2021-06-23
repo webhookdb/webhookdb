@@ -1,8 +1,15 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::Organization", :db do
+RSpec.describe "Webhookdb::Organization", :db, :async  do
   let(:described_class) { Webhookdb::Organization }
   let!(:o) { Webhookdb::Fixtures.organization.create }
+
+  it "asks stripe to create a customer on org creation" do
+    _org = nil
+    expect do
+      _org = Webhookdb::Fixtures.organization.create
+    end.to publish('webhookdb.organization.created')
+  end
 
   describe "create_if_unique" do
     it "creates the org if it does not violate a unique constraint" do
