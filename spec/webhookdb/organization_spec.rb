@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::Organization", :db, :async  do
+RSpec.describe "Webhookdb::Organization", :db, :async do
   let(:described_class) { Webhookdb::Organization }
   let!(:o) { Webhookdb::Fixtures.organization.create }
 
@@ -8,7 +8,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async  do
     _org = nil
     expect do
       _org = Webhookdb::Fixtures.organization.create
-    end.to publish('webhookdb.organization.created')
+    end.to publish("webhookdb.organization.created")
   end
 
   describe "create_if_unique" do

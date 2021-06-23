@@ -8,27 +8,7 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
   def webhook_response(request)
-    # info for debugging
-    auth = request.env["HTTP_STRIPE_SIGNATURE"]
-    log_params = {auth: auth, stripe_body: request.params}
-    self.logger.debug "webhook hit stripe customer endpoint", log_params
-
-    return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if auth.nil?
-
-    request.body.rewind
-    request_data = request.body.read
-
-    begin
-      Stripe::Webhook.construct_event(
-        request_data, auth, self.service_integration.webhook_secret,
-      )
-    rescue Stripe::SignatureVerificationError => e
-      # Invalid signature
-      self.logger.debug "stripe signature verification error: ", e
-      return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
-    end
-
-    return [200, {"Content-Type" => "application/json"}, '{"o":"k"}']
+    return Webhookdb::Stripe.webhook_response(request)
   end
 
   def process_state_change(field, value)
