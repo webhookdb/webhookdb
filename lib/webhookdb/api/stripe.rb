@@ -7,13 +7,12 @@ class Webhookdb::API::Stripe < Webhookdb::API::V1
   resource :stripe do
     resource :webhook do
       post do
-        s_status, s_headers, s_body = Webhookdb::Stripe.webhook_response(request)
+        s_status, s_headers, s_body = Webhookdb::Stripe.webhook_response(request, Webhookdb::Stripe.webhook_secret)
 
-        if s_status < 400
-          if request.params["data"]["object"]["object"] == "subscription"
-            Webhookdb::Subscription.create_or_update_from_webhook(request.params)
+        if s_status < 400 && (request.params["data"]["object"]["object"] == "subscription")
+          Webhookdb::Subscription.create_or_update_from_webhook(request.params)
+            # TODO: specific behavior if subscription lapses
           end
-        end
 
         s_headers.each { |k, v| header k, v }
         body s_body

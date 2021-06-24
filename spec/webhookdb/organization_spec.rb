@@ -151,4 +151,41 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       # TODO: Where should this error be raised
     end
   end
+
+  describe "active_subscription?" do
+    before(:each) do
+      Webhookdb::Subscription.where(stripe_customer_id: o.stripe_customer_id).delete
+    end
+
+    it "returns true if org has a subscription with status 'active'" do
+      Webhookdb::Fixtures.subscription.active.for_org(o).create
+      expect(o.active_subscription?).to eq(true)
+    end
+
+    it "returns false if org has a subscription without status 'active'" do
+      Webhookdb::Fixtures.subscription.canceled.for_org(o).create
+      expect(o.active_subscription?).to eq(false)
+    end
+
+    it "returns false if org does not have subscription" do
+      expect(o.active_subscription?).to eq(false)
+    end
+  end
+
+  describe "can_add_new_integration?" do
+    it "returns true if org has active subscription" do
+      Webhookdb::Fixtures.subscription.active.for_org(o).create
+      expect(o.can_add_new_integration?).to eq(true)
+    end
+    it "returns true if org has no active subscription and uses fewer than max free integrations" do
+      Webhookdb::Fixtures.subscription.canceled.for_org(o).create
+      expect(o.can_add_new_integration?).to eq(true)
+    end
+
+    it "returns false if org has no active subscription and uses at least max free integrations" do
+      Webhookdb::Subscription.max_free_integrations = 1
+      sint = Webhookdb::Fixtures.service_integration.create
+      expect(sint.organization.can_add_new_integration?).to eq(false)
+    end
+  end
 end

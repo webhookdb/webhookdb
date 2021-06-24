@@ -10,7 +10,7 @@ class Webhookdb::Stripe
     setting :webhook_secret, "", key: "STRIPE_WEBHOOK_SECRET"
   end
 
-  def self.webhook_response(request)
+  def self.webhook_response(request, webhook_secret)
     auth = request.env["HTTP_STRIPE_SIGNATURE"]
 
     return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if auth.nil?
@@ -20,7 +20,7 @@ class Webhookdb::Stripe
 
     begin
       Stripe::Webhook.construct_event(
-        request_data, auth, self.webhook_secret,
+        request_data, auth, webhook_secret,
       )
     rescue Stripe::SignatureVerificationError => e
       # Invalid signature

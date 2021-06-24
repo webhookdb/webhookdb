@@ -52,8 +52,8 @@ Sequel.migration do
       timestamptz :created_at, null: false, default: Sequel.function(:now)
       timestamptz :updated_at
       timestamptz :soft_deleted_at
-      text :stripe_id, null: false, default: ""
-      text :stripe_customer_id, null: false, default: ""
+      text :stripe_id, unique: true, null: false
+      text :stripe_customer_id, unique: true, null: false, default: ""
 
       jsonb :stripe_json, default: "{}"
     end

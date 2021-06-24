@@ -3,7 +3,7 @@
 require "webhookdb/api/stripe"
 require "webhookdb/stripe"
 
-RSpec.describe Webhookdb::API::Stripe, :db, :async  do
+RSpec.describe Webhookdb::API::Stripe, :db, :async do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -12,7 +12,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async  do
 
   describe "POST /v1/stripe/webhook" do
     let(:webhook_secret) { "xyz" }
-    let(:webhook_body) {
+    let(:webhook_body) do
       {"data" =>
          {"object" =>
             {"id" => "sub_JigYoW2aRYfl0R",
@@ -145,21 +145,20 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async  do
              "tax_percent" => nil,
              "transfer_data" => nil,
              "trial_end" => nil,
-             "trial_start" => nil,}
-         }
-      }
-    }
+             "trial_start" => nil,}}}
+    end
     let(:now) { Time.now }
     let(:webhook_headers) do
       stripe_signature = "t=" + now.to_i.to_s + ",v1=" # this is the interim value
       stripe_signature += Stripe::Webhook::Signature.compute_signature(now, webhook_body.to_json,
                                                                        webhook_secret,)
-      { "Stripe-Signature" => stripe_signature }
-      end
+      {"Stripe-Signature" => stripe_signature}
+    end
 
     before(:each) do
       Webhookdb::Stripe.webhook_secret = webhook_secret
       webhook_headers.each { |k, v| header k, v }
+      Webhookdb::Subscription.where(stripe_id: "sub_JigYoW2aRYfl0R").delete
     end
 
     it "receives a webhook from stripe, validates it, and acknowledges it" do
@@ -185,13 +184,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async  do
     end
 
     it "updates the subscription object from the received webhook" do
-      Webhookdb::Subscription.create(
-        stripe_id: "sub_JigYoW2aRYfl0R",
-        stripe_json: {
-          "status": "paused",
-        }.to_json,
-      )
-
+      Webhookdb::Fixtures.subscription.canceled.create(stripe_id: "sub_JigYoW2aRYfl0R")
       post "/v1/stripe/webhook", webhook_body
       expect(last_response).to have_status(200)
 

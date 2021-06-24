@@ -9,7 +9,7 @@ RSpec.describe "Webhookdb::Stripe" do
     it "returns a 401 as per spec if there is no Authorization header" do
       req = fake_request
       data = req.body
-      status, headers, _body = Webhookdb::Stripe.webhook_response(req)
+      status, headers, _body = Webhookdb::Stripe.webhook_response(req, Webhookdb::Stripe.webhook_secret)
       expect(status).to eq(401)
     end
 
@@ -19,7 +19,7 @@ RSpec.describe "Webhookdb::Stripe" do
       data = req.body
       req.add_header("HTTP_STRIPE_SIGNATURE",
                      "t=1492774577,v1=5257a869e7ecebeda32affa62cdca3fa51cad7e77a0e56ff536d0ce8e108d8bd",)
-      status, _headers, body = Webhookdb::Stripe.webhook_response(req)
+      status, _headers, body = Webhookdb::Stripe.webhook_response(req, Webhookdb::Stripe.webhook_secret)
       expect(status).to eq(401)
       expect(body).to include("invalid hmac")
     end
@@ -33,7 +33,7 @@ RSpec.describe "Webhookdb::Stripe" do
       stripe_signature += Stripe::Webhook::Signature.compute_signature(timestamp, data,
                                                                        Webhookdb::Stripe.webhook_secret,)
       req.add_header("HTTP_STRIPE_SIGNATURE", stripe_signature)
-      status, _headers, _body = Webhookdb::Stripe.webhook_response(req)
+      status, _headers, _body = Webhookdb::Stripe.webhook_response(req, Webhookdb::Stripe.webhook_secret)
       expect(status).to eq(200)
     end
   end

@@ -139,9 +139,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
                "tax_percent" => nil,
                "transfer_data" => nil,
                "trial_end" => nil,
-               "trial_start" => nil,}
-          }
-      }
+               "trial_start" => nil,}}}
     end
 
     it "creates a subscription for a given org if one doesn't exist" do
@@ -151,7 +149,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
       expect(sub).to_not be_nil
     end
     it "updates the subscription status of an existing subscription" do
-      Webhookdb::Subscription.create(stripe_id: "sub_JigYoW2aRYfl0R", stripe_json: {})
+      Webhookdb::Fixtures.subscription.create(stripe_id: "sub_JigYoW2aRYfl0R")
       Webhookdb::Subscription.create_or_update_from_webhook(webhook_data)
 
       sub = Webhookdb::Subscription[stripe_id: "sub_JigYoW2aRYfl0R"]

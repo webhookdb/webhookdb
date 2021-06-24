@@ -4,10 +4,22 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   extend Webhookdb::MethodUtilities
   include Appydays::Configurable
   include Appydays::Loggable
-  #  this class contains helpers for dealing with stripe subscription webhooks
 
   plugin :timestamps
   plugin :soft_deletes
+
+  configurable(:subscriptions) do
+    setting :max_free_integrations, 2
+  end
+
+  def initialize(*)
+    super
+    self[:stripe_json] ||= Sequel.pg_json({})
+  end
+
+  def status
+    return self.stripe_json["status"]
+  end
 
   def self.lookup_org
     # TODO: test this
@@ -22,7 +34,4 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
       sub.save_changes
     end
   end
-
-  # add helper for taking json and finding the corresponding org
-  #
 end

@@ -114,6 +114,23 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     super
     validates_all_or_none(:admin_connection_url, :readonly_connection_url)
   end
+
+  # SUBSCRIPTION PERMISSIONS
+
+  def active_subscription?
+    subscription = Webhookdb::Subscription[stripe_customer_id: self.stripe_customer_id]
+    return false if subscription.nil?
+    return false if subscription.status != "active"
+    return true
+  end
+
+  def can_add_new_integration?
+    # if the sint's organization has an active subscription, return true
+    return true if self.active_subscription?
+    # if there is no active subscription, check number of integrations against free tier max
+    limit = Webhookdb::Subscription.max_free_integrations
+    return Webhookdb::ServiceIntegration.where(organization: self).count < limit
+  end
 end
 
 require "webhookdb/organization/db_builder"

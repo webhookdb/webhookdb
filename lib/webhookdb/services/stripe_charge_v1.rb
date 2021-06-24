@@ -7,7 +7,7 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
   def webhook_response(request)
-    return Webhookdb::Stripe.webhook_response(request)
+    return Webhookdb::Stripe.webhook_response(request, self.service_integration.webhook_secret)
   end
 
   def process_state_change(field, value)
