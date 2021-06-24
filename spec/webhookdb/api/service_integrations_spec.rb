@@ -21,10 +21,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     Webhookdb::Async.require_jobs
   end
 
-  before(:each) do
-    Webhookdb::Services::Fake.reset
-    login_as(customer)
-  end
   after(:each) do
     Webhookdb::Services::Fake.reset
   end
@@ -32,6 +28,10 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let!(:organization) { Webhookdb::Fixtures.organization.create }
 
   describe "POST /v1/service_integrations/:opaque_id" do
+    before(:each) do
+      Webhookdb::Services::Fake.reset
+    end
+
     it "publishes an event with the data for the webhook", :async do
       header "X-My-Test", "abc"
       expect do
@@ -86,6 +86,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   end
 
   describe "POST /v1/service_integrations/:opaque_id/backfill" do
+    before(:each) do
+      Webhookdb::Services::Fake.reset
+      login_as(customer)
+    end
+
     it "returns a state machine step" do
       post "/v1/service_integrations/xyz/backfill"
 
@@ -109,6 +114,12 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   end
 
   describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
+    before(:each) do
+      Webhookdb::Services::Fake.reset
+      login_as(customer)
+    end
+
+
     it "calls the state machine with the given field and value and returns the result" do
       post "/v1/service_integrations/xyz/transition/webhook_secret", value: "open sesame"
 
