@@ -21,11 +21,6 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
     return self.stripe_json["status"]
   end
 
-  def self.lookup_org
-    # TODO: test this
-    return Webhookdb::Organization.first(stripe_customer_id: self.stripe_customer_id)
-  end
-
   def self.create_or_update_from_webhook(request_params)
     data = request_params["data"]["object"]
     self.db.transaction do
