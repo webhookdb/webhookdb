@@ -20,7 +20,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         def ensure_plan_supports!
           sint = lookup!
           err_msg = "Integration no longer supported--please visit website to activate subscription."
-          merror!(402, err_msg) unless Webhookdb::Organization.plan_supports_integration?(sint)
+          merror!(402, err_msg) unless sint.plan_supports_integration?
         end
       end
 
