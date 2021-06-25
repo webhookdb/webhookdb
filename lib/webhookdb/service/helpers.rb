@@ -70,9 +70,9 @@ module Webhookdb::Service::Helpers
     return env["rack.session"].id
   end
 
-  def merror!(status, message, code: nil, more: {})
+  def merror!(status, message, code: nil, more: {}, headers: {})
     body = Webhookdb::Service.error_body(status, message, code: code, more: more)
-    error!(body, status)
+    error!(body, status, headers)
   end
 
   def unauthenticated!

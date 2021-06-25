@@ -145,6 +145,29 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
       )
     end
+
+    it "fails if creating the service integration requires a subscription" do
+      _twilio_sint = Webhookdb::ServiceIntegration.new(
+        opaque_id: SecureRandom.hex(6),
+        table_name: SecureRandom.hex(2),
+        service_name: "twilio_sms_v1",
+        organization: org,
+      ).save_changes
+
+      _shopify_sint = Webhookdb::ServiceIntegration.new(
+        opaque_id: SecureRandom.hex(6),
+        table_name: SecureRandom.hex(2),
+        service_name: "shopify_order_v1",
+        organization: org,
+      ).save_changes
+
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "You have reached the maximum number of free integrations"),
+      )
+    end
   end
 
   describe "POST /v1/organizations/:identifier/invite" do

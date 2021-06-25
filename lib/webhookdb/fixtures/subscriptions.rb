@@ -13,7 +13,7 @@ module Webhookdb::Fixtures::Subscriptions
 
   base :subscription do
     self.stripe_id = "sub_" + SecureRandom.hex(8)
-    self.stripe_customer_id =  "cus_" + SecureRandom.hex(8)
+    self.stripe_customer_id = "cus_" + SecureRandom.hex(8)
   end
 
   decorator :active do

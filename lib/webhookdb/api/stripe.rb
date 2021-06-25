@@ -9,9 +9,13 @@ class Webhookdb::API::Stripe < Webhookdb::API::V1
       post do
         s_status, s_headers, s_body = Webhookdb::Stripe.webhook_response(request, Webhookdb::Stripe.webhook_secret)
 
-        if s_status < 400 && (request.params["data"]["object"]["object"] == "subscription")
+        if s_status >= 400
+          env["warden"].custom_failure!
+          error!(s_body, s_status, s_headers)
+        end
+
+        if request.params["data"]["object"]["object"] == "subscription"
           Webhookdb::Subscription.create_or_update_from_webhook(request.params)
-            # TODO: specific behavior if subscription lapses
           end
 
         s_headers.each { |k, v| header k, v }

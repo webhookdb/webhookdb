@@ -119,9 +119,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def active_subscription?
     subscription = Webhookdb::Subscription[stripe_customer_id: self.stripe_customer_id]
-    return false if subscription.nil?
-    return false if subscription.status != "active"
-    return true
+    return !subscription.nil?
   end
 
   def can_add_new_integration?

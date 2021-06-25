@@ -157,14 +157,9 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       Webhookdb::Subscription.where(stripe_customer_id: o.stripe_customer_id).delete
     end
 
-    it "returns true if org has a subscription with status 'active'" do
-      Webhookdb::Fixtures.subscription.active.for_org(o).create
+    it "returns true if org has a subscription" do
+      Webhookdb::Fixtures.subscription.for_org(o).create
       expect(o.active_subscription?).to eq(true)
-    end
-
-    it "returns false if org has a subscription without status 'active'" do
-      Webhookdb::Fixtures.subscription.canceled.for_org(o).create
-      expect(o.active_subscription?).to eq(false)
     end
 
     it "returns false if org does not have subscription" do
@@ -184,8 +179,8 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
     it "returns false if org has no active subscription and uses at least max free integrations" do
       Webhookdb::Subscription.max_free_integrations = 1
-      sint = Webhookdb::Fixtures.service_integration.create
-      expect(sint.organization.can_add_new_integration?).to eq(false)
+      sint = Webhookdb::Fixtures.service_integration.create(organization: o)
+      expect(o.can_add_new_integration?).to eq(false)
     end
   end
 end

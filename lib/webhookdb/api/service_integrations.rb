@@ -16,6 +16,12 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
           return sint
         end
+
+        def ensure_plan_supports!
+          sint = lookup!
+          err_msg = "Integration no longer supported--please visit website to activate subscription."
+          merror!(402, err_msg) unless sint.plan_supports_integration?
+        end
       end
 
       post do
@@ -35,6 +41,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
 
       resource :backfill do
         post do
+          ensure_plan_supports!
           c = current_customer
           sint = lookup!
           svc = Webhookdb::Services.service_instance(sint)
@@ -56,6 +63,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
             requires :value
           end
           post do
+            ensure_plan_supports!
             c = current_customer
             sint = lookup!
             merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)

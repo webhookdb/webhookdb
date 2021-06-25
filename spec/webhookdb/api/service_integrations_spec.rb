@@ -17,6 +17,27 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
                                                    backfill_key: "qwerty",)
   end
 
+  let!(:twilio_sint) do
+    Webhookdb::ServiceIntegration.create(
+      {
+        opaque_id: SecureRandom.hex(6),
+        table_name: SecureRandom.hex(2),
+        service_name: "twilio_sms_v1",
+        organization: org,
+      },
+    )
+  end
+
+  let!(:shopify_sint) do
+    Webhookdb::ServiceIntegration.create(
+      {
+        opaque_id: SecureRandom.hex(6),
+        table_name: SecureRandom.hex(2),
+        service_name: "shopify_order_v1",
+        organization: org,
+      },
+    )
+  end
   before(:all) do
     Webhookdb::Async.require_jobs
   end
@@ -111,6 +132,15 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         post "/v1/service_integrations/xyz/backfill"
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
     end
+
+    it "fails if service integration is not supported by subscription plan" do
+      post "/v1/service_integrations/#{shopify_sint.opaque_id}/backfill"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+      )
+    end
   end
 
   describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
@@ -118,7 +148,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       Webhookdb::Services::Fake.reset
       login_as(customer)
     end
-
 
     it "calls the state machine with the given field and value and returns the result" do
       post "/v1/service_integrations/xyz/transition/webhook_secret", value: "open sesame"
@@ -139,6 +168,15 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "Sorry, you cannot modify this integration."),
+      )
+    end
+
+    it "fails if service integration is not supported by subscription plan" do
+      post "/v1/service_integrations/#{shopify_sint.opaque_id}/transition/webhook_secret", value: "open_sesame"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
       )
     end
   end

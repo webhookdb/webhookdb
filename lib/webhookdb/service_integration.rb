@@ -33,7 +33,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     # if there is no active subscription, check whether the integration is one of the first two
     # created by the organization
     limit = Webhookdb::Subscription.max_free_integrations
-    free_integrations = Webhookdb::ServiceIntegration.where(organization: self.organization).order(:created_at).limit(limit).all
+    free_integrations = Webhookdb::ServiceIntegration.
+      where(organization: self.organization).order(:created_at).limit(limit).all
     free_integrations.each do |sint|
       return true if sint.id == self.id
     end

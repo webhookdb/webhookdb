@@ -77,6 +77,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           post do
             customer = current_customer
             org = lookup_org!
+            merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
             ensure_admin!
             customer.db.transaction do
               sint = Webhookdb::ServiceIntegration[organization: org,
