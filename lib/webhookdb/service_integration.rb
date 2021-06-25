@@ -25,23 +25,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return customer.verified_member_of?(self.organization)
   end
 
-  # SUBSCRIPTION PERMISSIONS
-
-  def plan_supports_integration?
-    # if the sint's organization has an active subscription, return true
-    return true if self.organization.active_subscription?
-    # if there is no active subscription, check whether the integration is one of the first two
-    # created by the organization
-    limit = Webhookdb::Subscription.max_free_integrations
-    free_integrations = Webhookdb::ServiceIntegration.
-      where(organization: self.organization).order(:created_at).limit(limit).all
-    free_integrations.each do |sint|
-      return true if sint.id == self.id
-    end
-    # if not, the integration is not supported
-    return false
-  end
-
   # @!attribute table_name
   #   @return [String] Name of the table
 

@@ -19,11 +19,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     super
   end
 
-  def after_create
-    Webhookdb.publish("webhookdb.organization.created", self.id)
-    super
-  end
-
   def before_save
     self.key ||= Webhookdb.to_slug(self.name)
     super
@@ -128,6 +123,22 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     # if there is no active subscription, check number of integrations against free tier max
     limit = Webhookdb::Subscription.max_free_integrations
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
+  end
+
+  def self.plan_supports_integration?(sint)
+    # if the sint's organization has an active subscription, return true
+    return true if sint.organization.active_subscription?
+    # if there is no active subscription, check whether the integration is one of the first two
+    # created by the organization. We include considerations for order because if an organization
+    # reverts to the free tier we still want to give them the first two integrations for free.
+    limit = Webhookdb::Subscription.max_free_integrations
+    free_integrations = Webhookdb::ServiceIntegration.
+      where(organization: sint.organization).order(:created_at).limit(limit).all
+    free_integrations.each do |free_int|
+      return true if free_int.id == sint.id
+    end
+    # if not, the integration is not supported
+    return false
   end
 end
 

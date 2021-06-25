@@ -17,11 +17,11 @@ module Webhookdb::Fixtures::Subscriptions
   end
 
   decorator :active do
-    self.stripe_json = "{\"status\": \"active\"}"
+    self.stripe_json = {status: "active"}.to_json
   end
 
   decorator :canceled do
-    self.stripe_json = "{\"status\": \"canceled\"}"
+    self.stripe_json = {status: "canceled"}.to_json
   end
 
   decorator :for_org, presave: true do |org={}|
