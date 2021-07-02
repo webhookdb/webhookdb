@@ -174,6 +174,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           end
         end
       end
+
       resource :change_roles do
         desc "Allows organization admin to change customer's role in an organization"
         params do
@@ -193,6 +194,31 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             status 200
             present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message: message
           end
+        end
+      end
+
+      resource :subscription do
+        desc "Provides the user with subscription information for the organization"
+        get do
+          _customer = current_customer
+          org = lookup_org!
+          used = org.service_integrations.count
+          data = {
+            org_name: org.name,
+            billing_email: org.billing_email,
+            integrations_used: used,
+          }
+          subscription = Webhookdb::Subscription[stripe_customer_id: org.stripe_customer_id]
+          if subscription.nil?
+            data[:plan_name] = "Free"
+            data[:integrations_left] = Webhookdb::Subscription.max_free_integrations - used
+          else
+            data[:plan_name] = "Premium"
+            data[:integrations_left] = "unlimited"
+            data[:sub_status] = subscription.status
+          end
+          status 200
+          present data
         end
       end
     end

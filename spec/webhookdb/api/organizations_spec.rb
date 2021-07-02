@@ -389,6 +389,37 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
+  describe "POST /v1/organizations/:identifier/subscription" do
+    it "returns expected information when org has a subscription" do
+      sub = Webhookdb::Fixtures.subscription.for_org(org).create
+      sub.update(stripe_json: {status: "unpaid"}.to_json)
+
+      get "/v1/organizations/#{org.key}/subscription"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        org_name: org.name,
+        billing_email: org.billing_email,
+        integrations_used: 0,
+        plan_name: "Premium",
+        integrations_left: "unlimited",
+        sub_status: "unpaid",
+      )
+    end
+    it "returns expected information when org does not have a subscription" do
+      get "/v1/organizations/#{org.key}/subscription"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        org_name: org.name,
+        billing_email: org.billing_email,
+        integrations_used: 0,
+        plan_name: "Free",
+        integrations_left: 2,
+      )
+    end
+  end
+
   describe "POST v1/organizations/create" do
     it "creates new organization and creates membership for current customer" do
       post "v1/organizations/create", name: "Acme Corporation"
