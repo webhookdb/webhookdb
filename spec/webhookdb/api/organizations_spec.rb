@@ -405,6 +405,8 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         integrations_left: "unlimited",
         sub_status: "unpaid",
       )
+
+      sub.delete
     end
     it "returns expected information when org does not have a subscription" do
       get "/v1/organizations/#{org.key}/subscription"
@@ -415,7 +417,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         billing_email: org.billing_email,
         integrations_used: 0,
         plan_name: "Free",
-        integrations_left: 2,
+        integrations_left: Webhookdb::Subscription.max_free_integrations,
       )
     end
   end
