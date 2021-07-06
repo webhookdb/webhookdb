@@ -132,6 +132,38 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
+  describe "get_stripe_billing_portal_url" do
+    it "raises error if org has no stripe customer ID" do
+      o.update(stripe_customer_id: "")
+      expect { o.get_stripe_billing_portal_url }.to raise_error(Webhookdb::InvalidPrecondition)
+    end
+
+    it "returns session url if stripe customer is registered" do
+      req = stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions").
+        with(
+          body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
+          headers: {
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "Authorization" => "Bearer lithic_stripe_api_key",
+            "Content-Type" => "application/x-www-form-urlencoded",
+            "User-Agent" => "Stripe/v1 RubyBindings/5.32.1",
+          },
+        ).
+        to_return(
+          status: 200,
+          body: {
+            url: "https://billing.stripe.com/session/foobar",
+          }.to_json,
+        )
+
+      o.update(stripe_customer_id: "foobar")
+      url = o.get_stripe_billing_portal_url
+      expect(req).to have_been_made
+      expect(url).to eq("https://billing.stripe.com/session/foobar")
+    end
+  end
+
   describe "validations" do
     it "requires all of the connections to be present, or none" do
       expect do

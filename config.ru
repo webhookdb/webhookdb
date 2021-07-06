@@ -23,6 +23,7 @@ require "webhookdb/api/organizations"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/services"
 require "webhookdb/api/stripe"
+require "webhookdb/api/subscriptions"
 require "webhookdb/api/system"
 require "webhookdb/api/uploads"
 
@@ -40,6 +41,7 @@ module Webhookdb::App
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Services
     mount Webhookdb::API::Stripe
+    mount Webhookdb::API::Subscriptions
     mount Webhookdb::API::System
     mount Webhookdb::API::Uploads
 

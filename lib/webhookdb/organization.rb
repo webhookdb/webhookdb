@@ -2,6 +2,8 @@
 
 require "webhookdb/postgres/model"
 require "appydays/configurable"
+require "stripe"
+require "webhookdb/stripe"
 
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   plugin :timestamps
@@ -103,6 +105,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       self.readonly_connection_url = ""
       self.save_changes
     end
+  end
+
+  def get_stripe_billing_portal_url
+    raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
+    Stripe.api_key = Webhookdb::Stripe.api_key
+    session = Stripe::BillingPortal::Session.create(
+      customer: self.stripe_customer_id,
+      return_url: Webhookdb.api_url + "/v1/subscriptions/portal_return",
+    )
+
+    return session.url
   end
 
   def validate
