@@ -158,7 +158,6 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
     before(:each) do
       Webhookdb::Stripe.webhook_secret = webhook_secret
       webhook_headers.each { |k, v| header k, v }
-      Webhookdb::Subscription.where(stripe_id: "sub_JigYoW2aRYfl0R").delete
     end
 
     it "receives a webhook from stripe, validates it, and acknowledges it" do

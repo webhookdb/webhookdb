@@ -24,34 +24,19 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
     end
   end
 
-  resource :subscription do
+  resource :subscriptions do
     desc "Provides the user with subscription information for the organization"
     params do
       requires :identifier, type: String, allow_blank: false
     end
     get do
       org = lookup_org!
-      used = org.service_integrations.count
-      data = {
-        org_name: org.name,
-        billing_email: org.billing_email,
-        integrations_used: used,
-      }
-      subscription = Webhookdb::Subscription[stripe_customer_id: org.stripe_customer_id]
-      if subscription.nil?
-        data[:plan_name] = "Free"
-        data[:integrations_left] = Webhookdb::Subscription.max_free_integrations - used
-      else
-        data[:plan_name] = "Premium"
-        data[:integrations_left] = "unlimited"
-        data[:sub_status] = subscription.status
-      end
       status 200
-      present data
+      present Webhookdb::Subscription.status_for_org(org)
     end
 
     resource :open_portal do
-      desc "Authenticates stripe user and redirects"
+      desc "Authenticates stripe user and returns stripe session url"
       params do
         requires :identifier, type: String, allow_blank: false
       end
@@ -62,8 +47,8 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
         rescue Webhookdb::InvalidPrecondition
           merror!(409, "This organization is not registered with Stripe.")
         end
-
-        redirect(url, body: "Redirecting you to Stripe...")
+        redirect(url, body: {url: url})
+        content_type "application/json"
       end
     end
 
@@ -76,12 +61,12 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
 </head>
 <body>
 <div>
-  <p>You have sucessfully viewed or updated your Stripe Billing Information.</p>
+  <p>You have successfully viewed or updated your Stripe Billing Information. You can close this page.</p>
 </div>
 </body>
 </html>"
-        status 200
-        body html_body
+        redirect(Webhookdb.marketing_site, body: html_body)
+        content_type "text/html"
       end
     end
   end

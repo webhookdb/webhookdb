@@ -15,9 +15,9 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
     login_as(customer)
   end
 
-  describe "GET /v1/subscription" do
+  describe "GET /v1/subscriptions" do
     it "returns correct subscription information for free tier" do
-      get "/v1/subscription", identifier: org.key
+      get "/v1/subscriptions", identifier: org.key
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       Webhookdb::Fixtures.subscription.active.for_org(org).create
       Webhookdb::Fixtures.service_integration.create(organization: org)
 
-      get "/v1/subscription", identifier: org.key
+      get "/v1/subscriptions", identifier: org.key
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
@@ -48,10 +48,10 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
     end
   end
 
-  describe "POST /v1/subscription/open_portal" do
+  describe "POST /v1/subscriptions/open_portal" do
     it "errors if org is not registered with stripe" do
       org.update(stripe_customer_id: "")
-      post "/v1/subscription/open_portal", identifier: org.key
+      post "/v1/subscriptions/open_portal", identifier: org.key
 
       expect(last_response).to have_status(409)
       expect(last_response).to have_json_body.that_includes(
@@ -59,7 +59,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       )
     end
 
-    it "redirects to stripe portal" do
+    it "returns stripe portal url " do
       req = stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions").
         with(
           body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
@@ -79,20 +79,24 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
         )
 
       org.update(stripe_customer_id: "foobar")
-      post "/v1/subscription/open_portal", identifier: org.key
+      post "/v1/subscriptions/open_portal", identifier: org.key
 
       expect(req).to have_been_made
+      expect(last_response).to have_json_body.that_includes(url: "https://billing.stripe.com/session/foobar")
       expect(last_response).to have_status(302)
-      expect(last_response.body).to match("Redirecting you to Stripe...")
     end
   end
 
   describe "POST v1/subscriptions" do
     it "returns an html page with the right message" do
-      post "/v1/subscription/portal_return"
+      post "/v1/subscriptions/portal_return"
 
-      expect(last_response).to have_status(200)
-      expect(last_response.body).to include("You have sucessfully viewed or updated your Stripe Billing Information.")
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include("Content-Type" => "text/html")
+
+      expect(last_response.body).to match(
+        "You have successfully viewed or updated your Stripe Billing Information. You can close this page.",
+      )
     end
   end
 end
