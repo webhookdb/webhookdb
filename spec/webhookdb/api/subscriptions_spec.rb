@@ -25,7 +25,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
         billing_email: "",
         integrations_used: 0,
         plan_name: "Free",
-        integrations_left: 2,
+        integrations_left: Webhookdb::Subscription.max_free_integrations,
       )
     end
 

@@ -169,7 +169,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
       expect(data[:billing_email]).to eq("")
       expect(data[:integrations_used]).to eq(0)
       expect(data[:plan_name]).to eq("Free")
-      expect(data[:integrations_left]).to eq(2)
+      expect(data[:integrations_left]).to eq(Webhookdb::Subscription.max_free_integrations)
       expect(data[:sub_status]).to eq("")
     end
 

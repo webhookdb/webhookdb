@@ -206,6 +206,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       Webhookdb::Subscription.max_free_integrations = 1
       sint = Webhookdb::Fixtures.service_integration.create(organization: o)
       expect(o.can_add_new_integration?).to eq(false)
+      Webhookdb::Subscription.max_free_integrations = 2
     end
   end
 end
