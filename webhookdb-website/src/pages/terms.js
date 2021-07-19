@@ -1,12 +1,13 @@
-import React from "react";
-import { LegalContactText } from "../components/legal";
 import ContentPageLayout from "../components/ContentPageLayout";
+import { LegalContactText } from "../components/legal";
+import React from "react";
 import Seo from "../components/Seo";
 
+/* eslint-disable react/no-unescaped-entities */
 export default function Terms() {
   return (
     <ContentPageLayout>
-      <Seo title={"Terms & Conditions"} />
+      <Seo title="Terms & Conditions" />
       <h1>Terms & Conditions</h1>
       <p>
         Okay, here’s the lawyer-y bit. Hopefully this is intelligible to the average
@@ -229,3 +230,4 @@ export default function Terms() {
     </ContentPageLayout>
   );
 }
+/* eslint-enable react/no-unescaped-entities */

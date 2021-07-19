@@ -1,6 +1,7 @@
-import React from "react";
-import { graphql, useStaticQuery } from "gatsby";
 import { Nav, NavItem, NavLink } from "reactstrap";
+import { graphql, useStaticQuery } from "gatsby";
+
+import React from "react";
 
 export default function Documentation() {
   const data = useStaticQuery(
@@ -22,7 +23,7 @@ export default function Documentation() {
   );
 
   return (
-    <Nav vertical className={"mt-4"}>
+    <Nav vertical className="mt-4">
       {data &&
         data.allMarkdownRemark.edges.map((edge, i) => {
           let doc = edge.node.frontmatter;

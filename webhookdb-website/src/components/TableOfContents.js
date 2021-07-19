@@ -7,8 +7,8 @@ export default function TableOfContents(props) {
   return (
     <Nav>
       {post.items.map((p) => (
-        <Nav.Item className={"w-100"} key={p.url}>
-          <Nav.Link className={"px-0"} href={p.url} onSelect={closeModal}>
+        <Nav.Item className="w-100" key={p.url}>
+          <Nav.Link className="px-0" href={p.url} onSelect={closeModal}>
             {p.title}
           </Nav.Link>
         </Nav.Item>

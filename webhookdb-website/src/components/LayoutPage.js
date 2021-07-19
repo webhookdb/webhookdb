@@ -1,15 +1,17 @@
-import React from "react";
-import NavigationBar from "./NavigationBar";
 import FooterSection from "./FooterSection";
+import NavigationBar from "./NavigationBar";
+import React from "react";
+import smoothScroll from "smooth-scroll";
 import useScrollTop from "../hooks/useScrollTop";
 
 export default function LayoutPage({ children }) {
   useScrollTop();
 
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      // eslint-disable-next-line global-require
-      require("smooth-scroll")('a[href*="#"]');
+    try {
+      smoothScroll('a[href*="#"]');
+    } catch (e) {
+      console.error("Error while smooth scrolling:", e);
     }
   }, []);
 

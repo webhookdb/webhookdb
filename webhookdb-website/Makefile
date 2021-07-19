@@ -5,21 +5,25 @@ install: check-version
 	yarn install
 
 run: check-version
-	gatsby develop
+	yarn run develop
 
 run-network: check-version
-	gatsby develop -H 0.0.0.0
+	yarn run develop-network
 
 build: check-version
-	gatsby build
-
-fmt: check-version
-	yarn run format
+	yarn build
 
 test: check-version
 	yarn run test
 
-reset: check-version
-	rm -rf node_modules
-	rm yarn.lock
-	yarn install
+prettier: check-version
+	yarn run prettier
+sort-imports:
+	yarn run sort-imports
+fmt: prettier sort-imports
+eslint: check-version
+	yarn run eslint
+lint: eslint
+lint-fix:
+	yarn run eslint-fix
+check: prettier sort-imports eslint test

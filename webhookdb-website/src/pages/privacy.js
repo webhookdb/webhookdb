@@ -1,12 +1,13 @@
-import React from "react";
 import ContentPageLayout from "../components/ContentPageLayout";
 import { LegalContactText } from "../components/legal";
+import React from "react";
 import Seo from "../components/Seo";
 
+/* eslint-disable react/no-unescaped-entities */
 export default function Privacy() {
   return (
     <ContentPageLayout>
-      <Seo title={"Privacy Policies"} />
+      <Seo title="Privacy Policies" />
       <h1 className="text-center">Privacy Policy</h1>
       <p>
         Here’s the short of it: we keep your data as safe as we can, store and track as
@@ -136,3 +137,4 @@ export default function Privacy() {
     </ContentPageLayout>
   );
 }
+/* eslint-enable react/no-unescaped-entities */
