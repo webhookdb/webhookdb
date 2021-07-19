@@ -1,5 +1,5 @@
 ---
-title: Command Line Interface
+title: Guide
 path: /docs/cli
 order: 2
 ---
@@ -212,5 +212,3 @@ webhookdb db sql "SELECT * FROM stripe_charges_v1"
 Note that for some integrations, WebhookDB is limited in what it can backfill,
 such as the last 90 days of Shopify Orders, for example.
 The CLI will let you know when we cannot backfill a full history.
-
-## (note about pricing)

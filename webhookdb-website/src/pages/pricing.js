@@ -46,9 +46,7 @@ export default function Pricing() {
 
 function PricingCard({ title, cta, sub, features }) {
   return (
-    <div
-      className="max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100"
-    >
+    <div className="max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100">
       <h3 className="text-center">{title}</h3>
       <p className="lead">{sub}</p>
       {features.map((feature, idx) => (

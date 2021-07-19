@@ -8,8 +8,10 @@ import LayoutPage from "../components/LayoutPage";
 import React from "react";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
+import useContactUs from "../components/useContactUs";
 
 export default function IndexPage() {
+  const { render: renderContactUs, open: openContactUs } = useContactUs();
   return (
     <LayoutPage>
       <Seo
@@ -74,9 +76,12 @@ export default function IndexPage() {
         <h1>Supported Integrations.</h1>
         <p>
           We currently support the following integrations. If you need a service or
-          resource not listed below, please Contact Us. Adding new integrations for most
-          services is pretty simple and we should be able to add what you need within
-          two days.
+          resource not listed below, please{" "}
+          <a href="#" onClick={openContactUs}>
+            Contact Us
+          </a>
+          . Adding new integrations for most services is pretty simple and we should be
+          able to add what you need within two days.
         </p>
         <Row className="justify-content-start align-items-start mt-5">
           {Integrations.map((integration, idx) => {
@@ -119,6 +124,7 @@ export default function IndexPage() {
           </Col>
         </Row>
       </Container>
+      {renderContactUs()}
     </LayoutPage>
   );
 }
