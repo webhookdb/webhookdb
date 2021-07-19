@@ -6,24 +6,6 @@ require "webhookdb/api"
 require "webhookdb/admin_api"
 
 class Webhookdb::API::Organizations < Webhookdb::API::V1
-  helpers do
-    def lookup_org!
-      customer = current_customer
-      org = Webhookdb::Organization.lookup_by_identifier(params[:identifier])
-      merror!(403, "There is no organization with that identifier.") if org.nil?
-      membership = customer.memberships_dataset[organization: org, verified: true]
-      merror!(403, "You don't have permissions with that organization.") if membership.nil?
-      return membership.organization
-    end
-
-    def ensure_admin!
-      customer = current_customer
-      org = lookup_org!
-      admin_membership = org.memberships_dataset[customer: customer, role: Webhookdb::OrganizationRole.admin_role]
-      merror!(400, "Permission denied: You don't have admin privileges with #{org.name}.") if admin_membership.nil?
-    end
-  end
-
   resource :organizations do
     desc "Return all organizations the customer is part of."
     get do

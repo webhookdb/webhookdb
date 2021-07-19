@@ -15,17 +15,17 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
     login_as(customer)
   end
 
-  describe "GET /v1/subscriptions" do
+  describe "GET /v1/organizations/:identifier/subscriptions" do
     it "returns correct subscription information for free tier" do
-      get "/v1/subscriptions", identifier: org.key
+      get "/v1/organizations/#{org.key}/subscriptions"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         org_name: org.name,
         billing_email: "",
-        integrations_used: 0,
+        integrations_used: "0",
         plan_name: "Free",
-        integrations_left: Webhookdb::Subscription.max_free_integrations,
+        integrations_left: Webhookdb::Subscription.max_free_integrations.to_s,
       )
     end
 
@@ -34,13 +34,13 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       Webhookdb::Fixtures.subscription.active.for_org(org).create
       Webhookdb::Fixtures.service_integration.create(organization: org)
 
-      get "/v1/subscriptions", identifier: org.key
+      get "/v1/organizations/#{org.key}/subscriptions"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         org_name: org.name,
         billing_email: "santa@northpole.org",
-        integrations_used: 1,
+        integrations_used: "1",
         plan_name: "Premium",
         integrations_left: "unlimited",
         sub_status: "active",
@@ -48,10 +48,10 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
     end
   end
 
-  describe "POST /v1/subscriptions/open_portal" do
+  describe "POST /v1/organizations/:identifier/subscriptions/open_portal" do
     it "errors if org is not registered with stripe" do
       org.update(stripe_customer_id: "")
-      post "/v1/subscriptions/open_portal", identifier: org.key
+      post "/v1/organizations/#{org.key}/subscriptions/open_portal", identifier: org.key
 
       expect(last_response).to have_status(409)
       expect(last_response).to have_json_body.that_includes(
@@ -79,17 +79,17 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
         )
 
       org.update(stripe_customer_id: "foobar")
-      post "/v1/subscriptions/open_portal", identifier: org.key
+      post "/v1/organizations/#{org.key}/subscriptions/open_portal"
 
       expect(req).to have_been_made
       expect(last_response).to have_json_body.that_includes(url: "https://billing.stripe.com/session/foobar")
-      expect(last_response).to have_status(302)
+      expect(last_response).to have_status(200)
     end
   end
 
-  describe "POST v1/subscriptions" do
+  describe "POST v1/organizations/:identifier/subscriptions/portal_return" do
     it "returns an html page with the right message" do
-      post "/v1/subscriptions/portal_return"
+      post "/v1/organizations/#{org.key}/subscriptions/portal_return"
 
       expect(last_response).to have_status(302)
       expect(last_response.headers).to include("Content-Type" => "text/html")

@@ -167,9 +167,9 @@ RSpec.describe "Webhookdb::Subscription", :db do
 
       expect(data[:org_name]).to eq(org.name)
       expect(data[:billing_email]).to eq("")
-      expect(data[:integrations_used]).to eq(0)
+      expect(data[:integrations_used]).to eq("0")
       expect(data[:plan_name]).to eq("Free")
-      expect(data[:integrations_left]).to eq(Webhookdb::Subscription.max_free_integrations)
+      expect(data[:integrations_left]).to eq(Webhookdb::Subscription.max_free_integrations.to_s)
       expect(data[:sub_status]).to eq("")
     end
 
@@ -181,7 +181,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
       data = Webhookdb::Subscription.status_for_org(org)
       expect(data[:org_name]).to eq(org.name)
       expect(data[:billing_email]).to eq("santa@northpole.org")
-      expect(data[:integrations_used]).to eq(1)
+      expect(data[:integrations_used]).to eq("1")
       expect(data[:plan_name]).to eq("Premium")
       expect(data[:integrations_left]).to eq("unlimited")
       expect(data[:sub_status]).to eq("active")
