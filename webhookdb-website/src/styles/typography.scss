@@ -1,0 +1,16 @@
+// Fonts for Body and Headers
+@font-face {
+  font-family: 'Karla';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Karla"), url("./fonts/karla/static/Karla-Regular.ttf") format('truetype');
+}
+
+@font-face {
+  font-family: 'Bungee';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Bungee"),url("./fonts/bungee/Bungee-Regular.ttf") format('truetype');
+}
