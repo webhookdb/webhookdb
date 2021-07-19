@@ -1,6 +1,6 @@
-import React from "react";
-import NavigationBar from "./NavigationBar";
 import FooterSection from "./FooterSection";
+import NavigationBar from "./NavigationBar";
+import React from "react";
 import useScrollTop from "../hooks/useScrollTop";
 
 export default function LayoutPage({ children }) {

@@ -1,6 +1,6 @@
 import ShopifyLogo from "../images/shopifyLogo.png";
-import TwilioLogo from "../images/twilioLogo.png";
 import StripeLogo from "../images/stripeLogo.png";
+import TwilioLogo from "../images/twilioLogo.png";
 
 export const Integrations = [
   {

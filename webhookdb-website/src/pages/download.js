@@ -1,11 +1,13 @@
-import React from "react";
 import "../styles/custom.scss";
-import { Container, Row, Card, Accordion } from "react-bootstrap";
-import { FaWindows, FaApple, FaLinux } from "react-icons/fa";
-import useDetectOS from "../hooks/useDetectOS";
-import WavesLayout from "../components/WavesLayout";
-import Seo from "../components/Seo";
+
+import { Accordion, Card, Container, Row } from "react-bootstrap";
+import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
+
+import React from "react";
 import { Releases } from "../components/Releases";
+import Seo from "../components/Seo";
+import WavesLayout from "../components/WavesLayout";
+import useDetectOS from "../hooks/useDetectOS";
 
 export default function Download() {
   const [defaultOS, setdefaultOS] = React.useState("1");
@@ -16,7 +18,7 @@ export default function Download() {
 
   return (
     <WavesLayout>
-      <Seo title={"Download"} />
+      <Seo title="Download" />
       <Container>
         <div style={{ height: 24 }} />
         <Card className="p-4 mb-3">
@@ -26,15 +28,15 @@ export default function Download() {
             Check out <a href="/docs/cli">instructions on getting started</a>.
           </p>
         </Card>
-        <Accordion defaultActiveKey={defaultOS} className={"mb-5"}>
+        <Accordion defaultActiveKey={defaultOS} className="mb-5">
           <Card>
-            <Accordion.Toggle as={Card.Header} className={"bg-light"} eventKey="0">
-              <Row className={"align-items-center px-3"}>
-                <FaWindows className={"mr-2"} /> Windows
+            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="0">
+              <Row className="align-items-center px-3">
+                <FaWindows className="mr-2" /> Windows
               </Row>
             </Accordion.Toggle>
-            <Accordion.Collapse className={"bg-dark"} eventKey="0">
-              <Card.Body className={"text-light"}>
+            <Accordion.Collapse className="bg-dark" eventKey="0">
+              <Card.Body className="text-light">
                 <p>To install the Stripe CLI on Windows:</p>
                 <ol>
                   <li>
@@ -48,13 +50,13 @@ export default function Download() {
             </Accordion.Collapse>
           </Card>
           <Card>
-            <Accordion.Toggle as={Card.Header} className={"bg-light"} eventKey="1">
-              <Row className={"align-items-center px-3"}>
-                <FaApple className={"mr-2"} /> MacOS
+            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="1">
+              <Row className="align-items-center px-3">
+                <FaApple className="mr-2" /> MacOS
               </Row>
             </Accordion.Toggle>
-            <Accordion.Collapse className={"bg-dark"} eventKey="1">
-              <Card.Body className={"text-light"}>
+            <Accordion.Collapse className="bg-dark" eventKey="1">
+              <Card.Body className="text-light">
                 <p>To install the Stripe CLI on MacOS (AMD Processor):</p>
                 <ol>
                   <li>
@@ -80,13 +82,13 @@ export default function Download() {
             </Accordion.Collapse>
           </Card>
           <Card>
-            <Accordion.Toggle as={Card.Header} className={"bg-light"} eventKey="2">
-              <Row className={"align-items-center px-3"}>
-                <FaLinux className={"mr-2"} /> Linux
+            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="2">
+              <Row className="align-items-center px-3">
+                <FaLinux className="mr-2" /> Linux
               </Row>
             </Accordion.Toggle>
-            <Accordion.Collapse className={"bg-dark"} eventKey="2">
-              <Card.Body className={"text-light"}>
+            <Accordion.Collapse className="bg-dark" eventKey="2">
+              <Card.Body className="text-light">
                 <p>To install the Stripe CLI on Linux (AMD Processor):</p>
                 <ol>
                   <li>

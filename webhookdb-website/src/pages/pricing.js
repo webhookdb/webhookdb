@@ -1,14 +1,16 @@
-import React from "react";
 import "../styles/custom.scss";
-import { Row, Col, Button } from "react-bootstrap";
+
+import { Button, Col, Row } from "react-bootstrap";
+
 import CheckmarkSvg from "../components/CheckmarkSvg";
-import WavesLayout from "../components/WavesLayout";
+import React from "react";
 import Seo from "../components/Seo";
+import WavesLayout from "../components/WavesLayout";
 
 export default function Pricing() {
   return (
     <WavesLayout>
-      <Seo title={"Pricing"} />
+      <Seo title="Pricing" />
       <Row className="mb-5 no-gutters">
         <Col xs={12} md={6}>
           <div className="d-flex justify-content-center justify-content-md-end pt-5 h-100">
@@ -45,11 +47,9 @@ export default function Pricing() {
 function PricingCard({ title, cta, sub, features }) {
   return (
     <div
-      className={
-        "max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100"
-      }
+      className="max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100"
     >
-      <h3 className={"text-center"}>{title}</h3>
+      <h3 className="text-center">{title}</h3>
       <p className="lead">{sub}</p>
       {features.map((feature, idx) => (
         <React.Fragment key={feature}>
@@ -61,7 +61,7 @@ function PricingCard({ title, cta, sub, features }) {
         </React.Fragment>
       ))}
       <div className="h-100" />
-      <Button size="lg" block className={"mt-5"} href="/download">
+      <Button size="lg" block className="mt-5" href="/download">
         {cta}
       </Button>
     </div>

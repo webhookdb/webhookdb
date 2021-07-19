@@ -1,12 +1,14 @@
-import React from "react";
-import { graphql } from "gatsby";
-import LayoutPage from "../components/LayoutPage";
-import Documentation from "../pages/documentation";
-import { Container, Row, Col, Breadcrumb } from "react-bootstrap";
 import "../styles/custom.scss";
+
+import { Breadcrumb, Col, Container, Row } from "react-bootstrap";
+
+import Documentation from "../pages/documentation";
+import LayoutPage from "../components/LayoutPage";
 import ModalPagination from "../components/ModalPagination";
-import TableOfContents from "../components/TableOfContents";
+import React from "react";
 import Seo from "../components/Seo";
+import TableOfContents from "../components/TableOfContents";
+import { graphql } from "gatsby";
 
 export const query = graphql`
   query ($path: String!) {
@@ -47,24 +49,24 @@ export default function DocsPage({ data }) {
   return (
     <div>
       <LayoutPage>
-        <Seo title={"Documentation"} />
-        <Container fluid className={"min-vh-100"}>
+        <Seo title="Documentation" />
+        <Container fluid className="min-vh-100">
           <Row>
-            <Col className={"bg-light d-none d-lg-block min-vh-100"} lg={2}>
+            <Col className="bg-light d-none d-lg-block min-vh-100" lg={2}>
               <div>
                 <Documentation />
               </div>
               <hr />
               {mdx.tableOfContents.items && (
-                <div className={"w-100 px-3"}>
+                <div className="w-100 px-3">
                   <TableOfContents post={mdx.tableOfContents} />
                 </div>
               )}
             </Col>
 
-            <Col lg={10} xs={12} md={12} className={"p-4"}>
+            <Col lg={10} xs={12} md={12} className="p-4">
               <Row>
-                <Col className={"d-lg-none"}>
+                <Col className="d-lg-none">
                   <ModalPagination path={frontmatter.path} mdx={mdx} />
                 </Col>
               </Row>

@@ -1,11 +1,13 @@
-import LayoutPage from "../components/LayoutPage";
 import "../styles/custom.scss";
+
+import { Button, Col, Container, Image, Row } from "react-bootstrap";
+
 import Helmet from "react-helmet";
-import Seo from "../components/Seo";
-import React from "react";
-import { Container, Row, Col, Button, Image } from "react-bootstrap";
-import Waves from "../components/Waves";
 import { Integrations } from "../components/Integrations";
+import LayoutPage from "../components/LayoutPage";
+import React from "react";
+import Seo from "../components/Seo";
+import Waves from "../components/Waves";
 
 export default function IndexPage() {
   return (
@@ -23,9 +25,9 @@ export default function IndexPage() {
       <Helmet>
         <title>WebhookDB</title>
       </Helmet>
-      <Container className={"bg-primary text-light pt-5 px-5"} fluid>
+      <Container className="bg-primary text-light pt-5 px-5" fluid>
         <Row>
-          <Col className={"justify-content-center"} lg={6}>
+          <Col className="justify-content-center" lg={6}>
             <h1>Webhook data as SQL.</h1>
             <p>
               Have you ever wanted to run an SQL query over your data in Stripe,
@@ -57,9 +59,9 @@ export default function IndexPage() {
               friendly CLI.
             </p>
             <Button
-              href={"/docs/home"}
+              href="/docs/home"
               variant="outline-light"
-              size={"lg"}
+              size="lg"
               className="mt-2"
             >
               Get Started
@@ -68,7 +70,7 @@ export default function IndexPage() {
         </Row>
       </Container>
       <Waves />
-      <Container className={"px-5 mt-5"} fluid>
+      <Container className="px-5 mt-5" fluid>
         <h1>Supported Integrations.</h1>
         <p>
           We currently support the following integrations. If you need a service or
@@ -76,10 +78,10 @@ export default function IndexPage() {
           services is pretty simple and we should be able to add what you need within
           two days.
         </p>
-        <Row className={"justify-content-start align-items-start mt-5"}>
+        <Row className="justify-content-start align-items-start mt-5">
           {Integrations.map((integration, idx) => {
             return (
-              <Col key={idx} md="auto" sm="auto" xs="auto" className={"mb-3 mr-4"}>
+              <Col key={idx} md="auto" sm="auto" xs="auto" className="mb-3 mr-4">
                 <Image
                   src={integration.logo}
                   className="mb-3"
@@ -97,9 +99,9 @@ export default function IndexPage() {
           })}
         </Row>
       </Container>
-      <Container className={"px-5 mt-5 mb-5"} fluid>
+      <Container className="px-5 mt-5 mb-5" fluid>
         <Row>
-          <Col className={"justify-content-center"} lg={6}>
+          <Col className="justify-content-center" lg={6}>
             <h1>Our Guide.</h1>
             <p>
               As developers ourselves, we place a strong emphasis on clear documentation
@@ -107,9 +109,9 @@ export default function IndexPage() {
               documentation for more information.
             </p>
             <Button
-              href={"/docs/home"}
+              href="/docs/home"
               variant="outline-primary"
-              size={"lg"}
+              size="lg"
               className="mt-2"
             >
               Documentation
