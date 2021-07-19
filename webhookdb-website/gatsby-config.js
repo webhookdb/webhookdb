@@ -4,6 +4,7 @@ module.exports = {
     author: "Lithic Tech",
   },
   plugins: [
+    "gatsby-plugin-eslint",
     "gatsby-plugin-sass",
     "gatsby-plugin-image",
     "gatsby-transformer-remark",

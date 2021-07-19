@@ -13,8 +13,12 @@
     "build": "gatsby build",
     "serve": "gatsby serve",
     "clean": "gatsby clean",
-    "format": "prettier --write '**/*.js'",
-    "sort-imports": "import-sort --write './src/**/*.{js,jsx}'"
+    "prettier": "prettier --write '*.js' './tools/*.js' './src/**/*.js'",
+    "prettier-check": "prettier --check '*.js' './tools/*.js' './src/**/*.js'",
+    "sort-imports": "import-sort --write '*.js' './tools/*.js' './src/**/*.js'",
+    "sort-imports-check": "import-sort --list-different '*.js' './tools/*.js' './src/**/*.js'",
+    "eslint": "eslint '*.js' './tools/*.js' './src/**/*.js'",
+    "eslint-fix": "eslint --fix '*.js' './tools/*.js' './src/**/*.js'"
   },
   "dependencies": {
     "@deckdeckgo/highlight-code": "^3.3.0",
@@ -35,8 +39,6 @@
     "gatsby-source-filesystem": "^3.6.0",
     "gatsby-transformer-remark": "^4.4.1",
     "gatsby-transformer-sharp": "^3.6.0",
-    "import-sort-cli": "^6.0.0",
-    "prettier": "^2.3.0",
     "react": "^17.0.2",
     "react-bootstrap": "^1.6.1",
     "react-dom": "^17.0.2",
@@ -45,5 +47,16 @@
     "reactstrap": "^8.9.0",
     "sass": "1.32.13",
     "smooth-scroll": "14.0.0"
+  },
+  "devDependencies": {
+    "babel-eslint": "^10.1.0",
+    "eslint": "^7.31.0",
+    "eslint-plugin-react": "^7.24.0",
+    "eslint-webpack-plugin": "^3.0.0",
+    "gatsby-plugin-eslint": "^3.0.0",
+    "import-sort-cli": "^6.0.0",
+    "import-sort-parser-babylon": "^6.0.0",
+    "import-sort-style-module": "^6.0.0",
+    "prettier": "^2.3.0"
   }
 }
