@@ -5,13 +5,13 @@ install: check-version
 	yarn install
 
 run: check-version
-	gatsby develop
+	yarn run develop
 
 run-network: check-version
-	gatsby develop -H 0.0.0.0
+	yarn run develop-network
 
 build: check-version
-	gatsby build
+	yarn build
 
 test: check-version
 	yarn run test
