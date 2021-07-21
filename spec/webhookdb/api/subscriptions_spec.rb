@@ -23,9 +23,9 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       expect(last_response).to have_json_body.that_includes(
         org_name: org.name,
         billing_email: "",
-        integrations_used: "0",
+        integrations_used: 0,
         plan_name: "Free",
-        integrations_left: Webhookdb::Subscription.max_free_integrations.to_s,
+        integrations_left: Webhookdb::Subscription.max_free_integrations,
       )
     end
 
@@ -40,9 +40,10 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       expect(last_response).to have_json_body.that_includes(
         org_name: org.name,
         billing_email: "santa@northpole.org",
-        integrations_used: "1",
+        integrations_used: 1,
         plan_name: "Premium",
-        integrations_left: "unlimited",
+        integrations_left: 2_000_000_000,
+        integrations_left_display: "unlimited",
         sub_status: "active",
       )
     end

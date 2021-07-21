@@ -36,18 +36,21 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
     data = {
       org_name: org.name,
       billing_email: org.billing_email,
-      integrations_used: used.to_s,
+      integrations_used: used,
     }
     subscription = Webhookdb::Subscription[stripe_customer_id: org.stripe_customer_id]
     if subscription.nil?
       data[:plan_name] = "Free"
-      data[:integrations_left] = [0, Webhookdb::Subscription.max_free_integrations - used].max.to_s
+      data[:integrations_left] = [0, Webhookdb::Subscription.max_free_integrations - used].max
+      data[:integrations_left_display] = data[:integrations_left].to_s
       data[:sub_status] = ""
     else
       data[:plan_name] = "Premium"
-      data[:integrations_left] = "unlimited"
+      data[:integrations_left] = 2_000_000_000
+      data[:integrations_left_display] = "unlimited"
       data[:sub_status] = subscription.status
     end
+    puts data
     return data
   end
 end
