@@ -27,10 +27,10 @@ export default function IndexPage() {
       <Helmet>
         <title>WebhookDB</title>
       </Helmet>
-      <Container className="bg-primary text-light pt-5 px-5" fluid>
+      <Container className="bg-primary text-light pt-5 px-4" fluid>
         <Row>
           <Col className="justify-content-center" lg={6}>
-            <h1>Webhook data as SQL.</h1>
+            <h2>Webhook data as SQL.</h2>
             <p>
               Have you ever wanted to run an SQL query over your data in Stripe,
               Shopify, Twilio, or some other 3rd party service? The &ldquo;API
@@ -72,8 +72,8 @@ export default function IndexPage() {
         </Row>
       </Container>
       <Waves />
-      <Container className="px-5 mt-5" fluid>
-        <h1>Supported Integrations.</h1>
+      <Container className="px-4 mt-5" fluid>
+        <h2>Supported Integrations.</h2>
         <p>
           We currently support the following integrations. If you need a service or
           resource not listed below, please{" "}
@@ -104,10 +104,10 @@ export default function IndexPage() {
           })}
         </Row>
       </Container>
-      <Container className="px-5 mt-5 mb-5" fluid>
+      <Container className="px-4 mt-5 mb-5" fluid>
         <Row>
           <Col className="justify-content-center" lg={6}>
-            <h1>Our Guide.</h1>
+            <h2>Our Guide.</h2>
             <p>
               As developers ourselves, we place a strong emphasis on clear documentation
               and intuitive, efficient tooling. Get up and going in minutes. Read our
