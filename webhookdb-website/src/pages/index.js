@@ -83,16 +83,16 @@ export default function IndexPage() {
           . Adding new integrations for most services is pretty simple and we should be
           able to add what you need within two days.
         </p>
-        <Row className="justify-content-start align-items-start mt-5">
+        <Row className="justify-content-sm-center justify-content-xs-start  align-items-start mt-5">
           {Integrations.map((integration, idx) => {
             return (
-              <Col key={idx} md="auto" sm="auto" xs="auto" className="mb-3 mr-4">
+              <Col key={idx} className="col-xl-3 col-sm-6 col-12 text-sm-center">
                 <Image
                   src={integration.logo}
-                  className="mb-3"
+                  className="mb-1 img-fluid"
                   style={{ maxHeight: 80 }}
                 />
-                <ul className="list-unstyled">
+                <ul className="list-unstyled mb-5">
                   {integration.resources.map((r) => (
                     <li key={r} className="font-weight-bolder lead">
                       {r}
