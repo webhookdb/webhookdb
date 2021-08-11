@@ -7,17 +7,6 @@ require "webhookdb/services"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
   resource :db do
-    helpers do
-      def lookup_org!
-        customer = current_customer
-        org = Webhookdb::Organization.lookup_by_identifier(params[:identifier])
-        merror!(403, "There is no organization with that identifier.") if org.nil?
-        membership = customer.memberships_dataset[organization: org, verified: true]
-        merror!(403, "You don't have permissions with that organization.") if membership.nil?
-        return membership.organization
-      end
-    end
-
     route_param :identifier, type: String do
       desc "Returns a list of all tables in the organization's db."
       get do
