@@ -11,14 +11,16 @@ $theme-colors: (
 $font-family-base: 'Karla', sans-serif;
 $font-size-base: 1.1rem;
 
+body {
+  font-family: 'Karla', sans-serif;
+}
+
 h1, h2, h3 {
   font-family: 'Bungee', cursive;
   margin-bottom: 1.5rem !important;
 }
 
-p {
-  font-family: 'Karla', sans-serif;
-}
+
 
 @import "~bootstrap/scss/bootstrap";
 
