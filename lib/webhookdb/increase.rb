@@ -22,4 +22,20 @@ class Webhookdb::Increase
 
     return [200, {"Content-Type" => "application/json"}, '{"o":"k"}']
   end
+
+  # this helper function finds the relevant object data and helps us avoid repeated code
+  def self.find_desired_object_data(body)
+    if body.key?("data")
+      body["data"]
+                      else
+                        body
+                      end
+  end
+
+  # this function interprets webhook contents to assist with filtering webhooks by object type in our increase services
+  def self.contains_desired_object(webhook_body, desired_object_name)
+    object_of_interest = self.find_desired_object_data(webhook_body)
+    object_id = object_of_interest["id"]
+    return object_id.include?(desired_object_name)
+  end
 end

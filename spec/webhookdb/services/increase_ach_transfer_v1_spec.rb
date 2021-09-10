@@ -323,5 +323,27 @@ RSpec.describe Webhookdb::Services, :db do
         end
       end
     end
+
+    it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
+                    "increase_ach_transfer_v1" do
+      let(:incorrect_webhook) do
+        JSON.parse(<<~J)
+                              {"event_id": "transaction_event_123",
+          "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
+          "data": {
+            "id": "transaction_uyrp7fld2ium70oa7oi",
+            "account_id": "account_in71c4amph0vgo2qllky",
+            "amount": 100,
+            "date": "2020-01-10",
+            "description": "Rent payment",
+            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
+            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+            "source": {}
+          }
+          }
+        J
+      end
+    end
   end
 end

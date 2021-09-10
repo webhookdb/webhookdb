@@ -41,6 +41,28 @@ RSpec.shared_examples "a service implementation" do |name|
   end
 end
 
+RSpec.shared_examples "a service implementation that upserts webhooks only under specific conditions" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:incorrect_webhook) { raise NotImplementedError }
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "won't insert webhook of incorrect type" do
+    svc.create_table
+    svc.upsert_webhook(body: incorrect_webhook)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(0)
+    end
+  end
+end
+
 RSpec.shared_examples "a service implementation that prevents overwriting new data with old" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }

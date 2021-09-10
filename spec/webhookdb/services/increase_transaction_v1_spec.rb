@@ -46,7 +46,7 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:new_body) do
         JSON.parse(<<~J)
-                                        {"event_id": "transaction_event_456",
+          {"event_id": "transaction_event_456",
           "event": "updated",
           "created_at": "2020-02-20T23:59:59Z",
           "data": {
@@ -247,6 +247,41 @@ RSpec.describe Webhookdb::Services, :db do
             "Great! We are going to start backfilling your Increase Transaction information.",
           )
         end
+      end
+    end
+
+    it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
+                    "increase_transaction_v1" do
+      let(:incorrect_webhook) do
+        JSON.parse(<<~J)
+                              {"event_id": "transfer_event_123",
+          "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
+          "data": {
+            "account_number": "987654321",
+            "account_id": "account_566f1f672175",
+            "amount": 100,
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z",
+              "approved_by": "user@example.com"
+            },
+            "cancellation": {},
+            "created_at": "2020-01-31T23:59:59Z",
+            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "network": "ach",
+            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "return": {},
+            "routing_number": "123456789",
+            "statement_descriptor": "Statement descriptor",
+            "status": "returned",
+            "submission": {},
+            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "addendum": null,
+            "notification_of_change": null
+          }
+          }
+        J
       end
     end
   end
