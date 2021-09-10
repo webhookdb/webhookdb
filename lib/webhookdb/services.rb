@@ -36,12 +36,10 @@ require "webhookdb/services/stripe_charge_v1"
 require "webhookdb/services/stripe_customer_v1"
 require "webhookdb/services/twilio_sms_v1"
 Webhookdb::Services.register("fake_v1", ->(sint) { Webhookdb::Services::Fake.new(sint) })
-Webhookdb::Services.register("increase_ach_transfer_v1", lambda { |sint|
-  Webhookdb::Services::IncreaseACHTransferV1.new(sint)
-},)
-Webhookdb::Services.register("increase_transaction_v1", lambda { |sint|
-  Webhookdb::Services::IncreaseTransactionV1.new(sint)
-},)
+# rubocop:disable Layout/LineLength
+Webhookdb::Services.register("increase_ach_transfer_v1", ->(sint) { Webhookdb::Services::IncreaseACHTransferV1.new(sint) })
+Webhookdb::Services.register("increase_transaction_v1", ->(sint) { Webhookdb::Services::IncreaseTransactionV1.new(sint) })
+# rubocop:enable Layout/LineLength
 Webhookdb::Services.register("shopify_customer_v1", ->(sint) { Webhookdb::Services::ShopifyCustomerV1.new(sint) })
 Webhookdb::Services.register("shopify_order_v1", ->(sint) { Webhookdb::Services::ShopifyOrderV1.new(sint) })
 Webhookdb::Services.register("stripe_charge_v1", ->(sint) { Webhookdb::Services::StripeChargeV1.new(sint) })

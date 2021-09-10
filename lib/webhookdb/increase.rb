@@ -16,7 +16,7 @@ class Webhookdb::Increase
 
     if http_signature != computed_signature
       # Invalid signature
-      self.logger.debug "increase signature verification error"
+      self.logger.warn "increase signature verification error"
       return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
     end
 
@@ -25,11 +25,7 @@ class Webhookdb::Increase
 
   # this helper function finds the relevant object data and helps us avoid repeated code
   def self.find_desired_object_data(body)
-    if body.key?("data")
-      body["data"]
-                      else
-                        body
-                      end
+    return body.fetch("data", body)
   end
 
   # this function interprets webhook contents to assist with filtering webhooks by object type in our increase services
