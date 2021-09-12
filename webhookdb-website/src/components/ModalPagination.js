@@ -30,9 +30,9 @@ export default function ModalPagination({ mdx }) {
   const handleShow = () => setShow(true);
 
   return (
-    <div className="pb-5 text-center">
+    <div className="text-center">
       <Button className="rounded-pill px-5" variant="primary" onClick={handleShow}>
-        Search Docs
+        Browse Docs
         <FaSearch className="ml-2" />
       </Button>
 

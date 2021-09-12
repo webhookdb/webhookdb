@@ -37,7 +37,7 @@ so even if you had a copy of the production database you would not be able
 to access the connection strings.
 
 If your connection strings ever become compromised,
-you can rotate them from the CLI with `webhookdb `
+you can rotate them from the CLI with `webhookdb db roll-credentials`.
 
 <a id="how-much-does-webhookdb-cost"></a>
 
