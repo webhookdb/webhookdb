@@ -33,6 +33,23 @@ p {
   margin-bottom: $spacer * 1.5;
 }
 
+h1, h2, h3 {
+  sup {
+    font-size: 65%;
+    top: -0.6rem;
+  }
+}
+
+.list-flush {
+  padding-inline-start: inherit;
+}
+
+.list-comfy {
+  li {
+    margin-bottom: $spacer / 2;
+  }
+}
+
 .min-vh-80 {
   min-height: 80vh;
 }
@@ -47,4 +64,10 @@ p {
 }
 .max-width-md {
   max-width: map.get($grid-breakpoints, 'md');
+}
+.max-width-lg {
+  max-width: map.get($grid-breakpoints, 'lg');
+}
+.max-width-xl {
+  max-width: map.get($grid-breakpoints, 'xl');
 }

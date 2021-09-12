@@ -13,3 +13,7 @@ This allows WebhookDB to be brought in at any stage during the development proce
 WebhookDB is managed entirely through our lightweight, cross-platform, single-binary (and [open source!](https://github.com/lithictech/webhookdb-cli)) CLI that walks you through every step.
 
 Check out our step-by-step [Quickstart Guide](/docs/cli) to get started.
+
+<a href="/docs/cli" class="mt-2 mb-2 btn btn-outline-primary btn-lg">
+    Read the Guide
+</a>
