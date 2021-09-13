@@ -13,7 +13,7 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
 
   configurable(:email) do
     setting :allowlist, ["*@lithic.tech"], convert: ->(s) { s.split }
-    setting :from, "Webhookdb TechOps <techops@lithic.tech>"
+    setting :from, "WebhookDB <webhookdb@lithic.tech>"
   end
 
   def type
