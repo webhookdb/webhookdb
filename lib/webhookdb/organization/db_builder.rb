@@ -59,14 +59,18 @@ class Webhookdb::Organization::DbBuilder
     admin_pwd = self.randident
     ro_user = self.randident("ro")
     ro_pwd = self.randident
-    dbname = self.randident
+    dbname = self.randident('db')
     Sequel.connect(superuser_str) do |conn|
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
+        GRANT #{admin_user} TO CURRENT_USER;
       SQL
       # Cannot be in the same statement as above since that's one transaction.
-      conn << "CREATE DATABASE #{dbname} OWNER #{admin_user}"
+      conn << <<~SQL
+        CREATE DATABASE #{dbname} OWNER #{admin_user}";
+        REVOKE ALL PRIVILEGES ON DATABASE #{dbname} FROM public;
+      SQL
     end
 
     # Now that we've created the admin role and have a database,

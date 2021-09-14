@@ -23,7 +23,7 @@ class Webhookdb::Postgres::Model
   extend Webhookdb::Postgres::ModelUtilities
   include Appydays::Loggable
 
-  configurable(:Webhookdb_db) do
+  configurable(:webhookdb_db) do
     setting :uri, "postgres:/webhookdb_test", key: "DATABASE_URL"
 
     # The number of (Float) seconds that should be considered "slow" for a
