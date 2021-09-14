@@ -67,10 +67,8 @@ class Webhookdb::Organization::DbBuilder
         GRANT #{admin_user} TO CURRENT_USER;
       SQL
       # Cannot be in the same statement as above since that's one transaction.
-      conn << <<~SQL
-        CREATE DATABASE #{dbname} OWNER #{admin_user}";
-        REVOKE ALL PRIVILEGES ON DATABASE #{dbname} FROM public;
-      SQL
+      conn << "CREATE DATABASE #{dbname} OWNER #{admin_user};"
+      conn << "REVOKE ALL PRIVILEGES ON DATABASE #{dbname} FROM public;"
     end
 
     # Now that we've created the admin role and have a database,
