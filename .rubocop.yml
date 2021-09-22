@@ -8,6 +8,9 @@ inherit_from: .rubocop_todo.yml
 AllCops:
   NewCops: enable
   SuggestExtensions: false
+  Exclude:
+    - 'webhookdb-website/**/*'
+    - 'node_modules/**/*'
 
 Layout/ParameterAlignment:
   EnforcedStyle: with_fixed_indentation
@@ -64,6 +67,9 @@ Lint/EmptyBlock:
 Lint/UselessAssignment:
   Exclude:
     - 'spec/**/*'
+Lint/UnusedMethodArgument:
+  Exclude:
+    - 'lib/webhookdb/services/base.rb'
 
 # https://rubocop.readthedocs.io/en/latest/cops_naming/
 Naming/AccessorMethodName:

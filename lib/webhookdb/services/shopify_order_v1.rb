@@ -179,7 +179,7 @@ webhookdb db sql "SELECT * FROM shopify_orders_v1"
     return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, **_kwargs)
     return {
       app_id: body["app_id"],
       cancelled_at: body["cancelled_at"],

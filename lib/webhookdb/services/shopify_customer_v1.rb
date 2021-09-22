@@ -174,7 +174,7 @@ webhookdb db sql "SELECT * FROM shopify_customers_v1"
     return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, **_kwargs)
     return {
       created_at: body["created_at"],
       email: body["email"],

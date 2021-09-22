@@ -24,8 +24,10 @@ jobs:
           bundle install --jobs 4 --retry 3
       - name: Start backing services
         run: docker-compose up -d
-      - name: Run rubocop
-        run: bundle exec rubocop
+# Reenable this once we figure out what's up with Rubocop
+# See https://github.com/lithictech/webhookdb-api/pull/46
+#      - name: Run rubocop
+#        run: bundle exec rubocop
       - name: Run specs
         env:
           RACK_ENV: test

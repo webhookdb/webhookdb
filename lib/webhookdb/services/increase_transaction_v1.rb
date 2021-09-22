@@ -114,17 +114,13 @@ webhookdb db sql "SELECT * FROM increase_transaction_v1"
     ]
   end
 
-  def upsert_webhook(body:)
-    obj_of_interest = Webhookdb::Increase.find_desired_object_data(body)
-    super if Webhookdb::Increase.contains_desired_object(obj_of_interest, "transaction")
-  end
-
   def _update_where_expr
     Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, **_kwargs)
     obj_of_interest = Webhookdb::Increase.find_desired_object_data(body)
+    return nil unless Webhookdb::Increase.contains_desired_object(obj_of_interest, "transaction")
 
     updated = if body.key?("event")
                 # i.e. if this is a webhook

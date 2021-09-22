@@ -55,5 +55,33 @@ RSpec.describe Webhookdb::Services, :db do
         }
       end
     end
+
+    it_behaves_like "a service implementation that upserts webhooks only under specific conditions", "fake_v1" do
+      before(:each) do
+        Webhookdb::Services::Fake.reset
+        Webhookdb::Services::Fake.prepare_for_insert_hook = ->(_h) {}
+      end
+      let(:incorrect_webhook) do
+        {
+          "my_id" => "abc",
+          "at" => "Thu, 30 Jul 2015 21:12:33 +0000",
+        }
+      end
+    end
+
+    it_behaves_like "a service implementation that uses enrichments", "fake_with_enrichments_v1" do
+      before(:each) do
+        Webhookdb::Services::FakeWithEnrichments.reset
+      end
+      let(:enrichment_tables) { Webhookdb::Services::FakeWithEnrichments.enrichment_tables }
+      let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
+      def assert_is_enriched(row)
+        expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})
+      end
+
+      def assert_enrichment_after_insert(db)
+        expect(db[:fake_v1_enrichments].all).to have_length(1)
+      end
+    end
   end
 end

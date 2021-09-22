@@ -119,6 +119,10 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:page1_items) { raise NotImplementedError }
   let(:page2_items) { raise NotImplementedError }
+  # Most backfilling involves enumerating pages until we have no results,
+  # but in some cases we have a known number of pages and we can stop iterating
+  # when we hit the last one. In that case, override this to false.
+  let(:expect_empty_page_call) { true }
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -143,7 +147,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
     expect(svc).to receive(:_fetch_backfill_page).and_call_original
     expect(svc).to receive(:_fetch_backfill_page).and_call_original
-    expect(svc).to receive(:_fetch_backfill_page).and_call_original
+    (expect(svc).to receive(:_fetch_backfill_page).and_call_original) if expect_empty_page_call
 
     svc.backfill
     svc.readonly_dataset do |ds|
@@ -155,5 +159,48 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     svc.service_integration.backfill_key = ""
     svc.service_integration.backfill_secret = ""
     expect { svc.backfill }.to raise_error(Webhookdb::Services::CredentialsMissing)
+  end
+end
+
+RSpec.shared_examples "a service implementation that uses enrichments" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:enrichment_tables) { raise NotImplementedError }
+  let(:body) { raise NotImplementedError }
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  def assert_is_enriched(row)
+    raise NotImplementedError
+  end
+
+  def assert_enrichment_after_insert(db)
+    raise NotImplementedError
+  end
+
+  it "creates enrichment tables on service table create" do
+    svc.create_table
+    enrichment_tables.each do |tbl|
+      expect(svc.readonly_dataset(&:db)).to be_table_exists(tbl.to_sym)
+    end
+  end
+
+  it "can use enriched data when inserting" do
+    svc.create_table
+    svc.upsert_webhook(body: body)
+    row = svc.readonly_dataset(&:first)
+    assert_is_enriched(row)
+  end
+
+  it "calls the after insert hook with the enrichment" do
+    svc.create_table
+    svc.upsert_webhook(body: body)
+    assert_enrichment_after_insert(svc.readonly_dataset(&:db))
   end
 end

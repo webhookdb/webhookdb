@@ -79,7 +79,14 @@ class Webhookdb::Services::Base
     denormalized_columns.each do |col|
       lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
     end
+    if (enrichment_sql = self._create_enrichment_tables_sql).present?
+      lines << enrichment_sql
+    end
     return lines.join("\n")
+  end
+
+  def _create_enrichment_tables_sql
+    return ""
   end
 
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
@@ -102,8 +109,11 @@ class Webhookdb::Services::Base
 
   def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
+    enrichment = self._fetch_enrichment(body)
+    prepared = self._prepare_for_insert(body, enrichment: enrichment)
+    return nil if prepared.nil?
     inserting = {data: body.to_json}
-    inserting.merge!(self._prepare_for_insert(body))
+    inserting.merge!(prepared)
     self.admin_dataset do |ds|
       ds.insert_conflict(
         target: remote_key_col.name,
@@ -111,6 +121,23 @@ class Webhookdb::Services::Base
         update_where: self._update_where_expr,
       ).insert(inserting)
     end
+    self._after_insert(inserting, enrichment: enrichment)
+  end
+
+  # Given a webhook body that is going to be inserted,
+  # make an optional API call to enrich it with further data.
+  # The result of this is passed to _prepare_for_insert
+  # and _after_insert.
+  def _fetch_enrichment(_body)
+    return nil
+  end
+
+  # After an insert is done, do any additional processing
+  # on other tables. Useful when we have to maintain 'enrichment tables'
+  # for a resource that have things that aren't useful in a single row,
+  # like time-series data.
+  def _after_insert(_inserting, enrichment:)
+    return nil
   end
 
   # Upsert a backfill payload into the database.
@@ -128,11 +155,12 @@ class Webhookdb::Services::Base
 
   # Given the webhook headers and body, return a hash of what will be inserted.
   # It must include the key column and all denormalized columns.
-  # TODO: Verify this and error if it's not the case when upserting
+  #
+  # If this returns nil, the upsert is skipped.
   #
   # @abstract
   # @return [Hash]
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, enrichment: nil)
     raise NotImplementedError
   end
 

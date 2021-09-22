@@ -1,10 +1,17 @@
 import "../styles/custom.scss";
 
 import { Accordion, Card, Container, Row } from "react-bootstrap";
-import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
+import {
+  FaApple,
+  FaClipboard,
+  FaClipboardCheck,
+  FaLinux,
+  FaWindows,
+} from "react-icons/fa";
 
 import React from "react";
-import { Releases } from "../components/Releases";
+import Releases from "../components/Releases";
+import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import WavesLayout from "../components/WavesLayout";
 import useDetectOS from "../hooks/useDetectOS";
@@ -37,15 +44,7 @@ export default function Download() {
             </Accordion.Toggle>
             <Accordion.Collapse className="bg-dark" eventKey="0">
               <Card.Body className="text-light">
-                <p>To install the Stripe CLI on Windows:</p>
-                <ol>
-                  <li>
-                    <Card.Link href={Releases.windows}>Download </Card.Link>
-                    the latest windows tar.gz file
-                  </li>
-                  <li>Unzip the webhookdb_windows_amd64.zip file</li>
-                  <li>Run the unzipped .exe file</li>
-                </ol>
+                <p>TBD</p>
               </Card.Body>
             </Accordion.Collapse>
           </Card>
@@ -57,26 +56,25 @@ export default function Download() {
             </Accordion.Toggle>
             <Accordion.Collapse className="bg-dark" eventKey="1">
               <Card.Body className="text-light">
-                <p>To install the Stripe CLI on MacOS (AMD Processor):</p>
-                <ol>
-                  <li>
-                    <Card.Link href={Releases.mac_amd}>Download </Card.Link>
-                    the latest MacOS AMD file
-                  </li>
-                  <li>Unzip the file: tar -xvf webhookdb_darwin_amd64.zip</li>
-                </ol>
-                <hr />
-                <p>To install the Stripe CLI on MacOS (ARM Processor):</p>
-                <ol>
-                  <li>
-                    <Card.Link href={Releases.mac_arm}>Download </Card.Link>
-                    the latest MacOS ARM file
-                  </li>
-                  <li>Unzip the file: tar -xvf webhookdb_darwin_arm64.zip</li>
-                </ol>
                 <p>
-                  Optionally, install the binary in a location where you can execute it
-                  globally (e.g., /usr/local/bin).
+                  It&rsquo;s simple to install webhookdb on Mac- we just need to
+                  download and extract it to the right spot.
+                </p>
+                <p>
+                  <strong>Make sure you choose the right architecture</strong>. M1 Macs
+                  use the ARM process, others use AMD.
+                </p>
+                <p>For AMD:</p>
+                <CodeBlock
+                  text={`curl ${Releases.mac_amd} -s -L | tar xz -C ${Releases.mac_bindir} && chmod +x ${Releases.mac_bindir}/webhookdb`}
+                />
+                <p>For ARM (M1 Macs):</p>
+                <CodeBlock
+                  text={`curl ${Releases.mac_arm} -s -L | tar xz -C ${Releases.mac_bindir} && chmod +x ${Releases.mac_bindir}/webhookdb`}
+                />
+                <p>
+                  You can also build from source, check it out{" "}
+                  <SafeExternalLink href={Releases.source}>on GitHub</SafeExternalLink>.
                 </p>
               </Card.Body>
             </Accordion.Collapse>
@@ -89,30 +87,28 @@ export default function Download() {
             </Accordion.Toggle>
             <Accordion.Collapse className="bg-dark" eventKey="2">
               <Card.Body className="text-light">
-                <p>To install the Stripe CLI on Linux (AMD Processor):</p>
-                <ol>
-                  <li>
-                    <Card.Link href={Releases.linux_amd}>Download </Card.Link>
-                    the latest linux AMD file
-                  </li>
-                  <li>Unzip the file: tar -xvf webhookdb_linux_amd64.zip</li>
-                  <li>Run the executable ./webhookdb</li>
-                </ol>
-                <hr />
-                <p>To install the Stripe CLI on Linux (ARM Processor):</p>
-                <ol>
-                  <li>
-                    <Card.Link href={Releases.linux_arm}>Download </Card.Link>
-                    the latest linux ARM file
-                  </li>
-                  <li>Unzip the file: tar -xvf webhookdb_linux_arm64.zip</li>
-                  <li>Run the executable ./webhookdb</li>
-                </ol>
+                <p>TBD</p>
               </Card.Body>
             </Accordion.Collapse>
           </Card>
         </Accordion>
       </Container>
     </WavesLayout>
+  );
+}
+
+function CodeBlock({ text }) {
+  const [checked, setChecked] = React.useState(false);
+  function onClick() {
+    navigator.clipboard.writeText(text);
+    setChecked(true);
+    window.setTimeout(() => setChecked(false), 3000);
+  }
+  const Comp = checked ? FaClipboardCheck : FaClipboard;
+  return (
+    <p className="mx-3">
+      <Comp className="mr-4 d-block float-right cursor-pointer" onClick={onClick} />
+      <code>{text}</code>
+    </p>
   );
 }

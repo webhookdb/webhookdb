@@ -10,7 +10,11 @@ The WebhookDB api is a developer tool designed to help you interface with your W
 
 ## [Install the WebhookDB CLI.](#install-the-webhookdb-cli)
 
-_This will be pretty straightforward to write, it will just depend on how we make the code available._ 
+WebhookDB is a single binary (written in Go) that should work on pretty much any OS.
+
+Follow the instructions on our [Download](https://webhookdb.com/download/) page.
+
+You can find the source [on GitHub](https://github.com/lithictech/webhookdb-cli).
 
 <a id="create-or-login-to-your-webhookdb-account"></a>
 
@@ -56,7 +60,7 @@ Your organization identifier is: acmecorp
 You can invite others to your organization:
 
 ```arff
-$ webhookdb org invite ashley@webhookdb.com
+$ webhookdb org invite --username=ashley@webhookdb.com
 An invitation has been sent to ashley@webhookdb.com. Their invite code is:
 join-f26b81a2
 ```

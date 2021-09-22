@@ -123,7 +123,7 @@ webhookdb db sql "SELECT * FROM stripe_customers_v1"
     return Sequel[self.table_sym][:updated] < Sequel[:excluded][:updated]
   end
 
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, **_kwargs)
     # When we are backfilling, we recieve information from the charge api, but when
     # we recieve a webhook we are getting that information from the events api. Because
     # of this, the data we get in each case will have a different shape. This conditional

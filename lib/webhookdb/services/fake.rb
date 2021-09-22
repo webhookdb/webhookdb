@@ -6,11 +6,13 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :webhook_response
   singleton_attr_accessor :webhook_verified
   singleton_attr_accessor :backfill_responses
+  singleton_attr_accessor :prepare_for_insert_hook
 
   def self.reset
     self.webhook_response = nil
     self.webhook_verified = true
     self.backfill_responses = {}
+    self.prepare_for_insert_hook = nil
   end
 
   def webhook_response(request)
@@ -89,15 +91,40 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return Sequel[self.table_sym][:at] < Sequel[:excluded][:at]
   end
 
-  def _prepare_for_insert(body)
-    return {
+  def _prepare_for_insert(body, *)
+    h = {
       my_id: body["my_id"],
       at: Time.parse(body["at"]),
     }
+    (h = self.class.prepare_for_insert_hook.call(h)) if self.class.prepare_for_insert_hook
+    return h
   end
 
   def _fetch_backfill_page(pagination_token)
     raise "No backfill responses configured" if self.class.backfill_responses.blank?
     return self.class.backfill_responses[pagination_token]
+  end
+end
+
+class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
+  def self.enrichment_tables
+    return ["fake_v1_enrichments"]
+  end
+
+  def _create_enrichment_tables_sql
+    return "CREATE TABLE fake_v1_enrichments(id TEXT);"
+  end
+
+  def _prepare_for_insert(body, enrichment: nil)
+    body["enrichment"] = enrichment
+    return super
+  end
+
+  def _fetch_enrichment(body)
+    return {"extra" => body["my_id"]}
+  end
+
+  def _after_insert(inserting, *)
+    self.admin_dataset(&:db) << "INSERT INTO fake_V1_enrichments(id) VALUES ('#{inserting['my_id']}')"
   end
 end

@@ -31,7 +31,7 @@ RSpec.describe Webhookdb::Message::EmailTransport, :db do
   describe "send!" do
     it "sends mail to Postmark" do
       send_mail_req = stub_email_post(
-        with: {body: hash_including("From" => /Webhookdb TechOps/, "To" => "blah@lithic.tech")},
+        with: {body: hash_including("From" => /WebhookDB/, "To" => "blah@lithic.tech")},
         message_id: "abcdefg",
       )
 

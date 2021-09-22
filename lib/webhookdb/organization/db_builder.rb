@@ -59,7 +59,7 @@ class Webhookdb::Organization::DbBuilder
     admin_pwd = self.randident
     ro_user = self.randident("ro")
     ro_pwd = self.randident
-    dbname = self.randident('db')
+    dbname = self.randident("db")
     Sequel.connect(superuser_str) do |conn|
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;

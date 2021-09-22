@@ -62,14 +62,16 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
             ensure_admin!
             customer.db.transaction do
-              sint = Webhookdb::ServiceIntegration[organization: org,
-                                                   service_name: params[:service_name]]
+              sint = Webhookdb::ServiceIntegration[
+                organization: org,
+                service_name: params[:service_name]]
               if sint.nil?
-                sint = Webhookdb::ServiceIntegration.create(organization: org,
-                                                            table_name: (params[:service_name]
-                                                                         + "_#{SecureRandom.hex(2)}"),
-                                                            service_name: params[:service_name],
-                                                            opaque_id: SecureRandom.hex(6),)
+                sint = Webhookdb::ServiceIntegration.create(
+                  organization: org,
+                  table_name: (params[:service_name] + "_#{SecureRandom.hex(2)}"),
+                  service_name: params[:service_name],
+                  opaque_id: SecureRandom.hex(6),
+                )
               end
               state_machine = sint.calculate_create_state_machine
               status 200
@@ -99,8 +101,10 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             invitee = Webhookdb::Customer[email: params[:email]]
             merror!(400, "That person is already a member of the organization.") if invitee.verified_member_of?(org)
 
-            membership = Webhookdb::OrganizationMembership.find_or_create_or_find(organization: org, customer: invitee,
-                                                                                  verified: false,)
+            membership = Webhookdb::OrganizationMembership.find_or_create_or_find(
+              organization: org, customer: invitee,
+              verified: false,
+            )
             # set/reset the code
             invitation_code = "join-" + SecureRandom.hex(4)
             Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code: invitation_code)

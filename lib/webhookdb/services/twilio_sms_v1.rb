@@ -116,7 +116,7 @@ webhookdb db sql "SELECT * FROM twilio_sms_v1"
     return Sequel[self.table_sym][:date_updated] < Sequel[:excluded][:date_updated]
   end
 
-  def _prepare_for_insert(body)
+  def _prepare_for_insert(body, **_kwargs)
     return {
       twilio_id: body["sid"],
       date_created: Time.parse(body["date_created"]),
