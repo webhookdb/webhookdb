@@ -41,7 +41,7 @@ module Webhookdb
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"
 
-  configurable(:Webhookdb) do
+  configurable(:webhookdb) do
     setting :log_level_override,
             nil,
             key: "LOG_LEVEL",
