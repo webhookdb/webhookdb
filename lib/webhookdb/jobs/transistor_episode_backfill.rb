@@ -6,8 +6,8 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::TransistorEpisodeBackfill
   extend Webhookdb::Async::ScheduledJob
 
-  cron "*/60 * * * * *"
-  splay 30
+  cron "0 30 * * * *"
+  splay 10.minutes
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "transistor_episode_v1") do |sint|
