@@ -227,7 +227,7 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
-      let(:expect_empty_page_call) { false }
+      let(:expected_backfill_call_count) { 2 }
       around(:each) do |example|
         Timecop.travel(today) do
           example.run

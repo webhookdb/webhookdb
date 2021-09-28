@@ -119,10 +119,10 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:page1_items) { raise NotImplementedError }
   let(:page2_items) { raise NotImplementedError }
-  # Most backfilling involves enumerating pages until we have no results,
-  # but in some cases we have a known number of pages and we can stop iterating
-  # when we hit the last one. In that case, override this to false.
-  let(:expect_empty_page_call) { true }
+  # We usually assume 2 pages, plus an empty page as the last query.
+  # But in some cases we skip that last empty page if we know we're on the last page,
+  # or have no pagination at all.
+  let(:expected_backfill_call_count) { 3 }
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -145,9 +145,9 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     expect(svc).to receive(:wait_for_retry_attempt).twice # Mock out the sleep
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
-    expect(svc).to receive(:_fetch_backfill_page).and_call_original
-    expect(svc).to receive(:_fetch_backfill_page).and_call_original
-    (expect(svc).to receive(:_fetch_backfill_page).and_call_original) if expect_empty_page_call
+    expected_backfill_call_count.times do
+      expect(svc).to receive(:_fetch_backfill_page).and_call_original
+    end
 
     svc.backfill
     svc.readonly_dataset do |ds|

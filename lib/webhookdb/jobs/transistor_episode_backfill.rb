@@ -3,7 +3,7 @@
 require "webhookdb/async/scheduled_job"
 require "webhookdb/jobs"
 
-class Webhookdb::Jobs::TransistorScheduledAnalytics
+class Webhookdb::Jobs::TransistorEpisodeBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron "*/60 * * * * *"

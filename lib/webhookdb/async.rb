@@ -121,6 +121,9 @@ module Webhookdb::Async
   # Registry of all jobs that will be required when the async system is started/run.
   JOBS = [
     "webhookdb/jobs/backfill",
+    "webhookdb/jobs/convertkit_broadcast_backfill",
+    "webhookdb/jobs/convertkit_subscriber_backfill",
+    "webhookdb/jobs/convertkit_tag_backfill",
     "webhookdb/jobs/create_mirror_table",
     "webhookdb/jobs/create_stripe_customer",
     "webhookdb/jobs/emailer",
@@ -129,7 +132,8 @@ module Webhookdb::Async
     "webhookdb/jobs/prepare_database_connections",
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/reset_code_create_dispatch",
-    "webhookdb/jobs/twilioscheduledbackfill",
+    "webhookdb/jobs/transistor_episode_backfill",
+    "webhookdb/jobs/twilio_scheduled_backfill",
   ].freeze
 
   require "webhookdb/async/job_logger"
