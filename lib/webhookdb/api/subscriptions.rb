@@ -30,24 +30,17 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
             present data
           end
         end
+      end
+    end
+  end
 
-        resource :portal_return do
-          desc "provides a landing page for after the stripe billing page"
-          post do
-            html_body = "<html>
-<head>
-    <title>Action Completed.</title>
-</head>
-<body>
-<div>
-  <p>You have successfully viewed or updated your Stripe Billing Information. You can close this page.</p>
-</div>
-</body>
-</html>"
-            redirect(Webhookdb.marketing_site, body: html_body)
-            content_type "text/html"
-          end
-        end
+  resource :subscriptions do
+    resource :portal_return do
+      desc "provides a landing page for after the stripe billing page"
+      get do
+        rendered = render_liquid("pages/billing_callback.liquid")
+        status 200
+        body rendered
       end
     end
   end
