@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "httparty"
 require "webhookdb/shopify"
 
 class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base

@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "httparty"
 require "webhookdb/increase"
 
 class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base

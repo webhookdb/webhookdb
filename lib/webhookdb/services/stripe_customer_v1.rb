@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require "httparty"
 require "stripe"
-require "webhookdb/services/state_machine_step"
 
 class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   include Appydays::Loggable

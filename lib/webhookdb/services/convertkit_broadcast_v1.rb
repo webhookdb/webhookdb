@@ -3,7 +3,7 @@
 require "time"
 require "webhookdb/convertkit"
 
-class Webhookdb::Services::ConvertKitBroadcastV1 < Webhookdb::Services::Base
+class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
   def _webhook_verified?(_request)

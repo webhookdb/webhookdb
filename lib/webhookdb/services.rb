@@ -25,6 +25,7 @@ class Webhookdb::Services
   end
 end
 
+require "webhookdb/services/state_machine_step"
 require "webhookdb/services/column"
 require "webhookdb/services/base"
 require "webhookdb/services/convertkit_broadcast_v1"
@@ -40,9 +41,9 @@ require "webhookdb/services/stripe_customer_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/twilio_sms_v1"
 # rubocop:disable Layout/LineLength
-Webhookdb::Services.register("convertkit_broadcast_v1", ->(sint) { Webhookdb::Services::ConvertKitBroadcastV1.new(sint) })
-Webhookdb::Services.register("convertkit_subscriber_v1", ->(sint) { Webhookdb::Services::ConvertKitSubscriberV1.new(sint) })
-Webhookdb::Services.register("convertkit_tag_v1", ->(sint) { Webhookdb::Services::ConvertKitTagV1.new(sint) })
+Webhookdb::Services.register("convertkit_broadcast_v1", ->(sint) { Webhookdb::Services::ConvertkitBroadcastV1.new(sint) })
+Webhookdb::Services.register("convertkit_subscriber_v1", ->(sint) { Webhookdb::Services::ConvertkitSubscriberV1.new(sint) })
+Webhookdb::Services.register("convertkit_tag_v1", ->(sint) { Webhookdb::Services::ConvertkitTagV1.new(sint) })
 Webhookdb::Services.register("fake_v1", ->(sint) { Webhookdb::Services::Fake.new(sint) })
 Webhookdb::Services.register("fake_with_enrichments_v1", ->(sint) { Webhookdb::Services::FakeWithEnrichments.new(sint) })
 Webhookdb::Services.register("increase_ach_transfer_v1", ->(sint) { Webhookdb::Services::IncreaseACHTransferV1.new(sint) })

@@ -3,7 +3,7 @@
 require "webhookdb/async/scheduled_job"
 require "webhookdb/jobs"
 
-class Webhookdb::Jobs::ConvertKitBroadcastBackfill
+class Webhookdb::Jobs::ConvertkitBroadcastBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron "0 10 * * * *"
