@@ -50,7 +50,6 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
       data[:integrations_left_display] = "unlimited"
       data[:sub_status] = subscription.status
     end
-    puts data
     return data
   end
 end

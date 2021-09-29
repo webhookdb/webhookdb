@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "time"
 require "webhookdb/transistor"
 
 class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base

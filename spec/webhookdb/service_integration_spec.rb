@@ -2,7 +2,7 @@
 
 require "webhookdb/service_integration"
 
-RSpec.describe "Webhookdb::ServiceIntegration" do
+RSpec.describe "Webhookdb::ServiceIntegration", :db do
   let(:described_class) { Webhookdb::ServiceIntegration }
 
   let!(:sint) { Webhookdb::Fixtures.service_integration.create }

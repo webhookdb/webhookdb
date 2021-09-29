@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "httparty"
-
 class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 

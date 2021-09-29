@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "httparty"
 require "stripe"
 
 class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
