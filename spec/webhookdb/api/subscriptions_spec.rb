@@ -88,15 +88,14 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
     end
   end
 
-  describe "POST v1/organizations/:identifier/subscriptions/portal_return" do
+  describe "GET v1/subscriptions/portal_return" do
     it "returns an html page with the right message" do
-      post "/v1/organizations/#{org.key}/subscriptions/portal_return"
+      get "/v1/subscriptions/portal_return"
 
-      expect(last_response).to have_status(302)
+      expect(last_response).to have_status(200)
       expect(last_response.headers).to include("Content-Type" => "text/html")
-
       expect(last_response.body).to match(
-        "You have successfully viewed or updated your Stripe Billing Information. You can close this page.",
+        "You have successfully viewed or updated your billing information",
       )
     end
   end
