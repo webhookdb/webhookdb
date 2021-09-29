@@ -137,7 +137,6 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           "webhookdb.organizationmembership.invite", membership.id,
         )
       end.to perform_async_job(Webhookdb::Jobs::SendInvite)
-      puts Webhookdb::Message::Delivery.all
       expect(Webhookdb::Message::Delivery.first).to have_attributes(
         template: "invite",
         transport_type: "email",
