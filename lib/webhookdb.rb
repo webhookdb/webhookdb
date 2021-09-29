@@ -37,6 +37,7 @@ module Webhookdb
   RACK_ENV = ENV["RACK_ENV"] || "development"
   VERSION = ENV["HEROKU_SLUG_COMMIT"] || "unknown-version"
   RELEASE = ENV["HEROKU_RELEASE_VERSION"] || "unknown-release"
+  RELEASE_CREATED_AT = ENV["HEROKU_RELEASE_CREATED_AT"] || Time.at(0).utc.iso8601
   INTEGRATION_TESTS_ENABLED = ENV["INTEGRATION_TESTS"] || false
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"
@@ -207,5 +208,6 @@ module Webhookdb
 end
 
 require "webhookdb/aggregate_result"
+require "webhookdb/http"
 require "webhookdb/phone_number"
 require "webhookdb/services"
