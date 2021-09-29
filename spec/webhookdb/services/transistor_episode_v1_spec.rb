@@ -157,10 +157,6 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "transistor_episode_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [{}, {}] }
       let(:page1_response) do
         <<~R
           {
@@ -227,23 +223,21 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
-      let(:expected_backfill_call_count) { 2 }
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
+      let(:expected_items_count) { 4 }
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.transistor.fm/v1/episodes").
+              with(body: "pagination%5Bpage%5D=1").
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.transistor.fm/v1/episodes").
+              with(body: "pagination%5Bpage%5D=2").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      before(:each) do
-        stub_request(:get, "https://api.transistor.fm/v1/episodes").
-          with(
-            body: "pagination%5Bpage%5D=1",
-          ).
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.transistor.fm/v1/episodes").
-          with(
-            body: "pagination%5Bpage%5D=2",
-          ).
-          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.transistor.fm/v1/episodes").
+            to_return(status: 400, body: "try again later")
       end
     end
 
@@ -385,13 +379,14 @@ RSpec.describe Webhookdb::Services, :db do
         R
       end
 
-      before(:each) do
-        stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
-          to_return(
-            status: 200,
-            headers: {"Content-Type" => "application/json"},
-            body: analytics_body,
-          )
+      def stub_service_request
+        return stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+            to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: analytics_body)
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+            to_return(status: 503, body: "whoo")
       end
 
       def assert_is_enriched(_row)
@@ -453,10 +448,32 @@ RSpec.describe Webhookdb::Services, :db do
         J
       end
 
+      it "makes the request" do
+        req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+          to_return(
+            status: 200,
+            headers: {"Content-Type" => "application/json"},
+            body: {
+              data: {
+                id: "1",
+                type: "episode_analytics",
+                attributes: {},
+              },
+            }.to_json,
+          )
+        expect(svc._fetch_enrichment(body)).to include("data" => include("id" => "1"))
+        expect(req).to have_been_made
+      end
       it "sleeps to avoid rate limiting" do
         Webhookdb::Transistor.sleep_seconds = 1.2
         expect(Kernel).to receive(:sleep).with(1.2)
         svc._fetch_enrichment(body)
+      end
+      it "errors if the API call errors" do
+        req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+          to_return(status: 400, headers: {"Content-Type" => "application/json"}, body: "something went wrong")
+        expect { svc._fetch_enrichment(body) }.to raise_error(Webhookdb::Http::Error)
+        expect(req).to have_been_made
       end
     end
   end

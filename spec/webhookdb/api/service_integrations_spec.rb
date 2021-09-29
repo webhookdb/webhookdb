@@ -13,8 +13,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
   let!(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
   let!(:sint) do
-    Webhookdb::Fixtures.service_integration.create(opaque_id: "xyz", organization: org, service_name: "fake_v1",
-                                                   backfill_key: "qwerty",)
+    Webhookdb::Fixtures.service_integration.create(
+      opaque_id: "xyz", organization: org, service_name: "fake_v1", backfill_key: "qwerty",
+    )
   end
 
   let!(:twilio_sint) do
@@ -38,10 +39,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       },
     )
   end
-  before(:all) do
-    Webhookdb::Async.require_jobs
-  end
-
   after(:each) do
     Webhookdb::Services::Fake.reset
   end
@@ -123,14 +120,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       )
     end
 
-    it "starts backfill process if setup is complete" do
-      Webhookdb::Services::Fake.backfill_responses = {
-        nil => [[], nil],
-      }
-
+    it "starts backfill process if setup is complete", :async do
+      sint.update(backfill_secret: "sek")
       expect do
         post "/v1/service_integrations/xyz/backfill"
-      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id])
     end
 
     it "fails if service integration is not supported by subscription plan" do

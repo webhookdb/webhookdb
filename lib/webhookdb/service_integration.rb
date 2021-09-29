@@ -25,6 +25,10 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return customer.verified_member_of?(self.organization)
   end
 
+  def service_instance
+    return Webhookdb::Services.service_instance(self)
+  end
+
   # SUBSCRIPTION PERMISSIONS
 
   def plan_supports_integration?

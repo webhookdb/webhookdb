@@ -5,19 +5,12 @@ require "support/shared_examples_for_services"
 RSpec.describe Webhookdb::Services, :db do
   describe "convertkit broadcast v1" do
     before(:each) do
-      stub_request(:get, %r{^https://api.convertkit.com/v3/broadcasts/\d+/stats}).
+      # Because we enrich, set up a stub response we can always use, without having to worry about mocking everything.
+      stub_request(:get, %r{^https://api\.convertkit\.com/v3/broadcasts/\d+/stats}).
         to_return(
           status: 200,
           headers: {"Content-Type" => "application/json"},
-          body: {
-            broadcast: [
-              {
-                id: 10_000_000,
-                stats:
-                  {},
-              },
-            ],
-          }.to_json,
+          body: {broadcast: {id: 10_000_000, stats: {}}}.to_json,
         )
       allow(Kernel).to receive(:sleep)
     end
@@ -57,13 +50,9 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "convertkit_broadcast_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [] }
       let(:page1_response) do
         <<~R
-                    {
+          {
             "broadcasts": [
               {
                 "id": 1,
@@ -81,18 +70,22 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:page2_response) do
         <<~R
-          {}
+          {"broadcasts": []}
         R
       end
-      let(:expected_backfill_call_count) { 1 }
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
+      let(:expected_items_count) { 2 }
+
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}).
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      before(:each) do
-        stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
+            to_return(status: 500, body: "ahhh")
       end
     end
 
@@ -161,35 +154,37 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:analytics_body) do
         <<~R
-
           {
-            "broadcast": [
+            "broadcast": {
+              "id":1,
+              "stats":
               {
-                "id":1,
-                "stats":
-                {
-                  "recipients": 82,
-                  "open_rate": 60.975,
-                  "click_rate": 23.17,
-                  "unsubscribes": 9,
-                  "total_clicks": 15,
-                  "show_total_clicks": false,
-                  "status": "completed",
-                  "progress": 100.0
-                }
+                "recipients": 82,
+                "open_rate": 60.975,
+                "click_rate": 23.17,
+                "unsubscribes": 9,
+                "total_clicks": 15,
+                "show_total_clicks": false,
+                "status": "completed",
+                "progress": 100.0
               }
-            ]
+            }
           }
         R
       end
 
-      before(:each) do
-        stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
-          to_return(
-            status: 200,
-            headers: {"Content-Type" => "application/json"},
-            body: analytics_body,
-          )
+      def stub_service_request
+        return stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
+            to_return(
+              status: 200,
+              headers: {"Content-Type" => "application/json"},
+              body: analytics_body,
+            )
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
+            to_return(status: 503, body: "nope")
       end
 
       def assert_is_enriched(row)
@@ -222,6 +217,26 @@ RSpec.describe Webhookdb::Services, :db do
         J
       end
 
+      it "makes the request" do
+        req = stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
+          to_return(
+            status: 200,
+            headers: {"Content-Type" => "application/json"},
+            body: {broadcast: {id: 10_000_000, stats: {x: 1}}}.to_json,
+          )
+        svc._fetch_enrichment(body)
+        expect(req).to have_been_made
+      end
+      it "defaults stats" do
+        req = stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
+          to_return(
+            status: 200,
+            headers: {"Content-Type" => "application/json"},
+            body: {broadcast: {id: 5}}.to_json,
+          )
+        expect(svc._fetch_enrichment(body)).to eq({})
+        expect(req).to have_been_made
+      end
       it "sleeps to avoid rate limiting" do
         Webhookdb::Convertkit.sleep_seconds = 1.2
         expect(Kernel).to receive(:sleep).with(1.2)

@@ -117,12 +117,15 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     )
   end
   let(:svc) { Webhookdb::Services.service_instance(sint) }
-  let(:page1_items) { raise NotImplementedError }
-  let(:page2_items) { raise NotImplementedError }
-  # We usually assume 2 pages, plus an empty page as the last query.
-  # But in some cases we skip that last empty page if we know we're on the last page,
-  # or have no pagination at all.
-  let(:expected_backfill_call_count) { 3 }
+  let(:expected_items_count) { raise NotImplementedError, "how many items do we insert?" }
+
+  def stub_service_requests
+    raise NotImplementedError, "return stub_request for service"
+  end
+
+  def stub_service_request_error
+    raise NotImplementedError, "return error stub request"
+  end
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -134,10 +137,10 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
 
   it "upsert records for pages of results" do
     svc.create_table
+    responses = stub_service_requests
     svc.backfill
-    svc.readonly_dataset do |ds|
-      expect(ds.all).to have_length(page1_items.length + page2_items.length)
-    end
+    expect(responses).to all(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
   end
 
   it "retries the page fetch" do
@@ -145,20 +148,25 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     expect(svc).to receive(:wait_for_retry_attempt).twice # Mock out the sleep
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
-    expected_backfill_call_count.times do
-      expect(svc).to receive(:_fetch_backfill_page).and_call_original
-    end
+    responses = stub_service_requests
+    expect(svc).to receive(:_fetch_backfill_page).at_least(:once).and_call_original
 
     svc.backfill
-    svc.readonly_dataset do |ds|
-      expect(ds.all).to have_length(page1_items.length + page2_items.length)
-    end
+    expect(responses).to all(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
   end
 
   it "errors if backfill credentials are not present" do
     svc.service_integration.backfill_key = ""
     svc.service_integration.backfill_secret = ""
     expect { svc.backfill }.to raise_error(Webhookdb::Services::CredentialsMissing)
+  end
+
+  it "errors if fetching page errors" do
+    expect(svc).to receive(:wait_for_retry_attempt).twice # Mock out the sleep
+    response = stub_service_request_error
+    expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
+    expect(response).to have_been_made.at_least_once
   end
 end
 
@@ -176,12 +184,21 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
     sint.organization.remove_related_database
   end
 
-  def assert_is_enriched(row)
-    raise NotImplementedError
+  # noinspection RubyUnusedLocalVariable
+  def stub_service_request
+    raise NotImplementedError, "return the stub_request for an enrichment"
   end
 
-  def assert_enrichment_after_insert(db)
-    raise NotImplementedError
+  def stub_service_request_error
+    raise NotImplementedError, "return an erroring stub_request for an enrichment"
+  end
+
+  def assert_is_enriched(_row)
+    raise NotImplementedError, 'something like: expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})'
+  end
+
+  def assert_enrichment_after_insert(_db)
+    raise NotImplementedError, "something like: expect(db[:fake_v1_enrichments].all).to have_length(1)"
   end
 
   it "creates enrichment tables on service table create" do
@@ -193,14 +210,24 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   it "can use enriched data when inserting" do
     svc.create_table
+    req = stub_service_request
     svc.upsert_webhook(body: body)
+    expect(req).to have_been_made
     row = svc.readonly_dataset(&:first)
     assert_is_enriched(row)
   end
 
   it "calls the after insert hook with the enrichment" do
     svc.create_table
+    req = stub_service_request
     svc.upsert_webhook(body: body)
+    expect(req).to have_been_made
     assert_enrichment_after_insert(svc.readonly_dataset(&:db))
+  end
+
+  it "errors if fetching enrichment errors" do
+    req = stub_service_request_error
+    expect { svc.upsert_webhook(body: body) }.to raise_error(Webhookdb::Http::Error)
+    expect(req).to have_been_made
   end
 end
