@@ -24,6 +24,8 @@ jobs:
           bundle install --jobs 4 --retry 3
       - name: Start backing services
         run: docker-compose up -d
+      - name: Wait for services to come up
+        run: sleep 10
 # Reenable this once we figure out what's up with Rubocop
 # See https://github.com/lithictech/webhookdb-api/pull/46
 #      - name: Run rubocop
