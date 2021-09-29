@@ -10,6 +10,7 @@ module Webhookdb::Async::ScheduledJob
     Webhookdb::Async.jobs << cls
 
     cls.include(Sidekiq::Worker)
+    cls.sidekiq_options(retry: false)
     cls.extend(ClassMethods)
     cls.class_attribute :cron_expr
     cls.class_attribute :splay_duration

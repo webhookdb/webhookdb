@@ -6,8 +6,8 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::ConvertKitBroadcastBackfill
   extend Webhookdb::Async::ScheduledJob
 
-  cron "*/60 * * * * *"
-  splay 30
+  cron "0 10 * * * *"
+  splay 10.minutes
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "convertkit_broadcast_v1") do |sint|
