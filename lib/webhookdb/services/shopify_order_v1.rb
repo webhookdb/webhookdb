@@ -205,13 +205,12 @@ webhookdb db sql "SELECT * FROM shopify_orders_v1"
     else
       pagination_token
           end
-    response = HTTParty.get(
+    response = Webhookdb::Http.get(
       url,
       basic_auth: {username: self.service_integration.backfill_key,
                    password: self.service_integration.backfill_secret,},
       logger: self.logger,
     )
-    raise response if response.code >= 300
     data = response.parsed_response
     next_link = nil
     if response.headers.key?("link")

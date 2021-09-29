@@ -127,8 +127,8 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
       body: request_body,
       logger: self.logger,
     )
-    data = response.parsed_response
-    return data
+    Webhookdb::Http.check!(response)
+    return response.parsed_response
   end
 
   def _update_where_expr
@@ -154,7 +154,7 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
   end
 
   def _after_insert(inserting, enrichment:)
-    download_entries = enrichment["data"]["attributes"]["downloads"] || []
+    download_entries = enrichment.dig("data", "attributes", "downloads") || []
     episode_id = inserting[:transistor_id]
     rows = download_entries.map do |ent|
       {
@@ -173,13 +173,12 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
   def _fetch_backfill_page(pagination_token)
     url = "https://api.transistor.fm/v1/episodes"
     pagination_token = 1 if pagination_token.blank?
-    response = HTTParty.get(
+    response = Webhookdb::Http.get(
       url,
       headers: {"x-api-key" => self.service_integration.backfill_key},
       body: {pagination: {page: pagination_token}},
       logger: self.logger,
     )
-    raise response if response.code >= 300
     data = response.parsed_response
     current_page = data["meta"]["currentPage"]
     total_pages = data["meta"]["totalPages"]

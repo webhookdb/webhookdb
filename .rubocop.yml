@@ -70,6 +70,7 @@ Lint/UselessAssignment:
 Lint/UnusedMethodArgument:
   Exclude:
     - 'lib/webhookdb/services/base.rb'
+    - 'spec/support/*.rb'
 
 # https://rubocop.readthedocs.io/en/latest/cops_naming/
 Naming/AccessorMethodName:

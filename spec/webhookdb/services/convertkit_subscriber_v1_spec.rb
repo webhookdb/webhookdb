@@ -55,10 +55,6 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "convertkit_subscriber_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [{}] }
       let(:page1_response) do
         <<~R
                     {
@@ -111,17 +107,20 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
-      let(:expected_backfill_call_count) { 2 }
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
+      let(:expected_items_count) { 3 }
+
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      before(:each) do
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2").
-          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
+            to_return(status: 503, body: "error")
       end
     end
 

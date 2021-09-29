@@ -1454,10 +1454,6 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "shopify_order_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [{}] }
       let(:page1_response) do
         <<~R
           {
@@ -3292,7 +3288,7 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:page3_response) do
         <<~R
-                    {
+          {
             "orders": [
               {
                 "id": 300000000,
@@ -4206,34 +4202,46 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
-      end
-      before(:each) do
+      let(:expected_items_count) { 3 }
+
+      def stub_service_requests
         # rubocop:disable Layout/LineLength
-        stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
-          with(
-            headers: {
-              "Accept" => "*/*",
-              "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
-              "Authorization" => "Basic YmZrZXk6YmZzZWs=",
-              "User-Agent" => "Ruby",
-            },
-          ).
-          to_return(status: 200, body: page1_response,
-                    headers: {"Content-Type" => "application/json",
-                              "Link" => '<https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=abc123>; rel="next", <irrelevant_link>; rel="previous"',},)
-        stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=abc123").
-          to_return(status: 200, body: page2_response,
-                    headers: {"Content-Type" => "application/json",
-                              "Link" => '<https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=xyz123>; rel="next", <irrelevant_link>; rel="previous"',},)
-        stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=xyz123").
-          to_return(status: 200, body: page3_response,
-                    headers: {"Content-Type" => "application/json",
-                              "Link" => '<irrelevant_link>; rel="previous"',},)
+        return [
+          stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
+              with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+              to_return(
+                status: 200,
+                body: page1_response,
+                headers: {
+                  "Content-Type" => "application/json",
+                  "Link" => '<https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=abc123>; rel="next", <irrelevant_link>; rel="previous"',
+                },
+              ),
+          stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=abc123").
+              to_return(
+                status: 200,
+                body: page2_response,
+                headers: {
+                  "Content-Type" => "application/json",
+                  "Link" => '<https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=xyz123>; rel="next", <irrelevant_link>; rel="previous"',
+                },
+              ),
+          stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?limit=2&page_info=xyz123").
+              to_return(
+                status: 200,
+                body: page3_response,
+                headers: {
+                  "Content-Type" => "application/json",
+                  "Link" => '<irrelevant_link>; rel="previous"',
+                },
+              ),
+        ]
         # rubocop:enable Layout/LineLength
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
+            to_return(status: 500, body: "eh")
       end
     end
     describe "webhook validation" do

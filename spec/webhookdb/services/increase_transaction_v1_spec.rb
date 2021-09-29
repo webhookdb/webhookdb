@@ -65,34 +65,30 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "increase_transaction_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [{}, {}] }
       let(:page1_response) do
         <<~R
-                      {
+          {
             "data": [
               {
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
-          },
+                "id": "transaction_uyrp7fld2ium70oa7oi",
+                "account_id": "account_in71c4amph0vgo2qllky",
+                "amount": 100,
+                "date": "2020-01-31",
+                "description": "Rent payment",
+                "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
+                "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+                "source": {}
+              },
               {
-            "id": "transaction_uyrp7fld2ium70oasdf",
-            "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
-          }
+                "id": "transaction_uyrp7fld2ium70oasdf",
+                "account_id": "account_in71c4amph0vgo2qllky",
+                "amount": 100,
+                "date": "2020-01-31",
+                "description": "Rent payment",
+                "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
+                "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+                "source": {}
+              }
             ],
             "response_metadata": {
               "next_cursor": "aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19"
@@ -102,28 +98,28 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:page2_response) do
         <<~R
-                      {
+          {
             "data": [
               {
-            "id": "transaction_uyrp7fld2ium70oqwer",
-            "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
-          },
+                "id": "transaction_uyrp7fld2ium70oqwer",
+                "account_id": "account_in71c4amph0vgo2qllky",
+                "amount": 100,
+                "date": "2020-01-31",
+                "description": "Rent payment",
+                "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
+                "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+                "source": {}
+              },
               {
-            "id": "transaction_uyrp7fld2ium70opoiu",
-            "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
-          }
+                "id": "transaction_uyrp7fld2ium70opoiu",
+                "account_id": "account_in71c4amph0vgo2qllky",
+                "amount": 100,
+                "date": "2020-01-31",
+                "description": "Rent payment",
+                "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
+                "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+                "source": {}
+              }
             ],
             "response_metadata": {
               "next_cursor": "lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19"
@@ -133,35 +129,30 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:page3_response) do
         <<~R
-                              {
-                      "data": [],
-                      "response_metadata": {
-                        "next_cursor": null
-                      }
-                    }
-          #{'          '}
+          {
+            "data": [],
+            "response_metadata": {
+              "next_cursor": null
+            }
+          }
         R
       end
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
+      let(:expected_items_count) { 4 }
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.increase.com/transactions").
+              with(headers: {"Authorization" => "Bearer bfkey"}).
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.increase.com/transactions?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.increase.com/transactions?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
+              to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      before(:each) do
-        stub_request(:get, "https://api.increase.com/transactions").
-          with(
-            headers: {
-              "Accept" => "*/*",
-              "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
-              "Authorization" => "Bearer bfkey",
-              "User-Agent" => "Ruby",
-            },
-          ).
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.increase.com/transactions?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
-          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.increase.com/transactions?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
-          to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.increase.com/transactions").
+            to_return(status: 500, body: "gah")
       end
     end
 

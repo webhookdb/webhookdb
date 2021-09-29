@@ -149,18 +149,15 @@ webhookdb db sql "SELECT * FROM stripe_customers_v1"
   end
 
   def _fetch_backfill_page(pagination_token)
-    unless (url = pagination_token)
-      url = ""
-    end
-    url = "https://api.stripe.com/v1/customers" + url
-    response = HTTParty.get(
+    url = "https://api.stripe.com/v1/customers"
+    url += pagination_token if pagination_token.present?
+    response = Webhookdb::Http.get(
       url,
       basic_auth: {username: self.service_integration.backfill_key},
       logger: self.logger,
     )
-    self.logger.error "stripe charge backfilling", response
-    raise response if response.code >= 300
     data = response.parsed_response
+    next_page_param = nil
     if data["has_more"]
       last_item_id = data["data"][-1]["id"]
       next_page_param = "?starting_after=" + last_item_id

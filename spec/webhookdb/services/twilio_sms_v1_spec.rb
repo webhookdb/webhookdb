@@ -101,9 +101,6 @@ RSpec.describe Webhookdb::Services, :db do
 
     it_behaves_like "a service implementation that can backfill", "twilio_sms_v1" do
       let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [{}] }
       let(:page1_response) do
         <<~R
           {
@@ -226,26 +223,27 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
+      let(:expected_items_count) { 3 }
       around(:each) do |example|
         Timecop.travel(today) do
           example.run
         end
       end
-      before(:each) do
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
-          with(
-            headers: {
-              "Accept" => "*/*",
-              "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
-              "Authorization" => "Basic YmZrZXk6YmZzZWs=",
-              "User-Agent" => "Ruby",
-            },
-          ).
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
-          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
-          to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"})
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+              with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
+              to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+        ]
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+            to_return(status: 503, body: "woah")
       end
     end
 

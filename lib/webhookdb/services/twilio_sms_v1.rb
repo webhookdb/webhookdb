@@ -130,19 +130,20 @@ webhookdb db sql "SELECT * FROM twilio_sms_v1"
   end
 
   def _fetch_backfill_page(pagination_token)
-    unless (url = pagination_token)
+    url = "https://api.twilio.com"
+    if pagination_token.blank?
       date_send_max = Date.tomorrow
-      url = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
+      url += "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
         "?PageSize=100&DateSend%3C=#{date_send_max}"
+    else
+      url += pagination_token
     end
-    url = "https://api.twilio.com" + url
-    response = HTTParty.get(
+    response = Webhookdb::Http.get(
       url,
       basic_auth: {username: self.service_integration.backfill_key,
                    password: self.service_integration.backfill_secret,},
       logger: self.logger,
     )
-    raise response if response.code >= 300
     data = response.parsed_response
     return data["messages"], data["next_page_uri"]
   end

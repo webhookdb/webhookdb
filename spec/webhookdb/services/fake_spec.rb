@@ -46,13 +46,23 @@ RSpec.describe Webhookdb::Services, :db do
           {"my_id" => "4", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
         ]
       end
+      let(:expected_items_count) { 4 }
       before(:each) do
         Webhookdb::Services::Fake.reset
-        Webhookdb::Services::Fake.backfill_responses = {
-          nil => [page1_items, "token1"],
-          "token1" => [page2_items, "token2"],
-          "token2" => [[], nil],
-        }
+      end
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://fake-integration/?token=").
+              to_return(status: 200, body: [page1_items,
+                                            "p2",].to_json, headers: {"Content-Type" => "application/json"},),
+          stub_request(:get, "https://fake-integration/?token=p2").
+              to_return(status: 200, body: [page2_items, nil].to_json, headers: {"Content-Type" => "application/json"}),
+        ]
+      end
+
+      def stub_service_request_error
+        stub_request(:get, "https://fake-integration/?token=").
+          to_return(status: 500, body: "erm")
       end
     end
 
@@ -75,6 +85,17 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:enrichment_tables) { Webhookdb::Services::FakeWithEnrichments.enrichment_tables }
       let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
+
+      def stub_service_request
+        return stub_request(:get, "https://fake-integration/enrichment/abc").
+            to_return(status: 200, body: {extra: "abc"}.to_json, headers: {"Content-Type" => "application/json"})
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://fake-integration/enrichment/abc").
+            to_return(status: 500, body: "gerd")
+      end
+
       def assert_is_enriched(row)
         expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})
       end

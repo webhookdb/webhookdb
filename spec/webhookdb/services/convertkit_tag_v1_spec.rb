@@ -5,7 +5,7 @@ require "support/shared_examples_for_services"
 RSpec.describe Webhookdb::Services, :db do
   describe "convertkit tag v1" do
     before(:each) do
-      stub_request(:get, %r{^https://api.convertkit.com/v3/tags/\d+/subscriptions}).
+      stub_request(:get, %r{^https://api\.convertkit\.com/v3/tags/\d+/subscriptions}).
         to_return(
           status: 200,
           headers: {"Content-Type" => "application/json"},
@@ -54,13 +54,9 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "convertkit_tag_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}] }
-      let(:page2_items) { [] }
       let(:page1_response) do
         <<~R
-                    {
+          {
             "tags": [
               {
                 "id": 1,
@@ -76,48 +72,17 @@ RSpec.describe Webhookdb::Services, :db do
           }
         R
       end
-      let(:page2_response) do
-        <<~R
-          {
-            "data": [
-              {
-                "id": "3",
-                "type": "episode",
-                "attributes": {
-                  "title": "I've actually decided I like tea better",
-                  "summary": "A primer on good tea",
-                  "created_at":"2021-09-03T10:06:08.582-07:00"
-                },
-                "relationships": {}
-              },
-              {
-                "id": "4",
-                "type": "episode",
-                "attributes": {
-                  "title": "The Effects of Quitting Caffeine",
-                  "summary": "I think I should really cut down",
-                  "created_at":"2021-09-03T10:06:08.582-07:00"
-                },
-                "relationships": {}
-              }
-            ],
-            "meta": {
-              "currentPage": 2,
-              "totalPages": 2,
-              "totalCount": 4
-            }
-          }
-        R
+      let(:expected_items_count) { 2 }
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.convertkit.com/v3/tags?api_key=bfkey").
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      let(:expected_backfill_call_count) { 1 }
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
-      end
-      before(:each) do
-        stub_request(:get, "https://api.convertkit.com/v3/tags?api_key=bfkey").
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.convertkit.com/v3/tags?api_key=bfkey").
+            to_return(status: 500, body: "ugh")
       end
     end
 
@@ -198,21 +163,22 @@ RSpec.describe Webhookdb::Services, :db do
       let(:analytics_body) do
         <<~R
           {
-            total_subscriptions: 2,
-            page: 1,
-            total_pages: 1,
-            subscriptions: []
+            "total_subscriptions": 2,
+            "page": 1,
+            "total_pages": 1,
+            "subscriptions": []
           }
         R
       end
 
-      before(:each) do
-        stub_request(:get, %r{https://api.convertkit.com/v3/tags/2461288/subscriptions?api_secret=}).
-          to_return(
-            status: 200,
-            headers: {"Content-Type" => "application/json"},
-            body: analytics_body,
-          )
+      def stub_service_request
+        return stub_request(:get, "https://api.convertkit.com/v3/tags/2641288/subscriptions?api_secret=").
+            to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: analytics_body)
+      end
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.convertkit.com/v3/tags/2641288/subscriptions?api_secret=").
+            to_return(status: 500, body: "ahh")
       end
 
       def assert_is_enriched(row)

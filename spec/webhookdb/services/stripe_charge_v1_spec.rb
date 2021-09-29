@@ -7,143 +7,142 @@ RSpec.describe Webhookdb::Services, :db do
     it_behaves_like "a service implementation", "stripe_charge_v1" do
       let(:body) do
         JSON.parse(<<~J)
-                            {
-                      "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
-                      "object": "event",
-                      "api_version": "2018-05-21",
-                      "created": 1530291411,
-                      "data": {
-                        "object": {
-                          "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
-                          "object": "charge",
-                          "amount": 888,
-                          "amount_captured": 888,
-                          "amount_refunded": 0,
-                          "application": null,
-                          "application_fee": null,
-                          "application_fee_amount": null,
-                          "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
-                          "billing_details": {
-                            "address": {
-                              "city": null,
-                              "country": null,
-                              "line1": null,
-                              "line2": null,
-                              "postal_code": null,
-                              "state": null
-                            },
-                            "email": null,
-                            "name": null,
-                            "phone": null
-                          },
-                          "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
-                          "captured": true,
-                          "created": 1619548785,
-                          "currency": "usd",
-                          "customer": null,
-                          "description": "Example charge",
-                          "destination": null,
-                          "dispute": null,
-                          "disputed": false,
-                          "failure_code": null,
-                          "failure_message": null,
-                          "fraud_details": {
-                          },
-                          "invoice": null,
-                          "livemode": false,
-                          "metadata": {
-                          },
-                          "on_behalf_of": null,
-                          "order": null,
-                          "outcome": {
-                            "network_status": "approved_by_network",
-                            "reason": null,
-                            "risk_level": "normal",
-                            "risk_score": 20,
-                            "seller_message": "Payment complete.",
-                            "type": "authorized"
-                          },
-                          "paid": true,
-                          "payment_intent": null,
-                          "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                          "payment_method_details": {
-                            "card": {
-                              "brand": "visa",
-                              "checks": {
-                                "address_line1_check": null,
-                                "address_postal_code_check": null,
-                                "cvc_check": null
-                              },
-                              "country": "US",
-                              "exp_month": 4,
-                              "exp_year": 2022,
-                              "fingerprint": "t6Eo2YGsl3ZPivuR",
-                              "funding": "credit",
-                              "installments": null,
-                              "last4": "4242",
-                              "network": "visa",
-                              "three_d_secure": null,
-                              "wallet": null
-                            },
-                            "type": "card"
-                          },
-                          "receipt_email": null,
-                          "receipt_number": null,
-                          "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
-                          "refunded": false,
-                          "refunds": {
-                            "object": "list",
-                            "data": [
-          #{'          '}
-                            ],
-                            "has_more": false,
-                            "total_count": 0,
-                            "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
-                          },
-                          "review": null,
-                          "shipping": null,
-                          "source": {
-                            "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                            "object": "card",
-                            "address_city": null,
-                            "address_country": null,
-                            "address_line1": null,
-                            "address_line1_check": null,
-                            "address_line2": null,
-                            "address_state": null,
-                            "address_zip": null,
-                            "address_zip_check": null,
-                            "brand": "Visa",
-                            "country": "US",
-                            "customer": null,
-                            "cvc_check": null,
-                            "dynamic_last4": null,
-                            "exp_month": 4,
-                            "exp_year": 2022,
-                            "fingerprint": "t6Eo2YGsl3ZPivuR",
-                            "funding": "credit",
-                            "last4": "4242",
-                            "metadata": {
-                            },
-                            "name": null,
-                            "tokenization_method": null
-                          },
-                          "source_transfer": null,
-                          "statement_descriptor": null,
-                          "statement_descriptor_suffix": null,
-                          "status": "succeeded",
-                          "transfer_data": null,
-                          "transfer_group": null
-                        }
-                      },
-                      "livemode": false,
-                      "pending_webhooks": 0,
-                      "request": {
-                        "id": null,
-                        "idempotency_key": null
-                      },
-                      "type": "source.chargeable"
-                    }
+          {
+            "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+            "object": "event",
+            "api_version": "2018-05-21",
+            "created": 1530291411,
+            "data": {
+              "object": {
+                "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
+                "object": "charge",
+                "amount": 888,
+                "amount_captured": 888,
+                "amount_refunded": 0,
+                "application": null,
+                "application_fee": null,
+                "application_fee_amount": null,
+                "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
+                "billing_details": {
+                  "address": {
+                    "city": null,
+                    "country": null,
+                    "line1": null,
+                    "line2": null,
+                    "postal_code": null,
+                    "state": null
+                  },
+                  "email": null,
+                  "name": null,
+                  "phone": null
+                },
+                "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
+                "captured": true,
+                "created": 1619548785,
+                "currency": "usd",
+                "customer": null,
+                "description": "Example charge",
+                "destination": null,
+                "dispute": null,
+                "disputed": false,
+                "failure_code": null,
+                "failure_message": null,
+                "fraud_details": {
+                },
+                "invoice": null,
+                "livemode": false,
+                "metadata": {
+                },
+                "on_behalf_of": null,
+                "order": null,
+                "outcome": {
+                  "network_status": "approved_by_network",
+                  "reason": null,
+                  "risk_level": "normal",
+                  "risk_score": 20,
+                  "seller_message": "Payment complete.",
+                  "type": "authorized"
+                },
+                "paid": true,
+                "payment_intent": null,
+                "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                "payment_method_details": {
+                  "card": {
+                    "brand": "visa",
+                    "checks": {
+                      "address_line1_check": null,
+                      "address_postal_code_check": null,
+                      "cvc_check": null
+                    },
+                    "country": "US",
+                    "exp_month": 4,
+                    "exp_year": 2022,
+                    "fingerprint": "t6Eo2YGsl3ZPivuR",
+                    "funding": "credit",
+                    "installments": null,
+                    "last4": "4242",
+                    "network": "visa",
+                    "three_d_secure": null,
+                    "wallet": null
+                  },
+                  "type": "card"
+                },
+                "receipt_email": null,
+                "receipt_number": null,
+                "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
+                "refunded": false,
+                "refunds": {
+                  "object": "list",
+                  "data": [
+                  ],
+                  "has_more": false,
+                  "total_count": 0,
+                  "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
+                },
+                "review": null,
+                "shipping": null,
+                "source": {
+                  "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                  "object": "card",
+                  "address_city": null,
+                  "address_country": null,
+                  "address_line1": null,
+                  "address_line1_check": null,
+                  "address_line2": null,
+                  "address_state": null,
+                  "address_zip": null,
+                  "address_zip_check": null,
+                  "brand": "Visa",
+                  "country": "US",
+                  "customer": null,
+                  "cvc_check": null,
+                  "dynamic_last4": null,
+                  "exp_month": 4,
+                  "exp_year": 2022,
+                  "fingerprint": "t6Eo2YGsl3ZPivuR",
+                  "funding": "credit",
+                  "last4": "4242",
+                  "metadata": {
+                  },
+                  "name": null,
+                  "tokenization_method": null
+                },
+                "source_transfer": null,
+                "statement_descriptor": null,
+                "statement_descriptor_suffix": null,
+                "status": "succeeded",
+                "transfer_data": null,
+                "transfer_group": null
+              }
+            },
+            "livemode": false,
+            "pending_webhooks": 0,
+            "request": {
+              "id": null,
+              "idempotency_key": null
+            },
+            "type": "source.chargeable"
+          }
         J
       end
       let(:expected_data) { body["data"]["object"] }
@@ -152,284 +151,282 @@ RSpec.describe Webhookdb::Services, :db do
     it_behaves_like "a service implementation that prevents overwriting new data with old", "stripe_charge_v1" do
       let(:old_body) do
         JSON.parse(<<~J)
-                    {
-                      "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
-                      "object": "event",
-                      "api_version": "2018-05-21",
-                      "created": 1530291411,
-                      "data": {
-                        "object": {
-                          "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
-                          "object": "charge",
-                          "amount": 888,
-                          "amount_captured": 888,
-                          "amount_refunded": 0,
-                          "application": null,
-                          "application_fee": null,
-                          "application_fee_amount": null,
-                          "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
-                          "billing_details": {
-                            "address": {
-                              "city": null,
-                              "country": null,
-                              "line1": null,
-                              "line2": null,
-                              "postal_code": null,
-                              "state": null
-                            },
-                            "email": null,
-                            "name": null,
-                            "phone": null
-                          },
-                          "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
-                          "captured": true,
-                          "created": 1619548785,
-                          "currency": "usd",
-                          "customer": null,
-                          "description": "Example charge",
-                          "destination": null,
-                          "dispute": null,
-                          "disputed": false,
-                          "failure_code": null,
-                          "failure_message": null,
-                          "fraud_details": {
-                          },
-                          "invoice": null,
-                          "livemode": false,
-                          "metadata": {
-                          },
-                          "on_behalf_of": null,
-                          "order": null,
-                          "outcome": {
-                            "network_status": "approved_by_network",
-                            "reason": null,
-                            "risk_level": "normal",
-                            "risk_score": 20,
-                            "seller_message": "Payment complete.",
-                            "type": "authorized"
-                          },
-                          "paid": true,
-                          "payment_intent": null,
-                          "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                          "payment_method_details": {
-                            "card": {
-                              "brand": "visa",
-                              "checks": {
-                                "address_line1_check": null,
-                                "address_postal_code_check": null,
-                                "cvc_check": null
-                              },
-                              "country": "US",
-                              "exp_month": 4,
-                              "exp_year": 2022,
-                              "fingerprint": "t6Eo2YGsl3ZPivuR",
-                              "funding": "credit",
-                              "installments": null,
-                              "last4": "4242",
-                              "network": "visa",
-                              "three_d_secure": null,
-                              "wallet": null
-                            },
-                            "type": "card"
-                          },
-                          "receipt_email": null,
-                          "receipt_number": null,
-                          "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
-                          "refunded": false,
-                          "refunds": {
-                            "object": "list",
-                            "data": [
-          #{'          '}
-                            ],
-                            "has_more": false,
-                            "total_count": 0,
-                            "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
-                          },
-                          "review": null,
-                          "shipping": null,
-                          "source": {
-                            "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                            "object": "card",
-                            "address_city": null,
-                            "address_country": null,
-                            "address_line1": null,
-                            "address_line1_check": null,
-                            "address_line2": null,
-                            "address_state": null,
-                            "address_zip": null,
-                            "address_zip_check": null,
-                            "brand": "Visa",
-                            "country": "US",
-                            "customer": null,
-                            "cvc_check": null,
-                            "dynamic_last4": null,
-                            "exp_month": 4,
-                            "exp_year": 2022,
-                            "fingerprint": "t6Eo2YGsl3ZPivuR",
-                            "funding": "credit",
-                            "last4": "4242",
-                            "metadata": {
-                            },
-                            "name": null,
-                            "tokenization_method": null
-                          },
-                          "source_transfer": null,
-                          "statement_descriptor": null,
-                          "statement_descriptor_suffix": null,
-                          "status": "succeeded",
-                          "transfer_data": null,
-                          "transfer_group": null
-                        }
-                      },
-                      "livemode": false,
-                      "pending_webhooks": 0,
-                      "request": {
-                        "id": null,
-                        "idempotency_key": null
-                      },
-                      "type": "source.chargeable"
-                    }
+          {
+            "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+            "object": "event",
+            "api_version": "2018-05-21",
+            "created": 1530291411,
+            "data": {
+              "object": {
+                "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
+                "object": "charge",
+                "amount": 888,
+                "amount_captured": 888,
+                "amount_refunded": 0,
+                "application": null,
+                "application_fee": null,
+                "application_fee_amount": null,
+                "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
+                "billing_details": {
+                  "address": {
+                    "city": null,
+                    "country": null,
+                    "line1": null,
+                    "line2": null,
+                    "postal_code": null,
+                    "state": null
+                  },
+                  "email": null,
+                  "name": null,
+                  "phone": null
+                },
+                "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
+                "captured": true,
+                "created": 1619548785,
+                "currency": "usd",
+                "customer": null,
+                "description": "Example charge",
+                "destination": null,
+                "dispute": null,
+                "disputed": false,
+                "failure_code": null,
+                "failure_message": null,
+                "fraud_details": {
+                },
+                "invoice": null,
+                "livemode": false,
+                "metadata": {
+                },
+                "on_behalf_of": null,
+                "order": null,
+                "outcome": {
+                  "network_status": "approved_by_network",
+                  "reason": null,
+                  "risk_level": "normal",
+                  "risk_score": 20,
+                  "seller_message": "Payment complete.",
+                  "type": "authorized"
+                },
+                "paid": true,
+                "payment_intent": null,
+                "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                "payment_method_details": {
+                  "card": {
+                    "brand": "visa",
+                    "checks": {
+                      "address_line1_check": null,
+                      "address_postal_code_check": null,
+                      "cvc_check": null
+                    },
+                    "country": "US",
+                    "exp_month": 4,
+                    "exp_year": 2022,
+                    "fingerprint": "t6Eo2YGsl3ZPivuR",
+                    "funding": "credit",
+                    "installments": null,
+                    "last4": "4242",
+                    "network": "visa",
+                    "three_d_secure": null,
+                    "wallet": null
+                  },
+                  "type": "card"
+                },
+                "receipt_email": null,
+                "receipt_number": null,
+                "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
+                "refunded": false,
+                "refunds": {
+                  "object": "list",
+                  "data": [
+                  ],
+                  "has_more": false,
+                  "total_count": 0,
+                  "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
+                },
+                "review": null,
+                "shipping": null,
+                "source": {
+                  "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                  "object": "card",
+                  "address_city": null,
+                  "address_country": null,
+                  "address_line1": null,
+                  "address_line1_check": null,
+                  "address_line2": null,
+                  "address_state": null,
+                  "address_zip": null,
+                  "address_zip_check": null,
+                  "brand": "Visa",
+                  "country": "US",
+                  "customer": null,
+                  "cvc_check": null,
+                  "dynamic_last4": null,
+                  "exp_month": 4,
+                  "exp_year": 2022,
+                  "fingerprint": "t6Eo2YGsl3ZPivuR",
+                  "funding": "credit",
+                  "last4": "4242",
+                  "metadata": {
+                  },
+                  "name": null,
+                  "tokenization_method": null
+                },
+                "source_transfer": null,
+                "statement_descriptor": null,
+                "statement_descriptor_suffix": null,
+                "status": "succeeded",
+                "transfer_data": null,
+                "transfer_group": null
+              }
+            },
+            "livemode": false,
+            "pending_webhooks": 0,
+            "request": {
+              "id": null,
+              "idempotency_key": null
+            },
+            "type": "source.chargeable"
+          }
         J
       end
       let(:new_body) do
         JSON.parse(<<~J)
-                              {
-                      "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
-                      "object": "event",
-                      "api_version": "2018-05-21",
-                      "created": 1530300000,
-                      "data": {
-                        "object": {
-                          "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
-                          "object": "charge",
-                          "amount": 888,
-                          "amount_captured": 888,
-                          "amount_refunded": 0,
-                          "application": null,
-                          "application_fee": null,
-                          "application_fee_amount": null,
-                          "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
-                          "billing_details": {
-                            "address": {
-                              "city": null,
-                              "country": null,
-                              "line1": null,
-                              "line2": null,
-                              "postal_code": null,
-                              "state": null
-                            },
-                            "email": null,
-                            "name": null,
-                            "phone": null
-                          },
-                          "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
-                          "captured": true,
-                          "created": 1619548785,
-                          "currency": "usd",
-                          "customer": null,
-                          "description": "Example charge",
-                          "destination": null,
-                          "dispute": null,
-                          "disputed": false,
-                          "failure_code": null,
-                          "failure_message": null,
-                          "fraud_details": {
-                          },
-                          "invoice": null,
-                          "livemode": false,
-                          "metadata": {
-                          },
-                          "on_behalf_of": null,
-                          "order": null,
-                          "outcome": {
-                            "network_status": "approved_by_network",
-                            "reason": null,
-                            "risk_level": "normal",
-                            "risk_score": 20,
-                            "seller_message": "Payment complete.",
-                            "type": "authorized"
-                          },
-                          "paid": true,
-                          "payment_intent": null,
-                          "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                          "payment_method_details": {
-                            "card": {
-                              "brand": "visa",
-                              "checks": {
-                                "address_line1_check": null,
-                                "address_postal_code_check": null,
-                                "cvc_check": null
-                              },
-                              "country": "US",
-                              "exp_month": 4,
-                              "exp_year": 2022,
-                              "fingerprint": "t6Eo2YGsl3ZPivuR",
-                              "funding": "credit",
-                              "installments": null,
-                              "last4": "4242",
-                              "network": "visa",
-                              "three_d_secure": null,
-                              "wallet": null
-                            },
-                            "type": "card"
-                          },
-                          "receipt_email": null,
-                          "receipt_number": null,
-                          "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
-                          "refunded": false,
-                          "refunds": {
-                            "object": "list",
-                            "data": [
-          #{'          '}
-                            ],
-                            "has_more": false,
-                            "total_count": 0,
-                            "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
-                          },
-                          "review": null,
-                          "shipping": null,
-                          "source": {
-                            "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
-                            "object": "card",
-                            "address_city": null,
-                            "address_country": null,
-                            "address_line1": null,
-                            "address_line1_check": null,
-                            "address_line2": null,
-                            "address_state": null,
-                            "address_zip": null,
-                            "address_zip_check": null,
-                            "brand": "Visa",
-                            "country": "US",
-                            "customer": null,
-                            "cvc_check": null,
-                            "dynamic_last4": null,
-                            "exp_month": 4,
-                            "exp_year": 2022,
-                            "fingerprint": "t6Eo2YGsl3ZPivuR",
-                            "funding": "credit",
-                            "last4": "4242",
-                            "metadata": {
-                            },
-                            "name": null,
-                            "tokenization_method": null
-                          },
-                          "source_transfer": null,
-                          "statement_descriptor": null,
-                          "statement_descriptor_suffix": null,
-                          "status": "succeeded",
-                          "transfer_data": null,
-                          "transfer_group": null
-                        }
-                      },
-                      "livemode": false,
-                      "pending_webhooks": 0,
-                      "request": {
-                        "id": null,
-                        "idempotency_key": null
-                      },
-                      "type": "source.chargeable"
-                    }
+          {
+            "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+            "object": "event",
+            "api_version": "2018-05-21",
+            "created": 1530300000,
+            "data": {
+              "object": {
+                "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
+                "object": "charge",
+                "amount": 888,
+                "amount_captured": 888,
+                "amount_refunded": 0,
+                "application": null,
+                "application_fee": null,
+                "application_fee_amount": null,
+                "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
+                "billing_details": {
+                  "address": {
+                    "city": null,
+                    "country": null,
+                    "line1": null,
+                    "line2": null,
+                    "postal_code": null,
+                    "state": null
+                  },
+                  "email": null,
+                  "name": null,
+                  "phone": null
+                },
+                "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
+                "captured": true,
+                "created": 1619548785,
+                "currency": "usd",
+                "customer": null,
+                "description": "Example charge",
+                "destination": null,
+                "dispute": null,
+                "disputed": false,
+                "failure_code": null,
+                "failure_message": null,
+                "fraud_details": {
+                },
+                "invoice": null,
+                "livemode": false,
+                "metadata": {
+                },
+                "on_behalf_of": null,
+                "order": null,
+                "outcome": {
+                  "network_status": "approved_by_network",
+                  "reason": null,
+                  "risk_level": "normal",
+                  "risk_score": 20,
+                  "seller_message": "Payment complete.",
+                  "type": "authorized"
+                },
+                "paid": true,
+                "payment_intent": null,
+                "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                "payment_method_details": {
+                  "card": {
+                    "brand": "visa",
+                    "checks": {
+                      "address_line1_check": null,
+                      "address_postal_code_check": null,
+                      "cvc_check": null
+                    },
+                    "country": "US",
+                    "exp_month": 4,
+                    "exp_year": 2022,
+                    "fingerprint": "t6Eo2YGsl3ZPivuR",
+                    "funding": "credit",
+                    "installments": null,
+                    "last4": "4242",
+                    "network": "visa",
+                    "three_d_secure": null,
+                    "wallet": null
+                  },
+                  "type": "card"
+                },
+                "receipt_email": null,
+                "receipt_number": null,
+                "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
+                "refunded": false,
+                "refunds": {
+                  "object": "list",
+                  "data": [
+                  ],
+                  "has_more": false,
+                  "total_count": 0,
+                  "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
+                },
+                "review": null,
+                "shipping": null,
+                "source": {
+                  "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                  "object": "card",
+                  "address_city": null,
+                  "address_country": null,
+                  "address_line1": null,
+                  "address_line1_check": null,
+                  "address_line2": null,
+                  "address_state": null,
+                  "address_zip": null,
+                  "address_zip_check": null,
+                  "brand": "Visa",
+                  "country": "US",
+                  "customer": null,
+                  "cvc_check": null,
+                  "dynamic_last4": null,
+                  "exp_month": 4,
+                  "exp_year": 2022,
+                  "fingerprint": "t6Eo2YGsl3ZPivuR",
+                  "funding": "credit",
+                  "last4": "4242",
+                  "metadata": {
+                  },
+                  "name": null,
+                  "tokenization_method": null
+                },
+                "source_transfer": null,
+                "statement_descriptor": null,
+                "statement_descriptor_suffix": null,
+                "status": "succeeded",
+                "transfer_data": null,
+                "transfer_group": null
+              }
+            },
+            "livemode": false,
+            "pending_webhooks": 0,
+            "request": {
+              "id": null,
+              "idempotency_key": null
+            },
+            "type": "source.chargeable"
+          }
         J
       end
       let(:expected_old_data) { old_body["data"]["object"] }
@@ -437,15 +434,11 @@ RSpec.describe Webhookdb::Services, :db do
     end
 
     it_behaves_like "a service implementation that can backfill", "stripe_charge_v1" do
-      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
-
-      let(:page1_items) { [{}, {}, {}] }
-      let(:page2_items) { [{}, {}, {}] }
       let(:page1_response) do
         <<~R
-                                                  {
+          {
             "data": [
-                  {
+              {
                 "amount": 888,
                 "amount_captured": 888,
                 "amount_refunded": 0,
@@ -679,7 +672,7 @@ RSpec.describe Webhookdb::Services, :db do
                 "transfer_data": null,
                 "transfer_group": null
               },
-          {
+              {
                 "amount": 888,
                 "amount_captured": 888,
                 "amount_refunded": 0,
@@ -805,7 +798,7 @@ RSpec.describe Webhookdb::Services, :db do
       end
       let(:page2_response) do
         <<~R
-                                                  {
+          {
             "data": [
               {
                 "amount": 888,
@@ -1168,34 +1161,29 @@ RSpec.describe Webhookdb::Services, :db do
       let(:page3_response) do
         <<~R
           {
-                                "object": "list",
-                                "data": [],
-                                "has_more": false,
-                                "url": "/v1/charges"
-                              }
-                    #{'          '}
+            "object": "list",
+            "data": [],
+            "has_more": false,
+            "url": "/v1/charges"
+          }
         R
       end
-      around(:each) do |example|
-        Timecop.travel(today) do
-          example.run
-        end
+      let(:expected_items_count) { 6 }
+      def stub_service_requests
+        return [
+          stub_request(:get, "https://api.stripe.com/v1/charges").
+              with(headers: {"Authorization" => "Basic YmZrZXk6"}).
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.stripe.com/v1/charges?starting_after=ch_1IkvodFFYxHXGyKxEB7b98Q7").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.stripe.com/v1/charges?starting_after=ch_1IkvozFFYxHXGyKxDwTuyLZq").
+              to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+        ]
       end
-      before(:each) do
-        stub_request(:get, "https://api.stripe.com/v1/charges").
-          with(
-            headers: {
-              "Accept" => "*/*",
-              "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
-              "Authorization" => "Basic YmZrZXk6",
-              "User-Agent" => "Ruby",
-            },
-          ).
-          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.stripe.com/v1/charges?starting_after=ch_1IkvodFFYxHXGyKxEB7b98Q7").
-          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
-        stub_request(:get, "https://api.stripe.com/v1/charges?starting_after=ch_1IkvozFFYxHXGyKxDwTuyLZq").
-          to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"})
+
+      def stub_service_request_error
+        return stub_request(:get, "https://api.stripe.com/v1/charges").
+            with(headers: {"Authorization" => "Basic YmZrZXk6"}).to_return(status: 503, body: "went wrong")
       end
     end
     describe "webhook validation" do

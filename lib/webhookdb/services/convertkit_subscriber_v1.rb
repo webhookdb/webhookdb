@@ -143,11 +143,7 @@ Great! We are going to start backfilling your ConvertKit Subscriber information.
   def _fetch_backfill_page(pagination_token)
     pagination_token = 1 if pagination_token.blank?
     url = "https://api.convertkit.com/v3/subscribers?api_secret=#{self.service_integration.backfill_secret}&page=#{pagination_token}"
-    response = HTTParty.get(
-      url,
-      logger: self.logger,
-    )
-    raise response if response.code >= 300
+    response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     current_page = data["page"]
     total_pages = data["total_pages"]

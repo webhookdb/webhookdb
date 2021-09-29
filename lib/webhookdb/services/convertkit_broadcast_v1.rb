@@ -101,12 +101,9 @@ Great! We are going to start backfilling your ConvertKit Broadcast information.
     broadcast_id = body.fetch("id")
     url = "https://api.convertkit.com/v3/broadcasts/#{broadcast_id}/stats?api_secret=#{self.service_integration.backfill_secret}"
     Kernel.sleep(Webhookdb::Convertkit.sleep_seconds)
-    response = HTTParty.get(
-      url,
-      logger: self.logger,
-    )
+    response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
-    return data.fetch("broadcast")[0].fetch("stats") if data.fetch("broadcast")
+    return data.dig("broadcast", "stats") || {}
   end
 
   def _update_where_expr
@@ -133,11 +130,7 @@ Great! We are going to start backfilling your ConvertKit Broadcast information.
   def _fetch_backfill_page(_pagination_token)
     # this endpoint does not have pagination support
     url = "https://api.convertkit.com/v3/broadcasts?api_secret=#{self.service_integration.backfill_secret}"
-    response = HTTParty.get(
-      url,
-      logger: self.logger,
-    )
-    raise response if response.code >= 300
+    response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data["broadcasts"], nil
   end

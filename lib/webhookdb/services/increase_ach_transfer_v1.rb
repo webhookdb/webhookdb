@@ -146,20 +146,16 @@ webhookdb db sql "SELECT * FROM increase_ach_transfer_v1"
   end
 
   def _fetch_backfill_page(pagination_token)
-    url = if pagination_token.blank?
-            "https://api.increase.com/transfers/achs"
-    else
-      "https://api.increase.com/transfers/achs?cursor=" + pagination_token
-          end
-    response = HTTParty.get(
-      url,
+    query = {}
+    (query[:cursor] = pagination_token) if pagination_token.present?
+    response = Webhookdb::Http.get(
+      "https://api.increase.com/transfers/achs",
+      query,
       headers: {"Authorization" => ("Bearer " + self.service_integration.backfill_key)},
       logger: self.logger,
     )
-    self.logger.error "increase ach transfer backfilling", response
-    raise response if response.code >= 300
     data = response.parsed_response
-    next_page_param = data["response_metadata"]["next_cursor"] if data["response_metadata"]["next_cursor"]
+    next_page_param = data.dig("response_metadata", "next_cursor")
     return data["data"], next_page_param
   end
 end

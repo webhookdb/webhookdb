@@ -115,10 +115,7 @@ Great! We are going to start backfilling your ConvertKit Tag information.
     tag_id = body.fetch("id")
     url = "https://api.convertkit.com/v3/tags/#{tag_id}/subscriptions?api_secret=#{self.service_integration.backfill_secret}"
     Kernel.sleep(Webhookdb::Convertkit.sleep_seconds)
-    response = HTTParty.get(
-      url,
-      logger: self.logger,
-    )
+    response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data
   end
@@ -140,11 +137,7 @@ Great! We are going to start backfilling your ConvertKit Tag information.
   def _fetch_backfill_page(_pagination_token)
     # this endpoint does not have pagination support
     url = "https://api.convertkit.com/v3/tags?api_key=#{self.service_integration.backfill_key}"
-    response = HTTParty.get(
-      url,
-      logger: self.logger,
-    )
-    raise response if response.code >= 300
+    response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data["tags"], nil
   end

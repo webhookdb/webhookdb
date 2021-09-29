@@ -5,14 +5,17 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   singleton_attr_accessor :webhook_response
   singleton_attr_accessor :webhook_verified
-  singleton_attr_accessor :backfill_responses
   singleton_attr_accessor :prepare_for_insert_hook
 
   def self.reset
     self.webhook_response = nil
     self.webhook_verified = true
-    self.backfill_responses = {}
     self.prepare_for_insert_hook = nil
+  end
+
+  def self.stub_backfill_request(items)
+    return WebMock::API.stub_request(:get, "https://fake-integration/?token=").
+        to_return(status: 200, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
   end
 
   def webhook_response(request)
@@ -101,8 +104,9 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _fetch_backfill_page(pagination_token)
-    raise "No backfill responses configured" if self.class.backfill_responses.blank?
-    return self.class.backfill_responses[pagination_token]
+    r = Webhookdb::Http.get("https://fake-integration?token=#{pagination_token}", logger: nil)
+    raise "Expected 2-item array" unless r.parsed_response.is_a?(Array) && r.parsed_response.length == 2
+    return r.parsed_response
   end
 end
 
@@ -121,7 +125,8 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
   end
 
   def _fetch_enrichment(body)
-    return {"extra" => body["my_id"]}
+    r = Webhookdb::Http.get("https://fake-integration/enrichment/" + body["my_id"], logger: nil)
+    return r.parsed_response
   end
 
   def _after_insert(inserting, *)
