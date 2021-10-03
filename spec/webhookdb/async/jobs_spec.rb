@@ -53,6 +53,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "deprecated jobs" do
+    it "exist as job classes, and noop" do
+      expect(defined? Webhookdb::Async::Test::DeprecatedJob).to be_truthy
+
+      logs = capture_logs_from(Webhookdb::Async::JobLogger.logger, level: :info) do
+        Webhookdb::Async::Test::DeprecatedJob.new.perform
+      end
+      expect(logs.to_s).to include("deprecated job, remove in the future")
+    end
+  end
+
   describe "MessageDispatched", messaging: true do
     it "sends the delivery on create" do
       email = "wibble@lithic.tech"
