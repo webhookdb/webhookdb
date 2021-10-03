@@ -126,6 +126,7 @@ module Webhookdb::Async
     "webhookdb/jobs/convertkit_tag_backfill",
     "webhookdb/jobs/create_mirror_table",
     "webhookdb/jobs/create_stripe_customer",
+    "webhookdb/jobs/deprecated_jobs",
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/process_webhook",
