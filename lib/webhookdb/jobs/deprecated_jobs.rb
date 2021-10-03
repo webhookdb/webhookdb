@@ -9,12 +9,12 @@ require "webhookdb/async/job"
 # So, make the class exist, but noop so it won't be scheduled and won't be retried.
 # Then it can be deleted later.
 #
-module Webhookdb::Async::DeprecatedJobs
+module Webhookdb::Jobs::DeprecatedJobs
   NAMES = [
-    "Async::Test::DeprecatedJob",
-    "Async::ConvertKitBroadcastBackfill",
-    "Async::ConvertKitSubscriberBackfill",
-    "Async::ConvertKitTagBackfill",
+    "Jobs::Test::DeprecatedJob",
+    "Jobs::ConvertKitBroadcastBackfill",
+    "Jobs::ConvertKitSubscriberBackfill",
+    "Jobs::ConvertKitTagBackfill",
   ].freeze
 
   def self.install
@@ -46,4 +46,4 @@ module Webhookdb::Async::DeprecatedJobs
   end
 end
 
-Webhookdb::Async::DeprecatedJobs.install
+Webhookdb::Jobs::DeprecatedJobs.install

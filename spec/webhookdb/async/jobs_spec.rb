@@ -55,10 +55,10 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
   describe "deprecated jobs" do
     it "exist as job classes, and noop" do
-      expect(defined? Webhookdb::Async::Test::DeprecatedJob).to be_truthy
+      expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
 
       logs = capture_logs_from(Webhookdb::Async::JobLogger.logger, level: :info) do
-        Webhookdb::Async::Test::DeprecatedJob.new.perform
+        Webhookdb::Jobs::Test::DeprecatedJob.new.perform
       end
       expect(logs.to_s).to include("deprecated job, remove in the future")
     end
