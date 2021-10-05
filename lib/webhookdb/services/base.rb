@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/connection_cache"
+require "webhookdb/services/column"
 
 class Webhookdb::Services::Base
   # @return [Webhookdb::ServiceIntegration]
@@ -69,12 +70,16 @@ class Webhookdb::Services::Base
     lines = [
       "CREATE TABLE #{tbl} (",
       "  pk bigserial PRIMARY KEY,",
-      "  data jsonb NOT NULL,",
-      "  \"#{remote_key_col.name}\" #{remote_key_col.type} UNIQUE NOT NULL",
+      +"  \"#{remote_key_col.name}\" #{remote_key_col.type} UNIQUE NOT NULL",
     ]
     denormalized_columns.each do |col|
-      lines << ",  \"#{col.name}\" #{col.type} #{col.modifiers}"
+      lines.last << ","
+      lines << +"  \"#{col.name}\" #{col.type} #{col.modifiers}"
     end
+    # noinspection RubyModifiedFrozenObject
+    lines.last << ","
+    # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
+    lines << "  data jsonb NOT NULL"
     lines << ");"
     denormalized_columns.each do |col|
       lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"

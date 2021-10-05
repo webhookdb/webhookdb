@@ -49,8 +49,8 @@ RSpec.describe Webhookdb::API::Db, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        columns: ["pk", "data", "my_id", "at"],
-        rows: [[be_a(Numeric), {}, "abcxyz", nil]],
+        columns: ["pk", "my_id", "at", "data"],
+        rows: [[be_a(Numeric), "abcxyz", nil, {}]],
       )
     end
 
