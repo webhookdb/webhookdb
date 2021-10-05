@@ -111,7 +111,8 @@ RSpec.describe Webhookdb::API::Auth, :db do
       post "/v1/auth/login_otp", email: email, token: code.token
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(organization: include(id: default_org.id))
+      expect(last_response).to have_json_body.
+        that_includes(email: customer.email, default_organization: include(id: default_org.id))
       expect(last_response).to have_session_cookie
       expect(code.refresh).to have_attributes(used: true)
     end
@@ -144,7 +145,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       post "/v1/auth/login_otp", email: "meow@cats.org", token: "a"
 
       expect(last_response).to have_status(200)
-      expect(last_response.body).to eq("null")
+      expect(last_response).to have_json_body.that_includes(email: customer.email)
     ensure
       Webhookdb::Customer.reset_configuration
     end

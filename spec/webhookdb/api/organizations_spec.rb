@@ -100,7 +100,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(items: have_same_ids_as(integrations))
+        that_includes(items: have_same_ids_as(integrations).pk_field(:opaque_id))
     end
 
     it "returns a message if org has no service integrations" do

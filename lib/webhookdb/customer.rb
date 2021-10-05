@@ -77,11 +77,10 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     return self.name.present? ? self.name : "there"
   end
 
-  def default_org_key
-    default_org_membership = self.memberships_dataset.first
-    return default_org_membership.organization.key unless default_org_membership.nil?
-    return
+  def default_organization
+    return self.memberships.first&.organization
   end
+
   #
   # :section: Password
   #
