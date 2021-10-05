@@ -2,14 +2,14 @@
 
 RSpec.describe Webhookdb::Services::Base, :db do
   describe "create_tables_sql" do
-    Service = Class.new(described_class) do
+    svc_cls = Class.new(described_class) do
       def _remote_key_column
         return Webhookdb::Services::Column.new(:remotecol, "text")
       end
     end
     let(:sint) { Webhookdb::Fixtures.service_integration(table_name: "mytbl").instance }
     it "generates the correct sql" do
-      s = Service.new(sint)
+      s = svc_cls.new(sint)
       expect(s._create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
@@ -19,7 +19,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
       S
     end
     it "denormalizes and indexes denormalized columns" do
-      TestSvc = Class.new(Service) do
+      test_svc_cls = Class.new(svc_cls) do
         def _denormalized_columns
           return [
             Webhookdb::Services::Column.new(:denorm1, "text"),
@@ -27,7 +27,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
           ]
         end
       end
-      s = TestSvc.new(sint)
+      s = test_svc_cls.new(sint)
       expect(s._create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
@@ -41,12 +41,12 @@ RSpec.describe Webhookdb::Services::Base, :db do
       S
     end
     it "creates enrichment tables" do
-      TestSvc = Class.new(Service) do
+      test_svc_cls = Class.new(svc_cls) do
         def _create_enrichment_tables_sql
           return "CREATE TABLE foobar(x text);"
         end
       end
-      s = TestSvc.new(sint)
+      s = test_svc_cls.new(sint)
       expect(s._create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
