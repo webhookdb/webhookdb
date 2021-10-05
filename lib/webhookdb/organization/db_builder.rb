@@ -112,7 +112,8 @@ class Webhookdb::Organization::DbBuilder
   end
 
   def self.remove_related_database(org)
-    return self.new(org).remove_related_database
+    self.new(org).remove_related_database
+    return nil
   end
 
   # To remove related databases and users, we must
@@ -126,6 +127,15 @@ class Webhookdb::Organization::DbBuilder
     return if @org.admin_connection_url.blank?
     Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url)
     Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url)
+    superuser_str = self._find_superuser_url_str
+    Sequel.connect(superuser_str) do |conn|
+      conn << "DROP DATABASE #{@org.dbname}"
+      conn << "DROP USER #{@org.readonly_user}"
+      conn << "DROP USER #{@org.admin_user}"
+    end
+  end
+
+  protected def _find_superuser_url_str
     admin_url = URI.parse(@org.admin_connection_url)
     superuser_str = self.class.available_server_urls.find do |sstr|
       surl = URI.parse(sstr)
@@ -135,10 +145,34 @@ class Webhookdb::Organization::DbBuilder
       msg = "Could not find a matching server url for #{admin_url} in #{self.class.available_server_urls}"
       raise msg
     end
-    Sequel.connect(superuser_str) do |conn|
-      conn << "DROP DATABASE #{@org.dbname}"
-      conn << "DROP USER #{@org.readonly_user}"
-      conn << "DROP USER #{@org.admin_user}"
+    return superuser_str
+  end
+
+  def self.roll_connection_credentials(org)
+    me = self.new(org)
+    me.roll_connection_credentials
+    return me
+  end
+
+  def roll_connection_credentials
+    superuser_uri = URI(self._find_superuser_url_str)
+    readonly_uri = URI(@org.readonly_connection_url)
+    admin_uri = URI(@org.admin_connection_url)
+    admin_user = self.randident("ad")
+    admin_pwd = self.randident
+    ro_user = self.randident("ro")
+    ro_pwd = self.randident
+    Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url)
+    Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url)
+    Sequel.connect(superuser_uri.to_s) do |conn|
+      conn << <<~SQL
+        ALTER ROLE #{readonly_uri.user} RENAME TO #{ro_user};
+        ALTER ROLE #{ro_user} WITH PASSWORD '#{ro_pwd}';
+        ALTER ROLE #{admin_uri.user} RENAME TO #{admin_user};
+        ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';
+      SQL
     end
+    @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
+    @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_uri, @org.dbname)
   end
 end

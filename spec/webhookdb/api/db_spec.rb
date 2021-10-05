@@ -10,6 +10,7 @@ RSpec.describe Webhookdb::API::Db, :db do
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
 
   before(:each) do
     login_as(customer)
@@ -21,8 +22,6 @@ RSpec.describe Webhookdb::API::Db, :db do
   end
 
   describe "GET /v1/db/:organization_key/connection" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, table_name: "fake_v1") }
-
     it "returns the connection string" do
       expect(org).to have_attributes(readonly_connection_url: start_with("postgres://"))
 
@@ -77,6 +76,25 @@ RSpec.describe Webhookdb::API::Db, :db do
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "You do not have permission to perform this query. Queries must be read-only."),
       )
+    end
+  end
+
+  describe "GET /v1/db/:organization_key/roll-credentials" do
+    it "modifies the database credentials and updates the org" do
+      customer.memberships_dataset.first.update(role: admin_role)
+      original_ro = org.readonly_connection_url
+
+      post "/v1/db/#{org.key}/roll_credentials"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(url: not_eq(original_ro))
+      expect(org.refresh).to have_attributes(readonly_connection_url: not_eq(original_ro))
+    end
+
+    it "requires admin" do
+      post "/v1/db/#{org.key}/roll_credentials"
+
+      expect(last_response).to have_status(400)
     end
   end
 end

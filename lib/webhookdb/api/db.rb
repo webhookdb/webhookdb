@@ -42,6 +42,15 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         status 200
         present({rows: r.rows, columns: r.columns, max_rows_reached: r.max_rows_reached})
       end
+
+      post :roll_credentials do
+        ensure_admin!
+        org = lookup_org!
+        org.roll_database_credentials
+        r = {url: org.readonly_connection_url}
+        status 200
+        present r
+      end
     end
   end
 end

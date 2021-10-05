@@ -132,6 +132,31 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
+  describe "roll_database_credentials" do
+    after(:each) do
+      o.remove_related_database
+    end
+
+    def try_connect(c)
+      Sequel.connect(c) { nil }
+    end
+
+    it "renames users and regenerates passwords" do
+      o.prepare_database_connections
+      orig_ro = o.readonly_connection_url
+      orig_admin = o.admin_connection_url
+      expect { try_connect(orig_ro) }.to_not raise_error
+      expect { try_connect(orig_admin) }.to_not raise_error
+      expect do
+        o.roll_database_credentials
+      end.to change(o, :readonly_connection_url).and(change(o, :admin_connection_url))
+      expect { try_connect(o.readonly_connection_url) }.to_not raise_error
+      expect { try_connect(o.admin_connection_url) }.to_not raise_error
+      expect { try_connect(orig_ro) }.to raise_error(/password authentication failed/)
+      expect { try_connect(orig_admin) }.to raise_error(/password authentication failed/)
+    end
+  end
+
   describe "get_stripe_billing_portal_url" do
     it "raises error if org has no stripe customer ID" do
       o.update(stripe_customer_id: "")

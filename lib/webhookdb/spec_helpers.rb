@@ -7,6 +7,7 @@ RSpec::Matchers.define_negated_matcher(:exclude, :include)
 RSpec::Matchers.define_negated_matcher(:not_include, :include)
 RSpec::Matchers.define_negated_matcher(:not_change, :change)
 RSpec::Matchers.define_negated_matcher(:not_be_nil, :be_nil)
+RSpec::Matchers.define_negated_matcher(:not_eq, :eq)
 RSpec::Matchers.define_negated_matcher(:not_be_empty, :be_empty)
 
 module Webhookdb::SpecHelpers

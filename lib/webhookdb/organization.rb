@@ -107,6 +107,16 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  def roll_database_credentials
+    self.db.transaction do
+      self.lock!
+      builder = Webhookdb::Organization::DbBuilder.roll_connection_credentials(self)
+      self.admin_connection_url = builder.admin_url
+      self.readonly_connection_url = builder.readonly_url
+      self.save_changes
+    end
+  end
+
   def get_stripe_billing_portal_url
     raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
     session = Stripe::BillingPortal::Session.create(
