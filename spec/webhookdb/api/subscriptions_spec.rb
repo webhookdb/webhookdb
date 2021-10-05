@@ -60,7 +60,35 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       )
     end
 
-    it "returns stripe portal url " do
+    it "returns stripe checkout portal url if active subscription is not present" do
+      req = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions").
+        with(
+          headers: {
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "Authorization" => "Bearer lithic_stripe_api_key",
+            "Content-Type" => "application/x-www-form-urlencoded",
+            "User-Agent" => "Stripe/v1 RubyBindings/5.32.1",
+          },
+        ).
+        to_return(
+          status: 200,
+          body: {
+            url: "https://checkout.stripe.com/pay/cstest_foobar",
+          }.to_json,
+        )
+
+      org.update(stripe_customer_id: "foobar")
+      post "/v1/organizations/#{org.key}/subscriptions/open_portal"
+
+      expect(req).to have_been_made
+      expect(last_response).to have_json_body.that_includes(url: "https://checkout.stripe.com/pay/cstest_foobar")
+      expect(last_response).to have_status(200)
+    end
+
+    it "returns stripe billing portal url if active subscription is present" do
+      org.update(stripe_customer_id: "foobar")
+      Webhookdb::Fixtures.subscription.active.for_org(org).create
       req = stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions").
         with(
           body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
@@ -79,7 +107,6 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
           }.to_json,
         )
 
-      org.update(stripe_customer_id: "foobar")
       post "/v1/organizations/#{org.key}/subscriptions/open_portal"
 
       expect(req).to have_been_made

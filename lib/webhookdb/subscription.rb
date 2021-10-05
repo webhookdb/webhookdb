@@ -10,6 +10,7 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
 
   configurable(:subscriptions) do
     setting :max_free_integrations, 2
+    setting :paid_plan_stripe_price_id, "lithic_stripe_paid_plan_price"
   end
 
   def initialize(*)

@@ -109,10 +109,33 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def get_stripe_billing_portal_url
     raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
-    Stripe.api_key = Webhookdb::Stripe.api_key
     session = Stripe::BillingPortal::Session.create(
-      customer: self.stripe_customer_id,
-      return_url: Webhookdb.api_url + "/v1/subscriptions/portal_return",
+      {
+        customer: self.stripe_customer_id,
+        return_url: Webhookdb.api_url + "/v1/subscriptions/portal_return",
+      }, {
+        api_key: Webhookdb::Stripe.api_key,
+      },
+    )
+
+    return session.url
+  end
+
+  def get_stripe_checkout_url
+    raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
+    session = Stripe::Checkout::Session.create(
+      {
+        customer: self.stripe_customer_id,
+        cancel_url: Webhookdb.api_url + "/v1/subscriptions/checkout_cancel",
+        line_items: [{
+          price: Webhookdb::Subscription.paid_plan_stripe_price_id, quantity: 1,
+        }],
+        mode: "subscription",
+        payment_method_types: ["card"],
+        success_url: Webhookdb.api_url + "/v1/subscriptions/checkout_success",
+      }, {
+        api_key: Webhookdb::Stripe.api_key,
+      },
     )
 
     return session.url
@@ -127,7 +150,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def active_subscription?
     subscription = Webhookdb::Subscription[stripe_customer_id: self.stripe_customer_id]
-    return !subscription.nil?
+    # return false if no subscription
+    return false if subscription.nil?
+    # otherwise check stripe subscription string
+    return ["trialing", "active", "past due"].include? subscription.status
   end
 
   def can_add_new_integration?
