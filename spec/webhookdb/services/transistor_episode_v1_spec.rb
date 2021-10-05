@@ -292,7 +292,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
   end
 
   it_behaves_like "a service implementation that uses enrichments", "transistor_episode_v1" do
-    let(:enrichment_tables) { [sint.table_name + "_stats"] }
+    let(:enrichment_tables) { svc.enrichment_tables }
     let(:body) do
       JSON.parse(<<~J)
         {"data": {
@@ -403,8 +403,18 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
   end
 
   describe "_fetch_enrichment" do
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_episode_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:enrichment_tables) { svc.enrichment_tables }
     let(:body) do
       JSON.parse(<<~J)
         {"data": {
@@ -463,6 +473,35 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
       expect(svc._fetch_enrichment(body)).to include("data" => include("id" => "1"))
       expect(req).to have_been_made
     end
+
+    it "adjusts 'start_date' parameter in request if there are entries already present in enrichment table" do
+      stats_table_name = enrichment_tables[0].to_sym
+      svc.admin_dataset(&:db)[stats_table_name].insert(episode_id: "655205", date: Date.new(2021, 10, 1))
+      req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+        with(
+          body: /start_date=2021-09-29&end_date=/,
+          headers: {
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "User-Agent" => "Ruby",
+            "X-Api-Key" => "",
+          },
+        ).
+        to_return(
+          status: 200,
+          headers: {"Content-Type" => "application/json"},
+          body: {
+            data: {
+              id: "1",
+              type: "episode_analytics",
+              attributes: {},
+            },
+          }.to_json,
+        )
+      svc._fetch_enrichment(body)
+      expect(req).to have_been_made
+    end
+
     it "sleeps to avoid rate limiting" do
       Webhookdb::Transistor.sleep_seconds = 1.2
       expect(Kernel).to receive(:sleep).with(1.2)
@@ -473,6 +512,173 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
         to_return(status: 400, headers: {"Content-Type" => "application/json"}, body: "something went wrong")
       expect { svc._fetch_enrichment(body) }.to raise_error(Webhookdb::Http::Error)
       expect(req).to have_been_made
+    end
+  end
+
+  describe "specialized enrichment behavior" do
+    before(:each) do
+      sint.organization.prepare_database_connections
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_episode_v1") }
+    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:enrichment_tables) { svc.enrichment_tables }
+    let(:body) do
+      JSON.parse(<<~J)
+        {"data": {
+              "id":"655205",
+              "type":"episode",
+              "attributes":{
+                 "title":"THE SHOW",
+                 "number":1,
+                 "season":1,
+                 "status":"published",
+                 "published_at":"2021-09-20T10:51:45.707-07:00",
+                 "duration":236,
+                 "explicit":false,
+                 "keywords":"",
+                 "alternate_url":"",
+                 "media_url":"https://media.transistor.fm/70562b4e/83984906.mp3",
+                 "image_url":null,
+                 "author":"",
+                 "summary":"readgssfdctwadg",
+                 "description":"",
+                 "created_at":"2021-04-03T10:06:08.582-07:00",
+                 "updated_at":"2021-09-20T10:51:45.708-07:00",
+                 "formatted_published_at":"September 20, 2021",
+                 "duration_in_mmss":"03:56",
+                 "share_url":"https://share.transistor.fm/s/70562b4e",
+                 "formatted_summary":"readgssfdctwadg",
+                 "audio_processing":false,
+                 "type":"full",
+                 "email_notifications":null
+              },
+              "relationships":{
+                 "show":{
+                    "data":{
+                       "id":"24204",
+                       "type":"show"
+                    }
+                 }
+              }
+        }}
+      J
+    end
+
+    let(:old_analytics_body) do
+      <<~R
+        {
+           "data":{
+              "id":"655205",
+              "type":"episode_analytics",
+              "attributes":{
+                 "downloads":[
+                    {
+                       "date":"03-09-2021",
+                       "downloads":1
+                    }
+                 ],
+                 "start_date":"03-09-2021",
+                 "end_date":"16-09-2021"
+              },
+              "relationships":{
+                 "episode":{
+                    "data":{
+                       "id":"1",
+                       "type":"episode"
+                    }
+                 }
+              }
+           },
+           "included":[
+              {
+                 "id":"655205",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"THE SHOW"
+                 },
+                 "relationships":{
+                 }
+              }
+           ]
+        }
+      R
+    end
+
+    let(:new_analytics_body) do
+      <<~R
+        {
+           "data":{
+              "id":"655205",
+              "type":"episode_analytics",
+              "attributes":{
+                 "downloads":[
+                    {
+                       "date":"03-09-2021",
+                       "downloads":2
+                    },
+                    {
+                       "date":"04-09-2021",
+                       "downloads":2
+                    }
+                 ],
+                 "start_date":"03-09-2021",
+                 "end_date":"16-09-2021"
+              },
+              "relationships":{
+                 "episode":{
+                    "data":{
+                       "id":"1",
+                       "type":"episode"
+                    }
+                 }
+              }
+           },
+           "included":[
+              {
+                 "id":"655205",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"THE SHOW"
+                 },
+                 "relationships":{
+                 }
+              }
+           ]
+        }
+      R
+    end
+
+    it "will upsert based on episode and date_id" do
+      svc.create_table
+      first_req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+        with(
+          body: /start_date=03-04-2021&end_date=/,
+        ).
+        to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: old_analytics_body)
+      second_req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
+        with(
+          body: /start_date=2021-09-01&end_date=/,
+        ).
+        to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: new_analytics_body)
+
+      svc.upsert_webhook(body: body)
+      expect(first_req).to have_been_made
+
+      svc.upsert_webhook(body: body)
+      expect(second_req).to have_been_made
+
+      enrichment_table_sym = enrichment_tables[0].to_sym
+      db = svc.readonly_dataset(&:db)
+      expect(db[enrichment_table_sym].all).to have_length(2)
+      expect(db[enrichment_table_sym].all).to contain_exactly(
+        include(episode_id: "655205", date: Date.new(2021, 9, 3),
+                downloads: 2,), include(episode_id: "655205", date: Date.new(2021, 9, 4), downloads: 2),
+      )
     end
   end
 end

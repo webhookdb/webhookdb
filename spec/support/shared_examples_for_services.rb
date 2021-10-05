@@ -192,6 +192,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   before(:each) do
     sint.organization.prepare_database_connections
+    svc.create_table
   end
 
   after(:each) do
@@ -216,14 +217,12 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   end
 
   it "creates enrichment tables on service table create" do
-    svc.create_table
     enrichment_tables.each do |tbl|
       expect(svc.readonly_dataset(&:db)).to be_table_exists(tbl.to_sym)
     end
   end
 
   it "can use enriched data when inserting" do
-    svc.create_table
     req = stub_service_request
     svc.upsert_webhook(body: body)
     expect(req).to have_been_made
@@ -232,7 +231,6 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   end
 
   it "calls the after insert hook with the enrichment" do
-    svc.create_table
     req = stub_service_request
     svc.upsert_webhook(body: body)
     expect(req).to have_been_made

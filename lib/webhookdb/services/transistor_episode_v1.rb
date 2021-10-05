@@ -84,8 +84,7 @@ Great! We are going to start backfilling your Transistor Episode information.
     tbl = self.analytics_table_name
     return %(
 CREATE TABLE #{tbl} (pk bigserial PRIMARY KEY, date DATE, downloads INTEGER, episode_id TEXT);
-CREATE INDEX date_idx ON #{tbl} (date);
-CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
+CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
       )
   end
 
@@ -106,8 +105,11 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
       Webhookdb::Services::Column.new(:title, "text"),
       Webhookdb::Services::Column.new(:type, "text"),
       Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
-
     ]
+  end
+
+  def enrichment_tables
+    return ["#{self.service_integration.table_name}_stats"]
   end
 
   def _fetch_enrichment(body)
@@ -115,8 +117,19 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
     episode_id = obj_of_interest.fetch("id")
     analytics_url = "https://api.transistor.fm/v1/analytics/episodes/" + episode_id
     created_at = obj_of_interest.fetch("attributes").fetch("created_at")
+    # The "downloads" stat gets collected daily but will not change retroactively for a past date.
+    # If there are already rows in the enrichment table matching the episode_id, we want to check
+    # the date of the last entry so that we don't have to upsert information that we know will not
+    # be changed. We allow for a two day buffer before the date of the last entry to account for changes
+    # that may occur on the day of a new entry, while the downloads are accruing.
+    latest_update = self.admin_dataset(&:db)[self.analytics_table_name.to_sym].where(episode_id: episode_id).max(:date)
+    start_date = if latest_update.nil?
+                   Time.parse(created_at).strftime("%d-%m-%Y")
+    else
+      latest_update - 2.days
+                 end
     request_body = {
-      start_date: Time.parse(created_at).strftime("%d-%m-%Y"),
+      start_date: start_date,
       end_date: Time.now.strftime("%d-%m-%Y"),
     }
     Kernel.sleep(Webhookdb::Transistor.sleep_seconds)
@@ -162,7 +175,9 @@ CREATE INDEX episode_id_idx ON #{tbl} (episode_id);
         episode_id: episode_id,
       }
     end
-    self.admin_dataset(&:db)[self.analytics_table_name.to_sym].multi_insert(rows)
+    self.admin_dataset(&:db)[self.analytics_table_name.to_sym].
+      insert_conflict(target: [:date, :episode_id], update: {downloads: Sequel[:excluded][:downloads]}).
+      multi_insert(rows)
   end
 
   def parse_date_from_api(date_string)
