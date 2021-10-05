@@ -39,6 +39,20 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         status s_status
       end
 
+      resource :reset do
+        post do
+          ensure_plan_supports!
+          c = current_customer
+          sint = lookup!
+          svc = Webhookdb::Services.service_instance(sint)
+          merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+          svc.clear_create_information
+          state_machine = svc.calculate_create_state_machine(sint.organization)
+          status 200
+          present state_machine, with: Webhookdb::API::StateMachineEntity
+        end
+      end
+
       resource :backfill do
         post do
           ensure_plan_supports!
@@ -54,6 +68,20 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           end
           status 200
           present state_machine, with: Webhookdb::API::StateMachineEntity
+        end
+
+        resource :reset do
+          post do
+            ensure_plan_supports!
+            c = current_customer
+            sint = lookup!
+            svc = Webhookdb::Services.service_instance(sint)
+            merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+            svc.clear_backfill_information
+            state_machine = svc.calculate_backfill_state_machine(sint.organization)
+            status 200
+            present state_machine, with: Webhookdb::API::StateMachineEntity
+          end
         end
       end
 

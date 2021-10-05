@@ -39,6 +39,20 @@ RSpec.shared_examples "a service implementation" do |name|
     expect(headers).to include("Content-Type")
     expect(body).to be_a(String)
   end
+
+  it "clears setup information" do
+    sint.update(webhook_secret: "wh_sek")
+    svc.clear_create_information
+    expect(sint).to have_attributes(webhook_secret: "")
+  end
+
+  it "clears backfill information" do
+    sint.update(api_url: "example.api.com", backfill_key: "bf_key", backfill_secret: "bf_sek")
+    svc.clear_backfill_information
+    expect(sint).to have_attributes(api_url: "")
+    expect(sint).to have_attributes(backfill_key: "")
+    expect(sint).to have_attributes(backfill_secret: "")
+  end
 end
 
 RSpec.shared_examples "a service implementation that upserts webhooks only under specific conditions" do |name|

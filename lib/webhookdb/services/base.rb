@@ -46,6 +46,16 @@ class Webhookdb::Services::Base
     raise NotImplementedError
   end
 
+  # Remove all the information used in the initial creation of the integration so that it can be re-entered
+  def clear_create_information
+    self.service_integration.update(webhook_secret: "")
+  end
+
+  # Remove all the information needed for backfilling from the integration so that it can be re-entered
+  def clear_backfill_information
+    self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
+  end
+
   # Check if the webhook is verified using the http request.
   # We must do this immediately in the endpoint itself,
   # since verification may include info specific to the request content

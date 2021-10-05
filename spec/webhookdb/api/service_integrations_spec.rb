@@ -103,6 +103,40 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
   end
 
+  describe "POST /v1/service_integrations/:opaque_id/reset" do
+    before(:each) do
+      login_as(customer)
+    end
+
+    it "clears the webhook setup information" do
+      sint.update(webhook_secret: "whsek")
+      post "/v1/service_integrations/xyz/reset"
+      sint = Webhookdb::ServiceIntegration[opaque_id: "xyz"]
+      expect(sint).to have_attributes(webhook_secret: "")
+    end
+
+    it "returns a state machine step" do
+      post "/v1/service_integrations/xyz/reset"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        needs_input: true,
+        output: "You're creating a fake_v1 service integration.",
+        prompt: "Paste or type your fake API secret here:",
+        prompt_is_secret: false, post_to_url: match("/transition/webhook_secret"), complete: false,
+      )
+    end
+
+    it "fails if service integration is not supported by subscription plan" do
+      post "/v1/service_integrations/#{shopify_sint.opaque_id}/reset"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+      )
+    end
+  end
+
   describe "POST /v1/service_integrations/:opaque_id/backfill" do
     before(:each) do
       Webhookdb::Services::Fake.reset
@@ -129,6 +163,42 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "fails if service integration is not supported by subscription plan" do
       post "/v1/service_integrations/#{shopify_sint.opaque_id}/backfill"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+      )
+    end
+  end
+
+  describe "POST /v1/service_integrations/:opaque_id/backfill/reset" do
+    before(:each) do
+      Webhookdb::Services::Fake.reset
+      login_as(customer)
+    end
+
+    it "clears the backfill information" do
+      sint.update(api_url: "example.api.com", backfill_key: "bf_key", backfill_secret: "bf_sek")
+      post "/v1/service_integrations/xyz/backfill/reset"
+      sint = Webhookdb::ServiceIntegration[opaque_id: "xyz"]
+      expect(sint).to have_attributes(api_url: "")
+      expect(sint).to have_attributes(backfill_key: "")
+      expect(sint).to have_attributes(backfill_secret: "")
+    end
+
+    it "returns a state machine step" do
+      post "/v1/service_integrations/xyz/backfill/reset"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        needs_input: true,
+        output: "Now let's test the backfill flow.", prompt: "Paste or type a string here:",
+        prompt_is_secret: false, post_to_url: match("/transition/backfill_secret"), complete: false,
+      )
+    end
+
+    it "fails if service integration is not supported by subscription plan" do
+      post "/v1/service_integrations/#{shopify_sint.opaque_id}/backfill/reset"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
