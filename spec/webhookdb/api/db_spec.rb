@@ -20,14 +20,27 @@ RSpec.describe Webhookdb::API::Db, :db do
     org.remove_related_database
   end
 
-  describe "GET /v1/db/:organization_key" do
+  describe "GET /v1/db/:organization_key/connection" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, table_name: "fake_v1") }
+
+    it "returns the connection string" do
+      expect(org).to have_attributes(readonly_connection_url: start_with("postgres://"))
+
+      get "/v1/db/#{org.key}/connection"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(url: org.readonly_connection_url)
+    end
+  end
+
+  describe "GET /v1/db/:organization_key/tables" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, table_name: "fake_v1") }
 
     it "returns a list of all tables in org" do
       svc = Webhookdb::Services.service_instance(sint)
       svc.create_table
 
-      get "/v1/db/#{org.key}"
+      get "/v1/db/#{org.key}/tables"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(tables: contain_exactly("fake_v1"))
