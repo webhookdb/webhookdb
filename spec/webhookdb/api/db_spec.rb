@@ -28,7 +28,7 @@ RSpec.describe Webhookdb::API::Db, :db do
       get "/v1/db/#{org.key}/connection"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(url: org.readonly_connection_url)
+      expect(last_response).to have_json_body.that_includes(connection_url: org.readonly_connection_url)
     end
   end
 
@@ -87,7 +87,7 @@ RSpec.describe Webhookdb::API::Db, :db do
       post "/v1/db/#{org.key}/roll_credentials"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(url: not_eq(original_ro))
+      expect(last_response).to have_json_body.that_includes(connection_url: not_eq(original_ro))
       expect(org.refresh).to have_attributes(readonly_connection_url: not_eq(original_ro))
     end
 

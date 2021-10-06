@@ -166,6 +166,7 @@ module Webhookdb::SpecHelpers::Postgres
   #
   RSpec::Matchers.define(:have_same_ids_as) do |*expected|
     match do |actual|
+      @pk ||= :id
       self.ids(actual) == self.ids(expected.flatten)
     end
 
@@ -177,6 +178,10 @@ module Webhookdb::SpecHelpers::Postgres
       @ordered = true
     end
 
+    chain :pk_field do |pk|
+      @pk = pk
+    end
+
     def ids(arr)
       res = arr.map { |o| self.id(o) }
       res = res.sort unless @ordered
@@ -185,8 +190,8 @@ module Webhookdb::SpecHelpers::Postgres
 
     def id(o)
       return o if o.is_a?(Numeric)
-      return o.id if o.respond_to?(:id)
-      return o[:id] || o["id"]
+      return o.send(@pk) if o.respond_to?(@pk)
+      return o[@pk] || o[@pk.to_s]
     end
   end
 

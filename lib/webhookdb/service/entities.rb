@@ -49,7 +49,6 @@ module Webhookdb::Service::Entities
   class CurrentCustomer < Base
     expose :id
     expose :created_at
-    expose :default_org_key
     expose :email
     expose :name
     expose :roles do |instance|

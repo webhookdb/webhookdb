@@ -58,8 +58,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
 
       set_customer(me)
       status 200
-      present me.memberships.first, with: Webhookdb::API::DefaultOrganizationEntity, env: env,
-                                    message: "You are now logged in as #{email}"
+      present me, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: "You are now logged in as #{email}"
     end
 
     post :logout do

@@ -12,7 +12,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       get :connection do
         _customer = current_customer
         org = lookup_org!
-        r = {url: org.readonly_connection_url}
+        r = {connection_url: org.readonly_connection_url}
         present r
       end
 
@@ -47,7 +47,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         ensure_admin!
         org = lookup_org!
         org.roll_database_credentials
-        r = {url: org.readonly_connection_url}
+        r = {connection_url: org.readonly_connection_url}
         status 200
         present r
       end
