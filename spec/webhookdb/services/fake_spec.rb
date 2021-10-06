@@ -3,6 +3,10 @@
 require "support/shared_examples_for_services"
 
 RSpec.describe Webhookdb::Services::Fake, :db do
+  before(:each) do
+    Webhookdb::Services::Fake.reset
+    Webhookdb::Services::FakeWithEnrichments.reset
+  end
   it_behaves_like "a service implementation", "fake_v1" do
     let(:body) do
       {
@@ -41,9 +45,6 @@ RSpec.describe Webhookdb::Services::Fake, :db do
       ]
     end
     let(:expected_items_count) { 4 }
-    before(:each) do
-      Webhookdb::Services::Fake.reset
-    end
     def stub_service_requests
       return [
         stub_request(:get, "https://fake-integration/?token=").
@@ -62,7 +63,6 @@ RSpec.describe Webhookdb::Services::Fake, :db do
 
   it_behaves_like "a service implementation that upserts webhooks only under specific conditions", "fake_v1" do
     before(:each) do
-      Webhookdb::Services::Fake.reset
       Webhookdb::Services::Fake.prepare_for_insert_hook = ->(_h) {}
     end
     let(:incorrect_webhook) do
@@ -74,9 +74,6 @@ RSpec.describe Webhookdb::Services::Fake, :db do
   end
 
   it_behaves_like "a service implementation that uses enrichments", "fake_with_enrichments_v1" do
-    before(:each) do
-      Webhookdb::Services::FakeWithEnrichments.reset
-    end
     let(:enrichment_tables) { Webhookdb::Services::FakeWithEnrichments.enrichment_tables }
     let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
 
