@@ -58,7 +58,7 @@ Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
     if self.service_integration.backfill_key.blank?
       step.needs_input = true
       step.output = %(
-In order to backfill Transistor Episodoes, we need your API Key.
+In order to backfill Transistor Episodes, we need your API Key.
 
 From your Transistor dashboard, go to the "Your Account" page,
 at https://dashboard.transistor.fm/account
@@ -103,6 +103,7 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
       Webhookdb::Services::Column.new(:season, "integer"),
       Webhookdb::Services::Column.new(:status, "text"),
       Webhookdb::Services::Column.new(:title, "text"),
+      Webhookdb::Services::Column.new(:show_id, "text"),
       Webhookdb::Services::Column.new(:type, "text"),
       Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
     ]
@@ -149,19 +150,21 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
 
   def _prepare_for_insert(body, **_kwargs)
     obj_of_interest = body.key?("data") ? body["data"] : body
+    attributes = obj_of_interest.fetch("attributes")
     return {
-      author: obj_of_interest["attributes"]["author"],
-      created_at: obj_of_interest["attributes"]["created_at"],
-      duration: obj_of_interest["attributes"]["duration"],
-      keywords: obj_of_interest["attributes"]["keywords"],
-      number: obj_of_interest["attributes"]["number"],
-      published_at: obj_of_interest["attributes"]["published_at"],
-      season: obj_of_interest["attributes"]["season"],
-      status: obj_of_interest["attributes"]["status"],
-      title: obj_of_interest["attributes"]["title"],
-      transistor_id: obj_of_interest["id"],
-      type: obj_of_interest["attributes"]["type"],
-      updated_at: obj_of_interest["attributes"]["updated_at"],
+      author: attributes.fetch("author"),
+      created_at: attributes.fetch("created_at"),
+      duration: attributes.fetch("duration"),
+      keywords: attributes.fetch("keywords"),
+      number: attributes.fetch("number"),
+      published_at: attributes.fetch("published_at"),
+      season: attributes.fetch("season"),
+      show_id: obj_of_interest.fetch("relationships").fetch("show").fetch("data").fetch("id"),
+      status: attributes.fetch("status"),
+      title: attributes.fetch("title"),
+      transistor_id: obj_of_interest.fetch("id"),
+      type: attributes.fetch("type"),
+      updated_at: attributes.fetch("updated_at"),
     }
   end
 

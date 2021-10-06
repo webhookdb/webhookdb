@@ -159,66 +159,130 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
     let(:page1_response) do
       <<~R
         {
-          "data": [
-            {
-              "id": "1",
-              "type": "episode",
-              "attributes": {
-                "title": "How To Roast Coffee",
-                "summary": "A primer on roasting coffee",
-                "created_at":"2021-09-03T10:06:08.582-07:00"
+           "data":[
+              {
+                 "id":"1",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"How To Roast Coffee",
+                    "summary":"A primer on roasting coffee",
+                    "created_at":"2021-09-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":1,
+                    "published_at":"2021-09-20T10:51:45.707-07:00",
+                    "updated_at":"2021-09-20T10:51:45.707-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
               },
-              "relationships": {}
-            },
-            {
-              "id": "2",
-              "type": "episode",
-              "attributes": {
-                "title": "The Effects of Caffeine",
-                "summary": "A lightly scientific overview on how caffeine affects the brain",
-                "created_at":"2021-09-03T10:06:08.582-07:00"
-              },
-              "relationships": {}
-            }
-          ],
-          "meta": {
-            "currentPage": 1,
-            "totalPages": 2,
-            "totalCount": 4
-          }
+              {
+                 "id":"2",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"The Effects of Caffeine",
+                    "summary":"A lightly scientific overview on how caffeine affects the brain",
+                    "created_at":"2021-09-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":2,
+                    "published_at":"2021-09-20T10:51:45.707-07:00",
+                    "updated_at":"2021-09-20T10:51:45.707-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
+              }
+           ],
+           "meta":{
+              "currentPage":1,
+              "totalPages":2,
+              "totalCount":4
+           }
         }
       R
     end
     let(:page2_response) do
       <<~R
         {
-          "data": [
-            {
-              "id": "3",
-              "type": "episode",
-              "attributes": {
-                "title": "I've actually decided I like tea better",
-                "summary": "A primer on good tea",
-                "created_at":"2021-09-03T10:06:08.582-07:00"
+           "data":[
+              {
+                 "id":"3",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"I've actually decided I like tea better",
+                    "summary":"A primer on good tea",
+                    "created_at":"2021-09-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":3,
+                    "published_at":"2021-09-20T10:51:45.707-07:00",
+                    "updated_at":"2021-09-20T10:51:45.707-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
               },
-              "relationships": {}
-            },
-            {
-              "id": "4",
-              "type": "episode",
-              "attributes": {
-                "title": "The Effects of Quitting Caffeine",
-                "summary": "I think I should really cut down",
-                "created_at":"2021-09-03T10:06:08.582-07:00"
-              },
-              "relationships": {}
-            }
-          ],
-          "meta": {
-            "currentPage": 2,
-            "totalPages": 2,
-            "totalCount": 4
-          }
+              {
+                 "id":"4",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"The Effects of Quitting Caffeine",
+                    "summary":"I think I should really cut down",
+                    "created_at":"2021-09-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":4,
+                    "published_at":"2021-09-20T10:51:45.707-07:00",
+                    "updated_at":"2021-09-20T10:51:45.707-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
+              }
+           ],
+           "meta":{
+              "currentPage":2,
+              "totalPages":2,
+              "totalCount":4
+           }
         }
       R
     end
@@ -274,7 +338,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
         expect(state_machine.prompt_is_secret).to eq(true)
         expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
         expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("In order to backfill Transistor Episodoes, we need your API Key.")
+        expect(state_machine.output).to match("In order to backfill Transistor Episodes, we need your API Key.")
       end
       it "returns backfill in progress message" do
         sint.backfill_key = "api_k3y"

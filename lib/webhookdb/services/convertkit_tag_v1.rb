@@ -107,7 +107,7 @@ Great! We are going to start backfilling your ConvertKit Tag information.
     return [
       Webhookdb::Services::Column.new(:created_at, "timestamptz"),
       Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:total_subscribers, "integer"),
+      Webhookdb::Services::Column.new(:total_subscriptions, "integer"),
     ]
   end
 
@@ -127,10 +127,10 @@ Great! We are going to start backfilling your ConvertKit Tag information.
 
   def _prepare_for_insert(body, enrichment:)
     return {
-      convertkit_id: body["id"],
-      created_at: body["created_at"],
-      name: body["name"],
-      total_subscribers: enrichment["total_subscribers"],
+      convertkit_id: body.fetch("id"),
+      created_at: body.fetch("created_at"),
+      name: body.fetch("name"),
+      total_subscriptions: enrichment.fetch("total_subscriptions"),
     }
   end
 

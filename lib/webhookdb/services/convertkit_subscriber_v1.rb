@@ -141,13 +141,27 @@ Great! We are going to start backfilling your ConvertKit Subscriber information.
   end
 
   def _fetch_backfill_page(pagination_token)
-    pagination_token = 1 if pagination_token.blank?
-    url = "https://api.convertkit.com/v3/subscribers?api_secret=#{self.service_integration.backfill_secret}&page=#{pagination_token}"
+    pagination_token ||= ["subscribed", 1]
+    list_being_iterated, page = pagination_token
+
+    url = "https://api.convertkit.com/v3/subscribers?api_secret=#{self.service_integration.backfill_secret}&page=#{page}"
+    url += "&sort_order=cancelled_at" if list_being_iterated == "cancelled"
+
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     current_page = data["page"]
     total_pages = data["total_pages"]
-    next_page = (current_page.to_i + 1 if current_page < total_pages)
-    return data["subscribers"], next_page
+    subs = data["subscribers"]
+
+    if current_page < total_pages
+      # If we still have pages on this list, go to the next one
+      return subs, [list_being_iterated, current_page + 1]
+    end
+    if list_being_iterated == "subscribed"
+      # If we are done with the 'subscribed' list, we can now iterate cancelled
+      return subs, ["cancelled", 1]
+    end
+    # Otherwise, we're at the last page of our canceled subscribers list
+    return subs, nil
   end
 end
