@@ -26,22 +26,34 @@ class Webhookdb::Services::Base
 
   # Set the new service integration field and
   # return the newly calculated state machine.
+  #
+  # Subclasses can override this method and then super,
+  # to change the field or value.
+  #
   # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)
-    self.db.transaction do
+    self.service_integration.db.transaction do
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
+      case field
+        when "webhook_secret"
+          return self.calculate_create_state_machine
+        when "backfill_key", "backfill_secret", "api_url"
+          return self.calculate_backfill_state_machine
+        else
+          return
+      end
     end
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
-  def calculate_create_state_machine(organization)
+  def calculate_create_state_machine
     # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
     raise NotImplementedError
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
-  def calculate_backfill_state_machine(organization)
+  def calculate_backfill_state_machine
     # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
     raise NotImplementedError
   end
@@ -232,5 +244,26 @@ class Webhookdb::Services::Base
 
   def _fetch_backfill_page(pagination_token)
     raise NotImplementedError
+  end
+
+  protected def _webhook_endpoint
+    return "#{Webhookdb.api_url}/v1/service_integrations/#{self.service_integration.opaque_id}"
+  end
+
+  protected def _backfill_command
+    return "webhookdb backfill #{self.service_integration.opaque_id}"
+  end
+
+  protected def _query_help_output
+    sint = self.service_integration
+    return %(You can query the table through your organization's Postgres connection string:
+
+  psql #{sint.organization.readonly_connection_url}
+  > SELECT * FROM #{sint.table_name}
+
+You can also run a query through the CLI:
+
+  webhookdb db sql "SELECT * FROM #{sint.table_name}"
+  )
   end
 end

@@ -47,7 +47,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           svc = Webhookdb::Services.service_instance(sint)
           merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
           svc.clear_create_information
-          state_machine = svc.calculate_create_state_machine(sint.organization)
+          state_machine = svc.calculate_create_state_machine
           status 200
           present state_machine, with: Webhookdb::API::StateMachineEntity
         end
@@ -60,7 +60,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           sint = lookup!
           svc = Webhookdb::Services.service_instance(sint)
           merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
-          state_machine = svc.calculate_backfill_state_machine(sint.organization)
+          state_machine = svc.calculate_backfill_state_machine
           if state_machine.complete == true
             Webhookdb.publish(
               "webhookdb.serviceintegration.backfill", sint.id,
@@ -78,7 +78,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
             svc = Webhookdb::Services.service_instance(sint)
             merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
             svc.clear_backfill_information
-            state_machine = svc.calculate_backfill_state_machine(sint.organization)
+            state_machine = svc.calculate_backfill_state_machine
             status 200
             present state_machine, with: Webhookdb::API::StateMachineEntity
           end

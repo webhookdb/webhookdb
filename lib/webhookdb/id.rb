@@ -6,8 +6,12 @@ module Webhookdb::Id
   ID_BYTES = 16
 
   def self.new_opaque_id(prefix)
-    b = SecureRandom.bytes(ID_BYTES)
-    b36 = Digest.hexencode(b).to_i(16).to_s(36)
+    b36 = self.rand_enc(ID_BYTES)
     return "#{prefix}_#{b36}"
+  end
+
+  def self.rand_enc(blen)
+    b = SecureRandom.bytes(blen)
+    return Digest.hexencode(b).to_i(16).to_s(36)
   end
 end

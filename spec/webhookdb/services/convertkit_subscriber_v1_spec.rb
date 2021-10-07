@@ -173,29 +173,21 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
   describe "webhook creation" do
     let(:sint) do
-      Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1",
-                                                     backfill_secret: "bfsek",)
+      Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1")
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
-    it "creates activate webhook" do
-      req = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
-        to_return(
-          status: 200,
-        )
+    it "creates activate and unsubscribe webhooks when backfill_secret is set" do
+      req1 = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+        with(body: include("subscriber.subscriber_activate").and(include("mysecret"))).
+        to_return(status: 200)
+      req2 = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+        with(body: include("subscriber.subscriber_unsubscribe").and(include("mysecret"))).
+        to_return(status: 200)
 
-      svc.create_activate_webhook
-      expect(req).to have_been_made
-    end
-
-    it "creates unsubscribe webhook" do
-      req = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
-        to_return(
-          status: 200,
-        )
-
-      svc.create_unsubscribe_webhook
-      expect(req).to have_been_made
+      svc.process_state_change("backfill_secret", "mysecret")
+      expect(req1).to have_been_made
+      expect(req2).to have_been_made
     end
   end
 
@@ -215,37 +207,40 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     describe "calculate_create_state_machine" do
-      it "returns org database info" do
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match("Great! We've created your ConvertKit Subscriber Service Integration.")
+      it "returns the expected step" do
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("ConvertKit supports Subscriber webhooks."),
+        )
       end
     end
     describe "calculate_backfill_state_machine" do
       it "it asks for backfill secret" do
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your API secret here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/" \
-                                                  "transition/backfill_secret")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("In order to backfill ConvertKit Subscribers, we need your API secret.")
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: start_with("Paste or type"),
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          complete: false,
+          output: match("we need your API secret"),
+        )
       end
       it "returns backfill in progress message" do
         sint.backfill_secret = "api_s3cr3t"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match(
-          "Great! We are going to start backfilling your ConvertKit Subscriber information.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("We are going to start backfilling"),
         )
       end
     end

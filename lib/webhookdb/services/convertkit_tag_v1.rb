@@ -11,88 +11,28 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return true
   end
 
-  # rubocop:disable Lint/DuplicateBranch
-  def process_state_change(field, value)
-    self.service_integration.db.transaction do
-      self.service_integration.send("#{field}=", value)
-      self.service_integration.save_changes
-      case field
-        when "backfill_key"
-          return self.calculate_backfill_state_machine(self.service_integration.organization)
-        when "backfill_secret"
-          return self.calculate_backfill_state_machine(self.service_integration.organization)
-      else
-          return
-      end
-    end
-  end
-  # rubocop:enable Lint/DuplicateBranch
-
-  def calculate_create_state_machine(organization)
-    step = Webhookdb::Services::StateMachineStep.new
-    step.needs_input = false
-    step.output = %(
-Great! We've created your ConvertKit Tag Service Integration.
-
-You can query the database through your organization's Postgres connection string:
-
-#{organization.readonly_connection_url}
-
-You can also run a query through the CLI:
-
-webhookdb db sql "SELECT * FROM #{self.service_integration.table_name}"
-
-ConvertKit's webhook support is spotty, so to fill your database,
-we need to set up backfill functionality.
-
-Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
-      )
-    step.complete = true
-    return step
+  def calculate_create_state_machine
+    return self.calculate_backfill_state_machine
   end
 
-  def calculate_backfill_state_machine(_organization)
+  def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
-    if self.service_integration.backfill_key.blank?
-      step.needs_input = true
-      step.output = %(
-In order to backfill ConvertKit Tags, we need your API Key.
-
-From your ConvertKit Dashboard, go to your advanced account settings,
-at https://app.convertkit.com/account_settings/advanced_settings.
-Under the API Header you should be able to see your API key.
-
-Copy that API key.
-      )
-      step.prompt = "Paste or type your API key here:"
-      step.prompt_is_secret = true
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
-      step.complete = false
-      return step
-    end
     if self.service_integration.backfill_secret.blank?
-      step.needs_input = true
       step.output = %(
-We will also need your API secret.
+Great! We've created your ConvertKit Tags integration.
 
-From your ConvertKit Dashboard, go to your advanced account settings,
-at https://app.convertkit.com/account_settings/advanced_settings.
-Under the API Header you should be able to see your API secret, just under your API Key.
-
-Copy that API secret.
+ConvertKit Tags webhooks are not designed to mirror data, so to fill your database,
+we need to use the API to make requests, which requires your API Secret.
+#{Webhookdb::Convertkit::FIND_API_SECRET_HELP}
       )
-      step.prompt = "Paste or type your API secret here:"
-      step.prompt_is_secret = true
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
-      step.complete = false
-      return step
+      return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
-    step.needs_input = false
     step.output = %(
-Great! We are going to start backfilling your ConvertKit Tag information.
-      )
-    step.complete = true
-    return step
+We'll start backfilling your ConvertKit Tags now,
+and they will show up in your database momentarily.
+#{self._query_help_output}
+    )
+    return step.completed
   end
 
   def _create_enrichment_tables_sql
@@ -136,7 +76,7 @@ Great! We are going to start backfilling your ConvertKit Tag information.
 
   def _fetch_backfill_page(_pagination_token)
     # this endpoint does not have pagination support
-    url = "https://api.convertkit.com/v3/tags?api_key=#{self.service_integration.backfill_key}"
+    url = "https://api.convertkit.com/v3/tags?api_secret=#{self.service_integration.backfill_secret}"
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data["tags"], nil

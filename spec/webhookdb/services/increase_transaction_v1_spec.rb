@@ -195,47 +195,53 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
 
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your secret here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("We've made an endpoint available for Increase Transaction webhooks:")
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your secret here:",
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret",
+          complete: false,
+          output: match("We've made an endpoint available for Increase Transaction webhooks:"),
+        )
       end
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "whsec_abcasdf"
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match("Great! WebhookDB is now listening for Increase Transaction webhooks.")
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("Great! WebhookDB is now listening for Increase Transaction webhooks."),
+        )
       end
     end
     describe "calculate_backfill_state_machine" do
       it "it asks for backfill key" do
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your API Key here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("In order to backfill Increase Transactions, we need an API key.")
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your API Key here:",
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
+          complete: false,
+          output: match("In order to backfill Increase Transactions, we need an API key."),
+        )
       end
 
       it "confirms reciept of backfill key, returns org database info" do
         sint.backfill_key = "whsec_abcasdf"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match(
-          "Great! We are going to start backfilling your Increase Transaction information.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("Great! We are going to start backfilling your Increase Transactions."),
         )
       end
     end

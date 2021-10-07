@@ -15,11 +15,11 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   end
 
   def calculate_create_state_machine
-    return Webhookdb::Services.service_instance(self).calculate_create_state_machine(self.organization)
+    return Webhookdb::Services.service_instance(self).calculate_create_state_machine
   end
 
   def calculate_backfill_state_machine
-    return Webhookdb::Services.service_instance(self).calculate_backfill_state_machine(self.organization)
+    return Webhookdb::Services.service_instance(self).calculate_backfill_state_machine
   end
 
   def can_be_modified_by?(customer)

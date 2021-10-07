@@ -12,27 +12,14 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
   end
 
   def process_state_change(field, value)
-    self.service_integration.db.transaction do
-      self.service_integration.send("#{field}=", value)
-      self.service_integration.save_changes
-      case field
-        when "backfill_secret"
-          self.create_webhooks
-          return self.calculate_backfill_state_machine(self.service_integration.organization)
-      else
-          return
-      end
-    end
+    step = super
+    self._create_webhooks if field == "backfill_secret"
+    return step
   end
 
-  def create_webhooks
+  def _create_webhooks
     # ConvertKit has made several other webhooks available for the subscriber object, but they all have required
     # parameters that are pks of other objects that webhookdb knows nothing about.
-    self.create_activate_webhook
-    self.create_unsubscribe_webhook
-  end
-
-  def create_activate_webhook
     Webhookdb::Http.post(
       "https://api.convertkit.com/v3/automations/hooks",
       {
@@ -42,9 +29,6 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
       },
       logger: self.logger,
     )
-  end
-
-  def create_unsubscribe_webhook
     Webhookdb::Http.post(
       "https://api.convertkit.com/v3/automations/hooks",
       {
@@ -56,54 +40,56 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
     )
   end
 
-  def calculate_create_state_machine(organization)
+  def calculate_create_state_machine
     step = Webhookdb::Services::StateMachineStep.new
-    step.needs_input = false
     step.output = %(
-Great! We've created your ConvertKit Subscriber Service Integration.
+Great! We've created your ConvertKit Subscribers integration.
 
-You can query the database through your organization's Postgres connection string:
+ConvertKit supports Subscriber webhooks.
+You have two options for hooking them up:
 
-#{organization.readonly_connection_url}
+A: Create the webhook yourself, so you don't need to provide us an API Secret.
+Run this from a shell:
 
-You can also run a query through the CLI:
+  curl -X POST https://api.convertkit.com/v3/automations/hooks
+     -H 'Content-Type: application/json'\\
+     -d '{ "api_secret": "<your_secret_api_key>",\\
+           "target_url": "#{self._webhook_endpoint}",\\
+           "event": { "name": "subscriber.subscriber_activate" } }'
+  curl -X POST https://api.convertkit.com/v3/automations/hooks
+     -H 'Content-Type: application/json'\\
+     -d '{ "api_secret": "<your_secret_api_key>",\\
+           "target_url": "#{self._webhook_endpoint}",\\
+           "event": { "name": "subscriber.subscriber_unsubscribe" } }'
 
-webhookdb db sql "SELECT * FROM #{self.service_integration.table_name}"
+B: Use WebhookDB to backfill historical data with your API Secret, and when we do this,
+we'll also set up webhooks for new data.
+To start backfilling historical data, run this from a shell:
 
-ConvertKit's webhook support is spotty, so to fill your database,
-we need to set up backfill functionality.
+  #{self._backfill_command}
 
-Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
+Once you have data (you set up the webhooks, or ran the 'backfill' command),
+your database will be populated.
+#{self._query_help_output}
       )
-    step.complete = true
-    return step
+    return step.completed
   end
 
-  def calculate_backfill_state_machine(_organization)
+  def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     if self.service_integration.backfill_secret.blank?
-      step.needs_input = true
       step.output = %(
 In order to backfill ConvertKit Subscribers, we need your API secret.
 
-From your ConvertKit Dashboard, go to your advanced account settings,
-at https://app.convertkit.com/account_settings/advanced_settings.
-Under the API Header you should be able to see your API secret, just under your API Key.
-
-Copy that API secret.
+#{Webhookdb::Convertkit::FIND_API_SECRET_HELP}
       )
-      step.prompt = "Paste or type your API secret here:"
-      step.prompt_is_secret = true
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
-      step.complete = false
-      return step
+      return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
-    step.needs_input = false
     step.output = %(
-Great! We are going to start backfilling your ConvertKit Subscriber information.
+Great! We are going to start backfilling your ConvertKit Subscribers.
+#{self._query_help_output}
       )
-    step.complete = true
-    return step
+    return step.completed
   end
 
   def _remote_key_column

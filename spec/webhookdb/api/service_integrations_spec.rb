@@ -218,8 +218,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        needs_input: false, prompt: nil, prompt_is_secret: nil,
-        post_to_url: nil, complete: true,
+        needs_input: false,
+        prompt: false,
+        prompt_is_secret: false,
+        post_to_url: "",
+        complete: true,
         output: match("The integration creation flow is working correctly"),
       )
     end

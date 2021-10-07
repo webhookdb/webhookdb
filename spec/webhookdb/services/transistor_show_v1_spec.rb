@@ -329,36 +329,35 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     describe "calculate_create_state_machine" do
-      it "returns org database info" do
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match("Great! We've created your Transistor Shows Service Integration.")
+      it "returns a backfill step" do
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          output: match("Transistor does not support Shows webhooks"),
+        )
       end
     end
     describe "calculate_backfill_state_machine" do
       it "it asks for backfill key" do
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your API key here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("In order to backfill Transistor Shows, we need your API Key.")
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: start_with("Paste or type"),
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
+          complete: false,
+          output: match("Transistor does not support"),
+        )
       end
       it "returns backfill in progress message" do
         sint.backfill_key = "api_k3y"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match(
-          "Great! We are going to start backfilling your Transistor Show information.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("We are going to start backfilling your Transistor Shows"),
         )
       end
     end

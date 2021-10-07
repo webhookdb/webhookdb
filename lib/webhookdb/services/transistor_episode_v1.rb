@@ -10,55 +10,22 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
     return true
   end
 
-  def process_state_change(field, value)
-    self.service_integration.db.transaction do
-      self.service_integration.send("#{field}=", value)
-      self.service_integration.save_changes
-      case field
-        when "backfill_key"
-          return self.calculate_backfill_state_machine(self.service_integration.organization)
-      else
-          return
-      end
-    end
-  end
-
   def analytics_table_name
     return "#{self.service_integration.table_name}_stats"
   end
 
-  def calculate_create_state_machine(organization)
-    step = Webhookdb::Services::StateMachineStep.new
-    step.needs_input = false
-    step.output = %(
-Great! We've created your Transistor Episodes Service Integration.
-We will also include analytics data for each episode,
-in the #{self.analytics_table_name} table.
-
-You can query the database through your organization's Postgres connection string:
-
-#{organization.readonly_connection_url}
-
-You can also run a query through the CLI:
-
-webhookdb db sql "SELECT * FROM #{self.service_integration.table_name}"
-webhookdb db sql "SELECT * FROM #{self.analytics_table_name} WHERE date > '2021-01-15'"
-
-Transistor's webhook support is spotty, so to fill your database,
-we need to set up backfill functionality.
-
-Run `webhookdb backfill #{self.service_integration.opaque_id}` to get started.
-      )
-    step.complete = true
-    return step
+  def calculate_create_state_machine
+    return self.calculate_backfill_state_machine
   end
 
-  def calculate_backfill_state_machine(_organization)
+  def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     if self.service_integration.backfill_key.blank?
-      step.needs_input = true
       step.output = %(
-In order to backfill Transistor Episodes, we need your API Key.
+Great! We've created your Transistor Episodes integration.
+
+Transistor does not support Episodes webhooks, so to fill your database,
+we need to use the API to make requests, which requires your API Key.
 
 From your Transistor dashboard, go to the "Your Account" page,
 at https://dashboard.transistor.fm/account
@@ -66,18 +33,17 @@ On the left side of the bottom of the page you should be able to see your API ke
 
 Copy that API key.
       )
-      step.prompt = "Paste or type your API key here:"
-      step.prompt_is_secret = true
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_key"
-      step.complete = false
-      return step
+      return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
-    step.needs_input = false
     step.output = %(
 Great! We are going to start backfilling your Transistor Episode information.
+
+We will also include analytics data for each episode,
+in the #{self.analytics_table_name} table.
+#{self._query_help_output}
+webhookdb db sql "SELECT * FROM #{self.analytics_table_name} WHERE date > '2021-01-15'"
       )
-    step.complete = true
-    return step
+    return step.completed
   end
 
   def _create_enrichment_tables_sql

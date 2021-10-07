@@ -4290,61 +4290,67 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
 
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your secret here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match("We've made an endpoint available for Shopify Order webhooks:")
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your secret here:",
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret",
+          complete: false,
+          output: match("We've made an endpoint available for Shopify Order webhooks:"),
+        )
       end
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "whsec_abcasdf"
-        state_machine = sint.calculate_create_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match("Great! WebhookDB is now listening for Shopify Order webhooks.")
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("Great! WebhookDB is now listening for Shopify Order webhooks."),
+        )
       end
     end
     describe "calculate_backfill_state_machine" do
       it "asks for backfill key" do
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your API Key here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match(
-          "In order to backfill Shopify Orders, we need an API key and password.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your API Key here:",
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
+          complete: false,
+          output: match("In order to backfill Shopify Orders, we need an API key and password."),
         )
       end
 
       it "asks for backfill secret" do
         sint.backfill_key = "key_ghjkl"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to eq("Paste or type your password here:")
-        expect(state_machine.prompt_is_secret).to eq(true)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to be_nil
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: match("Paste or type"),
+          prompt_is_secret: true,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          complete: false,
+          output: "",
+        )
       end
 
       it "asks for store name " do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(true)
-        expect(state_machine.prompt).to match("Paste or type your shop name here:")
-        expect(state_machine.prompt_is_secret).to eq(false)
-        expect(state_machine.post_to_url).to eq("/v1/service_integrations/#{sint.opaque_id}/transition/shop_name")
-        expect(state_machine.complete).to eq(false)
-        expect(state_machine.output).to match(
-          "Nice! Now we need the name of your shop so that we can construct the api url.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: match("Paste or type"),
+          prompt_is_secret: false,
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/shop_name",
+          complete: false,
+          output: match("the name of your shop"),
         )
       end
 
@@ -4352,14 +4358,14 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
         sint.api_url = "https://shopify_test.myshopify.com"
-        state_machine = sint.calculate_backfill_state_machine
-        expect(state_machine.needs_input).to eq(false)
-        expect(state_machine.prompt).to be_nil
-        expect(state_machine.prompt_is_secret).to be_nil
-        expect(state_machine.post_to_url).to be_nil
-        expect(state_machine.complete).to eq(true)
-        expect(state_machine.output).to match(
-          "Great! We are going to start backfilling your Shopify Order information.",
+        sm = sint.calculate_backfill_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: false,
+          prompt_is_secret: false,
+          post_to_url: "",
+          complete: true,
+          output: match("Great! We are going to start backfilling your Shopify Orders."),
         )
       end
     end
