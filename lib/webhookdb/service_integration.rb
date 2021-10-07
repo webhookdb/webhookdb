@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "webhookdb/id"
 require "webhookdb/postgres/model"
 require "sequel/plugins/soft_deletes"
 
@@ -44,6 +45,14 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
     # if not, the integration is not supported
     return false
+  end
+
+  #
+  # :Sequel Hooks:
+  #
+
+  def before_create
+    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("svi")
   end
 
   # @!attribute table_name

@@ -76,7 +76,6 @@ You can run `webhookdb services list` at any time to see our list of available s
                   organization: org,
                   table_name: (name + "_#{SecureRandom.hex(2)}"),
                   service_name: name,
-                  opaque_id: SecureRandom.hex(6),
                 )
               end
               return sint.calculate_create_state_machine
