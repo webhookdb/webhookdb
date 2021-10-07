@@ -8,6 +8,8 @@ require "webhookdb/customer"
 class Webhookdb::Customer::ResetCode < Webhookdb::Postgres::Model(:customer_reset_codes)
   class Unusable < RuntimeError; end
 
+  TOKEN_LENGTH = 6
+
   plugin :timestamps
 
   many_to_one :customer, class: Webhookdb::Customer
@@ -34,7 +36,7 @@ class Webhookdb::Customer::ResetCode < Webhookdb::Postgres::Model(:customer_rese
 
   def initialize(*)
     super
-    self.token ||= Array.new(6) { rand(0..9) }.join
+    self.token ||= Array.new(TOKEN_LENGTH) { rand(0..9) }.join
     self.expire_at ||= 15.minutes.from_now
   end
 
