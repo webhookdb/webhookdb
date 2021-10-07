@@ -3,6 +3,7 @@
 require "appydays/configurable"
 require "bcrypt"
 require "openssl"
+require "webhookdb/id"
 require "webhookdb/postgres/model"
 
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
@@ -48,6 +49,89 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   def self.with_email(e)
     return self.dataset.with_email(e).first
+  end
+
+  # @return Tuple of <Step, Customer>.
+  def self.register_or_login(email:)
+    self.db.transaction do
+      email = email.strip.downcase
+      new_customer = false
+      unless (me = Webhookdb::Customer[email: email])
+        new_customer = true
+        self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
+        me = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
+        me.add_membership(organization: self_org, role: Webhookdb::OrganizationRole.admin_role, verified: true)
+      end
+      me.reset_codes_dataset.usable.each(&:expire!)
+      me.add_reset_code(transport: "email")
+      step = Webhookdb::Services::StateMachineStep.new
+      step.output = if new_customer
+                      %(Welcome to WebhookDB!
+
+To finish registering, please look for an email we just sent to #{email}.
+It contains a One Time Password code to validate your email.
+%)
+      else
+        %(Welcome back!
+
+To finish logging in, please look for an email we just sent to #{email}.
+It contains a One Time Password used to log in.
+%)
+                    end
+      step.output += %(You can enter it here, or if you want to finish up from a new prompt, use:
+
+  webhookdb auth login --username=#{email} --token=<#{Webhookdb::Customer::ResetCode::TOKEN_LENGTH} digit token>
+%)
+      step.prompt = "Enter the token from your email:"
+      step.prompt_is_secret = true
+      step.needs_input = true
+      step.post_to_url = "/v1/auth/login_otp/#{me.opaque_id}"
+      return [step, me]
+    end
+  end
+
+  # @return Tuple of <Step, Customer>. Customer is nil if token was invalid.
+  def self.finish_otp(opaque_id:, token:)
+    me = Webhookdb::Customer[opaque_id: opaque_id]
+    if me.nil?
+      step = Webhookdb::Services::StateMachineStep.new
+      step.output = %(Sorry, no one with that email exists. Try running:
+
+  webhookdb auth login <email>
+      )
+      step.needs_input = false
+      step.complete = true
+      step.error_code = "email_not_exist"
+      return [step, nil]
+    end
+
+    unless me.should_skip_authentication?
+      begin
+        Webhookdb::Customer::ResetCode.use_code_with_token(token) do |code|
+          raise Webhookdb::Customer::ResetCode::Unusable unless code.customer === me
+          code.customer.save_changes
+          me.refresh
+        end
+      rescue Webhookdb::Customer::ResetCode::Unusable
+        step = Webhookdb::Services::StateMachineStep.new
+        step.output = %(Sorry, that token is invalid. Please log in again to get a new code:
+
+  webhookdb auth login #{me.email}
+        )
+        step.needs_input = false
+        step.complete = true
+        step.error_code = "invalid_otp"
+        return [step, nil]
+      end
+    end
+
+    step = Webhookdb::Services::StateMachineStep.new
+    step.output = %(Welcome! For help getting started, please check out
+our docs at https://webhookdb.com/docs/cli.
+%)
+    step.needs_input = false
+    step.complete = true
+    return [step, me]
   end
 
   # Helper function for dealing with organization memberships
@@ -140,6 +224,10 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   #
   # :section: Sequel Hooks
   #
+
+  def before_create
+    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("cus")
+  end
 
   ### Soft-delete hook -- prep the user for deletion.
   def before_soft_delete

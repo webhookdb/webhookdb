@@ -6,7 +6,8 @@ class Webhookdb::Services::StateMachineStep
                 :prompt_is_secret,
                 :post_to_url,
                 :complete,
-                :output
+                :output,
+                :error_code
 
   def mark_complete
     self.complete = true

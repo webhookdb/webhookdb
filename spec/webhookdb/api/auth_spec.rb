@@ -25,46 +25,10 @@ RSpec.describe Webhookdb::API::Auth, :db do
         post "/v1/auth", **customer_params
 
         expect(last_response).to have_status(202)
+        expect(last_response).to have_json_body.that_includes(output: /Welcome to WebhookDB/)
         customer = Webhookdb::Customer.last
         expect(customer).to_not be_nil
         expect(customer).to have_attributes(email: email)
-      end
-
-      it "lowercases the email" do
-        post "/v1/auth", customer_params.merge(email: "HEARME@ROAR.coM")
-
-        expect(last_response).to have_status(202)
-        expect(last_response).to have_json_body.that_includes(email: "hearme@roar.com")
-        expect(Webhookdb::Customer.last).to have_attributes(email: "hearme@roar.com")
-      end
-
-      it "trims spaces from email" do
-        post "/v1/auth", customer_params.merge(email: " barf@sb.com ")
-
-        expect(last_response).to have_status(202)
-        expect(last_response).to have_json_body.that_includes(email: "barf@sb.com")
-        expect(Webhookdb::Customer.last).to have_attributes(email: "barf@sb.com")
-      end
-
-      it "creates a new email reset code for the customer" do
-        post "/v1/auth", email: email
-
-        expect(last_response).to have_status(202)
-        customer = Webhookdb::Customer.last
-        new_code = customer.refresh.reset_codes.first
-        expect(new_code).to_not be_expired
-        expect(new_code).to have_attributes(transport: "email")
-      end
-
-      it "creates new organization and membership for current customer if doesn't exist" do
-        post "/v1/auth", email: email
-
-        new_org = Webhookdb::Organization[name: "Org for #{email}"]
-        expect(new_org).to_not be_nil
-        expect(new_org.billing_email).to eq(email)
-
-        customer = Webhookdb::Customer.last
-        expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
       end
     end
 
@@ -77,6 +41,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
         post "/v1/auth", email: email
 
         expect(last_response).to have_status(202)
+        expect(last_response).to have_json_body.that_includes(output: /Welcome back/)
         expect(existing_code.refresh).to be_expired
         new_code = customer.refresh.reset_codes.first
         expect(new_code).to_not be_expired
@@ -89,18 +54,19 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
   describe "POST /v1/auth/login_otp" do
     let!(:customer) { Webhookdb::Fixtures.customer(**customer_params).create }
+    let(:opaque_id) { customer.opaque_id }
 
     it "errors if a customer is logged in" do
       login_as(customer)
-      post "/v1/auth/login_otp", email: email, token: "abcd"
+      post "/v1/auth/login_otp/#{opaque_id}", value: "abcd"
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(error: include(code: "already_logged_in"))
     end
 
-    it "errors if the email does not belong to an existing customer" do
-      post "/v1/auth/login_otp", email: "a@b.c", token: "abcd"
-      expect(last_response).to have_status(403)
-      expect(last_response).to have_json_body.that_includes(error: include(code: "user_not_found"))
+    it "fails if the id does not belong to an existing customer" do
+      post "/v1/auth/login_otp/myid", value: "abcd"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(output: /Sorry, no one with that email/)
     end
 
     it "establishes an auth session and returns the default_org" do
@@ -108,44 +74,42 @@ RSpec.describe Webhookdb::API::Auth, :db do
       default_org = Webhookdb::Fixtures.organization.create
       customer.add_membership(organization: default_org)
 
-      post "/v1/auth/login_otp", email: email, token: code.token
+      post "/v1/auth/login_otp/#{opaque_id}", value: code.token
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(email: customer.email, default_organization: include(id: default_org.id))
+        that_includes(output: /Welcome!/)
       expect(last_response).to have_session_cookie
       expect(code.refresh).to have_attributes(used: true)
     end
 
-    it "400s if the token does not belong to the current customer" do
+    it "fails if the token does not belong to the current customer" do
       code = Webhookdb::Fixtures.reset_code.create
 
-      post "/v1/auth/login_otp", email: email, token: code.token
+      post "/v1/auth/login_otp/#{opaque_id}", value: code.token
 
-      expect(last_response).to have_status(400)
-      expect(last_response).to have_json_body.
-        that_includes(error: include(message: "Invalid verification code"))
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(error_code: "invalid_otp")
     end
 
-    it "400s if the token is invalid" do
+    it "fails if the token is invalid" do
       code = Webhookdb::Fixtures.reset_code(customer: customer).create
       code.expire!
 
-      post "/v1/auth/login_otp", email: email, token: code.token
+      post "/v1/auth/login_otp/#{opaque_id}", value: code.token
 
-      expect(last_response).to have_status(400)
-      expect(last_response).to have_json_body.
-        that_includes(error: include(message: "Invalid verification code"))
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(error_code: "invalid_otp")
     end
 
     it "logs the user in if the code is invalid and auth skipping is enabled for the customer email" do
       Webhookdb::Customer.skip_authentication_allowlist = ["*@cats.org"]
       customer.update(email: "meow@cats.org")
 
-      post "/v1/auth/login_otp", email: "meow@cats.org", token: "a"
+      post "/v1/auth/login_otp/#{opaque_id}", value: "a"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(email: customer.email)
+      expect(last_response).to have_json_body.that_includes(output: /Welcome!/)
     ensure
       Webhookdb::Customer.reset_configuration
     end

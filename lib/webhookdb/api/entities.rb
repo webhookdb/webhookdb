@@ -51,5 +51,6 @@ module Webhookdb::API
     expose :post_to_url
     expose :complete
     expose :output
+    expose :error_code
   end
 end

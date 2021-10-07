@@ -20,45 +20,25 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
     post do
       guard_logged_in!
-      email = params[:email].strip.downcase
-      unless (c = Webhookdb::Customer[email: email])
-        self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
-        c = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
-        c.add_membership(organization: self_org, role: Webhookdb::OrganizationRole.admin_role, verified: true)
-      end
-      c.reset_codes_dataset.usable.each(&:expire!)
-      c.add_reset_code(transport: "email")
+      step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
       status 202
-      message = "Please check your email #{email} for a login code."
-      present c, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: message
+      present step, with: Webhookdb::API::StateMachineEntity
     end
 
-    desc "Auth the current customer via OTP"
-    params do
-      requires :email, allow_blank: false
-      requires :token
-    end
-    post :login_otp do
-      guard_logged_in!
-      email = params[:email].strip.downcase
-      (me = Webhookdb::Customer[email: email]) or merror!(403, "No customer with that email", code: "user_not_found")
-      if me.should_skip_authentication?
-        nil
-      else
-        begin
-          Webhookdb::Customer::ResetCode.use_code_with_token(params[:token]) do |code|
-            invalid!("Invalid verification code") unless code.customer === me
-            code.customer.save_changes
-            me.refresh
-          end
-        rescue Webhookdb::Customer::ResetCode::Unusable
-          invalid!("Invalid verification code")
+    resource :login_otp do
+      route_param :opaque_id do
+        desc "Verify the OTP and auth the customer"
+        params do
+          requires :value
+        end
+        post do
+          guard_logged_in!
+          step, me = Webhookdb::Customer.finish_otp(opaque_id: params[:opaque_id], token: params[:value])
+          set_customer(me) if me
+          status 200
+          present step, with: Webhookdb::API::StateMachineEntity
         end
       end
-
-      set_customer(me)
-      status 200
-      present me, with: Webhookdb::API::CurrentCustomerEntity, env: env, message: "You are now logged in as #{email}"
     end
 
     post :logout do
@@ -75,4 +55,4 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       present({}, with: Webhookdb::API::BaseEntity, message: "You have logged out.")
     end
   end
-  end
+end
