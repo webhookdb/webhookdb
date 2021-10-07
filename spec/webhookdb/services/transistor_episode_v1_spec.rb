@@ -543,7 +543,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
       svc.admin_dataset(&:db)[stats_table_name].insert(episode_id: "655205", date: Date.new(2021, 10, 1))
       req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
         with(
-          body: /start_date=2021-09-29&end_date=/,
+          body: /start_date=29-09-2021&end_date=/,
           headers: {
             "Accept" => "*/*",
             "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
@@ -726,7 +726,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
         to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: old_analytics_body)
       second_req = stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/655205").
         with(
-          body: /start_date=2021-09-01&end_date=/,
+          body: /start_date=01-09-2021&end_date=/,
         ).
         to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: new_analytics_body)
 

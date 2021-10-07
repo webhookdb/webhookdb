@@ -42,7 +42,6 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
       },
       logger: self.logger,
     )
-
   end
 
   def create_unsubscribe_webhook
