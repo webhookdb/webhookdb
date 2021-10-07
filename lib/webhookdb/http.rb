@@ -11,8 +11,12 @@ module Webhookdb::Http
       @response = response
       @body = response.body
       @headers = response.headers.to_h
-      @uri = response.request.last_uri
       @status = response.code
+      @uri = response.request.last_uri.dup
+      if @uri.query.present?
+        cleaned_params = CGI.parse(@uri.query).map { |k, v| k.include?("secret") ? [k, ".snip."] : [k, v] }
+        @uri.query = HTTParty::Request::NON_RAILS_QUERY_STRING_NORMALIZER.call(cleaned_params)
+      end
       super(msg || self.to_s)
     end
 
@@ -45,6 +49,7 @@ module Webhookdb::Http
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
+    body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
     opts = {body: body, headers: headers}.merge(**options)
     r = HTTParty.post(url, **opts)
     self.check!(r)
