@@ -142,7 +142,7 @@ Great! We are going to start backfilling your ConvertKit Subscriber information.
     list_being_iterated, page = pagination_token
 
     url = "https://api.convertkit.com/v3/subscribers?api_secret=#{self.service_integration.backfill_secret}&page=#{page}"
-    url += "&sort_order=cancelled_at" if list_being_iterated == "cancelled"
+    url += "&sort_field=cancelled_at" if list_being_iterated == "cancelled"
 
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response

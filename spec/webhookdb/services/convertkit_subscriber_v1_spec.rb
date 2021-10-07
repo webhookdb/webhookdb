@@ -158,9 +158,9 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=cancelled_at").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_field=cancelled_at").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_order=cancelled_at").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_field=cancelled_at").
             to_return(status: 200, body: page4_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
