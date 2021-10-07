@@ -20,8 +20,12 @@ class Webhookdb::Services
   # @return [Webhookdb::Services::Base]
   def self.service_instance(service_integration)
     name = service_integration.service_name
-    (cls = @registered[name]) or raise(InvalidService, name)
+    (cls = self.registered_service_type(name)) or raise(InvalidService, name)
     return cls[service_integration]
+  end
+
+  def self.registered_service_type(name)
+    return @registered[name]
   end
 end
 

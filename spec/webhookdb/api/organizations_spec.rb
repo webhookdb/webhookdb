@@ -168,6 +168,19 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         error: include(message: "You have reached the maximum number of free integrations"),
       )
     end
+
+    it "returns a state machine step if the given service name is not valid" do
+      customer.memberships_dataset.update(role_id: admin_role.id)
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
+
+      available_services = Webhookdb::Services.registered.keys.join("\n\t")
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        needs_input: false,
+        output: match(available_services),
+        complete: true,
+      )
+    end
   end
 
   describe "POST /v1/organizations/:identifier/invite" do

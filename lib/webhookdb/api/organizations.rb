@@ -52,6 +52,36 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         end
 
         resource :create do
+          helpers do
+            def create_integration(org, name)
+              if Webhookdb::Services.registered_service_type(name).nil?
+                available_services = Webhookdb::Services.registered.keys.join("\n\t")
+                step = Webhookdb::Services::StateMachineStep.new
+                step.needs_input = false
+                step.output =
+                  %(
+WebhookDB doesn't support a service called '#{name}.' These are all the services
+currently supported by WebhookDB:
+
+\t#{available_services}
+
+You can run `webhookdb services list` at any time to see our list of available services.
+                    )
+                step.complete = true
+                return step
+              end
+              sint = Webhookdb::ServiceIntegration[organization: org, service_name: name]
+              if sint.nil?
+                sint = Webhookdb::ServiceIntegration.create(
+                  organization: org,
+                  table_name: (name + "_#{SecureRandom.hex(2)}"),
+                  service_name: name,
+                  opaque_id: SecureRandom.hex(6),
+                )
+              end
+              return sint.calculate_create_state_machine
+            end
+          end
           desc "Create service integration on a given organization"
           params do
             requires :service_name, type: String, allow_blank: false
@@ -62,18 +92,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
             ensure_admin!
             customer.db.transaction do
-              sint = Webhookdb::ServiceIntegration[
-                organization: org,
-                service_name: params[:service_name]]
-              if sint.nil?
-                sint = Webhookdb::ServiceIntegration.create(
-                  organization: org,
-                  table_name: (params[:service_name] + "_#{SecureRandom.hex(2)}"),
-                  service_name: params[:service_name],
-                  opaque_id: SecureRandom.hex(6),
-                )
-              end
-              state_machine = sint.calculate_create_state_machine
+              state_machine = create_integration(org, params[:service_name])
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
             end
