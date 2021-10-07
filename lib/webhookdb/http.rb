@@ -40,4 +40,14 @@ module Webhookdb::Http
     self.check!(r)
     return r
   end
+
+  def self.post(url, body={}, headers: {}, **options)
+    raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
+    headers["Content-Type"] ||= "application/json"
+    headers["User-Agent"] = self.user_agent
+    opts = {body: body, headers: headers}.merge(**options)
+    r = HTTParty.post(url, **opts)
+    self.check!(r)
+    return r
+  end
 end

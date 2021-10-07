@@ -33,31 +33,28 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
   end
 
   def create_activate_webhook
-    response = HTTParty.post(
+    Webhookdb::Http.post(
       "https://api.convertkit.com/v3/automations/hooks",
-      headers: {"Content-Type" => "application/json"},
-      body: {
+      {
         "api_secret" => self.service_integration.backfill_secret,
         "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
         "event" => {"name" => "subscriber.subscriber_activate"},
       },
       logger: self.logger,
     )
-    raise response if response.code >= 300
+
   end
 
   def create_unsubscribe_webhook
-    response = HTTParty.post(
+    Webhookdb::Http.post(
       "https://api.convertkit.com/v3/automations/hooks",
-      headers: {"Content-Type" => "application/json"},
-      body: {
+      {
         "api_secret" => self.service_integration.backfill_secret,
         "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
         "event" => {"name" => "subscriber.subscriber_unsubscribe"},
       },
       logger: self.logger,
     )
-    raise response if response.code >= 300
   end
 
   def calculate_create_state_machine(organization)
