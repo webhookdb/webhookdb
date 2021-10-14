@@ -71,7 +71,7 @@ Great! We are going to start backfilling your Transistor Shows.
     }
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     pagination_token ||= [false, 1]
     iterating_over_private, page = pagination_token
 

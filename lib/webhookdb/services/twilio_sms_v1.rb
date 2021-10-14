@@ -77,7 +77,7 @@ Great! We are going to start backfilling your Twilio SMS information, and will k
     }
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     url = "https://api.twilio.com"
     if pagination_token.blank?
       date_send_max = Date.tomorrow
@@ -93,6 +93,15 @@ Great! We are going to start backfilling your Twilio SMS information, and will k
       logger: self.logger,
     )
     data = response.parsed_response
-    return data["messages"], data["next_page_uri"]
+    messages = data["messages"]
+
+    if last_backfilled.present?
+      earliest_data_created = messages.empty? ? Time.at(0) : messages[-1].fetch("date_created")
+      paged_to_already_seen_records = earliest_data_created < last_backfilled
+
+      return messages, nil if paged_to_already_seen_records
+    end
+
+    return messages, data["next_page_uri"]
   end
 end

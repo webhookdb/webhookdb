@@ -67,7 +67,7 @@ Great! We are going to start backfilling your #{self._mixin_name_plural}.
     return step.completed
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     url = self._mixin_backfill_url
     url += pagination_token if pagination_token.present?
     response = Webhookdb::Http.get(

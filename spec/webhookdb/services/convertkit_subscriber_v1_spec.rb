@@ -154,20 +154,105 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_order=desc").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_field=cancelled_at").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc&sort_field=cancelled_at").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_field=cancelled_at").
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_order=desc&sort_field=cancelled_at").
             to_return(status: 200, body: page4_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
+      return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
           to_return(status: 503, body: "error")
+    end
+  end
+
+  it_behaves_like "a service implementation that can backfill incrementally", "convertkit_subscriber_v1" do
+    let(:page1_response) do
+      <<~R
+        {
+          "total_subscribers": 3,
+          "page": 1,
+          "total_pages": 2,
+          "subscribers": [
+            {
+              "id": 1,
+              "first_name": "Emily",
+              "email_address": "emilydickinson@example.com",
+              "state": "active",
+              "created_at": "2016-02-28T08:07:00Z",
+              "fields": {
+                "last_name": "Dickinson"
+              }
+            },
+            {
+              "id": 2,
+              "first_name": "Gertrude",
+              "email_address": "tenderbuttons@example.com",
+              "state": "active",
+              "created_at": "2016-01-27T08:07:00Z",
+              "fields": {
+                "last_name": "Stein"
+              }
+            }
+          ]
+        }
+      R
+    end
+    let(:page2_response) do
+      <<~R
+        {
+          "total_subscribers": 3,
+          "page": 2,
+          "total_pages": 2,
+          "subscribers": [
+            {
+              "id": 3,
+              "first_name": "Eileen",
+              "email_address": "eileenmyles@example.com",
+              "state": "active",
+              "created_at": "2016-01-01T08:07:00Z",
+              "fields": {
+                "last_name": "Myles"
+              }
+            }
+          ]
+        }
+      R
+    end
+    let(:page3_response) do
+      <<~R
+        {
+          "total_subscribers": 0,
+          "page": 1,
+          "total_pages": 1,
+          "subscribers": [
+          ]
+        }
+      R
+    end
+    let(:expected_new_items_count) { 2 }
+    let(:expected_old_items_count) { 1 }
+    let(:last_backfilled) { "2016-02-01T21:45:16.000Z" }
+
+    def stub_service_requests_new_records
+      return [
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
+            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc&sort_field=cancelled_at").
+            to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+      ]
+    end
+
+    def stub_service_requests_old_records
+      return [
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_order=desc").
+            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+      ]
     end
   end
 

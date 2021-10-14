@@ -81,7 +81,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return h
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     r = Webhookdb::Http.get("https://fake-integration?token=#{pagination_token}", logger: nil)
     raise "Expected 2-item array" unless r.parsed_response.is_a?(Array) && r.parsed_response.length == 2
     return r.parsed_response

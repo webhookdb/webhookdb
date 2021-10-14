@@ -70,7 +70,7 @@ Great! We are going to start backfilling your #{self._mixin_name_plural}.
     return step
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     query = {}
     (query[:cursor] = pagination_token) if pagination_token.present?
     response = Webhookdb::Http.get(

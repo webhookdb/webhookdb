@@ -119,7 +119,7 @@ Great! We are going to start backfilling your #{self._mixin_name_plural}.
     return step.completed
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     url = if pagination_token.blank?
             self.service_integration.api_url + self._mixin_backfill_url
     else

@@ -184,6 +184,69 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   end
 end
 
+RSpec.shared_examples "a service implementation that can backfill incrementally" do |name|
+  let(:last_backfilled) { raise NotImplementedError, "what should the last_backfilled_at value be?" }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url: "https://fake-url.com",
+      last_backfilled_at: last_backfilled,
+    )
+  end
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:expected_new_items_count) { raise NotImplementedError, "how many newer items do we insert?" }
+  let(:expected_old_items_count) { raise NotImplementedError, "how many older items do we insert?" }
+
+  def stub_service_requests_new_records
+    raise NotImplementedError, "return stub_requests that return newer records for service"
+  end
+
+  def stub_service_requests_old_records
+    raise NotImplementedError, "return stub_requests that return older records for service"
+  end
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "upserts records created since last backfill" do
+    svc.create_table
+    newer_responses = stub_service_requests_new_records
+    older_responses = stub_service_requests_old_records
+    svc.backfill(incremental: true)
+    expect(newer_responses).to all(have_been_made)
+    expect(older_responses).to_not include(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count) }
+  end
+
+  it "upserts all records unless incremental is set to true" do
+    svc.create_table
+    newer_responses = stub_service_requests_new_records
+    older_responses = stub_service_requests_old_records
+    svc.backfill
+    expect(newer_responses).to all(have_been_made)
+    expect(older_responses).to all(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
+  end
+
+  it "upserts all records if last_backfilled_at == nil" do
+    sint.update(last_backfilled_at: nil)
+    svc.create_table
+    newer_responses = stub_service_requests_new_records
+    older_responses = stub_service_requests_old_records
+    svc.backfill
+    expect(newer_responses).to all(have_been_made)
+    expect(older_responses).to all(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
+  end
+end
+
 RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }

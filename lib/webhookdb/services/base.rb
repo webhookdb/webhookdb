@@ -212,18 +212,23 @@ class Webhookdb::Services::Base
   # The caveats/complexities are:
   # - The backfill method should take care of retrying fetches for failed pages.
   # - That means it needs to keep track of some pagination token.
-  def backfill
+  def backfill(incremental: false)
+    last_backfilled = incremental ? self.service_integration.last_backfilled_at : nil
     raise Webhookdb::Services::CredentialsMissing if
       self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
     pagination_token = nil
+    new_last_backfilled = Time.now
     loop do
-      page, next_pagination_token = self._fetch_backfill_page_with_retry(pagination_token)
+      page, next_pagination_token = self._fetch_backfill_page_with_retry(
+        pagination_token, last_backfilled: last_backfilled,
+      )
       pagination_token = next_pagination_token
       page.each do |item|
         self.upsert_webhook(body: item)
       end
       break if pagination_token.blank?
     end
+    self.service_integration.update(last_backfilled_at: new_last_backfilled) if incremental
   end
 
   def max_backfill_retry_attempts
@@ -234,15 +239,16 @@ class Webhookdb::Services::Base
     return sleep(attempt)
   end
 
-  def _fetch_backfill_page_with_retry(pagination_token, attempt: 1)
-    return self._fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page_with_retry(pagination_token, last_backfilled: nil, attempt: 1)
+    return self._fetch_backfill_page(pagination_token, last_backfilled: last_backfilled)
   rescue RuntimeError => e
     raise e if attempt >= self.max_backfill_retry_attempts
     self.wait_for_retry_attempt(attempt: attempt)
-    return self._fetch_backfill_page_with_retry(pagination_token, attempt: attempt + 1)
+    return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled: last_backfilled,
+                                                                  attempt: attempt + 1,)
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     raise NotImplementedError
   end
 

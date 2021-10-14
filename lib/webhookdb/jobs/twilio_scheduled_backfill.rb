@@ -11,7 +11,7 @@ class Webhookdb::Jobs::TwilioScheduledBackfill
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "twilio_sms_v1") do |sint|
-      sint.publish_immediate("backfill", sint.id)
+      sint.publish_immediate("backfill", sint.id, {incremental: true})
     end
   end
 end

@@ -304,6 +304,131 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
     end
   end
 
+  it_behaves_like "a service implementation that can backfill incrementally", "transistor_episode_v1" do
+    let(:page1_response) do
+      <<~R
+        {
+           "data":[
+              {
+                 "id":"3",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"How To Roast Coffee",
+                    "summary":"A primer on roasting coffee",
+                    "created_at":"2021-04-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":1,
+                    "published_at":"2021-04-03T10:06:08.582-07:00",
+                    "updated_at":"2021-04-03T10:06:08.582-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
+              },
+              {
+                 "id":"2",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"The Effects of Caffeine",
+                    "summary":"A lightly scientific overview on how caffeine affects the brain",
+                    "created_at":"2021-03-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":2,
+                    "published_at":"2021-03-03T10:06:08.582-07:00",
+                    "updated_at":"2021-03-03T10:06:08.582-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
+              }
+           ],
+           "meta":{
+              "currentPage":1,
+              "totalPages":2,
+              "totalCount":3
+           }
+        }
+      R
+    end
+    let(:page2_response) do
+      <<~R
+        {
+           "data":[
+              {
+                 "id":"1",
+                 "type":"episode",
+                 "attributes":{
+                    "title":"I've actually decided I like tea better",
+                    "summary":"A primer on good tea",
+                    "created_at":"2021-02-03T10:06:08.582-07:00",
+                    "duration":568,
+                    "keywords":"",
+                    "number":3,
+                    "published_at":"2021-02-03T10:06:08.582-07:00",
+                    "updated_at":"2021-02-03T10:06:08.582-07:00",
+                    "season":200,
+                    "type":"full",
+                    "status":"published",
+                    "author":"John Doe"
+                 },
+                 "relationships":{
+                    "show":{
+                       "data":{
+                          "id":"24204",
+                          "type":"show"
+                       }
+                    }
+                 }
+              }
+           ],
+           "meta":{
+              "currentPage":2,
+              "totalPages":2,
+              "totalCount":3
+           }
+        }
+      R
+    end
+    let(:last_backfilled) { "2021-03-31T10:06:08.582-07:00" }
+    let(:expected_new_items_count) { 2 }
+    let(:expected_old_items_count) { 1 }
+    def stub_service_requests_new_records
+      return [
+        stub_request(:get, "https://api.transistor.fm/v1/episodes").
+            with(body: "pagination%5Bpage%5D=1").
+            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+      ]
+    end
+
+    def stub_service_requests_old_records
+      return [
+        stub_request(:get, "https://api.transistor.fm/v1/episodes").
+            with(body: "pagination%5Bpage%5D=2").
+            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+      ]
+    end
+  end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_episode_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }

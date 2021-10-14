@@ -160,22 +160,13 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "TwilioScheduledBackfill" do
-    let(:page1_items) do
-      [
-        {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
-        {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
-      ]
-    end
     it "enqueues backfill job for all twilio service integrations" do
       twilio_sint = Webhookdb::Fixtures.service_integration.create(
         service_name: "twilio_sms_v1",
       )
-      fake_sint = Webhookdb::Fixtures.service_integration.create(
-        service_name: "fake_v1",
-      )
       expect do
         Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
-      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id])
+      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id, {"incremental" => true}])
     end
   end
 end

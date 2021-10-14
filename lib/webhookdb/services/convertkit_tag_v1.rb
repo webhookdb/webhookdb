@@ -74,7 +74,7 @@ and they will show up in your database momentarily.
     }
   end
 
-  def _fetch_backfill_page(_pagination_token)
+  def _fetch_backfill_page(_pagination_token, **_kwargs)
     # this endpoint does not have pagination support
     url = "https://api.convertkit.com/v3/tags?api_secret=#{self.service_integration.backfill_secret}"
     response = Webhookdb::Http.get(url, logger: self.logger)

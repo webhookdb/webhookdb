@@ -149,7 +149,7 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
     return Time.strptime(date_string, "%d-%m-%Y")
   end
 
-  def _fetch_backfill_page(pagination_token)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     url = "https://api.transistor.fm/v1/episodes"
     pagination_token = 1 if pagination_token.blank?
     response = Webhookdb::Http.get(
@@ -159,9 +159,18 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
       logger: self.logger,
     )
     data = response.parsed_response
+    episodes = data["data"]
     current_page = data["meta"]["currentPage"]
     total_pages = data["meta"]["totalPages"]
     next_page = (current_page.to_i + 1 if current_page < total_pages)
-    return data["data"], next_page
+
+    if last_backfilled.present?
+      earliest_data_created = episodes.empty? ? Time.at(0) : episodes[-1].dig("attributes", "created_at")
+      paged_to_already_seen_records = earliest_data_created < last_backfilled
+
+      return episodes, nil if paged_to_already_seen_records
+    end
+
+    return episodes, next_page
   end
 end
