@@ -40,7 +40,7 @@ and they will show up in your database momentarily.
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:convertkit_id, "text")
+    return Webhookdb::Services::Column.new(:convertkit_id, "bigint")
   end
 
   def _denormalized_columns
@@ -58,11 +58,6 @@ and they will show up in your database momentarily.
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data
-  end
-
-  def _update_where_expr
-    # The tag resource does not have an `updated_at` field
-    return Sequel[self.table_sym][:created_at] < Sequel[:excluded][:created_at]
   end
 
   def _prepare_for_insert(body, enrichment:)

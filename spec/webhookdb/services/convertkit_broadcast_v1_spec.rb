@@ -27,27 +27,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
     let(:expected_data) { body }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "convertkit_broadcast_v1" do
-    let(:old_body) do
-      JSON.parse(<<~J)
-        {
-          "id":2641288,
-          "name":"Example Broadcast",
-          "created_at":"2021-09-21T20:40:49.000Z"
-        }
-      J
-    end
-    let(:new_body) do
-      JSON.parse(<<~J)
-        {
-          "id":2641288,
-          "name":"Example Broadcast",
-          "created_at":"2021-09-22T20:40:49.000Z"
-        }
-      J
-    end
-  end
-
   it_behaves_like "a service implementation that can backfill", "convertkit_broadcast_v1" do
     let(:page1_response) do
       <<~R

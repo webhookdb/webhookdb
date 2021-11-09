@@ -93,7 +93,7 @@ Great! We are going to start backfilling your ConvertKit Subscribers.
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:convertkit_id, "text")
+    return Webhookdb::Services::Column.new(:convertkit_id, "bigint")
   end
 
   def _denormalized_columns
@@ -104,11 +104,6 @@ Great! We are going to start backfilling your ConvertKit Subscribers.
       Webhookdb::Services::Column.new(:last_name, "text"),
       Webhookdb::Services::Column.new(:state, "text"),
     ]
-  end
-
-  def _update_where_expr
-    # The subscriber resource does not have an `updated_at` field
-    return Sequel[self.table_sym][:created_at] < Sequel[:excluded][:created_at]
   end
 
   def _prepare_for_insert(body, **_kwargs)

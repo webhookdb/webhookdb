@@ -21,38 +21,6 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:expected_data) { body }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old",
-                  "convertkit_subscriber_v1" do
-    let(:old_body) do
-      JSON.parse(<<~J)
-        {
-          "id": 1,
-          "first_name": "Anne",
-          "email_address": "acarson@example.com",
-          "state": "active",
-          "created_at": "2016-02-28T08:07:00Z",
-          "fields": {
-            "last_name": "Carson"
-          }
-        }
-      J
-    end
-    let(:new_body) do
-      JSON.parse(<<~J)
-        {
-          "id": 1,
-          "first_name": "Anne",
-          "email_address": "acarson@example.com",
-          "state": "active",
-          "created_at": "2016-09-28T08:07:00Z",
-          "fields": {
-            "last_name": "Carson"
-          }
-        }
-      J
-    end
-  end
-
   it_behaves_like "a service implementation that can backfill", "convertkit_subscriber_v1" do
     let(:page1_response) do
       <<~R
