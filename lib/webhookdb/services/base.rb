@@ -141,11 +141,13 @@ class Webhookdb::Services::Base
     return nil if prepared.nil?
     inserting = {data: body.to_json}
     inserting.merge!(prepared)
+    updating = self._upsert_update_expr(inserting, enrichment: enrichment)
+    update_where = self._update_where_expr
     self.admin_dataset do |ds|
       ds.insert_conflict(
         target: remote_key_col.name,
-        update: inserting,
-        update_where: self._update_where_expr,
+        update: updating,
+        update_where: update_where,
       ).insert(inserting)
     end
     self._after_insert(inserting, enrichment: enrichment)
@@ -189,6 +191,18 @@ class Webhookdb::Services::Base
   # @return [Hash]
   def _prepare_for_insert(body, enrichment: nil)
     raise NotImplementedError
+  end
+
+  # Given the hash that is passed to the Sequel insert
+  # (so contains all columns, including those from _prepare_for_insert),
+  # return the hash used for the insert_conflict(update:) keyword args.
+  # This should be used when the service requires different values for inserting
+  # vs. updating, such as when a column's update value
+  # must use the EXCLUDED table in the upsert expression.
+  #
+  # By default, this just returns inserting, and insert/update use the same values.
+  def _upsert_update_expr(inserting, enrichment: nil)
+    return inserting
   end
 
   def admin_dataset(&block)

@@ -99,6 +99,7 @@ Great! We are going to start backfilling your ConvertKit Subscribers.
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:created_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:canceled_at, "timestamptz"),
       Webhookdb::Services::Column.new(:email_address, "text"),
       Webhookdb::Services::Column.new(:first_name, "text"),
       Webhookdb::Services::Column.new(:last_name, "text"),
@@ -107,14 +108,34 @@ Great! We are going to start backfilling your ConvertKit Subscribers.
   end
 
   def _prepare_for_insert(body, **_kwargs)
+    state = body["state"]
     return {
       convertkit_id: body["id"],
       created_at: body["created_at"],
       email_address: body["email_address"],
       first_name: body["first_name"],
-      last_name: body["fields"]["last_name"],
-      state: body["state"],
+      last_name: body.dig("fields", "last_name"),
+      state: state,
+      # Subscribers do not store a cancelation time (nor an updated at time),
+      # so we derive and store it based on their state.
+      # When they become inactive state, we set canceled_at,
+      # and clear it when they are not active.
+      # See upsert_update_expr for the details.
+      canceled_at: state == "active" ? nil : Time.now,
     }
+  end
+
+  def _upsert_update_expr(inserting, **_kwargs)
+    state = inserting.fetch(:state)
+    # If the state is active, we want to use canceled_at:nil unconditionally.
+    return inserting if state == "active"
+    # If it's inactive, we only want to update canceled_at if it's not already set
+    # (coalesce the existing row's canceled_at with the 'time.now' we are passing in).
+    update = inserting.dup
+    update[:canceled_at] = Sequel.function(
+      :coalesce, Sequel[self.table_sym][:canceled_at], Sequel[:excluded][:canceled_at],
+    )
+    return update
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)

@@ -224,6 +224,71 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
   end
 
+  describe "cancelated_at calculations" do
+    let(:body) do
+      {"id" => 1, "created_at" => "2016-02-28T08:07:00Z"}
+    end
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
+    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "uses nil if the subscriber state is active" do
+      body["state"] = "active"
+      svc.upsert_webhook(body: body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(convertkit_id: 1, canceled_at: nil, state: "active")
+      end
+    end
+    it "uses now if the subscriber state is inactive and canceled_at is nil" do
+      body["state"] = "inactive"
+      svc.upsert_webhook(body: body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(Time.now).within(5), state: "inactive")
+      end
+    end
+    it "replaces canceled_at with nil if state is active (such as due to a resubscribe)" do
+      body["state"] = "inactive"
+      svc.upsert_webhook(body: body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(canceled_at: be_present)
+      end
+
+      body["state"] = "active"
+      svc.upsert_webhook(body: body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(convertkit_id: 1, canceled_at: nil, state: "active")
+      end
+    end
+    it "does not change canceled_at if the subscriber state is inactive and canceled_at is set" do
+      t = 3.months.ago
+      Timecop.freeze(t) do
+        body["state"] = "inactive"
+        svc.upsert_webhook(body: body)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(t), state: "inactive")
+        end
+      end
+
+      svc.upsert_webhook(body: body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(t), state: "inactive")
+      end
+    end
+  end
+
   describe "webhook creation" do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1")
