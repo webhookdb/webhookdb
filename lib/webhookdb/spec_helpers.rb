@@ -110,6 +110,7 @@ module Webhookdb::SpecHelpers
     end
 
     def time(s)
+      return nil if s.nil?
       return Time.parse(s) if s.is_a?(String)
       return s.to_time
     end
