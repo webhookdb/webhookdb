@@ -33,6 +33,23 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     ensure
       sint.organization.remove_related_database
     end
+    it "can specify incremental" do
+      sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
+      sint.organization.prepare_database_connections
+      req = Webhookdb::Services::Fake.stub_backfill_request(page1_items)
+      Webhookdb::Services.service_instance(sint).create_table
+      expect do
+        Webhookdb.publish(
+          "webhookdb.serviceintegration.backfill", sint.id, {incremental: true},
+        )
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      expect(req).to have_been_made
+      Webhookdb::Services.service_instance(sint).readonly_dataset do |ds|
+        expect(ds.all).to have_length(2)
+      end
+    ensure
+      sint.organization.remove_related_database
+    end
   end
 
   describe "CreateMirrorTable" do
