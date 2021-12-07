@@ -21,4 +21,20 @@ RSpec.describe Webhookdb::API::Services, :db do
       expect(last_response).to have_json_body.that_includes(items: include(include(name: "shopify_customer_v1")))
     end
   end
+
+  describe "GET /v1/services/:name/fixtures" do
+    it "returns fixture sql" do
+      get "/v1/services/fake_v1/fixtures"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        schema_sql: include("CREATE TABLE fake_v1_fixture"),
+      )
+    end
+    it "403s if the service does not exist" do
+      get "/v1/services/nopers/fixtures"
+
+      expect(last_response).to have_status(403)
+    end
+  end
 end

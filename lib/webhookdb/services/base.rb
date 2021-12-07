@@ -85,6 +85,10 @@ class Webhookdb::Services::Base
     end
   end
 
+  def create_table_sql
+    return self._create_table_sql
+  end
+
   def _create_table_sql
     tbl = self.service_integration.table_name
     remote_key_col = self._remote_key_column
