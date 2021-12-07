@@ -22,14 +22,22 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
     return self.stripe_json["status"]
   end
 
-  def self.create_or_update_from_webhook(request_params)
-    data = request_params["data"]["object"]
-    self.db.transaction do
-      sub = self.find_or_create_or_find(stripe_id: data["id"])
-      sub.update(stripe_json: data.to_json, stripe_customer_id: data["customer"])
-      sub.save_changes
-      return sub
+  def self.create_or_update_from_stripe_hash(obj)
+    sub = self.update_or_create(stripe_id: obj.fetch("id")) do |o|
+      o.stripe_json = obj.to_json
+      o.stripe_customer_id = obj.fetch("customer")
     end
+    return sub
+  end
+
+  def self.create_or_update_from_webhook(webhook_body)
+    obj = webhook_body["data"]["object"]
+    self.create_or_update_from_stripe_hash(obj)
+  end
+
+  def self.create_or_update_from_id(id)
+    subscription_obj = Stripe::Subscription.retrieve(id, {api_key: Webhookdb::Stripe.api_key})
+    self.create_or_update_from_stripe_hash(subscription_obj.as_json)
   end
 
   def self.status_for_org(org)
