@@ -22,6 +22,26 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           err_msg = "Integration no longer supported--please visit website to activate subscription."
           merror!(402, err_msg) unless sint.plan_supports_integration?
         end
+
+        def log_webhook(sint, sstatus)
+          # Status can be set from:
+          # - the 'status' method, which will be 201 if it hasn't been set,
+          # or another value if it has been set.
+          # - the webhook responder, which could respond with 401, etc
+          # - if there was an exception- so no status is set yet- use 0
+          # The main thing to watch out for is that we:
+          # - Cannot assume an exception is a 500 (it can be rescued later)
+          # - Must handle error! calls
+          # Anyway, this is all pretty confusing, but it's all tested.
+          rstatus = status == 201 ? (sstatus || 0) : status
+          Webhookdb::LoggedWebhook.dataset.insert(
+            request_body: env["api.request.body"].to_s,
+            request_headers: request.headers.to_json,
+            response_status: rstatus,
+            organization_id: sint&.organization_id,
+            service_integration_opaque_id: params[:opaque_id],
+          )
+        end
       end
 
       post do
@@ -29,7 +49,9 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         svc = Webhookdb::Services.service_instance(sint)
         s_status, s_headers, s_body = svc.webhook_response(request)
 
-        if s_status < 400
+        if s_status >= 400
+          logger.warn "rejected_webhook", webhook_headers: request.headers.to_h, webhook_body: env["api.request.body"]
+        else
           sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
         end
 
@@ -37,6 +59,8 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         s_headers.each { |k, v| header k, v }
         body s_body
         status s_status
+      ensure
+        log_webhook(sint, s_status)
       end
 
       resource :reset do

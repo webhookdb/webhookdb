@@ -134,6 +134,7 @@ module Webhookdb::Async
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/reset_code_create_dispatch",
     "webhookdb/jobs/transistor_episode_backfill",
+    "webhookdb/jobs/trim_logged_webhooks",
     "webhookdb/jobs/twilio_scheduled_backfill",
   ].freeze
 

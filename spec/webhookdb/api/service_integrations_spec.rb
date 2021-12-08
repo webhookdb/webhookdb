@@ -101,6 +101,59 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         expect(last_response).to have_status(401)
       end.to_not publish("webhookdb.serviceintegration.webhook")
     end
+
+    it "db logs on success" do
+      post "/v1/service_integrations/xyz"
+      expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
+        include(
+          inserted_at: match_time(Time.now).within(5),
+          organization_id: sint.organization_id,
+          request_body: "{}",
+          request_headers: hash_including("Host" => "example.org"),
+          response_status: 202,
+          service_integration_opaque_id: "xyz",
+        ),
+      )
+    end
+
+    it "db logs on lookup and other errors" do
+      post "/v1/service_integrations/abc"
+      expect(last_response).to have_status(400)
+      expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
+        include(
+          organization_id: nil,
+          response_status: 400,
+          service_integration_opaque_id: "abc",
+        ),
+      )
+    end
+
+    it "db logs on failed validation" do
+      Webhookdb::Services::Fake.webhook_verified = false
+      post "/v1/service_integrations/xyz"
+      expect(last_response).to have_status(401)
+      expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
+        include(
+          organization_id: sint.organization_id,
+          response_status: 401,
+          service_integration_opaque_id: "xyz",
+        ),
+      )
+    end
+
+    it "db logs on exception" do
+      Webhookdb::Services::Fake.webhook_verified = RuntimeError.new("foo")
+      post "/v1/service_integrations/xyz"
+      expect(last_response).to have_status(500)
+      expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
+        include(
+          organization_id: sint.organization_id,
+          response_status: 0,
+          service_integration_opaque_id: "xyz",
+        ),
+      )
+    end
   end
 
   describe "POST /v1/service_integrations/:opaque_id/reset" do

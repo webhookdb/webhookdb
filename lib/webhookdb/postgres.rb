@@ -48,6 +48,7 @@ module Webhookdb::Postgres
     "webhookdb/customer",
     "webhookdb/customer/reset_code",
     "webhookdb/idempotency",
+    "webhookdb/logged_webhook",
     "webhookdb/message/body",
     "webhookdb/message/delivery",
     "webhookdb/organization",
