@@ -124,5 +124,45 @@ RSpec.describe Webhookdb::Services::Fake, :db do
         expect(result).to include(verified: false, message: "custom 408 message")
       end
     end
+
+    describe "ensure_all_columns" do
+      before(:each) do
+        sint.organization.prepare_database_connections
+      end
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+      it "uses create_table SQL if the table does not exist" do
+        expect(fake.ensure_all_columns_sql).to eq(fake.create_table_sql)
+        fake.ensure_all_columns
+        fake.readonly_dataset { |ds| expect(ds.db.table_exists?(sint.table_name)).to be_truthy }
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
+      end
+      it "returns empty string if all columns exist" do
+        fake.create_table
+        expect(fake.ensure_all_columns_sql).to eq("")
+        fake.ensure_all_columns
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
+      end
+      it "can build and execute SQL for columns that exist in code but not in the DB" do
+        fake.create_table
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
+        fake.define_singleton_method(:_denormalized_columns) do
+          [
+            Webhookdb::Services::Column.new(:c2, "timestamptz"),
+            Webhookdb::Services::Column.new(:c3, "date"),
+            Webhookdb::Services::Column.new(:c4, "text"),
+          ]
+        end
+        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD "c2" timestamptz ;
+CREATE INDEX IF NOT EXISTS c2_idx ON #{fake.table_sym} ("c2");
+ALTER TABLE #{fake.table_sym} ADD "c3" date ;
+CREATE INDEX IF NOT EXISTS c3_idx ON #{fake.table_sym} ("c3");
+ALTER TABLE #{fake.table_sym} ADD "c4" text ;
+CREATE INDEX IF NOT EXISTS c4_idx ON #{fake.table_sym} ("c4");})
+        fake.ensure_all_columns
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :c4]) }
+      end
+    end
   end
 end
