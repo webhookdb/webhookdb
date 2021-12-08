@@ -55,7 +55,9 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _webhook_verified?(_request)
-    return self.class.webhook_verified
+    v = self.class.webhook_verified
+    raise v if v.is_a?(Exception)
+    return v
   end
 
   def _remote_key_column

@@ -176,6 +176,14 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "TrimLoggedWebhooks" do
+    it "runs LoggedWebhooks.trim_table" do
+      old = Webhookdb::Fixtures.logged_webhook.ancient.create
+      newer = Webhookdb::Fixtures.logged_webhook.create
+      Webhookdb::Jobs::TrimLoggedWebhooks.new.perform
+      expect(Webhookdb::LoggedWebhook.all).to have_same_ids_as(newer)
+    end
+  end
   describe "TwilioScheduledBackfill" do
     it "enqueues backfill job for all twilio service integrations" do
       twilio_sint = Webhookdb::Fixtures.service_integration.create(
