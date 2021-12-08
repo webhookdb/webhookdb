@@ -11,6 +11,7 @@ class Webhookdb::Jobs::Backfill
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
     svc = Webhookdb::Services.service_instance(sint)
+    svc.ensure_all_columns
     backfill_kwargs = event.payload[1] || {}
     svc.backfill(**backfill_kwargs.symbolize_keys)
   end

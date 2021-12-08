@@ -138,6 +138,42 @@ class Webhookdb::Services::Base
     return []
   end
 
+  # We support adding columns to existing integrations without having to bump the version;
+  # changing types, or removing/renaming columns, is not supported and should bump the version
+  # or must be handled out-of-band (like deleting the integration then backfilling).
+  # To figure out what columns we need to add, we can check what are currently defined,
+  # check what exists, and add denormalized columns and indices for those that are missing.
+  def ensure_all_columns
+    stmt = self.ensure_all_columns_sql
+    return if stmt.blank?
+    self.admin_dataset do |ds|
+      ds.db << stmt
+      # We need to clear cached columns on the data since we know we're adding more.
+      # It's probably not a huge deal but may as well keep it in sync.
+      ds.send(:clear_columns_cache)
+    end
+    self.readonly_dataset { |ds| ds.send(:clear_columns_cache) }
+  end
+
+  def ensure_all_columns_sql
+    self.admin_dataset do |ds|
+      return self._create_table_sql unless ds.db.table_exists?(self.table_sym)
+      existing_cols = ds.columns
+      missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
+      tbl = self.table_sym
+      lines = []
+      missing_columns.each do |col|
+        # There's some duplication here with the create SQL,
+        # but it's so minimal and rote as not to matter.
+        # Don't bother bulking the ADDs into a single ALTER TABLE,
+        # it won't really matter.
+        lines << "ALTER TABLE #{tbl} ADD \"#{col.name}\" #{col.type} #{col.modifiers};"
+        lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
+      end
+      return lines.join("\n")
+    end
+  end
+
   def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
     enrichment = self._fetch_enrichment(body)
