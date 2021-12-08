@@ -432,6 +432,45 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
     let(:expected_new_data) { new_body["data"]["object"] }
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "stripe_charge_v1",
+        backfill_key: "bfkey",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "stripe_charge_v1",
+        backfill_key: "bfkey_wrong",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "object": "list",
+                  "data": [
+        #{'        '}
+                  ],
+                  "has_more": false,
+                  "url": "/v1/charges"
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.stripe.com/v1/charges").
+          with(headers: {"Authorization" => "Basic YmZrZXk6"}).
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.stripe.com/v1/charges").
+          with(headers: {"Authorization" => "Basic YmZrZXlfd3Jvbmc6"}).
+          to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "stripe_charge_v1" do
     let(:page1_response) do
       <<~R
@@ -1250,21 +1289,40 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
       end
     end
     describe "calculate_backfill_state_machine" do
-      it "it asks for backfill secret" do
+      let(:success_body) do
+        <<~R
+                  {
+                    "object": "list",
+                    "data": [
+          #{'        '}
+                    ],
+                    "has_more": false,
+                    "url": "/v1/charges"
+                  }
+        R
+      end
+      def stub_service_request
+        return stub_request(:get, "https://api.stripe.com/v1/charges").
+            with(headers: {"Authorization" => "Basic d2hzZWNfYWJjYXNkZjo="}).
+            to_return(status: 200, body: success_body, headers: {})
+      end
+      it "it asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your Restricted Key here:",
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
           complete: false,
           output: match("In order to backfill Stripe Charges, we need an API key."),
         )
       end
 
-      it "confirms reciept of backfill secret, returns org database info" do
-        sint.backfill_secret = "whsec_abcasdf"
+      it "confirms reciept of backfill key, returns org database info" do
+        sint.backfill_key = "whsec_abcasdf"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,

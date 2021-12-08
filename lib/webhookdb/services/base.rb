@@ -224,6 +224,30 @@ class Webhookdb::Services::Base
     end
   end
 
+  def verify_backfill_credentials
+    begin
+      # begin backfill attempt but do not return backfill result
+      _backfill = self._fetch_backfill_page(nil, last_backfilled: nil)
+    rescue Webhookdb::Http::Error => e
+      msg = if self.respond_to?("_verify_backfill_#{e.status}_err_msg")
+              self.send("_verify_backfill_#{e.status}_err_msg")
+      else
+        self._verify_backfill_err_msg
+      end
+      return {verified: false, message: msg}
+    rescue TypeError, NoMethodError => e
+      # if we don't incur an HTTP error, but do incur an Error due to differences in the shapes of anticipated
+      # response data in the `fetch_backfill_page` function, we can assume that the credentials are okay
+      self.logger.info "verify_backfill_credentials_expected_failure", error: e
+      return {verified: true, message: ""}
+    end
+    return {verified: true, message: ""}
+  end
+
+  def _verify_backfill_err_msg
+    raise NotImplementedError, "each integration must provide an error message for unanticipated errors"
+  end
+
   # In order to backfill, we need to:
   # - Iterate through pages of records from the external service
   # - Upsert each record

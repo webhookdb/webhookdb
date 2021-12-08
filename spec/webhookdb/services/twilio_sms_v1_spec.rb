@@ -93,6 +93,61 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
     end
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:today) { Time.parse("2020-11-22T18:00:00Z") }
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "twilio_sms_v1",
+        backfill_key: "bfkey",
+        backfill_secret: "bfsek",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "twilio_sms_v1",
+        backfill_key: "bfkey_wrong",
+        backfill_secret: "bfsek",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                        {
+                  "end": 1,
+                  "first_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+                  "next_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+                  "page": 0,
+                  "page_size": 2,
+                  "previous_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+                  "messages": [
+                    {
+        #{'              '}
+                    }
+                  ],
+                  "start": 0,
+                  "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+          with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey_wrong/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+        with(headers: {"Authorization" => "Basic YmZrZXlfd3Jvbmc6YmZzZWs="}).
+        to_return(status: 401, body: "", headers: {})
+    end
+
+    around(:each) do |example|
+      Timecop.travel(today) do
+        example.run
+      end
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "twilio_sms_v1" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
@@ -439,6 +494,38 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
       end
     end
     describe "calculate_backfill_state_machine" do
+      let(:today) { Time.parse("2020-11-22T18:00:00Z") }
+      let(:success_body) do
+        <<~R
+                          {
+                    "end": 1,
+                    "first_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+                    "next_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+                    "page": 0,
+                    "page_size": 2,
+                    "previous_page_uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+                    "messages": [
+                      {
+          #{'              '}
+                      }
+                    ],
+                    "start": 0,
+                    "uri": "/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+                  }
+        R
+      end
+      def stub_service_request
+        return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+            with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+            to_return(status: 200, body: success_body, headers: {})
+      end
+
+      around(:each) do |example|
+        Timecop.travel(today) do
+          example.run
+        end
+      end
+
       it "asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -452,7 +539,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
       end
 
       it "asks for backfill secret" do
-        sint.backfill_key = "key_ghjkl"
+        sint.backfill_key = "bfkey"
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
@@ -465,10 +552,11 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
       end
 
       it "returns org database info" do
-        sint.backfill_key = "key_ghjkl"
-        sint.backfill_secret = "whsec_abcasdf"
-        sint.api_url = "https://shopify_test.myshopify.com"
+        sint.backfill_key = "bfkey"
+        sint.backfill_secret = "bfsek"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,

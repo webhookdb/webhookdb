@@ -121,6 +121,43 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   end
 end
 
+RSpec.shared_examples "a service implementation that verifies backfill secrets" do
+  let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
+  let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }
+
+  def stub_service_request
+    raise NotImplementedError, "return stub_request for service"
+  end
+
+  def stub_service_request_error
+    raise NotImplementedError, "return 401 error stub request"
+  end
+
+  it "returns a positive result if backfill info is correct" do
+    res = stub_service_request
+    svc = Webhookdb::Services.service_instance(correct_creds_sint)
+    result = svc.verify_backfill_credentials
+    expect(res).to have_been_made
+    expect(result).to include(verified: true, message: "")
+  end
+
+  it "if backfill info is incorrect for some other reason, return the a negative result and error message" do
+    res = stub_service_request_error
+    svc = Webhookdb::Services.service_instance(incorrect_creds_sint)
+    result = svc.verify_backfill_credentials
+    expect(res).to have_been_made
+    expect(result).to include(verified: false, message: be_a(String).and(be_present))
+  end
+
+  it "returns a failed backfill message if the credentials aren't verified when building the state machine" do
+    res = stub_service_request_error
+    svc = Webhookdb::Services.service_instance(incorrect_creds_sint)
+    result = svc.calculate_backfill_state_machine
+    expect(res).to have_been_made
+    expect(result).to have_attributes(needs_input: true, output: include("It looks like "), prompt_is_secret: true)
+  end
+end
+
 RSpec.shared_examples "a service implementation that can backfill" do |name|
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(

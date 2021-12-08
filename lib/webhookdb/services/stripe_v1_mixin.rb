@@ -22,8 +22,7 @@ module Webhookdb::Services::StripeV1Mixin
   def calculate_create_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
-      step.output = %{
-You are about to start reflecting #{self._mixin_name_singular} info into webhookdb.
+      step.output = %{You are about to start reflecting #{self._mixin_name_singular} info into webhookdb.
 We've made an endpoint available for #{self._mixin_name_singular} webhooks:
 
 #{self._webhook_endpoint}
@@ -38,8 +37,7 @@ Reveal it, then copy the secret (it will start with `whsec_`).
       return step.secret_prompt("secret").webhook_secret(self.service_integration)
     end
 
-    step.output = %(
-Great! WebhookDB is now listening for #{self._mixin_name_singular} webhooks.
+    step.output = %(Great! WebhookDB is now listening for #{self._mixin_name_singular} webhooks.
 #{self._query_help_output}
 In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
 
@@ -50,21 +48,41 @@ In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
 
   def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
-    unless self.service_integration.backfill_secret.present?
-      step.output = %(
-In order to backfill #{self._mixin_name_plural}, we need an API key.
+    unless self.service_integration.backfill_key.present?
+      step.output = %(In order to backfill #{self._mixin_name_plural}, we need an API key.
 From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
 Create a key with Read access to #{self._mixin_name_plural}.
 Submit, then copy the key when Stripe shows it to you:
       )
-      return step.secret_prompt("Restricted Key").backfill_secret(self.service_integration)
+      return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
     end
 
-    step.output = %(
-Great! We are going to start backfilling your #{self._mixin_name_plural}.
+    result = self.verify_backfill_credentials
+    unless result.fetch(:verified)
+      self.service_integration.service_instance.clear_backfill_information
+      step.output = result.fetch(:message)
+      return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
+    end
+
+    step.output = %(Great! We are going to start backfilling your #{self._mixin_name_plural}.
 #{self._query_help_output}
       )
     return step.completed
+  end
+
+  def _verify_backfill_403_err_msg
+    return 'It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. '\
+      "Please check the permissions by going to the list of restricted keys and " \
+      "hovering over the information icon in the entry for this key. "\
+      "Once you've verified or corrected the permissions for this key, please reenter the API Key you just created:"
+  end
+
+  def _verify_backfill_401_err_msg
+    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
+  end
+
+  def _verify_backfill_err_msg
+    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)

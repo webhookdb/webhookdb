@@ -99,6 +99,46 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
     end
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "shopify_customer_v1",
+        api_url: "https://shopify_test.myshopify.com",
+        backfill_key: "bfkey",
+        backfill_secret: "bfsek",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "shopify_customer_v1",
+        api_url: "https://shopify_test.myshopify.com",
+        backfill_key: "bfkey_wrong",
+        backfill_secret: "bfsek",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "customers": [
+        #{'        '}
+                  ],
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/customers.json").
+          with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/customers.json").
+          with(headers: {"Authorization" => "Basic YmZrZXlfd3Jvbmc6YmZzZWs="}).
+          to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "shopify_customer_v1" do
     let(:page1_response) do
       <<~R
@@ -432,6 +472,20 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
       end
     end
     describe "calculate_backfill_state_machine" do
+      let(:success_body) do
+        <<~R
+                  {
+                    "customers": [
+          #{'        '}
+                    ],
+                  }
+        R
+      end
+      def stub_service_request
+        return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/customers.json").
+            with(headers: {"Authorization" => "Basic a2V5X2doamtsOndoc2VjX2FiY2FzZGY="}).
+            to_return(status: 200, body: success_body, headers: {})
+      end
       it "asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -475,7 +529,9 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
         sint.api_url = "https://shopify_test.myshopify.com"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,

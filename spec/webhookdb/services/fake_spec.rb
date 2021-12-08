@@ -95,4 +95,34 @@ RSpec.describe Webhookdb::Services::Fake, :db do
       expect(db[:fake_v1_enrichments].all).to have_length(1)
     end
   end
+
+  describe "base class functionality" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create }
+    let(:fake) { sint.service_instance }
+    describe "verify_backfill_credentials" do
+      before(:each) do
+        fake.define_singleton_method(:_verify_backfill_408_err_msg) do
+          "custom 408 message"
+        end
+        fake.define_singleton_method(:_verify_backfill_err_msg) do
+          "default message"
+        end
+      end
+      it "verifies on success" do
+        described_class.stub_backfill_request([])
+        result = fake.verify_backfill_credentials
+        expect(result).to include(verified: true, message: "")
+      end
+      it "uses a default error message" do
+        described_class.stub_backfill_request([], status: 401)
+        result = fake.verify_backfill_credentials
+        expect(result).to include(verified: false, message: "default message")
+      end
+      it "can use code-specific error messages" do
+        described_class.stub_backfill_request([], status: 408)
+        result = fake.verify_backfill_credentials
+        expect(result).to include(verified: false, message: "custom 408 message")
+      end
+    end
+  end
 end

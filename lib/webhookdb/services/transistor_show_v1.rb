@@ -1,45 +1,18 @@
 # frozen_string_literal: true
 
 require "webhookdb/transistor"
+require "webhookdb/services/transistor_v1_mixin"
 
 class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
   include Appydays::Loggable
+  include Webhookdb::Services::TransistorV1Mixin
 
-  def _webhook_verified?(_request)
-    # As of 9/15/21 there is no way to verify authenticity of these webhooks
-    return true
+  def _mixin_name_singular
+    return "Show"
   end
 
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
-  end
-
-  def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
-    if self.service_integration.backfill_key.blank?
-      step.output = %(
-Great! We've created your Transistor Shows integration.
-
-Transistor does not support Shows webhooks, so to fill your database,
-we need to use the API to make requests, which requires your API Key.
-
-From your Transistor dashboard, go to the "Your Account" page,
-at https://dashboard.transistor.fm/account
-On the left side of the bottom of the page you should be able to see your API key.
-
-Copy that API key.
-      )
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-    step.output = %(
-Great! We are going to start backfilling your Transistor Shows.
-#{self._query_help_output}
-      )
-    return step.completed
-  end
-
-  def _remote_key_column
-    return Webhookdb::Services::Column.new(:transistor_id, "text")
+  def _mixin_name_plural
+    return "Shows"
   end
 
   def _denormalized_columns
@@ -51,10 +24,6 @@ Great! We are going to start backfilling your Transistor Shows.
       Webhookdb::Services::Column.new(:website, "text"),
       Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
     ]
-  end
-
-  def _update_where_expr
-    return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end
 
   def _prepare_for_insert(body, **_kwargs)

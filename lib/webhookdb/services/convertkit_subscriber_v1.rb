@@ -2,13 +2,18 @@
 
 require "time"
 require "webhookdb/convertkit"
+require "webhookdb/services/convertkit_v1_mixin"
 
 class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
   include Appydays::Loggable
+  include Webhookdb::Services::ConvertkitV1Mixin
 
-  def _webhook_verified?(_request)
-    # Webhook Authentication isn't supported
-    return true
+  def _mixin_name_singular
+    return "Subscriber"
+  end
+
+  def _mixin_name_plural
+    return "Subscribers"
   end
 
   def process_state_change(field, value)
@@ -73,27 +78,6 @@ your database will be populated.
 #{self._query_help_output}
       )
     return step.completed
-  end
-
-  def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
-    if self.service_integration.backfill_secret.blank?
-      step.output = %(
-In order to backfill ConvertKit Subscribers, we need your API secret.
-
-#{Webhookdb::Convertkit::FIND_API_SECRET_HELP}
-      )
-      return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
-    end
-    step.output = %(
-Great! We are going to start backfilling your ConvertKit Subscribers.
-#{self._query_help_output}
-      )
-    return step.completed
-  end
-
-  def _remote_key_column
-    return Webhookdb::Services::Column.new(:convertkit_id, "bigint")
   end
 
   def _denormalized_columns

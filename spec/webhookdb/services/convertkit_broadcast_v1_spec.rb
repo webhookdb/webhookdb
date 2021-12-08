@@ -27,6 +27,40 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
     let(:expected_data) { body }
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "convertkit_broadcast_v1",
+        backfill_secret: "bfsek",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "convertkit_broadcast_v1",
+        backfill_secret: "bfsek_wrong",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "broadcasts": [
+        #{'        '}
+                  ]
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek_wrong").
+          to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "convertkit_broadcast_v1" do
     let(:page1_response) do
       <<~R
@@ -85,10 +119,15 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
     describe "calculate_create_state_machine" do
       it "returns the backfill state machine" do
         sm = sint.calculate_create_state_machine
-        expect(sm).to have_attributes(output: match(/ConvertKit does not support Broadcast webhooks/))
+        expect(sm).to have_attributes(output: match(/ConvertKit Broadcast webhooks are not/))
       end
     end
     describe "calculate_backfill_state_machine" do
+      def stub_service_request
+        return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
+            to_return(status: 200, body: "", headers: {})
+      end
+
       it "it asks for backfill secret" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -101,8 +140,10 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         )
       end
       it "returns backfill in progress message" do
-        sint.backfill_secret = "api_s3cr3t"
+        sint.backfill_secret = "bfsek"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,

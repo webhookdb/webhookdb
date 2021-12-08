@@ -1,49 +1,22 @@
 # frozen_string_literal: true
 
 require "webhookdb/transistor"
+require "webhookdb/services/transistor_v1_mixin"
 
 class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
   include Appydays::Loggable
+  include Webhookdb::Services::TransistorV1Mixin
 
-  def _webhook_verified?(_request)
-    # As of 9/15/21 there is no way to verify authenticity of these webhooks
-    return true
+  def _mixin_name_singular
+    return "Episode"
+  end
+
+  def _mixin_name_plural
+    return "Episodes"
   end
 
   def analytics_table_name
     return "#{self.service_integration.table_name}_stats"
-  end
-
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
-  end
-
-  def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
-    if self.service_integration.backfill_key.blank?
-      step.output = %(
-Great! We've created your Transistor Episodes integration.
-
-Transistor does not support Episodes webhooks, so to fill your database,
-we need to use the API to make requests, which requires your API Key.
-
-From your Transistor dashboard, go to the "Your Account" page,
-at https://dashboard.transistor.fm/account
-On the left side of the bottom of the page you should be able to see your API key.
-
-Copy that API key.
-      )
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-    step.output = %(
-Great! We are going to start backfilling your Transistor Episode information.
-
-We will also include analytics data for each episode,
-in the #{self.analytics_table_name} table.
-#{self._query_help_output}
-webhookdb db sql "SELECT * FROM #{self.analytics_table_name} WHERE date > '2021-01-15'"
-      )
-    return step.completed
   end
 
   def _create_enrichment_tables_sql
@@ -52,10 +25,6 @@ webhookdb db sql "SELECT * FROM #{self.analytics_table_name} WHERE date > '2021-
 CREATE TABLE #{tbl} (pk bigserial PRIMARY KEY, date DATE, downloads INTEGER, episode_id TEXT);
 CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
       )
-  end
-
-  def _remote_key_column
-    return Webhookdb::Services::Column.new(:transistor_id, "text")
   end
 
   def _denormalized_columns
@@ -104,10 +73,6 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
     )
     Webhookdb::Http.check!(response)
     return response.parsed_response
-  end
-
-  def _update_where_expr
-    return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end
 
   def _prepare_for_insert(body, **_kwargs)

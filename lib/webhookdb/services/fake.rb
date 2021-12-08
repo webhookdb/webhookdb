@@ -13,9 +13,9 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     self.prepare_for_insert_hook = nil
   end
 
-  def self.stub_backfill_request(items)
+  def self.stub_backfill_request(items, status: 200)
     return WebMock::API.stub_request(:get, "https://fake-integration/?token=").
-        to_return(status: 200, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
+        to_return(status: status, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
   end
 
   def webhook_response(request)

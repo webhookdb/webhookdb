@@ -66,6 +66,49 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
     end
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "increase_transaction_v1",
+        backfill_key: "bfkey",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "increase_transaction_v1",
+        backfill_key: "bfkey_wrong",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "data": [
+        #{'        '}
+                  ],#{' '}
+                  "response_metadata": {}
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.increase.com/transactions").
+          with(headers: {"Authorization" => "Bearer bfkey"}).
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_401_error
+      return stub_request(:get, "https://api.increase.com/transactions").
+          with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
+          to_return(status: 401, body: "", headers: {})
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.increase.com/transactions").
+          with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
+          to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "increase_transaction_v1" do
     let(:page1_response) do
       <<~R
@@ -220,6 +263,22 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       end
     end
     describe "calculate_backfill_state_machine" do
+      let(:success_body) do
+        <<~R
+                  {
+                    "data": [
+          #{'        '}
+                    ],#{' '}
+                    "response_metadata": {}
+                  }
+        R
+      end
+      def stub_service_request
+        return stub_request(:get, "https://api.increase.com/transactions").
+            with(headers: {"Authorization" => "Bearer bfkey"}).
+            to_return(status: 200, body: success_body, headers: {})
+      end
+
       it "it asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -233,8 +292,10 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       end
 
       it "confirms reciept of backfill key, returns org database info" do
-        sint.backfill_key = "whsec_abcasdf"
+        sint.backfill_key = "bfkey"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,

@@ -21,8 +21,7 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.needs_input = true
-      step.output = %(
-Great! We've created your Twilio SMS integration.
+      step.output = %(Great! We've created your Twilio SMS integration.
 
 Rather than using your Twilio Webhooks (of which each number can have only one),
 we poll Twilio for changes, and will also backfill historical SMS.
@@ -37,11 +36,25 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       return step.secret_prompt("Auth Token").backfill_secret(self.service_integration)
     end
 
-    step.output = %(
-Great! We are going to start backfilling your Twilio SMS information, and will keep it updated.
+    result = self.verify_backfill_credentials
+    unless result.fetch(:verified)
+      self.service_integration.service_instance.clear_backfill_information
+      step.output = result.fetch(:message)
+      return step.secret_prompt("API Key").backfill_key(self.service_integration)
+    end
+
+    step.output = %(Great! We are going to start backfilling your Twilio SMS information, and will keep it updated.
 #{self._query_help_output}
       )
     return step.completed
+  end
+
+  def _verify_backfill_401_err_msg
+    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
+  end
+
+  def _verify_backfill_err_msg
+    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _remote_key_column

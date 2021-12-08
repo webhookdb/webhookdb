@@ -21,6 +21,43 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:expected_data) { body }
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "convertkit_subscriber_v1",
+        backfill_secret: "bfsek",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "convertkit_subscriber_v1",
+        backfill_secret: "bfsek_wrong",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "total_subscribers": 3,
+                  "page": 1,
+                  "total_pages": 2,
+                  "subscribers": [#{'    '}
+        #{'        '}
+                  ]
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek_wrong&page=1&sort_order=desc").
+          to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "convertkit_subscriber_v1" do
     let(:page1_response) do
       <<~R
@@ -296,6 +333,9 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "creates activate and unsubscribe webhooks when backfill_secret is set" do
+      _verification_req = stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=mysecret&page=1&sort_order=desc").
+        to_return(status: 200, body: "", headers: {})
+
       req1 = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
         with(body: include("subscriber.subscriber_activate").and(include("mysecret"))).
         to_return(status: 200)
@@ -338,6 +378,10 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
       end
     end
     describe "calculate_backfill_state_machine" do
+      def stub_service_request
+        return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
+            to_return(status: 200, body: "", headers: {})
+      end
       it "it asks for backfill secret" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -346,19 +390,21 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
           prompt_is_secret: true,
           post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
           complete: false,
-          output: match("we need your API secret"),
+          output: match("which requires your API Secret"),
         )
       end
       it "returns backfill in progress message" do
-        sint.backfill_secret = "api_s3cr3t"
+        sint.backfill_secret = "bfsek"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("We are going to start backfilling"),
+          output: match("We'll start backfilling your ConvertKit Subscribers"),
         )
       end
     end

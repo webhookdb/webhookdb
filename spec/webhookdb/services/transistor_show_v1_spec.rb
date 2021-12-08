@@ -184,6 +184,43 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     end
   end
 
+  it_behaves_like "a service implementation that verifies backfill secrets" do
+    let(:correct_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "transistor_show_v1",
+        backfill_key: "bfkey",
+      )
+    end
+    let(:incorrect_creds_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "transistor_show_v1",
+        backfill_key: "bfkey_wrong",
+      )
+    end
+
+    let(:success_body) do
+      <<~R
+                {
+                  "data": [
+        #{'        '}
+                  ],#{' '}
+                  "meta": {}
+                }
+      R
+    end
+    def stub_service_request
+      return stub_request(:get, "https://api.transistor.fm/v1/shows").
+          with(headers: {"X-Api-Key" => "bfkey"}).
+          to_return(status: 200, body: success_body, headers: {})
+    end
+
+    def stub_service_request_error
+      stub_request(:get, "https://api.transistor.fm/v1/shows").
+        with(headers: {"X-Api-Key" => "bfkey_wrong"}).
+        to_return(status: 401, body: "", headers: {})
+    end
+  end
+
   it_behaves_like "a service implementation that can backfill", "transistor_show_v1" do
     let(:page1_response) do
       <<~R
@@ -332,11 +369,26 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
       it "returns a backfill step" do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
-          output: match("Transistor does not support Shows webhooks"),
+          output: match("Transistor does not support Show webhooks"),
         )
       end
     end
     describe "calculate_backfill_state_machine" do
+      let(:success_body) do
+        <<~R
+                  {
+                    "data": [
+          #{'        '}
+                    ],#{' '}
+                    "meta": {}
+                  }
+        R
+      end
+      def stub_service_request
+        return stub_request(:get, "https://api.transistor.fm/v1/shows").
+            with(headers: {"X-Api-Key" => "bfkey"}).
+            to_return(status: 200, body: success_body, headers: {})
+      end
       it "it asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
@@ -349,8 +401,10 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
         )
       end
       it "returns backfill in progress message" do
-        sint.backfill_key = "api_k3y"
+        sint.backfill_key = "bfkey"
+        res = stub_service_request
         sm = sint.calculate_backfill_state_machine
+        expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: false,
