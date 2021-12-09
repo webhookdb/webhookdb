@@ -34,8 +34,9 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
           # - Must handle error! calls
           # Anyway, this is all pretty confusing, but it's all tested.
           rstatus = status == 201 ? (sstatus || 0) : status
+          request.body.rewind
           Webhookdb::LoggedWebhook.dataset.insert(
-            request_body: env["api.request.body"].to_s,
+            request_body: request.body.read,
             request_headers: request.headers.to_json,
             response_status: rstatus,
             organization_id: sint&.organization_id,

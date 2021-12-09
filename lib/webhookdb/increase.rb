@@ -5,7 +5,7 @@ class Webhookdb::Increase
   include Appydays::Loggable
 
   def self.webhook_response(request, webhook_secret)
-    http_signature = request.env["x-bank-webhook-signature"]
+    http_signature = request.env["HTTP_X_BANK_WEBHOOK_SIGNATURE"]
 
     return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if http_signature.nil?
 
@@ -14,7 +14,7 @@ class Webhookdb::Increase
 
     computed_signature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), webhook_secret, request_data)
 
-    if http_signature != computed_signature
+    if http_signature != "sha256=" + computed_signature
       # Invalid signature
       self.logger.warn "increase signature verification error"
       return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
