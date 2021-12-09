@@ -284,7 +284,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
       req = fake_request(input: '{"data": "asdfghujkl"}')
       data = req.body
       computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "user:pass", '{"data": "foobar"}')
-      req.add_header("x-bank-webhook-signature", computed_auth)
+      req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
       status, _headers, body = svc.webhook_response(req)
       expect(status).to eq(401)
       expect(body).to include("invalid hmac")
@@ -295,7 +295,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
       req = fake_request(input: '{"data": "asdfghujkl"}')
       data = req.body
       computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "user:pass", data)
-      req.add_header("x-bank-webhook-signature", computed_auth)
+      req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
       status, _headers, _body = svc.webhook_response(req)
       expect(status).to eq(200)
     end

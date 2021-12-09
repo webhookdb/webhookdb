@@ -9,7 +9,6 @@ class Webhookdb::API::Stripe < Webhookdb::API::V1
       post do
         s_status, s_headers, s_body = Webhookdb::Stripe.webhook_response(request, Webhookdb::Stripe.webhook_secret)
         if s_status < 400 && request.params["data"]["object"]["object"] == "subscription"
-          # to-do: do we need to delete subscriptions as cancellation events come in?
           Webhookdb::Subscription.create_or_update_from_webhook(request.params)
         end
         env["warden"].custom_failure!
