@@ -14,7 +14,7 @@ class Webhookdb::Increase
 
     computed_signature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), webhook_secret, request_data)
 
-    if http_signature != computed_signature
+    if http_signature != 'sha256=' + computed_signature
       # Invalid signature
       self.logger.warn "increase signature verification error"
       return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
