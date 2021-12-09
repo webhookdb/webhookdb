@@ -103,13 +103,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on success" do
-      post "/v1/service_integrations/xyz"
+      post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
         include(
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
-          request_body: "{}",
+          request_body: '{"a":1}',
           request_headers: hash_including("Host" => "example.org"),
           response_status: 202,
           service_integration_opaque_id: "xyz",

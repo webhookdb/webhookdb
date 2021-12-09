@@ -45,6 +45,10 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
     )
   end
 
+  def create_webhooks
+    self._create_webhooks
+  end
+
   def calculate_create_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     step.output = %(

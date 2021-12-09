@@ -5,7 +5,7 @@ class Webhookdb::Increase
   include Appydays::Loggable
 
   def self.webhook_response(request, webhook_secret)
-    http_signature = request.env["x-bank-webhook-signature"]
+    http_signature = request.env["HTTP_X_BANK_WEBHOOK_SIGNATURE"]
 
     return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if http_signature.nil?
 
