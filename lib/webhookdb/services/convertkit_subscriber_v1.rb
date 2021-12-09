@@ -25,24 +25,42 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
   def _create_webhooks
     # ConvertKit has made several other webhooks available for the subscriber object, but they all have required
     # parameters that are pks of other objects that webhookdb knows nothing about.
-    Webhookdb::Http.post(
-      "https://api.convertkit.com/v3/automations/hooks",
-      {
-        "api_secret" => self.service_integration.backfill_secret,
-        "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
-        "event" => {"name" => "subscriber.subscriber_activate"},
-      },
-      logger: self.logger,
-    )
-    Webhookdb::Http.post(
-      "https://api.convertkit.com/v3/automations/hooks",
-      {
-        "api_secret" => self.service_integration.backfill_secret,
-        "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
-        "event" => {"name" => "subscriber.subscriber_unsubscribe"},
-      },
-      logger: self.logger,
-    )
+
+    # first verify that the webhooks don't exist
+    url = "https://api.convertkit.com/v3/automations/hooks?api_secret=#{self.service_integration.backfill_secret}"
+    response = Webhookdb::Http.get(url, logger: self.logger)
+    # the data returned here is a list of the existing webhooks
+    data = response.parsed_response
+
+    # does the "subscriber.subscriber_activate" exist? if not, create it
+    # rubocop:disable Style/GuardClause
+    sub_activate_webhook = data.find { |obj| obj.dig("rule", "event", "name") == "subscriber_activate" } if data.present?
+    unless sub_activate_webhook.present?
+      Webhookdb::Http.post(
+        "https://api.convertkit.com/v3/automations/hooks",
+        {
+          "api_secret" => self.service_integration.backfill_secret,
+          "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
+          "event" => {"name" => "subscriber.subscriber_activate"},
+        },
+        logger: self.logger,
+      )
+      end
+
+    # does the "subscriber.subscriber_activate" exist? if not, create it
+    sub_unsubscribe_webhook = data.find { |obj| obj.dig("rule", "event", "name") == "subscriber_activate" } if data.present?
+    unless sub_unsubscribe_webhook.present?
+      Webhookdb::Http.post(
+        "https://api.convertkit.com/v3/automations/hooks",
+        {
+          "api_secret" => self.service_integration.backfill_secret,
+          "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
+          "event" => {"name" => "subscriber.subscriber_unsubscribe"},
+        },
+        logger: self.logger,
+      )
+    end
+    # rubocop:enable Style/GuardClause
   end
 
   def calculate_create_state_machine
