@@ -15,7 +15,7 @@ class Webhookdb::Services::IncreaseACHTransferV1 < Webhookdb::Services::Base
     return [
       Webhookdb::Services::Column.new(:account_number, "text"),
       Webhookdb::Services::Column.new(:account_id, "text"),
-      Webhookdb::Services::Column.new(:amount, "real"),
+      Webhookdb::Services::Column.new(:amount, "numeric"),
       Webhookdb::Services::Column.new(:created_at, "timestamptz"),
       Webhookdb::Services::Column.new(:routing_number, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
