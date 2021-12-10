@@ -332,20 +332,64 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
-    it "creates activate and unsubscribe webhooks when backfill_secret is set" do
-      _verification_req = stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=mysecret&page=1&sort_order=desc").
+    let(:verify_creds_request) do
+      stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=mysecret&page=1&sort_order=desc").
         to_return(status: 200, body: "", headers: {})
+    end
 
-      req1 = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+    it "creates activate and unsubscribe webhooks when backfill_secret is set" do
+      creds_response = verify_creds_request
+      webhook_response = stub_request(:get, "https://api.convertkit.com/v3/automations/hooks?api_secret=mysecret").
+        to_return(status: 200, body: "", headers: {"Content-Type" => "application/json"})
+      create_responses = [stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
         with(body: include("subscriber.subscriber_activate").and(include("mysecret"))).
-        to_return(status: 200)
-      req2 = stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
-        with(body: include("subscriber.subscriber_unsubscribe").and(include("mysecret"))).
-        to_return(status: 200)
+        to_return(status: 200),
+                          stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+                            with(body: include("subscriber.subscriber_unsubscribe").and(include("mysecret"))).
+                            to_return(status: 200),]
 
       svc.process_state_change("backfill_secret", "mysecret")
-      expect(req1).to have_been_made
-      expect(req2).to have_been_made
+      expect(creds_response).to have_been_made
+      expect(webhook_response).to have_been_made
+      expect(create_responses).to all(have_been_made)
+    end
+
+    it "does not create activate and unsubscribe webhooks if they already exist" do
+      creds_response = verify_creds_request
+      existing_webhooks_body = <<~R
+        [
+          {
+            "rule": {
+              "id": 1,
+              "account_id": 123456,
+              "status": "enabled",
+              "event": {
+                "name": "subscriber_activate",
+                "initiator_value": null
+              },
+              "target_url": "https://api.webhookdb.com/v1/service_integrations/opaque_id"
+            }
+          },
+          {
+            "rule": {
+              "id": 2,
+              "account_id": 123456,
+              "status": "enabled",
+              "event": {
+                "name": "subscriber_unsubscribe",
+                "initiator_value": null
+              },
+              "target_url": "https://api.webhookdb.com/v1/service_integrations/opaque_id"
+            }
+          }
+        ]
+      R
+      webhook_response = stub_request(:get, "https://api.convertkit.com/v3/automations/hooks?api_secret=mysecret").
+        to_return(status: 200, body: existing_webhooks_body, headers: {"Content-Type" => "application/json"})
+
+      svc.process_state_change("backfill_secret", "mysecret")
+      expect(creds_response).to have_been_made
+      expect(webhook_response).to have_been_made
     end
   end
 
