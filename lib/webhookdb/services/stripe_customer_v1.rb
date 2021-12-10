@@ -13,7 +13,7 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:balance, "real"),
+      Webhookdb::Services::Column.new(:balance, "numeric"),
       Webhookdb::Services::Column.new(:created, "integer"),
       Webhookdb::Services::Column.new(:email, "text"),
       Webhookdb::Services::Column.new(:name, "text"),
