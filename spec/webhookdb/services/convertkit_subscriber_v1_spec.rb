@@ -332,15 +332,6 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
-    let(:create_requests) do
-      [stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
-        with(body: include("subscriber.subscriber_activate").and(include("mysecret"))).
-        to_return(status: 200),
-       stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
-         with(body: include("subscriber.subscriber_unsubscribe").and(include("mysecret"))).
-         to_return(status: 200),]
-    end
-
     let(:verify_creds_request) do
       stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=mysecret&page=1&sort_order=desc").
         to_return(status: 200, body: "", headers: {})
@@ -350,7 +341,12 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
       creds_response = verify_creds_request
       webhook_response = stub_request(:get, "https://api.convertkit.com/v3/automations/hooks?api_secret=mysecret").
         to_return(status: 200, body: "", headers: {"Content-Type" => "application/json"})
-      create_responses = create_requests
+      create_responses = [stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+        with(body: include("subscriber.subscriber_activate").and(include("mysecret"))).
+        to_return(status: 200),
+                          stub_request(:post, "https://api.convertkit.com/v3/automations/hooks").
+                            with(body: include("subscriber.subscriber_unsubscribe").and(include("mysecret"))).
+                            to_return(status: 200),]
 
       svc.process_state_change("backfill_secret", "mysecret")
       expect(creds_response).to have_been_made
@@ -390,12 +386,10 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
       R
       webhook_response = stub_request(:get, "https://api.convertkit.com/v3/automations/hooks?api_secret=mysecret").
         to_return(status: 200, body: existing_webhooks_body, headers: {"Content-Type" => "application/json"})
-      create_responses = create_requests
 
       svc.process_state_change("backfill_secret", "mysecret")
       expect(creds_response).to have_been_made
       expect(webhook_response).to have_been_made
-      expect(create_responses).to_not include(have_been_made)
     end
   end
 

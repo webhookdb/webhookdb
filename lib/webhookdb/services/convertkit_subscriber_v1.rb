@@ -34,7 +34,11 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
 
     # does the "subscriber.subscriber_activate" exist? if not, create it
     # rubocop:disable Style/GuardClause
-    sub_activate_webhook = data.find { |obj| obj.dig("rule", "event", "name") == "subscriber_activate" } if data.present?
+    if data.present?
+      sub_activate_webhook = data.find do |obj|
+        obj.dig("rule", "event", "name") == "subscriber_activate"
+      end
+    end
     unless sub_activate_webhook.present?
       Webhookdb::Http.post(
         "https://api.convertkit.com/v3/automations/hooks",
@@ -48,7 +52,11 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
       end
 
     # does the "subscriber.subscriber_activate" exist? if not, create it
-    sub_unsubscribe_webhook = data.find { |obj| obj.dig("rule", "event", "name") == "subscriber_activate" } if data.present?
+    if data.present?
+      sub_unsubscribe_webhook = data.find do |obj|
+        obj.dig("rule", "event", "name") == "subscriber_activate"
+      end
+    end
     unless sub_unsubscribe_webhook.present?
       Webhookdb::Http.post(
         "https://api.convertkit.com/v3/automations/hooks",
