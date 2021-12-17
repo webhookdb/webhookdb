@@ -7,13 +7,15 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:body) do
       JSON.parse(<<~J)
         {
-          "id": 1,
-          "first_name": "Anne",
-          "email_address": "acarson@example.com",
-          "state": "active",
-          "created_at": "2016-02-28T08:07:00Z",
-          "fields": {
-            "last_name": "Carson"
+          "subscriber": {
+            "id": 1,
+            "first_name": "Anne",
+            "email_address": "acarson@example.com",
+            "state": "active",
+            "created_at": "2016-02-28T08:07:00Z",
+            "fields": {
+              "last_name": "Carson"
+            }
           }
         }
       J

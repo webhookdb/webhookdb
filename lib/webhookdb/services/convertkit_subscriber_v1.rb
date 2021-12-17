@@ -118,13 +118,14 @@ your database will be populated.
   end
 
   def _prepare_for_insert(body, **_kwargs)
-    state = body["state"]
+    object_of_interest = body["subscriber"].present? ? body["subscriber"] : body
+    state = object_of_interest["state"]
     return {
-      convertkit_id: body["id"],
-      created_at: body["created_at"],
-      email_address: body["email_address"],
-      first_name: body["first_name"],
-      last_name: body.dig("fields", "last_name"),
+      convertkit_id: object_of_interest["id"],
+      created_at: object_of_interest["created_at"],
+      email_address: object_of_interest["email_address"],
+      first_name: object_of_interest["first_name"],
+      last_name: object_of_interest.dig("fields", "last_name"),
       state: state,
       # Subscribers do not store a cancelation time (nor an updated at time),
       # so we derive and store it based on their state.
