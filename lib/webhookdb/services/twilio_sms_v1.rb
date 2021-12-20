@@ -3,6 +3,15 @@
 class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "twilio_sms_v1",
+      ctor: ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def webhook_response(request)
     auth = request.get_header("Authorization")
     if auth.nil? || !auth.match(/^Basic /)

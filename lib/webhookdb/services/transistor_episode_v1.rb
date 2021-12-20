@@ -7,6 +7,15 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::TransistorV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "transistor_episode_v1",
+      ctor: ->(sint) { Webhookdb::Services::TransistorEpisodeV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _mixin_name_singular
     return "Episode"
   end

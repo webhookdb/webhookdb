@@ -54,8 +54,10 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         resource :create do
           helpers do
             def create_integration(org, name)
+              available_services_list = org.available_services.join("\n\t")
+
+              # If provided service name is invalid
               if Webhookdb::Services.registered_service_type(name).nil?
-                available_services = Webhookdb::Services.registered.keys.join("\n\t")
                 step = Webhookdb::Services::StateMachineStep.new
                 step.needs_input = false
                 step.output =
@@ -63,10 +65,29 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 WebhookDB doesn't support a service called '#{name}.' These are all the services
 currently supported by WebhookDB:
 
-\t#{available_services}
+\t#{available_services_list}
 
 You can run `webhookdb services list` at any time to see our list of available services.
                     )
+                step.complete = true
+                return step
+              end
+
+              # If org does not have access to the given service
+              unless org.available_services.include?(name)
+                step = Webhookdb::Services::StateMachineStep.new
+                step.needs_input = false
+                step.output =
+                  %(
+Your organization does not have permission to view the service called '#{name}.' These are all the services
+you currently have access to:
+
+\t#{available_services_list}
+
+You can run `webhookdb services list` at any time to see the list of services available to your organization.
+If the list does not look correct, you can contact support at #{Webhookdb.support_email}.
+                    )
+                # maybe include a support email to contact? i'd want to add the support email as a config var
                 step.complete = true
                 return step
               end
@@ -96,6 +117,16 @@ You can run `webhookdb services list` at any time to see our list of available s
               present state_machine, with: Webhookdb::API::StateMachineEntity
             end
           end
+        end
+      end
+
+      resource :services do
+        desc "Returns a list of all available services."
+        get do
+          _customer = current_customer
+          org = lookup_org!
+          fake_entities = org.available_services.map { |name| {name: name} }
+          present_collection fake_entities, with: Webhookdb::API::ServiceEntity
         end
       end
 
@@ -190,9 +221,9 @@ You can run `webhookdb services list` at any time to see our list of available s
           org = lookup_org!
           ensure_admin!
           customer.db.transaction do
-            new_role = Webhookdb::OrganizationRole.find_or_create_or_find(name: params[:role_name])
+            new_role = Webhookdb::Role.find_or_create_or_find(name: params[:role_name])
             memberships = org.memberships_dataset.where(customer: Webhookdb::Customer.where(email: params[:emails]))
-            memberships.update(role_id: new_role.id)
+            memberships.update(membership_role_id: new_role.id)
             merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
             message = "Success! These users have now been assigned the role of #{new_role.name} in #{org.name}."
             status 200
@@ -214,7 +245,7 @@ You can run `webhookdb services list` at any time to see our list of available s
           merror!(400, "An organization with that name already exists.") if new_org.nil?
           new_org.billing_email = customer.email
           new_org.save_changes
-          new_org.add_membership(customer: customer, role: Webhookdb::OrganizationRole.admin_role, verified: true)
+          new_org.add_membership(customer: customer, membership_role: Webhookdb::Role.admin_role, verified: true)
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
             "to invite members to #{new_org.name}."
           status 200

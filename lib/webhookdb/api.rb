@@ -38,7 +38,7 @@ module Webhookdb::API
           def ensure_admin!
             customer = current_customer
             org = lookup_org!
-            admin_membership = org.memberships_dataset[customer: customer, role: Webhookdb::OrganizationRole.admin_role]
+            admin_membership = org.memberships_dataset[customer: customer, membership_role: Webhookdb::Role.admin_role]
             # rubocop:disable Style/GuardClause
             if admin_membership.nil?
               merror!(400,

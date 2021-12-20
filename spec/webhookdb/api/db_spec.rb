@@ -10,7 +10,7 @@ RSpec.describe Webhookdb::API::Db, :db do
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
-  let(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
+  let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do
     login_as(customer)
@@ -81,7 +81,7 @@ RSpec.describe Webhookdb::API::Db, :db do
 
   describe "GET /v1/db/:organization_key/roll-credentials" do
     it "modifies the database credentials and updates the org" do
-      customer.memberships_dataset.first.update(role: admin_role)
+      customer.memberships_dataset.first.update(membership_role: admin_role)
       original_ro = org.readonly_connection_url
 
       post "/v1/db/#{org.key}/roll_credentials"

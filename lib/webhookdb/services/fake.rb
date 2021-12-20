@@ -7,6 +7,14 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :webhook_verified
   singleton_attr_accessor :prepare_for_insert_hook
 
+  def self.descriptor
+    return {
+      name: "fake_v1",
+      ctor: ->(sint) { Webhookdb::Services::Fake.new(sint) },
+      feature_roles: ["internal"],
+    }
+  end
+
   def self.reset
     self.webhook_response = nil
     self.webhook_verified = true
@@ -91,6 +99,14 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 end
 
 class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
+  def self.descriptor
+    return {
+      name: "fake_with_enrichments_v1",
+      ctor: ->(sint) { Webhookdb::Services::FakeWithEnrichments.new(sint) },
+      feature_roles: ["internal"],
+    }
+  end
+
   def self.enrichment_tables
     return ["fake_v1_enrichments"]
   end

@@ -8,6 +8,15 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::ConvertkitV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "convertkit_tag_v1",
+      ctor: ->(sint) { Webhookdb::Services::ConvertkitTagV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _mixin_name_singular
     return "Tag"
   end

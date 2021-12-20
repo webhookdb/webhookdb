@@ -4,6 +4,10 @@ require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 
 class Webhookdb::Services::Base
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    raise NotImplementedError, "each service must return a descriptor that is used for registration purposes"
+  end
   # @return [Webhookdb::ServiceIntegration]
   attr_reader :service_integration
 

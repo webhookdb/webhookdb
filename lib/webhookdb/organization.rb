@@ -15,6 +15,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
+  many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
 
   def before_create
     self.key ||= Webhookdb.to_slug(self.name)
@@ -172,6 +173,19 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     # if there is no active subscription, check number of integrations against free tier max
     limit = Webhookdb::Subscription.max_free_integrations
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
+  end
+
+  def available_services
+    available = Webhookdb::Services.registered.values.filter do |desc|
+      # The org must have any of the flags required for the service. In other words,
+      # the intersection of desc[:feature_roles] & org.feature_roles must
+      # not be empty
+      no_restrictions = desc[:feature_roles].empty?
+      next true if no_restrictions
+      org_has_access = (self.feature_roles.map(&:name) & desc[:feature_roles]).present?
+      org_has_access
+    end
+    return available.map { |desc| desc[:name] }
   end
 end
 

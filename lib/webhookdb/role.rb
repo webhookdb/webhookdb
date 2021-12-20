@@ -3,12 +3,19 @@
 require "webhookdb/postgres/model"
 
 class Webhookdb::Role < Webhookdb::Postgres::Model(:roles)
+  # n.b. Because of the uniqueness constraint on "name", there is only one "admin" role. Its meaning
+  # depends on the context: if the customer has this role, they are an admin; if the org membership has
+  # this role, the customer is an org admin.
   def self.admin_role
     return Webhookdb.cached_get("role_admin") do
       self.find_or_create_or_find(name: "admin")
     end
   end
 
+  # used to indicate user status within the org, e.g. whether user is an org admin & can create services
+  one_to_many :organization_memberships, class: "Webhookdb::OrganizationMembership"
+
+  # used to indicate user status within the app itself, i.e. whether user is an app admin
   many_to_many :customers,
                class: "Webhookdb::Customer",
                join_table: :roles_customers

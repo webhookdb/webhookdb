@@ -7,6 +7,15 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::StripeV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "stripe_customer_v1",
+      ctor: ->(sint) { Webhookdb::Services::StripeCustomerV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _remote_key_column
     return Webhookdb::Services::Column.new(:stripe_id, "text")
   end

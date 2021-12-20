@@ -11,7 +11,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer: customer, verified: true) }
-  let!(:admin_role) { Webhookdb::OrganizationRole.create(name: "admin") }
+  let!(:admin_role) { Webhookdb::Role.create(name: "admin") }
   let!(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       opaque_id: "xyz", organization: org, service_name: "fake_v1", backfill_key: "qwerty",

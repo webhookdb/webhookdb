@@ -60,7 +60,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
         new_customer = true
         self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
         me = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
-        me.add_membership(organization: self_org, role: Webhookdb::OrganizationRole.admin_role, verified: true)
+        me.add_membership(organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true)
       end
       me.reset_codes_dataset.usable.each(&:expire!)
       me.add_reset_code(transport: "email")

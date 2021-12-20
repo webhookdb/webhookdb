@@ -7,6 +7,15 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::IncreaseV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "increase_transaction_v1",
+      ctor: ->(sint) { Webhookdb::Services::IncreaseTransactionV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _remote_key_column
     return Webhookdb::Services::Column.new(:increase_id, "text")
   end

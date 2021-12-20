@@ -8,6 +8,15 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::ConvertkitV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "convertkit_broadcast_v1",
+      ctor: ->(sint) { Webhookdb::Services::ConvertkitBroadcastV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _mixin_name_singular
     return "Broadcast"
   end

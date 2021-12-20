@@ -5,7 +5,7 @@ require "webhookdb/postgres/model"
 class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organization_memberships)
   many_to_one :organization, class: "Webhookdb::Organization"
   many_to_one :customer, class: "Webhookdb::Customer"
-  many_to_one :role, class: "Webhookdb::OrganizationRole"
+  many_to_one :membership_role, class: "Webhookdb::Role"
 
   def customer_email
     return self.customer.email
@@ -17,7 +17,7 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
 
   def set_status
     self.status = ""
-    self.status = self.role.name unless self.role.nil?
+    self.status = self.membership_role.name unless self.membership_role.nil?
     self.status = "invited" unless self.verified
   end
 

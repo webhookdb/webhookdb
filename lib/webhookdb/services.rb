@@ -10,8 +10,22 @@ class Webhookdb::Services
   singleton_attr_reader :registered
   @registered = {}
 
-  def self.register(name, factory)
-    self.registered[name] = factory
+  # In the Descriptor struct, the value for :feature_roles is used in
+  # our feature flagging functionality. It should default to [],
+  # but other possible values to be included in the array are:
+  #    -'internal' e.g. our fake integration
+  #    -'unreleased' for works in progress
+  #    -'beta' if we don't want most people to have access
+  Descriptor = Struct.new(
+    :name,
+    :ctor,
+    :feature_roles,
+    keyword_init: true,
+  )
+
+  def self.register(cls)
+    desc = cls.descriptor
+    self.registered[desc[:name]] = desc
   end
 
   # Return a new service instance for the given integration.
@@ -21,7 +35,7 @@ class Webhookdb::Services
   def self.service_instance(service_integration)
     name = service_integration.service_name
     cls = self.registered_service_type!(name)
-    return cls[service_integration]
+    return cls.call(service_integration)
   end
 
   def self.registered_service_type(name)
@@ -30,7 +44,7 @@ class Webhookdb::Services
 
   def self.registered_service_type!(name)
     r = self.registered_service_type(name)
-    return r if r
+    return r[:ctor] if r
     raise InvalidService, name
   end
 end
@@ -51,19 +65,17 @@ require "webhookdb/services/stripe_customer_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
-# rubocop:disable Layout/LineLength
-Webhookdb::Services.register("convertkit_broadcast_v1", ->(sint) { Webhookdb::Services::ConvertkitBroadcastV1.new(sint) })
-Webhookdb::Services.register("convertkit_subscriber_v1", ->(sint) { Webhookdb::Services::ConvertkitSubscriberV1.new(sint) })
-Webhookdb::Services.register("convertkit_tag_v1", ->(sint) { Webhookdb::Services::ConvertkitTagV1.new(sint) })
-Webhookdb::Services.register("fake_v1", ->(sint) { Webhookdb::Services::Fake.new(sint) })
-Webhookdb::Services.register("fake_with_enrichments_v1", ->(sint) { Webhookdb::Services::FakeWithEnrichments.new(sint) })
-Webhookdb::Services.register("increase_ach_transfer_v1", ->(sint) { Webhookdb::Services::IncreaseACHTransferV1.new(sint) })
-Webhookdb::Services.register("increase_transaction_v1", ->(sint) { Webhookdb::Services::IncreaseTransactionV1.new(sint) })
-# rubocop:enable Layout/LineLength
-Webhookdb::Services.register("shopify_customer_v1", ->(sint) { Webhookdb::Services::ShopifyCustomerV1.new(sint) })
-Webhookdb::Services.register("shopify_order_v1", ->(sint) { Webhookdb::Services::ShopifyOrderV1.new(sint) })
-Webhookdb::Services.register("stripe_charge_v1", ->(sint) { Webhookdb::Services::StripeChargeV1.new(sint) })
-Webhookdb::Services.register("stripe_customer_v1", ->(sint) { Webhookdb::Services::StripeCustomerV1.new(sint) })
-Webhookdb::Services.register("transistor_episode_v1", ->(sint) { Webhookdb::Services::TransistorEpisodeV1.new(sint) })
-Webhookdb::Services.register("transistor_show_v1", ->(sint) { Webhookdb::Services::TransistorShowV1.new(sint) })
-Webhookdb::Services.register("twilio_sms_v1", ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) })
+Webhookdb::Services.register(Webhookdb::Services::ConvertkitBroadcastV1)
+Webhookdb::Services.register(Webhookdb::Services::ConvertkitSubscriberV1)
+Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)
+Webhookdb::Services.register(Webhookdb::Services::Fake)
+Webhookdb::Services.register(Webhookdb::Services::FakeWithEnrichments)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseACHTransferV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)
+Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
+Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)
+Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
+Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
+Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)

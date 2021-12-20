@@ -7,6 +7,15 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::ShopifyV1Mixin
 
+  # @return [Webhookdb::Services::Descriptor]
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "shopify_customer_v1",
+      ctor: ->(sint) { Webhookdb::Services::ShopifyCustomerV1.new(sint) },
+      feature_roles: [],
+    )
+  end
+
   def _remote_key_column
     return Webhookdb::Services::Column.new(:shopify_id, "text")
   end
