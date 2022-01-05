@@ -106,12 +106,12 @@ RSpec.describe "Webhookdb::Customer", :db do
       end
 
       it "lowercases the email" do
-        step, me = described_class.register_or_login(customer_params.merge(email: "HEARME@ROAR.coM"))
+        step, me = described_class.register_or_login(**customer_params.merge(email: "HEARME@ROAR.coM"))
         expect(me).to have_attributes(email: "hearme@roar.com")
       end
 
       it "trims spaces from email" do
-        step, me = described_class.register_or_login(customer_params.merge(email: " barf@sb.com "))
+        step, me = described_class.register_or_login(**customer_params.merge(email: " barf@sb.com "))
         expect(me).to have_attributes(email: "barf@sb.com")
       end
 

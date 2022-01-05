@@ -26,10 +26,11 @@ module Webhookdb::Fixtures::MessageDeliveries
     self.add_body(mediatype: "text/html", content: "<html><body><p>#{Faker::Lorem.sentence}</p></body></html>")
   end
 
-  decorator :sms, presave: true do |to=nil, content: nil|
+  decorator :sms, presave: true do |to=nil, opts={}|
+    opts[:content] ||= Faker::Lorem.paragraph
     self.transport_type = "sms"
     self.to = to || self.recipient&.phone || Faker::PhoneNumber.cell_phone
-    self.add_body(mediatype: "text/plain", content: content || Faker::Lorem.paragraph)
+    self.add_body(mediatype: "text/plain", content: opts[:content])
   end
 
   decorator :to do |recipient=nil|
