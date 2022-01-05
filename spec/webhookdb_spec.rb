@@ -199,4 +199,31 @@ RSpec.describe Webhookdb do
       expect(described_class.to_slug("1_abc")).to eq("one_abc")
     end
   end
+
+  describe "request users" do
+    it "can get and set the request user" do
+      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+      Webhookdb.set_request_user_and_admin(1, 2)
+      expect(Webhookdb.request_user_and_admin).to eq([1, 2])
+      Webhookdb.set_request_user_and_admin(nil, nil)
+      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+    end
+    it "can set request user with a block" do
+      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+      Webhookdb.set_request_user_and_admin(1, 2) do
+        expect(Webhookdb.request_user_and_admin).to eq([1, 2])
+      end
+      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+    end
+    it "errors when setting request user multiple times" do
+      # this is okay
+      Webhookdb.set_request_user_and_admin(nil, nil)
+      Webhookdb.set_request_user_and_admin(nil, nil)
+      # this will not be
+      Webhookdb.set_request_user_and_admin(1, 2)
+      expect { Webhookdb.set_request_user_and_admin(1, 2) }.to raise_error(Webhookdb::InvalidPrecondition)
+    ensure
+      Webhookdb.set_request_user_and_admin(nil, nil)
+    end
+  end
 end

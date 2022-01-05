@@ -20,6 +20,7 @@ class Webhookdb::Service < Grape::API
 
   require "webhookdb/service/auth"
   require "webhookdb/service/middleware"
+  require "webhookdb/service/types"
   require "webhookdb/service/validators"
 
   # Name of the session in the server response cookie.
@@ -98,7 +99,7 @@ class Webhookdb::Service < Grape::API
 
   # Add some context to Sentry on each request.
   before do
-    tags = {
+    raven_tags = {
       agent: env["HTTP_USER_AGENT"],
       host: env["HTTP_HOST"],
       method: env["REQUEST_METHOD"],
@@ -106,19 +107,29 @@ class Webhookdb::Service < Grape::API
       query: env["QUERY_STRING"],
       referrer: env["HTTP_REFERER"],
     }
+    raven_user = {ip_address: request.ip}
     if (customer = current_customer?)
-      Raven.user_context(
+      raven_user.merge!(
         id: customer.id,
         email: customer.email,
         name: customer.name,
         ip_address: request.ip,
       )
-      tags["customer.email"] = customer.email
-    else
-      Raven.user_context(ip_address: request.ip)
+      raven_tags["customer.email"] = customer.email
     end
-    tags.delete_if { |_, v| v.blank? }
-    Raven.tags_context(tags)
+    if (admin = admin_customer?)
+      raven_user.merge!(
+        admin_id: admin.id,
+        admin_email: admin.email,
+        admin_name: admin.name,
+      )
+      raven_tags["admin.email"] = admin.email
+    end
+    Raven.user_context(**raven_user)
+    raven_tags.delete_if { |_, v| v.blank? }
+    Raven.tags_context(raven_tags)
+
+    Webhookdb.set_request_user_and_admin(customer, admin)
   end
 
   rescue_from Grape::Exceptions::ValidationErrors do |e|
@@ -168,5 +179,9 @@ class Webhookdb::Service < Grape::API
     end
     Webhookdb::Service.logger.error("api_exception", {error_id: error_id, error_signature: error_signature}, e)
     merror!(status, msg, code: "api_error", more: more)
+  end
+
+  finally do
+    Webhookdb.set_request_user_and_admin(nil, nil)
   end
 end

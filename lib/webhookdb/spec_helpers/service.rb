@@ -43,8 +43,8 @@ module Webhookdb::SpecHelpers::Service
     admin ||= Webhookdb::Fixtures.customer.admin.create
     target ||= Webhookdb::Fixtures.customer.create
     Warden.on_next_request do |proxy|
-      proxy.set_customer(admin, event: :authentication, scope: :admin)
-      proxy.set_customer(target, event: :authentication, scope: :customer)
+      proxy.set_user(admin, event: :authentication, scope: :admin)
+      proxy.set_user(target, event: :authentication, scope: :customer)
       Webhookdb::Service::Auth::Impersonation.new(proxy).on(target)
     end
   end

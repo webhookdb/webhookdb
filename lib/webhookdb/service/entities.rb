@@ -36,6 +36,25 @@ module Webhookdb::Service::Entities
       end
     end
 
+    def self.timezone(*lookup_path, field: nil)
+      return lambda do |instance, opts|
+        field ||= opts[:attr_path].last
+        tz = lookup_path.reduce(instance) do |memo, name|
+          memo.send(name)
+        rescue NoMethodError
+          nil
+        end
+        t = instance.send(field)
+        if tz.blank?
+          t
+        else
+          tz = tz.timezone if tz.respond_to?(:timezone)
+          tz = tz.time_zone if tz.respond_to?(:time_zone)
+          t.in_time_zone(tz).iso8601
+        end
+      end
+    end
+
     expose :message do |_instance, options|
       options[:message]
     end
