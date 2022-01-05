@@ -7,6 +7,8 @@ require "webhookdb/api"
 require "webhookdb/organization_membership"
 
 class Webhookdb::API::Auth < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :auth do
     helpers do
       def guard_logged_in!
@@ -16,7 +18,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     params do
-      requires :email, allow_blank: false
+      requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
     end
     post do
       guard_logged_in!

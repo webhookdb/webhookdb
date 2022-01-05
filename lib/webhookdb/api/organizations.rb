@@ -6,6 +6,8 @@ require "webhookdb/api"
 require "webhookdb/admin_api"
 
 class Webhookdb::API::Organizations < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :organizations do
     desc "Return all organizations the customer is part of."
     get do
@@ -135,7 +137,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
       resource :invite do
         desc "Generates an invitation code for a user, adds pending membership in the organization."
         params do
-          requires :email, type: String, allow_blank: false
+          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
         end
         post do
           customer = current_customer
@@ -169,7 +171,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
       resource :remove do
         desc "Allows organization admin to remove customer from an organization"
         params do
-          requires :email, type: String, allow_blank: false
+          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
         end
         post do
           customer = current_customer
@@ -213,7 +215,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
       resource :change_roles do
         desc "Allows organization admin to change customer's role in an organization"
         params do
-          requires :emails, type: Array[String], coerce_with: ->(val) { val.split(",") }
+          requires :emails, type: Array[String], coerce_with: CommaSepArray
           requires :role_name, type: String
         end
         post do
