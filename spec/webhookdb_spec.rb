@@ -184,4 +184,19 @@ RSpec.describe Webhookdb do
       expect(key).not_to eq(neq_key)
     end
   end
+
+  describe "to_slug" do
+    it "adheres to its spec" do
+      expect(described_class.to_slug("")).to eq("")
+      expect(described_class.to_slug(" ")).to eq("")
+      expect(described_class.to_slug("A B C")).to eq("a_b_c")
+      expect(described_class.to_slug("ABC")).to eq("abc")
+      expect(described_class.to_slug(" ABC ")).to eq("abc")
+      expect(described_class.to_slug("a1-23")).to eq("a1_23")
+      expect(described_class.to_slug("a1- --23")).to eq("a1_23")
+      expect(described_class.to_slug("1two")).to eq("onetwo")
+      expect(described_class.to_slug("12")).to eq("one2")
+      expect(described_class.to_slug("1_abc")).to eq("one_abc")
+    end
+  end
 end

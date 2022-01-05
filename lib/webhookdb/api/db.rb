@@ -20,7 +20,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       get :tables do
         _customer = current_customer
         org = lookup_org!
-        r = Webhookdb::ConnectionCache.borrow(org.readonly_connection_url) do |conn|
+        r = Webhookdb::ConnectionCache.borrow(org.readonly_connection_url_raw) do |conn|
           {tables: conn.tables}
         end
         present r
