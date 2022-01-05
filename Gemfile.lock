@@ -125,7 +125,6 @@ GEM
     mimemagic (0.4.3)
       nokogiri (~> 1)
       rake
-    mini_portile2 (2.5.1)
     minitest (5.14.4)
     moneta (1.0.0)
     monetize (1.11.0)
@@ -142,12 +141,7 @@ GEM
     name_of_person (1.1.1)
       activesupport (>= 5.2.0)
     nio4r (2.5.7)
-    nokogiri (1.11.2)
-      mini_portile2 (~> 2.5.0)
-      racc (~> 1.4)
-    nokogiri (1.11.2-x86_64-darwin)
-      racc (~> 1.4)
-    nokogiri (1.11.2-x86_64-linux)
+    nokogiri (1.12.5-arm64-darwin)
       racc (~> 1.4)
     parallel (1.20.1)
     parser (3.0.1.0)
@@ -306,7 +300,7 @@ DEPENDENCIES
   monetize
   money
   name_of_person
-  nokogiri
+  nokogiri (>= 1.12)
   pg
   phony
   platform-api
@@ -347,7 +341,7 @@ DEPENDENCIES
   yajl-ruby
 
 RUBY VERSION
-   ruby 2.7.3p183
+   ruby 2.7.4p191
 
 BUNDLED WITH
-   2.2.12
+   2.3.4

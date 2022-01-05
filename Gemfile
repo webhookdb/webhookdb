@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 source "https://rubygems.org"
-ruby "2.7.3"
+ruby "2.7.4"
 
 gem "activesupport"
 gem "appydays"
@@ -20,7 +20,7 @@ gem "mimemagic"
 gem "monetize"
 gem "money"
 gem "name_of_person"
-gem "nokogiri"
+gem "nokogiri", ">= 1.12" # Apple M1
 gem "pg"
 gem "phony"
 gem "platform-api"
