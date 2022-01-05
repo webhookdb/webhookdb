@@ -55,11 +55,19 @@ class Webhookdb::API::TestService < Webhookdb::Service
 
   get :hello do
     status 201
+    body "hi"
   end
 
   class CustomerEntity < Grape::Entity
     expose :id
     expose :note
+  end
+
+  get :current_customer do
+    c = current_customer
+    header "Test-TLS-User-Id", Thread.current[:request_user]&.id&.to_s
+    header "Test-TLS-Admin-Id", Thread.current[:request_admin]&.id&.to_s
+    present({id: c.id})
   end
 
   get :collection_array do
@@ -148,6 +156,22 @@ RSpec.describe Webhookdb::Service, :db do
 
     get "/hello"
     expect(last_response).to have_status(301)
+  end
+
+  it "always clears request_user after the request" do
+    Thread.current[:request_user] = 5
+    Thread.current[:request_admin] = 6
+    get "/hello"
+    expect(last_response).to have_status(201)
+    expect(Thread.current[:request_user]).to be_nil
+    expect(Thread.current[:request_admin]).to be_nil
+
+    Thread.current[:request_user] = 5
+    Thread.current[:request_admin] = 6
+    get "/merror"
+    expect(last_response).to have_status(403)
+    expect(Thread.current[:request_user]).to be_nil
+    expect(Thread.current[:request_admin]).to be_nil
   end
 
   it "uses a consistent error shape for manual errors (merror!)" do
@@ -379,6 +403,7 @@ RSpec.describe Webhookdb::Service, :db do
 
   it "captures context for unauthed customers" do
     get "/hello?world=1"
+    expect(last_response).to have_status(201)
 
     expect(Raven.context.user).to include(ip_address: "127.0.0.1")
     expect(Raven.context.tags).to include(host: "example.org", method: "GET", path: "/hello", query: "world=1")
@@ -389,6 +414,7 @@ RSpec.describe Webhookdb::Service, :db do
     login_as(customer)
 
     get "/hello?world=1"
+    expect(last_response).to have_status(201)
 
     expect(Raven.context.user).to include(
       ip_address: "127.0.0.1",
@@ -402,6 +428,24 @@ RSpec.describe Webhookdb::Service, :db do
       path: "/hello",
       query: "world=1",
       "customer.email" => customer.email,
+    )
+  end
+
+  it "captures context for admins" do
+    admin = Webhookdb::Fixtures.customer.admin.create
+    customer = Webhookdb::Fixtures.customer.create
+    impersonate(admin: admin, target: customer)
+
+    get "/hello?world=1"
+    expect(last_response).to have_status(201)
+
+    expect(Raven.context.user).to include(
+      admin_id: admin.id,
+      id: customer.id,
+    )
+    expect(Raven.context.tags).to include(
+      "customer.email" => customer.email,
+      "admin.email" => admin.email,
     )
   end
 
@@ -467,6 +511,17 @@ RSpec.describe Webhookdb::Service, :db do
       get "/current_customer"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id)
+    end
+
+    it "sets the custom in thread local and clears it after the request" do
+      login_as(customer)
+      impersonate(admin: admin, target: customer)
+      get "/current_customer"
+      expect(last_response).to have_status(200)
+      expect(last_response.headers["Test-TLS-User-Id"]).to eq(customer.id.to_s)
+      expect(last_response.headers["Test-TLS-Admin-Id"]).to eq(admin.id.to_s)
+      expect(Thread.current[:request_user]).to be_nil
+      expect(Thread.current[:request_admin]).to be_nil
     end
 
     it "errors if no logged in user" do
