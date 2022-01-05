@@ -64,11 +64,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       req = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions").
         with(
           headers: {
-            "Accept" => "*/*",
-            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
             "Authorization" => "Bearer lithic_stripe_api_key",
-            "Content-Type" => "application/x-www-form-urlencoded",
-            "User-Agent" => "Stripe/v1 RubyBindings/5.32.1",
           },
         ).
         to_return(
@@ -93,11 +89,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
         with(
           body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
           headers: {
-            "Accept" => "*/*",
-            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
             "Authorization" => "Bearer lithic_stripe_api_key",
-            "Content-Type" => "application/x-www-form-urlencoded",
-            "User-Agent" => "Stripe/v1 RubyBindings/5.32.1",
           },
         ).
         to_return(

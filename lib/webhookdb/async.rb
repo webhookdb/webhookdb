@@ -1,16 +1,11 @@
 # frozen_string_literal: true
 
-require "redis"
 require "appydays/configurable"
 require "appydays/loggable"
 require "sidekiq"
 require "sidekiq-cron"
 
 require "webhookdb"
-
-# Remove this when this is fixed:
-# https://github.com/ondrejbartas/sidekiq-cron/issues/286
-Redis.exists_returns_integer = false
 
 # Host module and namespace for the Webhookdb async jobs system.
 #
