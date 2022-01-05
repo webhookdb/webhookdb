@@ -625,4 +625,63 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_json_body.that_includes(id: admin.id)
     end
   end
+
+  describe "BaseEntity" do
+    describe "timezone helper" do
+      let(:t) { Time.parse("2021-09-16T12:41:23Z") }
+
+      it "renders using a path to a timezone" do
+        ent = Class.new(Webhookdb::Service::Entities::Base) do
+          expose :time, &self.timezone(:customer, :mytz)
+        end
+        r = ent.represent(double(time: t, customer: double(mytz: "America/New_York")))
+        expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
+      end
+      it "renders using a path to an object with a :timezone method" do
+        ent = Class.new(Webhookdb::Service::Entities::Base) do
+          expose :time, &self.timezone(:customer)
+        end
+        r = ent.represent(double(time: t, customer: double(timezone: "America/New_York")))
+        expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
+      end
+      it "renders using a path to an object with a :time_zone method" do
+        ent = Class.new(Webhookdb::Service::Entities::Base) do
+          expose :time, &self.timezone(:customer)
+        end
+        r = ent.represent(double(time: t, customer: double(time_zone: "America/New_York")))
+        expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
+      end
+      it "uses the default rendering if any item in the path is missing" do
+        ts = t.iso8601
+        ent = Class.new(Webhookdb::Service::Entities::Base) do
+          expose :time, &self.timezone(:customer, :mytz)
+        end
+
+        d = double(time: t)
+        expect(d).to receive(:customer).and_raise(NoMethodError)
+        r = ent.represent(d)
+        expect(r.as_json[:time]).to eq(ts)
+
+        d = double(time: t, customer: double)
+        expect(d.customer).to receive(:mytz).and_raise(NoMethodError)
+        r = ent.represent(d)
+        expect(r.as_json[:time]).to eq(ts)
+
+        d = double(time: t, customer: double(mytz: nil))
+        r = ent.represent(d)
+        expect(r.as_json[:time]).to eq(ts)
+
+        d = double(time: t, customer: double(mytz: ""))
+        r = ent.represent(d)
+        expect(r.as_json[:time]).to eq(ts)
+      end
+      it "can pull from an explicit field" do
+        ent = Class.new(Webhookdb::Service::Entities::Base) do
+          expose :time_not_here, &self.timezone(:customer, field: :mytime)
+        end
+        r = ent.represent(double(mytime: t, customer: double(time_zone: "America/New_York")))
+        expect(r.as_json[:time_not_here]).to eq("2021-09-16T08:41:23-04:00")
+      end
+    end
+  end
 end
