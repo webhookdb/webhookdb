@@ -44,15 +44,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     post :logout do
-      # Nope, cannot do this through Warden easily.
-      # And really we should have server-based sessions we can expire,
-      # but in the meantime, stomp on the cookie hard.
-      options = env[Rack::RACK_SESSION_OPTIONS]
-      options[:drop] = true
-
-      # Rack sends a cookie with an empty session, but let's tell the browser to actually delete the cookie.
-      cookies.delete(Webhookdb::Service::SESSION_COOKIE, domain: options[:domain], path: options[:path])
-
+      delete_session_cookies
       status 200
       present({}, with: Webhookdb::API::BaseEntity, message: "You have logged out.")
     end

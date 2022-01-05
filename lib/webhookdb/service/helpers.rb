@@ -45,6 +45,7 @@ module Webhookdb::Service::Helpers
 
   # Handle denying authentication if the given user cannot auth.
   # That is:
+  # - if we have an admin, but they should not be (deleted or missing role), throw unauthed error.
   # - if current user is nil, return nil, since the caller can handle it.
   # - if current user is deleted and there is no admin, throw unauthed error.
   # - if current user is deleted and admin is deleted, throw unauthed error.
@@ -54,10 +55,33 @@ module Webhookdb::Service::Helpers
   # - Normal users cannot auth if deleted.
   # - Admins can sudo deleted users, and current_customer still works.
   # - Deleted admins cannot auth or get their sudo'ed user.
+  #
+  # NOTE: It is safe to throw unauthed errors for deleted users-
+  # this does not expose whether a user exists or not,
+  # because the only way to call this is via cookies,
+  # and cookies are encrypted. So it is impossible to force requests
+  # trying to auth/check auth for a user without knowing the secret.
   def _check_customer_deleted(user, potential_admin)
     return nil if user.nil?
-    unauthenticated! if user.soft_deleted? && (potential_admin.nil? || potential_admin.soft_deleted?)
+    if potential_admin && (potential_admin.soft_deleted? || !potential_admin.roles.include?(Webhookdb::Role.admin_role))
+      delete_session_cookies
+      unauthenticated!
+    end
+    if user.soft_deleted? && potential_admin.nil?
+      delete_session_cookies
+      unauthenticated!
+    end
     return user
+  end
+
+  def delete_session_cookies
+    # Nope, cannot do this through Warden easily.
+    # And really we should have server-based sessions we can expire,
+    # but in the meantime, stomp on the cookie hard.
+    options = env[Rack::RACK_SESSION_OPTIONS]
+    options[:drop] = true
+    # Rack sends a cookie with an empty session, but let's tell the browser to actually delete the cookie.
+    cookies.delete(Webhookdb::Service::SESSION_COOKIE, domain: options[:domain], path: options[:path])
   end
 
   def set_customer(customer)

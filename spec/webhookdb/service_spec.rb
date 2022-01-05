@@ -101,6 +101,26 @@ class Webhookdb::API::TestService < Webhookdb::Service
     check_role!(current_customer, "testing")
     status 200
   end
+
+  get :current_customer do
+    c = current_customer
+    present({id: c.id})
+  end
+
+  get :current_customer_safe do
+    c = current_customer?
+    present({id: c&.id})
+  end
+
+  get :admin_customer do
+    c = admin_customer
+    present({id: c.id})
+  end
+
+  get :admin_customer_safe do
+    c = admin_customer?
+    present({id: c&.id})
+  end
 end
 
 RSpec.describe Webhookdb::Service, :db do
@@ -435,6 +455,174 @@ RSpec.describe Webhookdb::Service, :db do
           code: "role_check",
         },
       )
+    end
+  end
+
+  describe "current_customer" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:admin) { Webhookdb::Fixtures.customer.admin.create }
+
+    it "looks up the logged in user" do
+      login_as(customer)
+      get "/current_customer"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: customer.id)
+    end
+
+    it "errors if no logged in user" do
+      get "/current_customer"
+      expect(last_response).to have_status(401)
+    end
+
+    it "errors and clears cookies if the user is deleted" do
+      login_as(customer)
+      customer.soft_delete
+      get "/current_customer"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "returns the impersonated user (even if deleted)" do
+      impersonate(admin: admin, target: customer)
+      get "/current_customer"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: customer.id)
+    end
+
+    it "errors and clears cookies if the admin impersonating a user is deleted" do
+      impersonate(admin: admin, target: customer)
+      admin.soft_delete
+      get "/current_customer"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "errors if the admin impersonating a user does not have the admin role" do
+      impersonate(admin: admin, target: customer)
+      admin.remove_all_roles
+      get "/current_customer"
+      expect(last_response).to have_status(401)
+    end
+  end
+
+  describe "current_customer?" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:admin) { Webhookdb::Fixtures.customer.admin.create }
+
+    it "looks up the logged in user" do
+      login_as(customer)
+      get "/current_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: customer.id)
+    end
+
+    it "returns nil if no logged in user" do
+      get "/current_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: nil)
+    end
+
+    it "errors and clears cookies if the user is deleted" do
+      login_as(customer)
+      customer.soft_delete
+      get "/current_customer_safe"
+      expect(last_response).to have_status(401)
+    end
+
+    it "returns the impersonated user (even if deleted)" do
+      impersonate(admin: admin, target: customer)
+      get "/current_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: customer.id)
+    end
+
+    it "errors if the admin impersonating a user is deleted/missing role" do
+      impersonate(admin: admin, target: customer)
+      admin.soft_delete
+      get "/current_customer_safe"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+  end
+
+  describe "admin_customer" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:admin) { Webhookdb::Fixtures.customer.admin.create }
+
+    it "looks up the logged in admin" do
+      login_as_admin(admin)
+      get "/admin_customer"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: admin.id)
+    end
+
+    it "errors if no logged in admin" do
+      get "/admin_customer"
+      expect(last_response).to have_status(401)
+    end
+
+    it "errors and clears cookies if the admin is deleted" do
+      login_as_admin(admin)
+      admin.soft_delete
+      get "/admin_customer"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "errors and clears cookies if the admin does not have the role" do
+      login_as_admin(admin)
+      admin.remove_all_roles
+      get "/admin_customer"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "returns the admin, even while impersonating" do
+      impersonate(admin: admin, target: customer)
+      get "/admin_customer"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: admin.id)
+    end
+  end
+
+  describe "admin_customer?" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:admin) { Webhookdb::Fixtures.customer.admin.create }
+
+    it "looks up the logged in admin" do
+      login_as_admin(admin)
+      get "/admin_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: admin.id)
+    end
+
+    it "returns nil no logged in admin" do
+      get "/admin_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: nil)
+    end
+
+    it "errors and clears cookies if the admin is deleted" do
+      login_as_admin(admin)
+      admin.soft_delete
+      get "/admin_customer_safe"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "errors and clears cookies if the admin does not have the role" do
+      login_as_admin(admin)
+      admin.remove_all_roles
+      get "/admin_customer_safe"
+      expect(last_response).to have_status(401)
+      expect(last_response.cookies).to be_empty
+    end
+
+    it "returns the admin, even while impersonating" do
+      impersonate(admin: admin, target: customer)
+      get "/admin_customer_safe"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(id: admin.id)
     end
   end
 end
