@@ -9,6 +9,7 @@ class Webhookdb::API::TestService < Webhookdb::Service
   format :json
   require "webhookdb/service/helpers"
   helpers Webhookdb::Service::Helpers
+  include Webhookdb::Service::Types
 
   get :merror do
     merror!(403, "Hello!", code: "test_err", more: {doc_url: "http://some-place"})
@@ -31,6 +32,15 @@ class Webhookdb::API::TestService < Webhookdb::Service
 
   get :invalid_array do
     invalid!(["a is invalid", "b is invalid"])
+  end
+
+  params do
+    requires :email, type: String, coerce_with: NormalizedEmail
+    requires :phone, type: String, coerce_with: NormalizedPhone
+    requires :arr, type: Array[String], coerce_with: CommaSepArray
+  end
+  get :custom_types do
+    present({email: params[:email], phone: params[:phone], arr: params[:arr]})
   end
 
   get :lock_failed do
@@ -375,6 +385,18 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(200)
       expect(last_response.body).to eq(
         '{"field1":25,"field2":"abcd","x":"2020-04-23","etag":"db41e3e0da219ca43359a8581cdb74b1"}',
+      )
+    end
+  end
+
+  describe "custom types" do
+    it "works with custom types" do
+      get "/custom_types?email= x@Y.Z &phone=555-111-2222&arr=1,2,a"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        email: "x@y.z",
+        phone: "15551112222",
+        arr: ["1", "2", "a"],
       )
     end
   end

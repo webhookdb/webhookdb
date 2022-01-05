@@ -20,6 +20,7 @@ class Webhookdb::Service < Grape::API
 
   require "webhookdb/service/auth"
   require "webhookdb/service/middleware"
+  require "webhookdb/service/types"
   require "webhookdb/service/validators"
 
   # Name of the session in the server response cookie.
