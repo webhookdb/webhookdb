@@ -96,7 +96,7 @@ Style/AndOr:
 Style/CaseEquality:
   Enabled: false
 Style/ClassAndModuleChildren:
-  EnforcedStyle: compact
+  Enabled: false
 Style/FormatStringToken:
   Enabled: false
 Style/Documentation:
