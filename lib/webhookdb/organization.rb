@@ -17,12 +17,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
 
-  def before_create
-    self.key ||= Webhookdb.to_slug(self.name)
-    super
-  end
-
-  def before_save
+  def before_validation
     self.key ||= Webhookdb.to_slug(self.name)
     super
   end
@@ -152,11 +147,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return session.url
   end
 
-  def validate
-    super
-    validates_all_or_none(:admin_connection_url, :readonly_connection_url)
-  end
-
   # SUBSCRIPTION PERMISSIONS
 
   def active_subscription?
@@ -187,11 +177,20 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
     return available.map { |desc| desc[:name] }
   end
+
+  #
+  # :section: Validations
+  #
+
+  def validate
+    super
+    validates_all_or_none(:admin_connection_url, :readonly_connection_url)
+    validates_format(/^[a-z][a-z0-9_]*$/, :key, message: "is not valid as a CNAME")
+    validates_max_length 63, :key, message: "is not valid as a CNAME"
+  end
 end
 
 require "webhookdb/organization/db_builder"
-
-# TODO: Remove readwrite url, just use admin
 
 # Table: organizations
 # --------------------------------------------------------------------------------------------------------------------------

@@ -215,6 +215,14 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       end.to raise_error(Sequel::ValidationFailed, match(/must all be set or all be null/))
       # TODO: Where should this error be raised
     end
+
+    it "must be valid as a CNAME" do
+      expect do
+        o.update(key: "abc" * 30)
+      end.to raise_error(Sequel::ValidationFailed, match(/key is not valid as a CNAME/))
+      expect { o.update(key: "0abc") }.to raise_error(Sequel::ValidationFailed, match(/key is not valid as a CNAME/))
+      expect { o.update(key: "zeroabc") }.to_not raise_error
+    end
   end
 
   describe "active_subscription?" do

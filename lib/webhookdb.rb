@@ -201,11 +201,31 @@ module Webhookdb
   end
 
   # Convert a string into something we consistently use for slugs:
-  # a-z, 0-9, and underscores only.
-  # Acme + Corporation -> acme_corporation
+  # a-z, 0-9, and underscores only. Leading numbers are converted to words.
+  #
+  # Acme + Corporation -> "acme_corporation"
+  # 1Byte -> "one_byte"
+  # 10Byte -> "one0_byte"
   def self.to_slug(s)
-    return s.downcase.gsub(/[^a-z0-9]/, "_").squeeze("_")
+    raise ArgumentError, "s cannot be nil" if s.nil?
+    return "" if s.blank?
+    slug = s.downcase.strip.gsub(/[^a-z0-9]/, "_").squeeze("_")
+    slug = NUMBERS_TO_WORDS[slug.first] + slug[1..] if slug.first.match?(/[0-9]/)
+    return slug
   end
+
+  NUMBERS_TO_WORDS = {
+    "0" => "zero",
+    "1" => "one",
+    "2" => "two",
+    "3" => "three",
+    "4" => "four",
+    "5" => "five",
+    "6" => "six",
+    "7" => "seven",
+    "8" => "eight",
+    "9" => "nine",
+  }.freeze
 end
 
 require "webhookdb/aggregate_result"
