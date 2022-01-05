@@ -200,12 +200,10 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "data": [
-        #{'        '}
-                  ],#{' '}
-                  "meta": {}
-                }
+        {
+          "data": [],
+          "meta": {}
+        }
       R
     end
     def stub_service_request
@@ -376,12 +374,10 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "data": [
-          #{'        '}
-                    ],#{' '}
-                    "meta": {}
-                  }
+          {
+            "data": [],
+            "meta": {}
+          }
         R
       end
       def stub_service_request

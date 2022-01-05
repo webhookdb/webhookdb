@@ -39,14 +39,12 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "total_subscribers": 3,
-                  "page": 1,
-                  "total_pages": 2,
-                  "subscribers": [#{'    '}
-        #{'        '}
-                  ]
-                }
+        {
+          "total_subscribers": 3,
+          "page": 1,
+          "total_pages": 2,
+          "subscribers": []
+        }
       R
     end
     def stub_service_request

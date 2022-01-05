@@ -47,11 +47,9 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "tags": [
-        #{'        '}
-                  ]
-                }
+        {
+          "tags": []
+        }
       R
     end
     def stub_service_request

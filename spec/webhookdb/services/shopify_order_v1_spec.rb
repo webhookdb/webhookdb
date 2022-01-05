@@ -1472,11 +1472,9 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "orders": [
-        #{'        '}
-                  ],
-                }
+        {
+          "orders": [],
+        }
       R
     end
     def stub_service_request
@@ -4357,11 +4355,9 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "orders": [
-          #{'        '}
-                    ],
-                  }
+          {
+            "orders": [],
+          }
         R
       end
       def stub_service_request

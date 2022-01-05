@@ -82,12 +82,10 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "data": [
-        #{'        '}
-                  ],#{' '}
-                  "response_metadata": {}
-                }
+        {
+          "data": [],
+          "response_metadata": {}
+        }
       R
     end
     def stub_service_request
@@ -265,12 +263,10 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "data": [
-          #{'        '}
-                    ],#{' '}
-                    "response_metadata": {}
-                  }
+          {
+            "data": [],
+            "response_metadata": {}
+          }
         R
       end
       def stub_service_request

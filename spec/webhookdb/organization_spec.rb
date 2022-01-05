@@ -274,7 +274,6 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
           o.save_changes
         end
       end.to raise_error(Sequel::ValidationFailed, match(/must all be set or all be present/))
-      # TODO: Where should this error be raised
     end
 
     it "must be valid as a CNAME" do

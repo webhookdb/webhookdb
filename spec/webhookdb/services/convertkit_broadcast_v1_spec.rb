@@ -43,11 +43,9 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "broadcasts": [
-        #{'        '}
-                  ]
-                }
+        {
+          "broadcasts": []
+        }
       R
     end
     def stub_service_request

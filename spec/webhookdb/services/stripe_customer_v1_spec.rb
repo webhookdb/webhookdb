@@ -361,14 +361,12 @@ RSpec.describe Webhookdb::Services::StripeCustomerV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "object": "list",
-                  "data": [
-        #{'        '}
-                  ],
-                  "has_more": false,
-                  "url": "/v1/customers"
-                }
+        {
+          "object": "list",
+          "data": [],
+          "has_more": false,
+          "url": "/v1/customers"
+        }
       R
     end
     def stub_service_request
@@ -997,14 +995,12 @@ RSpec.describe Webhookdb::Services::StripeCustomerV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "object": "list",
-                    "data": [
-          #{'        '}
-                    ],
-                    "has_more": false,
-                    "url": "/v1/customers"
-                  }
+          {
+            "object": "list",
+            "data": [],
+            "has_more": false,
+            "url": "/v1/customers"
+          }
         R
       end
       def stub_service_request

@@ -448,14 +448,12 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "object": "list",
-                  "data": [
-        #{'        '}
-                  ],
-                  "has_more": false,
-                  "url": "/v1/charges"
-                }
+        {
+          "object": "list",
+          "data": [],
+          "has_more": false,
+          "url": "/v1/charges"
+        }
       R
     end
     def stub_service_request
@@ -1291,14 +1289,12 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "object": "list",
-                    "data": [
-          #{'        '}
-                    ],
-                    "has_more": false,
-                    "url": "/v1/charges"
-                  }
+          {
+            "object": "list",
+            "data": [],
+            "has_more": false,
+            "url": "/v1/charges"
+          }
         R
       end
       def stub_service_request

@@ -155,8 +155,6 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
     end
   end
 
-  # TODO: make sure error bodies are correct
-
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
@@ -173,12 +171,10 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
 
     let(:success_body) do
       <<~R
-                {
-                  "data": [
-        #{'        '}
-                  ],#{' '}
-                  "meta": {}
-                }
+        {
+          "data": [],
+          "meta": {}
+        }
       R
     end
     def stub_service_request
@@ -494,12 +490,10 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-                  {
-                    "data": [
-          #{'        '}
-                    ],#{' '}
-                    "meta": {}
-                  }
+          {
+            "data": [],
+            "meta": {}
+          }
         R
       end
       def stub_service_request
