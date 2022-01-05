@@ -179,6 +179,9 @@ module Webhookdb::Service::Helpers
   # and its `params` value includes provided-but-not-declared entries,
   # the fields we set are the intersection of the two.
   def set_declared(model, params, ignore: [:id])
+    # If .to_h is used (rather than Grape's 'params' which is HashWithIndifferentAccess),
+    # the keys may be strings. We need to deep symbolize since nested hashes get to_h with 'symbolize_keys'.
+    params = params.deep_symbolize_keys
     decl = declared_and_provided_params(params, exclude: ignore)
     ignore.each { |k| decl.delete(k) }
     decl.delete_if { |k| !params.key?(k) }
