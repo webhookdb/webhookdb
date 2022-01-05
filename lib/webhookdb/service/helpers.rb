@@ -70,6 +70,14 @@ module Webhookdb::Service::Helpers
     return env["rack.session"].id
   end
 
+  def check_role!(customer, role_name)
+    has_role = customer.roles.find { |r| r.name == role_name }
+    return if has_role
+    role_exists = !Webhookdb::Role.where(name: role_name).empty?
+    raise "The role '#{role_name}' does not exist so cannot be checked. You need to create it first." unless role_exists
+    merror!(403, "Sorry, this action is unavailable.", code: "role_check")
+  end
+
   def merror!(status, message, code: nil, more: {}, headers: {})
     body = Webhookdb::Service.error_body(status, message, code: code, more: more)
     error!(body, status, headers)

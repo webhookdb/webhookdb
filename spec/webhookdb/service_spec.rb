@@ -94,6 +94,11 @@ class Webhookdb::API::TestService < Webhookdb::Service
     status 200
     present ({x: Date.new(2020, 4, 23)}), with: EtaggedEntity
   end
+
+  get :rolecheck do
+    check_role!(current_customer, "testing")
+    status 200
+  end
 end
 
 RSpec.describe Webhookdb::Service, :db do
@@ -397,6 +402,36 @@ RSpec.describe Webhookdb::Service, :db do
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+      )
+    end
+  end
+
+  describe "role checking" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+
+    it "passes if the customer has a matching role" do
+      customer.add_role(Webhookdb::Role.create(name: "testing"))
+      login_as(customer)
+      get "/rolecheck"
+      expect(last_response).to have_status(200)
+    end
+
+    it "errors if no role with that name exists" do
+      login_as(customer)
+      get "/rolecheck"
+      expect(last_response).to have_status(500)
+    end
+
+    it "errors if the customer does not have a matching role" do
+      Webhookdb::Role.create(name: "testing")
+      login_as(customer)
+      get "/rolecheck"
+      expect(last_response).to have_json_body.that_includes(
+        error: {
+          message: "Sorry, this action is unavailable.",
+          status: 403,
+          code: "role_check",
+        },
       )
     end
   end
