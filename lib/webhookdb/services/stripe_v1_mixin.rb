@@ -71,10 +71,11 @@ Submit, then copy the key when Stripe shows it to you:
   end
 
   def _verify_backfill_403_err_msg
-    return "It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. "\
+    return "It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. " \
            "Please check the permissions by going to the list of restricted keys and " \
-           "hovering over the information icon in the entry for this key. "\
-           "Once you've verified or corrected the permissions for this key, please reenter the API Key you just created:"
+           "hovering over the information icon in the entry for this key. " \
+           "Once you've verified or corrected the permissions for this key, " \
+           "please reenter the API Key you just created:"
   end
 
   def _verify_backfill_401_err_msg

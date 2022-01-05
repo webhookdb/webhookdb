@@ -125,8 +125,10 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
 
   def _verify_backfill_403_err_msg
     return "It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. " \
-           "Please check the permissions by going to your private app page and looking at the list of active permissions. " \
-           "Once you've verified or corrected the permissions for this key, please reenter the API Key you just created:"
+           "Please check the permissions by going to your private app page and " \
+           "looking at the list of active permissions. " \
+           "Once you've verified or corrected the permissions for this key, " \
+           "please reenter the API Key you just created:"
   end
 
   def _verify_backfill_401_err_msg

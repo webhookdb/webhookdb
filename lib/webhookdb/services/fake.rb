@@ -39,7 +39,8 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     end
 
     step.output = "The integration creation flow is working correctly. Here is " \
-                  "the integration's opaque id, which you'll need to enter in a second: #{self.service_integration.opaque_id}"
+                  "the integration's opaque id, which you'll need to enter in a second: " \
+                  "#{self.service_integration.opaque_id}"
     return step.completed
   end
 
