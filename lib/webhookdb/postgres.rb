@@ -100,13 +100,13 @@ module Webhookdb::Postgres
   end
 
   ### Call the block for each registered model superclass.
-  def self.each_model_superclass(&block)
-    self.model_superclasses.each(&block)
+  def self.each_model_superclass(&)
+    self.model_superclasses.each(&)
   end
 
-  def self.each_model_class(&block)
+  def self.each_model_class(&)
     self.each_model_superclass do |sc|
-      sc.descendants.each(&block)
+      sc.descendants.each(&)
     end
   end
 
@@ -114,7 +114,7 @@ module Webhookdb::Postgres
     Sequel.extension :migration
     Webhookdb::Postgres.each_model_superclass do |cls|
       self.install_all_extensions(cls.db)
-      Sequel::Migrator.run(cls.db, "db/migrations", target: target)
+      Sequel::Migrator.run(cls.db, "db/migrations", target:)
     end
   end
 

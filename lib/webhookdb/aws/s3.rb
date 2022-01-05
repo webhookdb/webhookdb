@@ -175,7 +175,7 @@ class Webhookdb::AWS::S3
 
     config = Webhookdb::AWS.bucket_configuration_for(bucket)
     opts = {
-      bucket: bucket,
+      bucket:,
       key: "#{Webhookdb::RACK_ENV}/#{prefix}/#{SecureRandom.hex(8)}-#{keypart}#{ext}",
       acl: config[:presign_acl],
       content_type: image_type,

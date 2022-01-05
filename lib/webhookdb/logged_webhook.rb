@@ -69,7 +69,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   end
 
   def retry_one(truncate_successful: false)
-    _, bad = self.class.retry_logs([self], truncate_successful: truncate_successful)
+    _, bad = self.class.retry_logs([self], truncate_successful:)
     return bad.empty?
   end
 

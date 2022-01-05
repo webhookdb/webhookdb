@@ -162,15 +162,15 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     it "will find again if the create fails due to a race condition (UniqueConstraintViolation)" do
       name = "foo"
       placeholder = model_class.create(name: "not-" + name)
-      expect(model_class).to receive(:find).with(name: name).twice do
+      expect(model_class).to receive(:find).with(name:).twice do
         placeholder.name == name ? placeholder : nil
       end
-      expect(model_class).to receive(:create).with(name: name) do
+      expect(model_class).to receive(:create).with(name:) do
         placeholder.name = name
         raise Sequel::UniqueConstraintViolation
       end
 
-      got = model_class.find_or_create_or_find(name: name)
+      got = model_class.find_or_create_or_find(name:)
       expect(got).to_not be_nil
       expect(got).to be(placeholder)
     end
@@ -393,7 +393,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         action_calls += 1
         ds.multi_insert(v)
       }
-      Cls.each_cursor_page_action(page_size: 3, action: action) do |tp|
+      Cls.each_cursor_page_action(page_size: 3, action:) do |tp|
         tp.name == "a" ? (Array.new(10) { |i| {name: "a#{i}"} }) : nil
       end
       expect(ds.order(:id).all.map(&:name)).to eq(

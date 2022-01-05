@@ -50,8 +50,8 @@ module Webhookdb::SpecHelpers::Citest
     bucket = "webhookdb-test-artifacts"
     key = "test-results/#{folder}/#{now.year}/#{now.month}/#{now.in_time_zone('UTC').iso8601}.html"
     Webhookdb::AWS.s3.put(
-      bucket: bucket,
-      key: key,
+      bucket:,
+      key:,
       body: html,
       content_type: "text/html",
     )
@@ -68,7 +68,7 @@ module Webhookdb::SpecHelpers::Citest
       text: "Tests for #{folder}: #{result.examples} examples, #{result.failures} failures, #{result.pending} pending",
       attachments: [
         {
-          color: color,
+          color:,
           fallback: "View results at #{html_url}",
           actions: [
             {

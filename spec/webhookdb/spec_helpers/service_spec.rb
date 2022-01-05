@@ -196,21 +196,21 @@ RSpec.describe Webhookdb::SpecHelpers::Service do
       end
 
       it "passes for a valid JSON Object response that is of the correct type and includes " \
-        "the specified members" do
+         "the specified members" do
         expect do
           expect(object_response).to have_json_body(Object).that_includes(:message)
         end.to_not raise_error
       end
 
       it "fails for a valid JSON response that includes the specified members " \
-        "but is of a different type" do
+         "but is of a different type" do
         expect do
           expect(array_response).to have_json_body(Object).that_includes("message")
         end.to fail_with(/isn't a JSON Object/i)
       end
 
       it "fails for a valid JSON response that is of the correct type " \
-        "but doesn't include the specified members " do
+         "but doesn't include the specified members " do
         expect do
           expect(object_response).to have_json_body(Object).that_includes(:code)
         end.to fail_with(/to include :code/i)
@@ -240,7 +240,7 @@ RSpec.describe Webhookdb::SpecHelpers::Service do
       end
 
       it "fails for a valid JSON response that includes the specified length " \
-        "but is of a different type" do
+         "but is of a different type" do
         expect do
           expect(array_response).to have_json_body(Object).of_length(2)
         end.to fail_with(/isn't a JSON Object/i)

@@ -20,7 +20,7 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
         transport_message_id: nil,
         sent_at: nil,
         to: recipient.email,
-        recipient: recipient,
+        recipient:,
       )
       expect(delivery.bodies).to have_length(be >= 1)
     end

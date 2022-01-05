@@ -2,7 +2,7 @@
 
 module Webhookdb::PhoneNumber
   class US
-    REGEXP = /^1[0-9]{10}$/.freeze
+    REGEXP = /^1[0-9]{10}$/
 
     def self.normalize(s)
       norm = Phony.normalize(s, cc: "1")

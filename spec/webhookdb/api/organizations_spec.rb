@@ -10,7 +10,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:membership) { org.add_membership(customer:, verified: true) }
   let!(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:all) do
@@ -440,7 +440,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       expect(new_org.key).to eq("acme_corporation")
       expect(new_org.billing_email).to eq(customer.email)
 
-      expect(new_org.memberships_dataset.where(customer: customer).all).to have_length(1)
+      expect(new_org.memberships_dataset.where(customer:).all).to have_length(1)
     end
 
     it "returns correct message" do
@@ -466,7 +466,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
   describe "POST v1/organizations/join" do
     it "verifies organization membership and returns correct response" do
-      org.add_membership(customer: customer, invitation_code: "join-abcxyz")
+      org.add_membership(customer:, invitation_code: "join-abcxyz")
 
       post "v1/organizations/join", invitation_code: "join-abcxyz"
 

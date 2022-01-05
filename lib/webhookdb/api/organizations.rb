@@ -14,7 +14,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       customer = current_customer
       orgs = Webhookdb::Organization.where(memberships: customer.memberships_dataset).all
       message = orgs.empty? ? "You aren't affiliated with any organizations yet." : ""
-      present_collection orgs, with: Webhookdb::API::OrganizationEntity, message: message
+      present_collection orgs, with: Webhookdb::API::OrganizationEntity, message:
     end
 
     # GET
@@ -50,7 +50,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         get do
           integrations = lookup_org!.service_integrations
           message = integrations.empty? ? "Organization doesn't have any integrations yet." : ""
-          present_collection integrations, with: Webhookdb::API::ServiceIntegrationEntity, message: message
+          present_collection integrations, with: Webhookdb::API::ServiceIntegrationEntity, message:
         end
 
         resource :create do
@@ -127,7 +127,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
         get do
           _customer = current_customer
           org = lookup_org!
-          fake_entities = org.available_services.map { |name| {name: name} }
+          fake_entities = org.available_services.map { |name| {name:} }
           present_collection fake_entities, with: Webhookdb::API::ServiceEntity
         end
       end
@@ -158,12 +158,12 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             )
             # set/reset the code
             invitation_code = "join-" + SecureRandom.hex(4)
-            Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code: invitation_code)
+            Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code:)
 
             Webhookdb.publish("webhookdb.organizationmembership.invite", membership.id)
             message = "An invitation has been sent to #{params[:email]}. Their invite code is: \n #{invitation_code}"
             status 200
-            present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
+            present membership, with: Webhookdb::API::OrganizationMembershipEntity, message:
           end
         end
       end
@@ -229,7 +229,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
             message = "Success! These users have now been assigned the role of #{new_role.name} in #{org.name}."
             status 200
-            present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message: message
+            present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message:
           end
         end
       end
@@ -247,11 +247,11 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           merror!(400, "An organization with that name already exists.") if new_org.nil?
           new_org.billing_email = customer.email
           new_org.save_changes
-          new_org.add_membership(customer: customer, membership_role: Webhookdb::Role.admin_role, verified: true)
+          new_org.add_membership(customer:, membership_role: Webhookdb::Role.admin_role, verified: true)
           message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
-            "to invite members to #{new_org.name}."
+                    "to invite members to #{new_org.name}."
           status 200
-          present new_org, with: Webhookdb::API::OrganizationEntity, message: message
+          present new_org, with: Webhookdb::API::OrganizationEntity, message:
         end
       end
     end
@@ -270,7 +270,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           membership.save_changes
           message = "Congratulations! You are now a member of #{membership.organization_name}."
           status 200
-          present membership, with: Webhookdb::API::OrganizationMembershipEntity, message: message
+          present membership, with: Webhookdb::API::OrganizationMembershipEntity, message:
         end
       end
     end

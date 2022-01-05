@@ -3,7 +3,7 @@
 RSpec.describe "Webhookdb::Customer::ResetCode", :db do
   let(:described_class) { Webhookdb::Customer::ResetCode }
   let(:customer) { Webhookdb::Fixtures.customer.create }
-  let(:reset_code) { Webhookdb::Fixtures.reset_code(customer: customer).create }
+  let(:reset_code) { Webhookdb::Fixtures.reset_code(customer:).create }
 
   it "has a generated six-digit token" do
     expect(reset_code.token).to match(/^\d{6}$/)
@@ -37,7 +37,7 @@ RSpec.describe "Webhookdb::Customer::ResetCode", :db do
     end
 
     it "marks any unused code on the customer as expired" do
-      other_code = described_class.create(customer: customer, transport: "sms")
+      other_code = described_class.create(customer:, transport: "sms")
       expect(other_code).to be_usable
       expect(other_code).to_not be_expired
       expect(other_code).to_not be_used
@@ -52,9 +52,9 @@ RSpec.describe "Webhookdb::Customer::ResetCode", :db do
 
   describe "datasets" do
     it "can select only usable codes" do
-      used = Webhookdb::Fixtures.reset_code(customer: customer).create.use!
-      expired = Webhookdb::Fixtures.reset_code(customer: customer).create(expire_at: 1.minute.ago)
-      usable = Webhookdb::Fixtures.reset_code(customer: customer).create
+      used = Webhookdb::Fixtures.reset_code(customer:).create.use!
+      expired = Webhookdb::Fixtures.reset_code(customer:).create(expire_at: 1.minute.ago)
+      usable = Webhookdb::Fixtures.reset_code(customer:).create
 
       expect(described_class.usable).to contain_exactly(usable)
     end

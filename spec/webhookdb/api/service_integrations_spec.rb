@@ -10,7 +10,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let(:app) { described_class.build_app }
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:membership) { org.add_membership(customer:, verified: true) }
   let!(:admin_role) { Webhookdb::Role.create(name: "admin") }
   let!(:sint) do
     Webhookdb::Fixtures.service_integration.create(

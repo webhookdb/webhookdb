@@ -149,7 +149,7 @@ module Webhookdb::Async
     after_configured do
       # Very hard to to test this, so it's not tested.
       url = self.sidekiq_redis_provider.present? ? ENV[self.sidekiq_redis_provider] : self.sidekiq_redis_url
-      redis_params = {url: url}
+      redis_params = {url:}
       if url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
         # rediss: schema is Redis with SSL. They use self-signed certs, so we have to turn off SSL verification.
         # There is not a clear KB on this, you have to piece it together from Heroku and Sidekiq docs.

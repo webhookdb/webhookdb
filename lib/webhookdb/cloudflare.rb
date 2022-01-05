@@ -21,10 +21,10 @@ class Webhookdb::Cloudflare
   # https://api.cloudflare.com/#dns-records-for-a-zone-create-dns-record
   def self.create_zone_dns_record(name:, content:, zone_id:, type: "CNAME", ttl: 1)
     body = {
-      type: type,
-      name: name,
-      content: content,
-      ttl: ttl,
+      type:,
+      name:,
+      content:,
+      ttl:,
     }
     response = Webhookdb::Http.post(
       self.host + "/client/v4/zones/#{zone_id}/dns_records",

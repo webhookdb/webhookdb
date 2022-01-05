@@ -135,7 +135,7 @@ your database will be populated.
       email_address: object_of_interest["email_address"],
       first_name: object_of_interest["first_name"],
       last_name: object_of_interest.dig("fields", "last_name"),
-      state: state,
+      state:,
       # Subscribers do not store a cancelation time (nor an updated at time),
       # so we derive and store it based on their state.
       # When they become inactive state, we set canceled_at,

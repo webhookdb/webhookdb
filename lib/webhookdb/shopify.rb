@@ -8,14 +8,14 @@ class Webhookdb::Shopify
   def self.parse_link_header(header)
     parts = header.split(",")
 
-    parts.map do |part, _|
+    parts.to_h do |part, _|
       section = part.split(";")
       name = section[1][/rel="(.*)"/, 1].to_sym
       url = section[0][/<(.*)>/, 1]
       # results = section[2][/results="(.*)"/, 1] == 'true'
 
       [name, url]
-    end.to_h
+    end
   end
 
   # Compare the computed HMAC digest based on the shared secret and the

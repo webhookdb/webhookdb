@@ -60,8 +60,8 @@ module Webhookdb::Console
   end
 
   module MainMethods
-    def unsafe(&block)
-      return Webhookdb::Console.unsafe(&block)
+    def unsafe(&)
+      return Webhookdb::Console.unsafe(&)
     end
 
     def disconnect_db

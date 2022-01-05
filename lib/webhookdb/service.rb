@@ -34,10 +34,10 @@ class Webhookdb::Service < Grape::API
 
     # Note that changing the secret would invalidate all existing sessions!
     setting :session_secret, "Tritiphamhockbiltongpigporkchoptbonebeefsala" \
-      "michickenmeatballKielbasajowldrumstickbeefri" \
-      "bsfiletmignonbiltongPorkbellyballtipbacontai" \
-      "lgroundroundshankDrumstickcornedbeefbiltongp" \
-      "ancettaTbone"
+                             "michickenmeatballKielbasajowldrumstickbeefri" \
+                             "bsfiletmignonbiltongPorkbellyballtipbacontai" \
+                             "lgroundroundshankDrumstickcornedbeefbiltongp" \
+                             "ancettaTbone"
 
     # Must be nil/unset on localhost, otherwise set to something.
     setting :cookie_domain, ""
@@ -88,11 +88,11 @@ class Webhookdb::Service < Grape::API
 
   def self.error_body(status, message, code: nil, more: {})
     error = more.merge(
-      message: message,
-      status: status,
+      message:,
+      status:,
     )
     error[:code] = code unless code.nil?
-    return {error: error}
+    return {error:}
   end
 
   Grape::Middleware::Auth::Strategies.add(:admin, Webhookdb::Service::Auth::Admin)
@@ -168,7 +168,7 @@ class Webhookdb::Service < Grape::API
       puts e.backtrace
     end
 
-    more = {error_id: error_id, error_signature: error_signature}
+    more = {error_id:, error_signature:}
 
     if Webhookdb::Service.devmode
       msg = e.message
@@ -177,8 +177,8 @@ class Webhookdb::Service < Grape::API
       Raven.capture_exception(e, tags: more) if Webhookdb::Raven.enabled?
       msg = "An internal error occurred of type #{error_signature}. Error ID: #{error_id}"
     end
-    Webhookdb::Service.logger.error("api_exception", {error_id: error_id, error_signature: error_signature}, e)
-    merror!(status, msg, code: "api_error", more: more)
+    Webhookdb::Service.logger.error("api_exception", {error_id:, error_signature:}, e)
+    merror!(status, msg, code: "api_error", more:)
   end
 
   finally do

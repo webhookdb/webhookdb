@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
   let(:email) { "jane@farmers.org" }
   let(:customer_params) do
-    {email: email}
+    {email:}
   end
 
   describe "POST /v1/auth" do
@@ -28,7 +28,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(last_response).to have_json_body.that_includes(output: /Welcome to WebhookDB/)
         customer = Webhookdb::Customer.last
         expect(customer).to_not be_nil
-        expect(customer).to have_attributes(email: email)
+        expect(customer).to have_attributes(email:)
       end
     end
 
@@ -36,7 +36,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       let!(:customer) { Webhookdb::Fixtures.customer(**customer_params).create }
 
       it "expires and creates a new email reset code for the customer" do
-        existing_code = Webhookdb::Fixtures.reset_code(customer: customer).email.create
+        existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
 
         post "/v1/auth", email: email
 
@@ -93,7 +93,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
     end
 
     it "fails if the token is invalid" do
-      code = Webhookdb::Fixtures.reset_code(customer: customer).create
+      code = Webhookdb::Fixtures.reset_code(customer:).create
       code.expire!
 
       post "/v1/auth/login_otp/#{opaque_id}", value: code.token

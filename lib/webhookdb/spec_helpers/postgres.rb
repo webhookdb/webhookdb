@@ -79,7 +79,7 @@ module Webhookdb::SpecHelpers::Postgres
 
   # Create an anonymous model with the given table name.
   # Can be a symbol, string, or [:schema, :table] array.
-  module_function def create_model(name, &block)
+  module_function def create_model(name, &)
     Webhookdb::SpecHelpers::Postgres.current_test_model_uid += 1
 
     qualifier = Sequel
@@ -93,7 +93,7 @@ module Webhookdb::SpecHelpers::Postgres
     qualified_name = qualifier[table_name]
 
     Webhookdb::Postgres.logger.info "Creating table: %p" % [qualified_name]
-    Webhookdb::Postgres::Model.db.create_table!(qualified_name, &block)
+    Webhookdb::Postgres::Model.db.create_table!(qualified_name, &)
     return Class.new(Webhookdb::Postgres::Model(qualified_name))
   end
 

@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::API::Db, :db do
 
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:membership) { org.add_membership(customer:, verified: true) }
   let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do

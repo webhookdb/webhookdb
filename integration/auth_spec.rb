@@ -10,7 +10,7 @@ RSpec.describe "auth", :integration do
       "/v1/register",
       body: {
         email: customer.email,
-        password: password,
+        password:,
         phone: customer.phone,
         timezone: "America/Los_Angeles",
       },
@@ -24,7 +24,7 @@ RSpec.describe "auth", :integration do
   it "allows me to log in and out" do
     customer = Webhookdb::Fixtures.customer.password(password).create
 
-    login_resp = post("/v1/auth", body: {email: customer.email, password: password})
+    login_resp = post("/v1/auth", body: {email: customer.email, password:})
     expect(login_resp).to party_status(200)
     expect(login_resp).to party_response(match(hash_including(name: customer.name)))
 
@@ -42,7 +42,7 @@ RSpec.describe "auth", :integration do
       "/v1/register",
       body: {
         email: customer.email,
-        password: password,
+        password:,
         name: customer.name,
         phone: customer.phone,
         timezone: "America/Los_Angeles",

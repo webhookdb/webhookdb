@@ -63,7 +63,7 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
       payment_type: obj_of_interest["payment_method_details"]["type"],
       receipt_email: obj_of_interest["receipt_email"],
       status: obj_of_interest["status"],
-      updated: updated,
+      updated:,
       stripe_id: obj_of_interest["id"],
     }
   end

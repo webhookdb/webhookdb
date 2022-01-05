@@ -256,7 +256,7 @@ module Webhookdb
     Thread.current[:request_admin] = admin
     return if block.nil?
     begin
-      block.call
+      yield
     ensure
       Thread.current[:request_user] = nil
       Thread.current[:request_admin] = nil

@@ -25,7 +25,7 @@ class Webhookdb::Customer::ResetCode < Webhookdb::Postgres::Model(:customer_rese
   def self.use_code_with_token(token)
     raise LocalJumpError unless block_given?
 
-    code = self.usable[token: token]
+    code = self.usable[token:]
     raise Unusable unless code&.usable?
 
     code.db.transaction do

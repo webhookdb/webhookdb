@@ -41,7 +41,7 @@ module Webhookdb::AWS
   end
 
   S3_BUCKET_OVERRIDES = {
-    'webhookdb-public-1': {
+    "webhookdb-public-1": {
       presign_acl: "public-read",
     },
   }.freeze

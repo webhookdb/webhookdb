@@ -26,7 +26,7 @@ module Webhookdb::Services::ShopifyV1Mixin
   def webhook_response(request)
     # info for debugging
     shopify_auth = request.env["HTTP_X_SHOPIFY_HMAC_SHA256"]
-    log_params = {shopify_auth: shopify_auth, shopify_body: request.params}
+    log_params = {shopify_auth:, shopify_body: request.params}
     self.logger.debug "webhook hit shopify endpoint", log_params
 
     return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if shopify_auth.nil?
@@ -125,13 +125,13 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
 
   def _verify_backfill_403_err_msg
     return "It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. " \
-      "Please check the permissions by going to your private app page and looking at the list of active permissions. " \
-      "Once you've verified or corrected the permissions for this key, please reenter the API Key you just created:"
+           "Please check the permissions by going to your private app page and looking at the list of active permissions. " \
+           "Once you've verified or corrected the permissions for this key, please reenter the API Key you just created:"
   end
 
   def _verify_backfill_401_err_msg
     return "It looks like that API Key/Access Token combination is invalid. " \
-      "Please reenter the API Key you just created:"
+           "Please reenter the API Key you just created:"
   end
 
   def _verify_backfill_err_msg

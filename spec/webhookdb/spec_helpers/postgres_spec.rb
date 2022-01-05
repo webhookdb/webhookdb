@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::SpecHelpers::Postgres, :db do
 
   describe "have_same_ids_as matcher" do
     def item(id)
-      return [OpenStruct.new(id: id), {id: id}, {"id" => id}].sample
+      return [OpenStruct.new(id:), {id:}, {"id" => id}].sample
     end
 
     def collection

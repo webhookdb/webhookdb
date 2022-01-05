@@ -10,9 +10,9 @@ module Webhookdb::Tasks
       super()
       namespace :sidekiq do
         desc "Clear the Sidekiq redis DB (flushdb). " \
-          "Only use on local, and only for legit reasons, " \
-          "not to paper over problems that will show on staging and prod " \
-          "(like removing a job class)."
+             "Only use on local, and only for legit reasons, " \
+             "not to paper over problems that will show on staging and prod " \
+             "(like removing a job class)."
         task :reset do
           require "webhookdb/async"
           ::Sidekiq.redis(&:flushdb)

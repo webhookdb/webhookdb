@@ -31,8 +31,8 @@ module Webhookdb::Postgres::Validations
 
   # Ensures that one and only one of the passed columns is not nil.
   def validates_exactly_one_of(*cols, predicate: :nil?)
-    self.validates_at_least_one_of(*cols, predicate: predicate)
-    self.validates_mutually_exclusive(*cols, predicate: predicate)
+    self.validates_at_least_one_of(*cols, predicate:)
+    self.validates_mutually_exclusive(*cols, predicate:)
   end
 
   def validates_ip_address(col)

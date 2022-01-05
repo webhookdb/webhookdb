@@ -434,7 +434,7 @@ RSpec.describe Webhookdb::Service, :db do
   it "captures context for admins" do
     admin = Webhookdb::Fixtures.customer.admin.create
     customer = Webhookdb::Fixtures.customer.create
-    impersonate(admin: admin, target: customer)
+    impersonate(admin:, target: customer)
 
     get "/hello?world=1"
     expect(last_response).to have_status(201)
@@ -515,7 +515,7 @@ RSpec.describe Webhookdb::Service, :db do
 
     it "sets the custom in thread local and clears it after the request" do
       login_as(customer)
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer"
       expect(last_response).to have_status(200)
       expect(last_response.headers["Test-TLS-User-Id"]).to eq(customer.id.to_s)
@@ -538,14 +538,14 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the impersonated user (even if deleted)" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id)
     end
 
     it "errors and clears cookies if the admin impersonating a user is deleted" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.soft_delete
       get "/current_customer"
       expect(last_response).to have_status(401)
@@ -553,7 +553,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "errors if the admin impersonating a user does not have the admin role" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.remove_all_roles
       get "/current_customer"
       expect(last_response).to have_status(401)
@@ -585,14 +585,14 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the impersonated user (even if deleted)" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer_safe"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id)
     end
 
     it "errors if the admin impersonating a user is deleted/missing role" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.soft_delete
       get "/current_customer_safe"
       expect(last_response).to have_status(401)
@@ -633,7 +633,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the admin, even while impersonating" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/admin_customer"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: admin.id)
@@ -674,7 +674,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the admin, even while impersonating" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/admin_customer_safe"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: admin.id)

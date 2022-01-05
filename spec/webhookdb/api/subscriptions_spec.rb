@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
   let(:app) { described_class.build_app }
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer: customer, verified: true) }
+  let!(:membership) { org.add_membership(customer:, verified: true) }
 
   before(:each) do
     login_as(customer)

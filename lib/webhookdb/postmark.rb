@@ -32,9 +32,9 @@ module Webhookdb::Postmark
     self.logger.info "Sending email to %p through Postmark: %p" % [subject, to]
 
     params = {
-      from: from,
+      from:,
       to: self.format_to(to, to_name),
-      subject: subject,
+      subject:,
     }
     params[:reply_to] = reply_to if reply_to
     params[:text_body] = plain if plain

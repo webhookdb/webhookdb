@@ -904,10 +904,10 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
         ).
         to_return(status: 200, headers: {"Content-Type" => "application/json"}, body: new_analytics_body)
 
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       expect(first_req).to have_been_made
 
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       expect(second_req).to have_been_made
 
       enrichment_table_sym = enrichment_tables[0].to_sym

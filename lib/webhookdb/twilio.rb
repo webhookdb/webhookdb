@@ -32,13 +32,13 @@ module Webhookdb::Twilio
 
   def self.send_sms(from, to, body)
     self.client.messages.create(
-      from: from,
-      to: to,
-      body: body,
+      from:,
+      to:,
+      body:,
     )
   rescue Twilio::REST::RestError => e
     if e.code == 21_211
-      self.logger.warn("twilio_invalid_phone_number", phone: to, body: body, error: e.response.body)
+      self.logger.warn("twilio_invalid_phone_number", phone: to, body:, error: e.response.body)
       return nil
     end
     raise e

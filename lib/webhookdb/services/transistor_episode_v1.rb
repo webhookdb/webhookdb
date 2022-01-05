@@ -67,7 +67,7 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
     # the date of the last entry so that we don't have to upsert information that we know will not
     # be changed. We allow for a two day buffer before the date of the last entry to account for changes
     # that may occur on the day of a new entry, while the downloads are accruing.
-    latest_update = self.admin_dataset(&:db)[self.analytics_table_name.to_sym].where(episode_id: episode_id).max(:date)
+    latest_update = self.admin_dataset(&:db)[self.analytics_table_name.to_sym].where(episode_id:).max(:date)
     start_date = latest_update.nil? ? Time.parse(created_at) : (latest_update - 2.days)
     request_body = {
       start_date: start_date.strftime("%d-%m-%Y"),
@@ -111,7 +111,7 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
       {
         date: parse_date_from_api(ent["date"]),
         downloads: ent["downloads"],
-        episode_id: episode_id,
+        episode_id:,
       }
     end
     self.admin_dataset(&:db)[self.analytics_table_name.to_sym].
