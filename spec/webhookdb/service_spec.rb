@@ -12,6 +12,8 @@ class Webhookdb::API::TestService < Webhookdb::Service
   include Webhookdb::Service::Types
 
   get :merror do
+    # Ensure merror! sets content type explicitly
+    content_type "application/xml"
     merror!(403, "Hello!", code: "test_err", more: {doc_url: "http://some-place"})
   end
 

@@ -79,6 +79,7 @@ module Webhookdb::Service::Helpers
   end
 
   def merror!(status, message, code: nil, more: {}, headers: {})
+    header "Content-Type", "application/json"
     body = Webhookdb::Service.error_body(status, message, code: code, more: more)
     error!(body, status, headers)
   end
