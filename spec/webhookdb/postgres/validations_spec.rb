@@ -61,7 +61,7 @@ RSpec.describe Webhookdb::Postgres::Validations, :db do
       instance.validates_all_or_none(:first_name, :last_name)
 
       expect(instance.errors).to include(:first_name)
-      expect(instance.errors[:first_name].first).to match(/must all be set or all be null/)
+      expect(instance.errors[:first_name].first).to match(/must all be set or all be nil/)
     end
 
     it "passes validation if all of the passed columns are set" do
@@ -89,7 +89,7 @@ RSpec.describe Webhookdb::Postgres::Validations, :db do
       instance.validates_at_least_one_of(:first_name, :last_name)
 
       expect(instance.errors).to include(:first_name)
-      expect(instance.errors[:first_name].first).to match(/must be set/)
+      expect(instance.errors[:first_name].first).to match(/must be not nil/)
     end
 
     it "passes validation if one of the passed columns is set" do
@@ -108,7 +108,7 @@ RSpec.describe Webhookdb::Postgres::Validations, :db do
       instance.validates_exactly_one_of(:first_name, :last_name)
 
       expect(instance.errors).to include(:first_name)
-      expect(instance.errors[:first_name].first).to match(/must be set/)
+      expect(instance.errors[:first_name].first).to match(/must be not nil/)
     end
 
     it "validates that no more than one column is set" do
