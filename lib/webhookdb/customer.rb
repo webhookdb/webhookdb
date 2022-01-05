@@ -262,14 +262,16 @@ end
 #  email           | citext                   | NOT NULL
 #  name            | text                     | NOT NULL DEFAULT ''::text
 #  note            | text                     | NOT NULL DEFAULT ''::text
+#  opaque_id       | text                     | NOT NULL
 # Indexes:
-#  customers_pkey      | PRIMARY KEY btree (id)
-#  customers_email_key | UNIQUE btree (email)
+#  customers_pkey          | PRIMARY KEY btree (id)
+#  customers_email_key     | UNIQUE btree (email)
+#  customers_opaque_id_key | UNIQUE btree (opaque_id)
 # Check constraints:
 #  lowercase_nospace_email | (email::text = btrim(lower(email::text)))
 # Referenced By:
-#  organization_memberships | organization_memberships_customer_id_fkey | (customer_id) REFERENCES customers(id)
 #  customer_reset_codes     | customer_reset_codes_customer_id_fkey     | (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 #  message_deliveries       | message_deliveries_recipient_id_fkey      | (recipient_id) REFERENCES customers(id) ON DELETE SET NULL
+#  organization_memberships | organization_memberships_customer_id_fkey | (customer_id) REFERENCES customers(id)
 #  roles_customers          | roles_customers_customer_id_fkey          | (customer_id) REFERENCES customers(id)
 # ----------------------------------------------------------------------------------------------------------------------------------

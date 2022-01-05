@@ -88,3 +88,23 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     return self.truncated_at ? true : false
   end
 end
+
+# Table: logged_webhooks
+# ---------------------------------------------------------------------------------------------------------------------------
+# Columns:
+#  id                            | bigint                   | PRIMARY KEY DEFAULT nextval('logged_webhooks_id_seq'::regclass)
+#  inserted_at                   | timestamp with time zone | NOT NULL DEFAULT now()
+#  truncated_at                  | timestamp with time zone |
+#  request_body                  | text                     | NOT NULL
+#  request_headers               | jsonb                    | NOT NULL
+#  response_status               | smallint                 | NOT NULL
+#  service_integration_opaque_id | text                     | NOT NULL
+#  organization_id               | integer                  |
+# Indexes:
+#  logged_webhooks_pkey                                | PRIMARY KEY btree (id)
+#  logged_webhooks_inserted_at_index                   | btree (inserted_at)
+#  logged_webhooks_organization_id_index               | btree (organization_id)
+#  logged_webhooks_service_integration_opaque_id_index | btree (service_integration_opaque_id)
+# Foreign key constraints:
+#  logged_webhooks_organization_id_fkey | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+# ---------------------------------------------------------------------------------------------------------------------------
