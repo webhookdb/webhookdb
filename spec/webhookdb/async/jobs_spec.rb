@@ -115,7 +115,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     it "sets the public host" do
       fixture = load_fixture_data("cloudflare/create_zone_dns")
-      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db", "zone_name" => "testing.dev")
+      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db.testing.dev")
       req = stub_request(:post, "https://api.cloudflare.com/client/v4/zones/testdnszoneid/dns_records").
         to_return(status: 200, body: fixture.to_json)
       Webhookdb::Organization::DbBuilder.create_cname_for_connection_urls = true

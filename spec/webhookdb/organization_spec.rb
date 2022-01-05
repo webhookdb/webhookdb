@@ -149,7 +149,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       )
 
       fixture = load_fixture_data("cloudflare/create_zone_dns")
-      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db", "zone_name" => "testing.dev")
+      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db.testing.dev")
       req = stub_request(:post, "https://api.cloudflare.com/client/v4/zones/testdnszoneid/dns_records").
         with(
           body: hash_including(

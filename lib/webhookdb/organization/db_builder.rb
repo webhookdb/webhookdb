@@ -138,12 +138,12 @@ class Webhookdb::Organization::DbBuilder
     return nil unless self.class.create_cname_for_connection_urls
     db_host = URI.parse(conn_url).host
     cname = Webhookdb::Cloudflare.create_zone_dns_record(
+      type: "CNAME",
       zone_id: self.class.cloudflare_dns_zone_id,
       name: "#{@org.key}.db",
       content: db_host,
     )
-    new_host = "#{cname['result']['name']}.#{cname['result']['zone_name']}"
-    @org.public_host = new_host
+    @org.public_host = cname["result"]["name"]
     @org.cloudflare_dns_record_json = cname
     return self
   end

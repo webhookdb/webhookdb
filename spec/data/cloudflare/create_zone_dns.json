@@ -1,24 +1,25 @@
 {
-  "success": true,
-  "errors": [],
-  "messages": [],
   "result": {
-    "id": "372e67954025e0ba6aaa6d586b9e0b59",
-    "type": "A",
-    "name": "example.com",
-    "content": "198.51.100.4",
+    "id": "6a994c4d8340e3d88657ffc40f1f455e",
+    "zone_id": "f62b51f9675b3b7c3aeb3423fa478f4a",
+    "zone_name": "webhookdb.com",
+    "name": "org_for_rob_lithic_tech.db.webhookdb.com",
+    "type": "CNAME",
+    "content": "webhookdb-production-1.ca5bix1sby8k.us-west-2.rds.amazonaws.com",
     "proxiable": true,
     "proxied": false,
-    "ttl": 3600,
+    "ttl": 1,
     "locked": false,
-    "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-    "zone_name": "example.com",
-    "created_on": "2014-01-01T05:20:00.12345Z",
-    "modified_on": "2014-01-01T05:20:00.12345Z",
-    "data": {},
     "meta": {
-      "auto_added": true,
+      "auto_added": false,
+      "managed_by_apps": false,
+      "managed_by_argo_tunnel": false,
       "source": "primary"
-    }
-  }
+    },
+    "created_on": "2022-01-05T18:01:48.134356Z",
+    "modified_on": "2022-01-05T18:01:48.134356Z"
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
 }
