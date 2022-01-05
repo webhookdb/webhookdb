@@ -9,6 +9,11 @@ class Webhookdb::Jobs::PrepareDatabaseConnections
 
   def _perform(event)
     org = self.lookup_model(Webhookdb::Organization, event)
-    org.prepare_database_connections
+    org.db.transaction do
+      # If creating the public host fails, we end up with an orphaned database,
+      # but that's not a big deal- we can eventually see it's empty/unlinked and drop it.
+      org.prepare_database_connections
+      org.create_public_host_cname
+    end
   end
 end

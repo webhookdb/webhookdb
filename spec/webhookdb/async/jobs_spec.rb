@@ -95,20 +95,43 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "PrepareDatabaseConnections" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    after(:each) do
+      org.remove_related_database
+      Webhookdb::Organization::DbBuilder.reset_configuration
+    end
     it "creates the database urls for the organization" do
-      org = nil
       expect do
-        org = Webhookdb::Fixtures.organization.create
+        org.publish_immediate("create", org.id, org.values)
       end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
 
-      expect(org).to_not be_nil
+      org.refresh
+      expect(org).to have_attributes(
+        admin_connection_url: start_with("postgres://"),
+        readonly_connection_url: start_with("postgres://"),
+        public_host: be_blank,
+      )
+    end
 
-      # re-retrieve the org
-      org = Webhookdb::Organization[id: org.id]
-      expect(org.admin_connection_url).to_not be_nil
-      expect(org.readonly_connection_url).to_not be_nil
-    ensure
-      org.remove_related_database
+    it "sets the public host" do
+      fixture = load_fixture_data("cloudflare/create_zone_dns")
+      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db", "zone_name" => "testing.dev")
+      req = stub_request(:post, "https://api.cloudflare.com/client/v4/zones/testdnszoneid/dns_records").
+        to_return(status: 200, body: fixture.to_json)
+      Webhookdb::Organization::DbBuilder.create_cname_for_connection_urls = true
+
+      expect do
+        org.publish_immediate("create", org.id, org.values)
+      end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
+
+      expect(req).to have_been_made
+
+      org.refresh
+      expect(org).to have_attributes(
+        admin_connection_url: start_with("postgres://"),
+        readonly_connection_url: start_with("postgres://"),
+        public_host: eq("myorg2.db.testing.dev"),
+      )
     end
   end
 

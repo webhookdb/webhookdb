@@ -46,7 +46,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def execute_readonly_query(sql)
-    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url) do |conn|
+    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url_raw) do |conn|
       ds = conn.fetch(sql)
       r = QueryResult.new
       r.columns = ds.columns
@@ -66,6 +66,31 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     attr_accessor :rows, :columns, :max_rows_reached
   end
 
+  # Return the readonly connection url, with the host set to public_host if set.
+  def readonly_connection_url
+    return self._public_host_connection_url(self.readonly_connection_url_raw)
+  end
+
+  # Return the admin connection url, with the host set to public_host if set.
+  def admin_connection_url
+    return self._public_host_connection_url(self.admin_connection_url_raw)
+  end
+
+  # Replace the host of the given URL with public_host if it is set,
+  # or return u if not.
+  #
+  # It's very important we store the 'raw' URL to the actual host,
+  # and the public host separately. This will allow us to, for example,
+  # modify the org to point to a new host,
+  # and then update the CNAME (finding it based on the public_host name)
+  # to point to that host.
+  protected def _public_host_connection_url(u)
+    return u if self.public_host.blank?
+    uri = URI(u)
+    uri.host = self.public_host
+    return uri.to_s
+  end
+
   def dbname
     raise Webhookdb::InvalidPrecondition, "no db has been created, call prepare_database_connections first" if
       self.admin_connection_url.blank?
@@ -82,33 +107,54 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return ur.user
   end
 
+  # Build the org-specific users, database, and set our connection URLs to it.
   def prepare_database_connections
     self.db.transaction do
       self.lock!
       raise Webhookdb::InvalidPrecondition, "connections already set" if self.admin_connection_url.present?
-      builder = Webhookdb::Organization::DbBuilder.prepare_database_connections(self)
-      self.admin_connection_url = builder.admin_url
-      self.readonly_connection_url = builder.readonly_url
+      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder.prepare_database_connections
+      self.admin_connection_url_raw = builder.admin_url
+      self.readonly_connection_url_raw = builder.readonly_url
       self.save_changes
     end
   end
 
+  # Create a CNAME in Cloudflare for the currently configured connection urls.
+  def create_public_host_cname
+    self.db.transaction do
+      self.lock!
+      # We must have a host to create a CNAME to.
+      raise Webhookdb::InvalidPrecondition, "connection urls must be set" if self.readonly_connection_url_raw.blank?
+      # Should only be used once when creating the org DBs.
+      raise Webhookdb::InvalidPrecondition, "public_host must not be set" if self.public_host.present?
+      # Use the raw URL, even though we know at this point
+      # public_host is empty so raw and public host urls are the same.
+      Webhookdb::Organization::DbBuilder.new(self).create_public_host_cname(self.readonly_connection_url_raw)
+      self.save_changes
+    end
+  end
+
+  # Delete the org-specific database and remove the org connection strings.
+  # Use this when an org is to be deleted (either for real, or in test teardown).
   def remove_related_database
     self.db.transaction do
       self.lock!
-      Webhookdb::Organization::DbBuilder.remove_related_database(self)
-      self.admin_connection_url = ""
-      self.readonly_connection_url = ""
+      Webhookdb::Organization::DbBuilder.new(self).remove_related_database
+      self.admin_connection_url_raw = ""
+      self.readonly_connection_url_raw = ""
       self.save_changes
     end
   end
 
+  # Modify the admin and readonly users to have new usernames and passwords.
   def roll_database_credentials
     self.db.transaction do
       self.lock!
-      builder = Webhookdb::Organization::DbBuilder.roll_connection_credentials(self)
-      self.admin_connection_url = builder.admin_url
-      self.readonly_connection_url = builder.readonly_url
+      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder.roll_connection_credentials
+      self.admin_connection_url_raw = builder.admin_url
+      self.readonly_connection_url_raw = builder.readonly_url
       self.save_changes
     end
   end
@@ -184,7 +230,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def validate
     super
-    validates_all_or_none(:admin_connection_url, :readonly_connection_url)
+    validates_all_or_none(:admin_connection_url_raw, :readonly_connection_url_raw, predicate: :present?)
     validates_format(/^[a-z][a-z0-9_]*$/, :key, message: "is not valid as a CNAME")
     validates_max_length 63, :key, message: "is not valid as a CNAME"
   end

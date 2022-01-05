@@ -62,8 +62,12 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
     it "creates a randomly named database and connection strings" do
       o.prepare_database_connections
-      expect(o.admin_connection_url).to(start_with("postgres://"))
-      expect(o.readonly_connection_url).to(start_with("postgres://"))
+      expect(o.admin_connection_url).to(
+        match(%r(postgres://aad#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16})),
+      )
+      expect(o.readonly_connection_url).to(
+        match(%r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16})),
+      )
     end
 
     it "scopes the admin connection permissions" do
@@ -108,6 +112,63 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       expect do
         o.prepare_database_connections
       end.to raise_error(Webhookdb::InvalidPrecondition, "connections already set")
+    end
+  end
+
+  describe "create_public_host_cname" do
+    after(:each) do
+      described_class::DbBuilder.reset_configuration
+    end
+    it "noops if not configured" do
+      o.update(
+        admin_connection_url_raw: "postgres://pg/db",
+        readonly_connection_url_raw: "postgres://pg/db",
+      )
+      o.create_public_host_cname
+      expect(o.public_host).to eq("")
+    end
+
+    it "raises if connection urls are not set" do
+      expect { o.create_public_host_cname }.to raise_error(Webhookdb::InvalidPrecondition, /must be set/)
+    end
+
+    it "raises if public host is already set" do
+      o.update(
+        admin_connection_url_raw: "postgres://pg/db",
+        readonly_connection_url_raw: "postgres://pg/db",
+        public_host: "already.set",
+      )
+      expect { o.create_public_host_cname }.to raise_error(Webhookdb::InvalidPrecondition, /must not be set/)
+    end
+
+    it "creates the CNAME and sets the public host and cloudflare response" do
+      o.update(
+        key: "myorg",
+        admin_connection_url_raw: "postgres://admin:adminpwd@dbsrv.rds.amazonaws.com:5432/dbname",
+        readonly_connection_url_raw: "postgres://ro:ropwd@dbsrv.rds.amazonaws.com:5432/dbname",
+      )
+
+      fixture = load_fixture_data("cloudflare/create_zone_dns")
+      fixture["result"].merge!("type" => "CNAME", "name" => "myorg2.db", "zone_name" => "testing.dev")
+      req = stub_request(:post, "https://api.cloudflare.com/client/v4/zones/testdnszoneid/dns_records").
+        with(
+          body: hash_including(
+            "type" => "CNAME", "name" => "myorg.db", "content" => "dbsrv.rds.amazonaws.com", "ttl" => 1,
+          ),
+          headers: {"Authorization" => "Bearer set-me-to-token"},
+        ).to_return(status: 200, body: fixture.to_json)
+
+      described_class::DbBuilder.create_cname_for_connection_urls = true
+      o.create_public_host_cname
+      expect(req).to have_been_made
+      expect(o).to have_attributes(
+        admin_connection_url_raw: "postgres://admin:adminpwd@dbsrv.rds.amazonaws.com:5432/dbname",
+        readonly_connection_url_raw: "postgres://ro:ropwd@dbsrv.rds.amazonaws.com:5432/dbname",
+        admin_connection_url: "postgres://admin:adminpwd@myorg2.db.testing.dev:5432/dbname",
+        readonly_connection_url: "postgres://ro:ropwd@myorg2.db.testing.dev:5432/dbname",
+        public_host: "myorg2.db.testing.dev",
+        cloudflare_dns_record_json: include("result"),
+      )
     end
   end
 
@@ -208,11 +269,11 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     it "requires all of the connections to be present, or none" do
       expect do
         o.db.transaction do
-          builder = Webhookdb::Organization::DbBuilder.prepare_database_connections(o)
-          o.admin_connection_url = builder.admin_url
+          o.readonly_connection_url_raw = ""
+          o.admin_connection_url_raw = "postgres://xyz/abc"
           o.save_changes
         end
-      end.to raise_error(Sequel::ValidationFailed, match(/must all be set or all be null/))
+      end.to raise_error(Sequel::ValidationFailed, match(/must all be set or all be present/))
       # TODO: Where should this error be raised
     end
 

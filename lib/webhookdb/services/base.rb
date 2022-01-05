@@ -250,11 +250,11 @@ class Webhookdb::Services::Base
   end
 
   def admin_dataset(&block)
-    self.with_dataset(self.service_integration.organization.admin_connection_url, &block)
+    self.with_dataset(self.service_integration.organization.admin_connection_url_raw, &block)
   end
 
   def readonly_dataset(&block)
-    self.with_dataset(self.service_integration.organization.readonly_connection_url, &block)
+    self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, &block)
   end
 
   protected def with_dataset(url, &block)
