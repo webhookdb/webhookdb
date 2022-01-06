@@ -2,6 +2,7 @@
 
 require "appydays/configurable"
 require "appydays/loggable"
+require "sentry-sidekiq"
 require "sidekiq"
 require "sidekiq-cron"
 
@@ -160,7 +161,8 @@ module Webhookdb::Async
         config.options[:job_logger] = Webhookdb::Async::JobLogger
         # We do NOT want the unstructured default error handler
         config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
-        config.error_handlers << Raven::Sidekiq::ErrorHandler.new
+        # We must then replace the otherwise-automatically-added sentry middleware
+        config.error_handlers << Sentry::Sidekiq::ErrorHandler.new
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
       end
 

@@ -49,7 +49,9 @@ module Webhookdb::API
         end
 
         before do
-          Raven.tags_context(application: "public-api")
+          Sentry.configure_scope do |scope|
+            scope.set_tags(application: "public-api")
+          end
         end
       end
     end

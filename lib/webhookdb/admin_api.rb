@@ -25,7 +25,9 @@ module Webhookdb::AdminAPI
         auth(:admin)
 
         before do
-          Raven.tags_context(application: "admin-api")
+          Sentry.configure_scope do |scope|
+            scope.set_tags(application: "admin-api")
+          end
         end
       end
     end

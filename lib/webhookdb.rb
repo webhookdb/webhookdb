@@ -59,7 +59,7 @@ module Webhookdb
   require "webhookdb/method_utilities"
   extend Webhookdb::MethodUtilities
 
-  require "webhookdb/raven"
+  require "webhookdb/sentry"
 
   def self.load_app
     $stdout.sync = true

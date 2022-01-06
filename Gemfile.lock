@@ -239,8 +239,16 @@ GEM
       rubyzip (>= 1.2.2)
     semantic_logger (4.9.0)
       concurrent-ruby (~> 1.0)
-    sentry-raven (3.1.2)
-      faraday (>= 1.0)
+    sentry-ruby (4.8.3)
+      concurrent-ruby (~> 1.0, >= 1.0.2)
+      faraday (~> 1.0)
+      sentry-ruby-core (= 4.8.3)
+    sentry-ruby-core (4.8.3)
+      concurrent-ruby
+      faraday
+    sentry-sidekiq (4.8.3)
+      sentry-ruby-core (~> 4.8.3)
+      sidekiq (>= 3.0)
     sequel (5.52.0)
     sequel-annotate (1.7.0)
       sequel (>= 4)
@@ -336,7 +344,8 @@ DEPENDENCIES
   rubocop-rake
   rubocop-sequel
   semantic_logger
-  sentry-raven
+  sentry-ruby
+  sentry-sidekiq
   sequel
   sequel-annotate
   sequel-money-fields
