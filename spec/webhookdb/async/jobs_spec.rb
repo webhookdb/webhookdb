@@ -16,6 +16,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         {"my_id" => "2", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
       ]
     end
+
     it "starts backfill process" do
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       sint.organization.prepare_database_connections
@@ -33,6 +34,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     ensure
       sint.organization.remove_related_database
     end
+
     it "can specify incremental" do
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       sint.organization.prepare_database_connections
@@ -63,7 +65,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
       expect(sint).to_not be_nil
       Webhookdb::Services.service_instance(sint).admin_dataset do |ds|
-        expect(ds.db.table_exists?(sint&.table_name)).to be_truthy
+        expect(ds.db).to be_table_exists(sint&.table_name)
       end
     ensure
       org.remove_related_database
@@ -96,10 +98,12 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
   describe "PrepareDatabaseConnections" do
     let(:org) { Webhookdb::Fixtures.organization.create }
+
     after(:each) do
       org.remove_related_database
       Webhookdb::Organization::DbBuilder.reset_configuration
     end
+
     it "creates the database urls for the organization" do
       expect do
         org.publish_immediate("create", org.id, org.values)
@@ -207,6 +211,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       expect(Webhookdb::LoggedWebhook.all).to have_same_ids_as(newer)
     end
   end
+
   describe "TwilioScheduledBackfill" do
     it "enqueues backfill job for all twilio service integrations" do
       twilio_sint = Webhookdb::Fixtures.service_integration.create(

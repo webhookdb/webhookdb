@@ -20,6 +20,7 @@ RSpec.describe "Webhookdb::Customer", :db do
   context "ensure_role" do
     let(:customer) { Webhookdb::Fixtures.customer.create }
     let(:role) { Webhookdb::Role.create(name: "customer-test") }
+
     it "can set a role by a role object" do
       customer.ensure_role(role)
 

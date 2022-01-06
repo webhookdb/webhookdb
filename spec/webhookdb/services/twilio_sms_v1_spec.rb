@@ -276,6 +276,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
         example.run
       end
     end
+
     def stub_service_requests
       return [
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
@@ -427,6 +428,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
         example.run
       end
     end
+
     def stub_service_requests_new_records
       return [
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
@@ -491,6 +493,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       let(:today) { Time.parse("2020-11-22T18:00:00Z") }
       let(:success_body) do
@@ -510,6 +513,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
           }
         R
       end
+
       def stub_service_request
         return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
             with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).

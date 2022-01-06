@@ -151,6 +151,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
         expect(sub.stripe_customer_id).to eq("cus_JR8V3eF6JmvjKZ")
         expect(sub.stripe_json).to have_key("status")
       end
+
       it "updates the subscription status of an existing subscription" do
         Webhookdb::Fixtures.subscription.create(stripe_id: "sub_JigYoW2aRYfl0R")
         Webhookdb::Subscription.create_or_update_from_webhook(webhook_data)
@@ -308,6 +309,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
         expect(sub.stripe_customer_id).to eq("cus_JR8V3eF6JmvjKZ")
         expect(sub.stripe_json).to have_key("status")
       end
+
       it "updates the subscription status of an existing subscription" do
         req = stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_JigYoW2aRYfl0R").
           to_return(body: subscription.to_json)

@@ -9,6 +9,7 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
 
   describe "dispatch" do
     let(:basic) { Webhookdb::Messages::Testers::Basic.new }
+
     it "creates an undelivered message to the given recipient", messaging: false do
       recipient = Webhookdb::Fixtures.customer.create
       delivery = basic.dispatch(recipient)

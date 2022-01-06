@@ -39,7 +39,7 @@ RSpec.describe "Webhookdb::Message::Delivery", :db, :messaging do
   end
 
   describe "body_with_mediatype!" do
-    it "raises if no body matches the given " do
+    it "raises if no body matches the given" do
       expect do
         Webhookdb::Fixtures.message_delivery.create.body_with_mediatype!("abc")
       end.to raise_error(/has no body with mediatype/)

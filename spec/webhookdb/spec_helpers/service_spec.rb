@@ -209,8 +209,7 @@ RSpec.describe Webhookdb::SpecHelpers::Service do
         end.to fail_with(/isn't a JSON Object/i)
       end
 
-      it "fails for a valid JSON response that is of the correct type " \
-         "but doesn't include the specified members " do
+      it "fails for a valid JSON response that is of the correct type but doesn't include the specified members" do
         expect do
           expect(object_response).to have_json_body(Object).that_includes(:code)
         end.to fail_with(/to include :code/i)

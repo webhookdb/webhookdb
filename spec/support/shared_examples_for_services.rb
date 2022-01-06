@@ -17,9 +17,9 @@ RSpec.shared_examples "a service implementation" do |name|
   it "can create its table in its org db" do
     svc.create_table
     svc.readonly_dataset do |ds|
-      expect(ds.db.table_exists?(svc.table_sym)).to be_truthy
+      expect(ds.db).to be_table_exists(svc.table_sym)
     end
-    expect(sint.db.table_exists?(svc.table_sym)).to be_falsey
+    expect(sint.db).to_not be_table_exists(svc.table_sym)
   end
 
   it "can insert into its table" do

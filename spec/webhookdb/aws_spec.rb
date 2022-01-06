@@ -48,12 +48,12 @@ RSpec.describe Webhookdb::AWS do
     describe "#exists?" do
       it "is true if the object exists" do
         described_class.s3.client.stub_responses(:get_object_acl, Aws::PageableResponse)
-        expect(described_class.s3.exists?("some-bucket", "some-key")).to be_truthy
+        expect(described_class.s3).to exist("some-bucket", "some-key")
       end
 
       it "is false if AWS raises a NoSuchKey error" do
         described_class.s3.client.stub_responses(:get_object_acl, "NoSuchKey")
-        expect(described_class.s3.exists?("some-bucket", "some-key")).to be_falsey
+        expect(described_class.s3).to_not exist("some-bucket", "some-key")
       end
     end
 
@@ -181,9 +181,9 @@ RSpec.describe Webhookdb::AWS do
 
         get_req = stub_request(:get, url).
           and_return(status: 200, body: "", headers: {"Content-Type" => "image/jpeg"})
-        expect(Webhookdb::AWS.s3).to receive(:put).once
+        expect(described_class.s3).to receive(:put).once
 
-        new_url = Webhookdb::AWS.s3.upload_url("my-prefix", "buckit", url)
+        new_url = described_class.s3.upload_url("my-prefix", "buckit", url)
 
         expected = %r{https://buckit\.s3\.amazonaws\.com/test/my-prefix/[a-z0-9]+-special-chars\.png}
         expect(new_url).to match(expected)
@@ -195,9 +195,9 @@ RSpec.describe Webhookdb::AWS do
 
         stub_request(:get, url).
           and_return(status: 200, body: "", headers: {"Content-Type" => "image/jpeg"})
-        expect(Webhookdb::AWS.s3).to receive(:put).once
+        expect(described_class.s3).to receive(:put).once
 
-        new_url = Webhookdb::AWS.s3.upload_url(Webhookdb::Customer, "buckit", url)
+        new_url = described_class.s3.upload_url(Webhookdb::Customer, "buckit", url)
 
         expect(new_url).to include("/customer/")
       end
@@ -207,33 +207,33 @@ RSpec.describe Webhookdb::AWS do
 
         stub_request(:get, url).
           and_return(status: 200, body: "", headers: {"Content-Type" => "image/jpeg"})
-        expect(Webhookdb::AWS.s3).to receive(:put).once
+        expect(described_class.s3).to receive(:put).once
 
-        new_url = Webhookdb::AWS.s3.upload_url(Webhookdb::Customer, "buckit", url)
+        new_url = described_class.s3.upload_url(Webhookdb::Customer, "buckit", url)
 
         expect(new_url).to end_with("-image")
       end
 
       it "does not re-upload images on s3" do
         already_on_s3 = Faker::Webhookdb.s3_url
-        new_url = Webhookdb::AWS.s3.upload_url(Webhookdb::Customer, "buckit", already_on_s3)
+        new_url = described_class.s3.upload_url(Webhookdb::Customer, "buckit", already_on_s3)
         expect(new_url).to eq(already_on_s3)
       end
 
       it "manipulates dropbox links to raw=1" do
         req = stub_request(:get, "https://www.dropbox.com/s/some-folder/my-image.png?raw=1").
           and_return(status: 200, body: "", headers: {"Content-Type" => "image/png"})
-        expect(Webhookdb::AWS.s3).to receive(:put).once
+        expect(described_class.s3).to receive(:put).once
 
-        Webhookdb::AWS.s3.upload_url(Webhookdb::Customer, "buckit",
-                                     "https://www.dropbox.com/s/some-folder/my-image.png?dl=0",)
+        described_class.s3.upload_url(Webhookdb::Customer, "buckit",
+                                      "https://www.dropbox.com/s/some-folder/my-image.png?dl=0",)
 
         expect(req).to have_been_made
       end
 
       it "does not fail for malformed urls" do
         expect do
-          Webhookdb::AWS.s3.upload_url(Webhookdb::Customer, "buckit", "/some-folder/my-image.png?dl=0")
+          described_class.s3.upload_url(Webhookdb::Customer, "buckit", "/some-folder/my-image.png?dl=0")
         end.to raise_error(/be an absolute/)
       end
     end

@@ -37,6 +37,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
       expect(good).to contain_exactly(lw1)
       expect(bad).to contain_exactly(lw2)
     end
+
     it "can truncate successes" do
       lw1 = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
       lw2 = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "b").create
@@ -46,6 +47,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
       expect(lw1.refresh).to be_truncated
       expect(lw2.refresh).to_not be_truncated
     end
+
     it "does not add default Ruby headers" do
       lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").
         body('{"a": 1}').
@@ -79,6 +81,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
       stub_request(:post, "http://localhost:17001/v1/service_integrations/a").to_return(status: 202)
       expect(lw.retry_one).to be_truthy
     end
+
     it "returns false on failure" do
       lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
       stub_request(:post, "http://localhost:17001/v1/service_integrations/a").to_return(status: 500)

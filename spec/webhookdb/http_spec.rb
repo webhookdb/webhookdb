@@ -12,9 +12,11 @@ RSpec.describe Webhookdb::Http do
       expect(req).to have_been_made
       expect(qreq).to have_been_made
     end
+
     it "requires a :logger" do
       expect { described_class.get("https://x.y") }.to raise_error(ArgumentError, "must pass :logger keyword")
     end
+
     it "passes through options and merges headers" do
       req = stub_request(:get, "https://a.b/").
         with(
@@ -33,6 +35,7 @@ RSpec.describe Webhookdb::Http do
       )
       expect(req).to have_been_made
     end
+
     it "errors on non-ok" do
       stub_request(:get, "https://a.b/").
         to_return(status: 500, body: "meh")
@@ -40,6 +43,7 @@ RSpec.describe Webhookdb::Http do
       expect { described_class.get("https://a.b", logger: nil) }.to raise_error(described_class::Error)
     end
   end
+
   describe "post" do
     it "calls HTTP POST" do
       req = stub_request(:post, "https://a.b").
@@ -53,6 +57,7 @@ RSpec.describe Webhookdb::Http do
       expect(req).to have_been_made
       expect(qreq).to have_been_made
     end
+
     it "will not to_json string body" do
       req = stub_request(:post, "https://a.b").
         with(body: "xyz").
@@ -60,6 +65,7 @@ RSpec.describe Webhookdb::Http do
       described_class.post("https://a.b", "xyz", logger: nil)
       expect(req).to have_been_made
     end
+
     it "will not to_json if content type is not json" do
       req = stub_request(:post, "https://a.b").
         with(body: "x=1").
@@ -71,9 +77,11 @@ RSpec.describe Webhookdb::Http do
       )
       expect(req).to have_been_made
     end
+
     it "requires a :logger" do
       expect { described_class.post("https://x.y") }.to raise_error(ArgumentError, "must pass :logger keyword")
     end
+
     it "passes through options and merges headers" do
       req = stub_request(:post, "https://a.b/").
         with(
@@ -92,6 +100,7 @@ RSpec.describe Webhookdb::Http do
       )
       expect(req).to have_been_made
     end
+
     it "errors on non-ok" do
       stub_request(:post, "https://a.b/").
         to_return(status: 500, body: "meh")
@@ -112,6 +121,7 @@ RSpec.describe Webhookdb::Http do
       expect(e).to_not be_nil
       expect(e.to_s).to eq("HttpError(status: 500, uri: https://a.b/?, body: meh)")
     end
+
     it "sanitizes query params with secret or access" do
       stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
         to_return(status: 500, body: "meh")

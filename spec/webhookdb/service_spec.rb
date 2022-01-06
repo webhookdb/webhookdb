@@ -134,24 +134,24 @@ RSpec.describe Webhookdb::Service, :db do
   include Rack::Test::Methods
 
   before(:all) do
-    @devmode = Webhookdb::Service.devmode
-    @enforce_ssl = Webhookdb::Service.enforce_ssl
+    @devmode = described_class.devmode
+    @enforce_ssl = described_class.enforce_ssl
   end
 
   after(:all) do
-    Webhookdb::Service.devmode = @devmode
-    Webhookdb::Service.enforce_ssl = @enforce_ssl
+    described_class.devmode = @devmode
+    described_class.enforce_ssl = @enforce_ssl
   end
 
   before(:each) do
-    Webhookdb::Service.devmode = true
-    Webhookdb::Service.enforce_ssl = false
+    described_class.devmode = true
+    described_class.enforce_ssl = false
   end
 
   let(:app) { Webhookdb::API::TestService.build_app }
 
   it "redirects requests if SSL is enforced" do
-    Webhookdb::Service.enforce_ssl = true
+    described_class.enforce_ssl = true
 
     get "/hello"
     expect(last_response).to have_status(301)
@@ -238,7 +238,7 @@ RSpec.describe Webhookdb::Service, :db do
     Webhookdb::Sentry.run_after_configured_hooks
     expect(Sentry).to receive(:capture_exception)
 
-    Webhookdb::Service.devmode = false
+    described_class.devmode = false
 
     get "/unhandled"
 
@@ -256,7 +256,7 @@ RSpec.describe Webhookdb::Service, :db do
   end
 
   it "uses a consistent error shape for unhandled errors (devmode: on)" do
-    Webhookdb::Service.devmode = true
+    described_class.devmode = true
 
     get "/unhandled"
 
@@ -272,7 +272,7 @@ RSpec.describe Webhookdb::Service, :db do
   end
 
   it "returns 405s as-is" do
-    Webhookdb::Service.devmode = true
+    described_class.devmode = true
 
     put "/hello"
 
@@ -289,11 +289,11 @@ RSpec.describe Webhookdb::Service, :db do
 
   describe "endpoint caching" do
     after(:all) do
-      Webhookdb::Service.endpoint_caching = false
+      described_class.endpoint_caching = false
     end
 
     it "can cache via an Expires header" do
-      Webhookdb::Service.endpoint_caching = true
+      described_class.endpoint_caching = true
 
       get "/caching"
 
@@ -303,7 +303,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "does not cache if endpoint caching is disabled" do
-      Webhookdb::Service.endpoint_caching = false
+      described_class.endpoint_caching = false
 
       get "/caching"
 
@@ -376,12 +376,13 @@ RSpec.describe Webhookdb::Service, :db do
       )
       Thread.current.thread_variable_set(Sentry::THREAD_LOCAL, hub)
     end
+
     after(:each) do
       Webhookdb::Sentry.reset_configuration
     end
 
     it "reports errors to Sentry if devmode is off and Sentry is enabled" do
-      Webhookdb::Service.devmode = false
+      described_class.devmode = false
       Webhookdb::Sentry.dsn = "foo"
       expect(Sentry).to receive(:capture_exception).
         with(ZeroDivisionError, tags: include(:error_id, :error_signature))
@@ -391,7 +392,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "does not report errors to Sentry if devmode is on and Sentry is enabled" do
-      Webhookdb::Service.devmode = true
+      described_class.devmode = true
       Webhookdb::Sentry.dsn = "foo"
       expect(Sentry).to_not receive(:capture_exception)
 
@@ -400,7 +401,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "does not report errors to Sentry if devmode is on and Sentry is disabled" do
-      Webhookdb::Service.devmode = true
+      described_class.devmode = true
       Webhookdb::Sentry.reset_configuration
       expect(Sentry).to_not receive(:capture_exception)
 
@@ -409,7 +410,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "does not report errors to Sentry if devmode is off and Sentry is disabled" do
-      Webhookdb::Service.devmode = false
+      described_class.devmode = false
       Webhookdb::Sentry.reset_configuration
       expect(Sentry).to_not receive(:capture_exception)
 
@@ -715,6 +716,7 @@ RSpec.describe Webhookdb::Service, :db do
         r = ent.represent(double(time: t, customer: double(mytz: "America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "renders using a path to an object with a :timezone method" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
@@ -722,6 +724,7 @@ RSpec.describe Webhookdb::Service, :db do
         r = ent.represent(double(time: t, customer: double(timezone: "America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "renders using a path to an object with a :time_zone method" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
@@ -729,6 +732,7 @@ RSpec.describe Webhookdb::Service, :db do
         r = ent.represent(double(time: t, customer: double(time_zone: "America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "uses the default rendering if any item in the path is missing" do
         ts = t.iso8601
         ent = Class.new(Webhookdb::Service::Entities::Base) do
@@ -753,6 +757,7 @@ RSpec.describe Webhookdb::Service, :db do
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
       end
+
       it "can pull from an explicit field" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time_not_here, &self.timezone(:customer, field: :mytime)

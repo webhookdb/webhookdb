@@ -8,6 +8,7 @@ RSpec.describe "Webhookdb::Shopify" do
       expect(Webhookdb::Shopify.parse_link_header("")).to eq({})
     end
     # rubocop:disable Layout/LineLength
+
     it "parses presence of single link" do
       prev_link_header = '<https://shop-domain.myshopify.com/admin/api/2019-07/products.json?limit=50&page_info=eyJkaXJlY3>; rel="previous"'
       expect(Webhookdb::Shopify.parse_link_header(prev_link_header)).to have_key(:previous)
@@ -17,6 +18,7 @@ RSpec.describe "Webhookdb::Shopify" do
       expect(Webhookdb::Shopify.parse_link_header(next_link_header)).to have_key(:next)
       expect(Webhookdb::Shopify.parse_link_header(next_link_header)).to have_value("https://shop-domain.myshopify.io/admin/api/2019-07/products.json?limit=250&page_info=eyJsYXN0X2")
     end
+
     it "parses presence of multiple links" do
       link_header = '<https://shop-domain.myshopify.com/admin/api/2019-07/products.json?limit=50&page_info=eyJkaXJlY3>; rel="previous", <https://shop-domain.myshopify.io/admin/api/2019-07/products.json?limit=250&page_info=eyJsYXN0X2>; rel="next"'
       expect(Webhookdb::Shopify.parse_link_header(link_header)).to have_key(:previous)
@@ -35,6 +37,7 @@ RSpec.describe "Webhookdb::Shopify" do
       verified = Webhookdb::Shopify.verify_webhook("asdfghujkl", hmac_header, webhook_secret)
       expect(verified).to eq(false)
     end
+
     it "returns true if auth info is correct" do
       webhook_secret = "asdf5678"
       request_data = "asdfghujkl"

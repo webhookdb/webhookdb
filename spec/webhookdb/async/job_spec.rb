@@ -89,7 +89,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -118,7 +118,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -147,7 +147,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -177,7 +177,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -207,7 +207,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -243,7 +243,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -292,7 +292,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -312,7 +312,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -332,7 +332,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
 
@@ -358,7 +358,7 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
 
       it "returns false if the changes are nil" do
-        expect(matcher.nil?).to be_falsey
+        expect(matcher).to_not be_nil
       end
     end
   end

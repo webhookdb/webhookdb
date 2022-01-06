@@ -90,10 +90,10 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
   end
 
   it "can create a schema even if it does exist" do
-    expect(described_class.schema_exists?(:testing)).to be_falsey
+    expect(described_class).to_not be_schema_exists(:testing)
     described_class.create_schema(:testing)
     described_class.create_schema(:testing)
-    expect(described_class.schema_exists?(:testing)).to be_truthy
+    expect(described_class).to be_schema_exists(:testing)
   end
 
   it "knows what its schema is named" do
@@ -293,7 +293,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "touches updated_at after the block returns" do
-      expect { instance.resource_lock! { true } }.to(change { instance.updated_at })
+      expect { instance.resource_lock! { true } }.to(change(instance, :updated_at))
     end
 
     it "ignores fractional microseconds since databases do not store that precision" do
@@ -306,6 +306,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
   describe "slow query logging" do
     before(:each) { @duration = described_class.db.log_warn_duration }
+
     after(:each) { described_class.db.log_warn_duration = @duration }
 
     it "logs slow queries with structure" do
@@ -336,6 +337,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     names = ["a", "b", "c", "d"]
     Cls = Webhookdb::Postgres::TestingPixie
     let(:ds) { Cls.dataset }
+
     before(:each) do
       names.each { |n| Cls.create(name: n) }
     end

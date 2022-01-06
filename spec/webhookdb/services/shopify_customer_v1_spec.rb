@@ -443,6 +443,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
         expect(sint.api_url).to eq("https://looney-tunes.myshopify.com")
       end
     end
+
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do
         sm = sint.calculate_create_state_machine
@@ -469,6 +470,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
@@ -477,6 +479,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
           }
         R
       end
+
       def stub_service_request
         return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/customers.json").
             with(headers: {"Authorization" => "Basic a2V5X2doamtsOndoc2VjX2FiY2FzZGY="}).
@@ -507,7 +510,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
         )
       end
 
-      it "asks for store name " do
+      it "asks for store name" do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
         sm = sint.calculate_backfill_state_machine

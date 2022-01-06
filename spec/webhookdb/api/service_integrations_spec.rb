@@ -8,6 +8,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
+  let!(:organization) { Webhookdb::Fixtures.organization.create }
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:membership) { org.add_membership(customer:, verified: true) }
@@ -39,11 +40,10 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       },
     )
   end
+
   after(:each) do
     Webhookdb::Services::Fake.reset
   end
-
-  let!(:organization) { Webhookdb::Fixtures.organization.create }
 
   describe "POST /v1/service_integrations/:opaque_id" do
     before(:each) do

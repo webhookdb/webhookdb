@@ -115,6 +115,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   # POST
   describe "POST v1/organizations/:identifier/service_integrations/create" do
     let(:internal_role) { Webhookdb::Role.create(name: "internal") }
+
     it "creates a service integration" do
       customer.memberships_dataset.update(membership_role_id: admin_role.id)
       org.add_feature_role(internal_role)

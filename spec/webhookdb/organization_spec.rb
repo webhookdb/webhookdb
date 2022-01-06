@@ -119,6 +119,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     after(:each) do
       described_class::DbBuilder.reset_configuration
     end
+
     it "noops if not configured" do
       o.update(
         admin_connection_url_raw: "postgres://pg/db",
@@ -189,7 +190,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
 
     it "noops if connection urls are not set" do
-      expect { o.remove_related_database }.not_to raise_error
+      expect { o.remove_related_database }.to_not raise_error
     end
   end
 
@@ -310,6 +311,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       Webhookdb::Fixtures.subscription.active.for_org(o).create
       expect(o.can_add_new_integration?).to eq(true)
     end
+
     it "returns true if org has no active subscription and uses fewer than max free integrations" do
       Webhookdb::Fixtures.subscription.canceled.for_org(o).create
       expect(o.can_add_new_integration?).to eq(true)
