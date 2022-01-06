@@ -66,6 +66,7 @@ group :test_group do
   gem "rubocop"
   gem "rubocop-performance", require: false
   gem "rubocop-rake", require: false
+  gem "rubocop-rspec", require: false
   gem "rubocop-sequel", require: false
   gem "timecop"
   gem "watir"
