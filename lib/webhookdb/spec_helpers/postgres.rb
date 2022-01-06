@@ -77,6 +77,8 @@ module Webhookdb::SpecHelpers::Postgres
   singleton_attr_accessor :current_test_model_uid
   self.current_test_model_uid = 0
 
+  module Models; end
+
   # Create an anonymous model with the given table name.
   # Can be a symbol, string, or [:schema, :table] array.
   module_function def create_model(name, &)
@@ -94,7 +96,14 @@ module Webhookdb::SpecHelpers::Postgres
 
     Webhookdb::Postgres.logger.info "Creating table: %p" % [qualified_name]
     Webhookdb::Postgres::Model.db.create_table!(qualified_name, &)
-    return Class.new(Webhookdb::Postgres::Model(qualified_name))
+    clsname = table_name.to_s.classify
+    clsfqn = "#{Webhookdb::SpecHelpers::Postgres::Models}::#{clsname}"
+    cls = Class.new(Webhookdb::Postgres::Model(qualified_name)) do
+      define_singleton_method(:name) { clsfqn }
+    end
+    Webhookdb::SpecHelpers::Postgres::Models.const_set(clsname, cls)
+    # Object.const_get(clsfqn)
+    return cls
   end
 
   module_function def truncate_all
@@ -108,6 +117,10 @@ module Webhookdb::SpecHelpers::Postgres
         m.dataset.delete
       rescue Sequel::ForeignKeyConstraintViolation
         m.truncate(cascade: true)
+      rescue Sequel::DatabaseError
+        # The table may not exist, maybe because the type was created in a test
+        # and now no longer exists but it still a subclass.
+        nil
       end
     end
   end

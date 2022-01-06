@@ -2,48 +2,25 @@
 
 require "webhookdb/postgres"
 
+module WebhookdbTestModels; end
+
 RSpec.describe "Webhookdb::Postgres::Model", :db do
   let(:described_class) { Webhookdb::Postgres::Model }
-
-  before(:each) do
-    @original_subclasses = described_class.subclasses.dup
-  end
-
-  after(:each) do
-    described_class.subclasses.replace(@original_subclasses)
-  end
 
   it "is abstract (doesn't have a dataset of its own)" do
     expect { described_class.dataset }.to raise_error(Sequel::Error, /no dataset/i)
   end
 
   context "a subclass" do
-    after(:each) do
-      Webhookdb.send(:remove_const, :StripeyAnimal) if Webhookdb.const_defined?(:StripeyAnimal)
-    end
-
-    let(:subclass) do
-      classobj = Class.new(described_class) do
-        def self.name
-          "Webhookdb::StripeyAnimal"
-        end
-      end
-      Webhookdb.const_set(:StripeyAnimal, classobj)
-      classobj
-    end
-
     it "gets the database connection when one is set on the parent" do
+      subclass = create_model(:conn_setter)
       expect(described_class.db).to_not be_nil
       expect(subclass.db).to eq(described_class.db)
     end
 
     it "registers a topological dependency for associations" do
+      subclass = create_model(:allergies)
       other_class = create_model(:food_preferences)
-      other_class.instance_eval do
-        def self.name
-          "Webhookdb::FoodPreference"
-        end
-      end
       other_class.many_to_one :related, class: subclass, key: :a_key
 
       sorted_classes = described_class.tsort
@@ -51,13 +28,14 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "doesn't register a dependency for an association marked as ':polymorphic'" do
-      other_class = create_model(:tickets)
-      other_class.many_to_one :subject, reciprocal: :tickets
-      subclass.one_to_many :tickets,
-                           class: other_class,
-                           key: :subject_id,
-                           conditions: {subject_type: subclass.name},
-                           polymorphic: true
+      animal = create_model(:animals)
+      ticket = create_model(:tickets)
+      ticket.many_to_one :subject, class: animal, reciprocal: :tickets
+      animal.one_to_many :tickets,
+                         class: ticket,
+                         key: :subject_id,
+                         conditions: {subject_type: animal.name},
+                         polymorphic: true
 
       # NameError: uninitialized constant Webhookdb::Ticket
       expect { described_class.tsort }.to_not raise_error
@@ -70,6 +48,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         end
       end
 
+      subclass = create_model("modext")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.new.some_extension_stuff).to eq(:extension_stuff)
@@ -84,6 +63,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         end
       end
 
+      subclass = create_model("classmethods")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.some_class_extension_stuff).to eq(:class_extension_stuff)
@@ -102,6 +82,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         end
       end
 
+      subclass = create_model("prepends")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.new.a_method).to eq(:extension_a_method)
