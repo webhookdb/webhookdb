@@ -27,8 +27,8 @@ RSpec.describe Webhookdb::Postgres do
   end
 
   it "requires registered models immediately if any model superclass has a connection" do
-    conn = double("dummy connection")
-    superclass = double("model superclass", db: conn)
+    conn = instance_double("dummy connection")
+    superclass = instance_double("model superclass", db: conn)
     described_class.model_superclasses.add(superclass)
 
     expect(described_class).to receive(:require).with("spacemonkeys")
@@ -44,7 +44,7 @@ RSpec.describe Webhookdb::Postgres do
   end
 
   it "defers requiring registered models if no model superclass has a connection" do
-    superclass = double("model superclass", db: nil)
+    superclass = instance_double("model superclass", db: nil)
     described_class.model_superclasses.add(superclass)
 
     expect(described_class).to_not receive(:require)

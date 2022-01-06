@@ -33,7 +33,9 @@ RSpec.describe Webhookdb::SpecHelpers::Postgres, :db do
   end
 
   describe "have_same_ids_as matcher" do
-    FakeItem = Struct.new(:id)
+    before(:each) do
+      stub_const "FakeItem", Struct.new(:id)
+    end
 
     def item(id)
       return [FakeItem.new(id), {id:}, {"id" => id}].sample

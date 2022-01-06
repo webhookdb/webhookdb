@@ -713,7 +713,11 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer, :mytz)
         end
-        r = ent.represent(double(time: t, customer: double(mytz: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", mytz: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
@@ -721,7 +725,11 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(double(time: t, customer: double(timezone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", timezone: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
@@ -729,7 +737,11 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(double(time: t, customer: double(time_zone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", time_zone: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
@@ -739,21 +751,21 @@ RSpec.describe Webhookdb::Service, :db do
           expose :time, &self.timezone(:customer, :mytz)
         end
 
-        d = double(time: t)
+        d = instance_double("Obj", time: t)
         expect(d).to receive(:customer).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double)
+        d = instance_double("Obj", time: t, customer: instance_double("Customer"))
         expect(d.customer).to receive(:mytz).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double(mytz: nil))
+        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: nil))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double(mytz: ""))
+        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: ""))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
       end
@@ -762,7 +774,11 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time_not_here, &self.timezone(:customer, field: :mytime)
         end
-        r = ent.represent(double(mytime: t, customer: double(time_zone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          mytime: t,
+                          customer: instance_double("Customer", time_zone: "America/New_York"),),
+        )
         expect(r.as_json[:time_not_here]).to eq("2021-09-16T08:41:23-04:00")
       end
     end

@@ -55,11 +55,11 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "can be extended at runtime with class methods via a ClassMethods submodule" do
-      extension_mod = Module.new do
-        module ClassMethods
-          def some_class_extension_stuff
-            :class_extension_stuff
-          end
+      extension_mod = Module.new
+      extension_mod.const_set :ClassMethods, Module.new
+      extension_mod::ClassMethods.module_eval do
+        def some_class_extension_stuff
+          :class_extension_stuff
         end
       end
 
@@ -70,15 +70,16 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "can override methods at runtime with a PrependedMethods submodule" do
-      extension_mod = Module.new do
+      extension_mod = Module.new
+      extension_mod.module_eval do
         def a_method
           :original_a_method
         end
-
-        module PrependedMethods
-          def a_method
-            :extension_a_method
-          end
+      end
+      extension_mod.const_set :PrependedMethods, Module.new
+      extension_mod::PrependedMethods.module_eval do
+        def a_method
+          :extension_a_method
         end
       end
 
@@ -335,28 +336,28 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
   describe "each_cursor_page" do
     names = ["a", "b", "c", "d"]
-    Cls = Webhookdb::Postgres::TestingPixie
-    let(:ds) { Cls.dataset }
+    cls = Webhookdb::Postgres::TestingPixie
+    let(:ds) { cls.dataset }
 
     before(:each) do
-      names.each { |n| Cls.create(name: n) }
+      names.each { |n| cls.create(name: n) }
     end
 
     it "chunks pages and calls each item in the block" do
       result = []
-      Cls.each_cursor_page(page_size: 2) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2) { |r| result << r.name }
       expect(result).to eq(names)
     end
 
     it "can order by a column" do
       result = []
-      Cls.each_cursor_page(page_size: 2, order: Sequel.desc(:name)) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2, order: Sequel.desc(:name)) { |r| result << r.name }
       expect(result).to eq(names.reverse)
     end
 
     it "can order by multiple columns" do
       result = []
-      Cls.each_cursor_page(page_size: 2, order: [Sequel.desc(:name), :id]) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2, order: [Sequel.desc(:name), :id]) { |r| result << r.name }
       expect(result).to eq(names.reverse)
     end
 
@@ -376,7 +377,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         action_calls += 1
         ds.multi_insert(v)
       }
-      Cls.each_cursor_page_action(page_size: 3, action:) do |tp|
+      cls.each_cursor_page_action(page_size: 3, action:) do |tp|
         tp.name == "a" ? (Array.new(10) { |i| {name: "a#{i}"} }) : nil
       end
       expect(ds.order(:id).all.map(&:name)).to eq(
@@ -386,7 +387,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "ignores nil results returned from the block" do
-      Cls.each_cursor_page_action(page_size: 1, action: ds.method(:multi_insert)) do |tp|
+      cls.each_cursor_page_action(page_size: 1, action: ds.method(:multi_insert)) do |tp|
         tp.name >= "c" ? nil : {name: tp.name + "prime"}
       end
       expect(ds.order(:id).all.map(&:name)).to eq(

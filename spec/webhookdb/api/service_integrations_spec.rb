@@ -8,48 +8,43 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
-  let!(:organization) { Webhookdb::Fixtures.organization.create }
-  let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer:, verified: true) }
-  let!(:admin_role) { Webhookdb::Role.create(name: "admin") }
+  let!(:customer) { Webhookdb::Fixtures.customer.in_org(org, verified: true).create }
   let!(:sint) do
     Webhookdb::Fixtures.service_integration.create(
-      opaque_id: "xyz", organization: org, service_name: "fake_v1", backfill_key: "qwerty",
+      opaque_id: "xyz",
+      organization: org,
+      service_name: "fake_v1",
+      backfill_key: "qwerty",
     )
   end
 
-  let!(:twilio_sint) do
-    Webhookdb::ServiceIntegration.create(
-      {
-        opaque_id: SecureRandom.hex(6),
-        table_name: SecureRandom.hex(2),
-        service_name: "twilio_sms_v1",
-        organization: org,
-      },
-    )
-  end
+  # let(:sint) do
+  #   Webhookdb::ServiceIntegration.create(
+  #     {
+  #       opaque_id: SecureRandom.hex(6),
+  #       table_name: SecureRandom.hex(2),
+  #       service_name: "shopify_order_v1",
+  #       organization: org,
+  #     },
+  #   )
+  # end
 
-  let!(:shopify_sint) do
-    Webhookdb::ServiceIntegration.create(
-      {
-        opaque_id: SecureRandom.hex(6),
-        table_name: SecureRandom.hex(2),
-        service_name: "shopify_order_v1",
-        organization: org,
-      },
-    )
+  before(:each) do
+    Webhookdb::Services::Fake.reset
   end
 
   after(:each) do
     Webhookdb::Services::Fake.reset
   end
 
-  describe "POST /v1/service_integrations/:opaque_id" do
-    before(:each) do
-      Webhookdb::Services::Fake.reset
-    end
+  def max_out_plan_integrations(org)
+    # Already have an initial service integration, create one more, then a 3rd which won't be usable
+    Webhookdb::Fixtures.service_integration(organization: org).create
+    return Webhookdb::Fixtures.service_integration(organization: org).create
+  end
 
+  describe "POST /v1/service_integrations/:opaque_id" do
     it "publishes an event with the data for the webhook", :async do
       header "X-My-Test", "abc"
       expect do
@@ -181,7 +176,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "fails if service integration is not supported by subscription plan" do
-      post "/v1/service_integrations/#{shopify_sint.opaque_id}/reset"
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/service_integrations/#{maxed.opaque_id}/reset"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
@@ -192,7 +189,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "POST /v1/service_integrations/:opaque_id/backfill" do
     before(:each) do
-      Webhookdb::Services::Fake.reset
       login_as(customer)
     end
 
@@ -215,7 +211,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "fails if service integration is not supported by subscription plan" do
-      post "/v1/service_integrations/#{shopify_sint.opaque_id}/backfill"
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/service_integrations/#{maxed.opaque_id}/backfill"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
@@ -226,7 +224,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "POST /v1/service_integrations/:opaque_id/backfill/reset" do
     before(:each) do
-      Webhookdb::Services::Fake.reset
       login_as(customer)
     end
 
@@ -251,7 +248,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "fails if service integration is not supported by subscription plan" do
-      post "/v1/service_integrations/#{shopify_sint.opaque_id}/backfill/reset"
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/service_integrations/#{maxed.opaque_id}/backfill/reset"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
@@ -262,7 +261,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "POST /v1/service_integrations/:opaque_id/transition/:field" do
     before(:each) do
-      Webhookdb::Services::Fake.reset
       login_as(customer)
     end
 
@@ -292,7 +290,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "fails if service integration is not supported by subscription plan" do
-      post "/v1/service_integrations/#{shopify_sint.opaque_id}/transition/webhook_secret", value: "open_sesame"
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/service_integrations/#{maxed.opaque_id}/transition/webhook_secret", value: "open_sesame"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(

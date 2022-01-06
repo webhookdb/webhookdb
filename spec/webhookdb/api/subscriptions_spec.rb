@@ -7,9 +7,8 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
-  let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer:, verified: true) }
+  let!(:customer) { Webhookdb::Fixtures.customer.in_org(org, verified: true).create }
 
   before(:each) do
     login_as(customer)
