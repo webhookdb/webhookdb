@@ -7,6 +7,10 @@ RSpec.describe Webhookdb::Services::Fake, :db do
     Webhookdb::Services::Fake.reset
     Webhookdb::Services::FakeWithEnrichments.reset
   end
+  after(:each) do
+    Webhookdb::Services::Fake.reset
+    Webhookdb::Services::FakeWithEnrichments.reset
+  end
   it_behaves_like "a service implementation", "fake_v1" do
     let(:body) do
       {
