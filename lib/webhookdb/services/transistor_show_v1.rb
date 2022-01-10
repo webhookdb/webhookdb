@@ -58,7 +58,7 @@ class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
     response = Webhookdb::Http.get(
       url,
       headers: {"x-api-key" => self.service_integration.backfill_key},
-      body: {pagination: {page: page}, private: iterating_over_private},
+      body: {pagination: {page:}, private: iterating_over_private},
       logger: self.logger,
     )
     data = response.parsed_response

@@ -181,20 +181,20 @@ class Webhookdb::Services::Base
   def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
     enrichment = self._fetch_enrichment(body)
-    prepared = self._prepare_for_insert(body, enrichment: enrichment)
+    prepared = self._prepare_for_insert(body, enrichment:)
     return nil if prepared.nil?
     inserting = {data: body.to_json}
     inserting.merge!(prepared)
-    updating = self._upsert_update_expr(inserting, enrichment: enrichment)
+    updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
     self.admin_dataset do |ds|
       ds.insert_conflict(
         target: remote_key_col.name,
         update: updating,
-        update_where: update_where,
+        update_where:,
       ).insert(inserting)
     end
-    self._after_insert(inserting, enrichment: enrichment)
+    self._after_insert(inserting, enrichment:)
   end
 
   # Given a webhook body that is going to be inserted,
@@ -249,12 +249,12 @@ class Webhookdb::Services::Base
     return inserting
   end
 
-  def admin_dataset(&block)
-    self.with_dataset(self.service_integration.organization.admin_connection_url_raw, &block)
+  def admin_dataset(&)
+    self.with_dataset(self.service_integration.organization.admin_connection_url_raw, &)
   end
 
-  def readonly_dataset(&block)
-    self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, &block)
+  def readonly_dataset(&)
+    self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, &)
   end
 
   protected def with_dataset(url, &block)
@@ -302,7 +302,7 @@ class Webhookdb::Services::Base
     new_last_backfilled = Time.now
     loop do
       page, next_pagination_token = self._fetch_backfill_page_with_retry(
-        pagination_token, last_backfilled: last_backfilled,
+        pagination_token, last_backfilled:,
       )
       pagination_token = next_pagination_token
       page.each do |item|
@@ -322,11 +322,11 @@ class Webhookdb::Services::Base
   end
 
   def _fetch_backfill_page_with_retry(pagination_token, last_backfilled: nil, attempt: 1)
-    return self._fetch_backfill_page(pagination_token, last_backfilled: last_backfilled)
+    return self._fetch_backfill_page(pagination_token, last_backfilled:)
   rescue RuntimeError => e
     raise e if attempt >= self.max_backfill_retry_attempts
-    self.wait_for_retry_attempt(attempt: attempt)
-    return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled: last_backfilled,
+    self.wait_for_retry_attempt(attempt:)
+    return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled:,
                                                                   attempt: attempt + 1,)
   end
 

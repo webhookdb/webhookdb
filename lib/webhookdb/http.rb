@@ -40,7 +40,7 @@ module Webhookdb::Http
 
   def self.get(url, query={}, **options)
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
-    opts = {query: query, headers: {}}.merge(**options)
+    opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
     r = HTTParty.get(url, **opts)
     self.check!(r)
@@ -52,7 +52,7 @@ module Webhookdb::Http
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
-    opts = {body: body, headers: headers}.merge(**options)
+    opts = {body:, headers:}.merge(**options)
     r = HTTParty.post(url, **opts)
     self.check!(r)
     return r

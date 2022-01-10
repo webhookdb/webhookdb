@@ -4312,6 +4312,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
       expect(status).to eq(200)
     end
   end
+
   describe "state machine calculation" do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "shopify_order_v1", backfill_secret: "",
@@ -4352,6 +4353,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
@@ -4360,6 +4362,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
           }
         R
       end
+
       def stub_service_request
         return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/orders.json?status=any").
             with(headers: {"Authorization" => "Basic a2V5X2doamtsOndoc2VjX2FiY2FzZGY="}).
@@ -4391,7 +4394,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
         )
       end
 
-      it "asks for store name " do
+      it "asks for store name" do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
         sm = sint.calculate_backfill_state_machine

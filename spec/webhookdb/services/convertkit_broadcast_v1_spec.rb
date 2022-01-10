@@ -120,13 +120,14 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         expect(sm).to have_attributes(output: match(/ConvertKit Broadcast webhooks are not/))
       end
     end
+
     describe "calculate_backfill_state_machine" do
       def stub_service_request
         return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
             to_return(status: 200, body: "", headers: {})
       end
 
-      it "it asks for backfill secret" do
+      it "asks for backfill secret" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
@@ -137,6 +138,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           output: match("We've created your"),
         )
       end
+
       it "returns backfill in progress message" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request
@@ -240,6 +242,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
       svc._fetch_enrichment(body)
       expect(req).to have_been_made
     end
+
     it "defaults stats" do
       req = stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
         to_return(
@@ -250,6 +253,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
       expect(svc._fetch_enrichment(body)).to eq({})
       expect(req).to have_been_made
     end
+
     it "sleeps to avoid rate limiting" do
       Webhookdb::Convertkit.sleep_seconds = 1.2
       expect(Kernel).to receive(:sleep).with(1.2)

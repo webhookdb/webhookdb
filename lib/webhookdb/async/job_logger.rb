@@ -15,7 +15,7 @@ class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
 
   Sidekiq.logger = self.logger
 
-  def call(item, _queue, &block)
+  def call(item, _queue, &)
     start = self.now
     tags = {
       job_class: item["class"],
@@ -23,7 +23,7 @@ class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
       thread_id: self.tid,
     }
     self.with_log_tags(tags) do
-      self.call_inner(start, &block)
+      self.call_inner(start, &)
     end
   end
 
@@ -31,7 +31,7 @@ class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
     yield
     duration = self.elapsed(start)
     log_method = duration >= Webhookdb::Async.slow_job_seconds ? :warn : :info
-    self.logger.send(log_method, "job_done", duration: duration)
+    self.logger.send(log_method, "job_done", duration:)
   rescue StandardError
     # Do not log the error since it is probably a sidekiq retry error
     self.logger.error("job_fail", duration: self.elapsed(start))

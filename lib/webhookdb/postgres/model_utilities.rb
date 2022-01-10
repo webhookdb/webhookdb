@@ -96,9 +96,9 @@ module Webhookdb::Postgres::ModelUtilities
     end
 
     # Create the schema named +name+, dropping any previous schema by the same name.
-    def create_schema!(name, &block)
+    def create_schema!(name, &)
       self.drop_schema!(name)
-      self.create_schema(name, &block)
+      self.create_schema(name, &)
     end
 
     # Drop the empty schema named +name+ (if it exists).
@@ -131,8 +131,8 @@ module Webhookdb::Postgres::ModelUtilities
     end
 
     # TSort API -- yield each model class.
-    def tsort_each_node(&block)
-      self.descendents.select(&:name).each(&block)
+    def tsort_each_node(&)
+      self.descendents.select(&:name).each(&)
     end
 
     # TSort API -- yield each of the given +model_class+'s dependent model
@@ -170,10 +170,10 @@ module Webhookdb::Postgres::ModelUtilities
   # Like +find_or_create+, but will +find+ again if the +create+
   # call fails due to a +Sequel::UniqueConstraintViolation+,
   # which is usually caused by a race condition.
-  def find_or_create_or_find(params, &block)
+  def find_or_create_or_find(params, &)
     # Set a savepoint, because the DB error will abort the current transaction.
     self.db.transaction(savepoint: true) do
-      return self.find_or_create(params, &block)
+      return self.find_or_create(params, &)
     end
   rescue Sequel::UniqueConstraintViolation
     return self.find(params)
@@ -309,7 +309,7 @@ module Webhookdb::Postgres::ModelUtilities
       model = self.model
       pk = model.primary_key
       current_chunk_pks = []
-      order = order.respond_to?(:to_ary) ? order : [order]
+      order = [order] unless order.respond_to?(:to_ary)
       self.naked.select(pk).order(*order).use_cursor(rows_per_fetch: page_size, hold: true).each do |row|
         current_chunk_pks << row[pk]
         next if current_chunk_pks.length < page_size
@@ -329,7 +329,7 @@ module Webhookdb::Postgres::ModelUtilities
     def each_cursor_page_action(action:, page_size: 500, order: :id)
       raise LocalJumpError unless block_given?
       returned_rows_chunk = []
-      self.each_cursor_page(page_size: page_size, order: order) do |instance|
+      self.each_cursor_page(page_size:, order:) do |instance|
         new_row = yield(instance)
         next if action.nil? || new_row.nil?
         new_row.respond_to?(:to_ary) ? returned_rows_chunk.concat(new_row) : returned_rows_chunk.push(new_row)

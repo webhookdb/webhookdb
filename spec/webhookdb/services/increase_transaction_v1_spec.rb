@@ -230,6 +230,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       expect(status).to eq(200)
     end
   end
+
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_transaction_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
@@ -260,6 +261,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
@@ -269,13 +271,14 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           }
         R
       end
+
       def stub_service_request
         return stub_request(:get, "https://api.increase.com/transactions").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
 
-      it "it asks for backfill key" do
+      it "asks for backfill key" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,

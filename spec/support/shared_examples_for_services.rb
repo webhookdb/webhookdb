@@ -17,14 +17,14 @@ RSpec.shared_examples "a service implementation" do |name|
   it "can create its table in its org db" do
     svc.create_table
     svc.readonly_dataset do |ds|
-      expect(ds.db.table_exists?(svc.table_sym)).to be_truthy
+      expect(ds.db).to be_table_exists(svc.table_sym)
     end
-    expect(sint.db.table_exists?(svc.table_sym)).to be_falsey
+    expect(sint.db).to_not be_table_exists(svc.table_sym)
   end
 
   it "can insert into its table" do
     svc.create_table
-    svc.upsert_webhook(body: body)
+    svc.upsert_webhook(body:)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_data)
@@ -324,7 +324,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   it "can use enriched data when inserting" do
     req = stub_service_request
-    svc.upsert_webhook(body: body)
+    svc.upsert_webhook(body:)
     expect(req).to have_been_made
     row = svc.readonly_dataset(&:first)
     assert_is_enriched(row)
@@ -332,14 +332,14 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   it "calls the after insert hook with the enrichment" do
     req = stub_service_request
-    svc.upsert_webhook(body: body)
+    svc.upsert_webhook(body:)
     expect(req).to have_been_made
     assert_enrichment_after_insert(svc.readonly_dataset(&:db))
   end
 
   it "errors if fetching enrichment errors" do
     req = stub_service_request_error
-    expect { svc.upsert_webhook(body: body) }.to raise_error(Webhookdb::Http::Error)
+    expect { svc.upsert_webhook(body:) }.to raise_error(Webhookdb::Http::Error)
     expect(req).to have_been_made
   end
 end

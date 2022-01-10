@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "rack/test"
-require "raven"
 
 require "webhookdb/api"
 
@@ -135,24 +134,24 @@ RSpec.describe Webhookdb::Service, :db do
   include Rack::Test::Methods
 
   before(:all) do
-    @devmode = Webhookdb::Service.devmode
-    @enforce_ssl = Webhookdb::Service.enforce_ssl
+    @devmode = described_class.devmode
+    @enforce_ssl = described_class.enforce_ssl
   end
 
   after(:all) do
-    Webhookdb::Service.devmode = @devmode
-    Webhookdb::Service.enforce_ssl = @enforce_ssl
+    described_class.devmode = @devmode
+    described_class.enforce_ssl = @enforce_ssl
   end
 
   before(:each) do
-    Webhookdb::Service.devmode = true
-    Webhookdb::Service.enforce_ssl = false
+    described_class.devmode = true
+    described_class.enforce_ssl = false
   end
 
   let(:app) { Webhookdb::API::TestService.build_app }
 
   it "redirects requests if SSL is enforced" do
-    Webhookdb::Service.enforce_ssl = true
+    described_class.enforce_ssl = true
 
     get "/hello"
     expect(last_response).to have_status(301)
@@ -235,10 +234,11 @@ RSpec.describe Webhookdb::Service, :db do
   end
 
   it "uses a consistent error shape for unhandled errors (devmode: off)" do
-    Webhookdb::Raven.dsn = "foo"
-    expect(Raven).to receive(:capture_exception)
+    Webhookdb::Sentry.dsn = "foo"
+    Webhookdb::Sentry.run_after_configured_hooks
+    expect(Sentry).to receive(:capture_exception)
 
-    Webhookdb::Service.devmode = false
+    described_class.devmode = false
 
     get "/unhandled"
 
@@ -251,10 +251,12 @@ RSpec.describe Webhookdb::Service, :db do
       code: "api_error",
     ))
     expect(last_response_json_body[:error]).to_not include(:backtrace)
+  ensure
+    Webhookdb::Sentry.reset_configuration
   end
 
   it "uses a consistent error shape for unhandled errors (devmode: on)" do
-    Webhookdb::Service.devmode = true
+    described_class.devmode = true
 
     get "/unhandled"
 
@@ -270,7 +272,7 @@ RSpec.describe Webhookdb::Service, :db do
   end
 
   it "returns 405s as-is" do
-    Webhookdb::Service.devmode = true
+    described_class.devmode = true
 
     put "/hello"
 
@@ -287,11 +289,11 @@ RSpec.describe Webhookdb::Service, :db do
 
   describe "endpoint caching" do
     after(:all) do
-      Webhookdb::Service.endpoint_caching = false
+      described_class.endpoint_caching = false
     end
 
     it "can cache via an Expires header" do
-      Webhookdb::Service.endpoint_caching = true
+      described_class.endpoint_caching = true
 
       get "/caching"
 
@@ -301,7 +303,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "does not cache if endpoint caching is disabled" do
-      Webhookdb::Service.endpoint_caching = false
+      described_class.endpoint_caching = false
 
       get "/caching"
 
@@ -364,89 +366,111 @@ RSpec.describe Webhookdb::Service, :db do
     )
   end
 
-  it "reports errors to sentry if devmode is off and raven is enabled" do
-    Webhookdb::Service.devmode = false
-    Webhookdb::Raven.dsn = "foo"
-    expect(Raven).to receive(:capture_exception).
-      with(ZeroDivisionError, tags: include(:error_id, :error_signature))
+  describe "Sentry integration" do
+    before(:each) do
+      # We need to fake doing what Sentry would be doing for initialization,
+      # so we can assert it has the right data in its scope.
+      hub = Sentry::Hub.new(
+        Sentry::Client.new(Sentry::Configuration.new),
+        Sentry::Scope.new,
+      )
+      Thread.current.thread_variable_set(Sentry::THREAD_LOCAL, hub)
+    end
 
-    get "/unhandled"
-    expect(last_response).to have_status(500)
-  end
+    after(:each) do
+      Webhookdb::Sentry.reset_configuration
+    end
 
-  it "does not report errors to sentry if devmode is on and raven is enabled" do
-    Webhookdb::Service.devmode = true
-    Webhookdb::Raven.dsn = "foo"
-    expect(Raven).to_not receive(:capture_exception)
+    it "reports errors to Sentry if devmode is off and Sentry is enabled" do
+      described_class.devmode = false
+      Webhookdb::Sentry.dsn = "foo"
+      expect(Sentry).to receive(:capture_exception).
+        with(ZeroDivisionError, tags: include(:error_id, :error_signature))
 
-    get "/unhandled"
-    expect(last_response).to have_status(500)
-  end
+      get "/unhandled"
+      expect(last_response).to have_status(500)
+    end
 
-  it "does not report errors to sentry if devmode is on and raven is disabled" do
-    Webhookdb::Service.devmode = true
-    Webhookdb::Raven.reset_configuration
-    expect(Raven).to_not receive(:capture_exception)
+    it "does not report errors to Sentry if devmode is on and Sentry is enabled" do
+      described_class.devmode = true
+      Webhookdb::Sentry.dsn = "foo"
+      expect(Sentry).to_not receive(:capture_exception)
 
-    get "/unhandled"
-    expect(last_response).to have_status(500)
-  end
+      get "/unhandled"
+      expect(last_response).to have_status(500)
+    end
 
-  it "does not report errors to sentry if devmode is off and raven is disabled" do
-    Webhookdb::Service.devmode = false
-    Webhookdb::Raven.reset_configuration
-    expect(Raven).to_not receive(:capture_exception)
+    it "does not report errors to Sentry if devmode is on and Sentry is disabled" do
+      described_class.devmode = true
+      Webhookdb::Sentry.reset_configuration
+      expect(Sentry).to_not receive(:capture_exception)
 
-    get "/unhandled"
-    expect(last_response).to have_status(500)
-  end
+      get "/unhandled"
+      expect(last_response).to have_status(500)
+    end
 
-  it "captures context for unauthed customers" do
-    get "/hello?world=1"
-    expect(last_response).to have_status(201)
+    it "does not report errors to Sentry if devmode is off and Sentry is disabled" do
+      described_class.devmode = false
+      Webhookdb::Sentry.reset_configuration
+      expect(Sentry).to_not receive(:capture_exception)
 
-    expect(Raven.context.user).to include(ip_address: "127.0.0.1")
-    expect(Raven.context.tags).to include(host: "example.org", method: "GET", path: "/hello", query: "world=1")
-  end
+      get "/unhandled"
+      expect(last_response).to have_status(500)
+    end
 
-  it "captures context for authed customers" do
-    customer = Webhookdb::Fixtures.customer.create
-    login_as(customer)
+    it "captures context for unauthed customers" do
+      get "/hello?world=1"
+      expect(last_response).to have_status(201)
 
-    get "/hello?world=1"
-    expect(last_response).to have_status(201)
+      expect(Sentry.get_current_scope).to have_attributes(
+        user: include(ip_address: "127.0.0.1"),
+        tags: include(host: "example.org", method: "GET", path: "/hello", query: "world=1"),
+      )
+    end
 
-    expect(Raven.context.user).to include(
-      ip_address: "127.0.0.1",
-      id: customer.id,
-      email: customer.email,
-      name: customer.name,
-    )
-    expect(Raven.context.tags).to include(
-      host: "example.org",
-      method: "GET",
-      path: "/hello",
-      query: "world=1",
-      "customer.email" => customer.email,
-    )
-  end
+    it "captures context for authed customers" do
+      customer = Webhookdb::Fixtures.customer.create
+      login_as(customer)
 
-  it "captures context for admins" do
-    admin = Webhookdb::Fixtures.customer.admin.create
-    customer = Webhookdb::Fixtures.customer.create
-    impersonate(admin: admin, target: customer)
+      get "/hello?world=1"
+      expect(last_response).to have_status(201)
 
-    get "/hello?world=1"
-    expect(last_response).to have_status(201)
+      expect(Sentry.get_current_scope).to have_attributes(
+        user: include(
+          ip_address: "127.0.0.1",
+          id: customer.id,
+          email: customer.email,
+          name: customer.name,
+        ),
+        tags: include(
+          host: "example.org",
+          method: "GET",
+          path: "/hello",
+          query: "world=1",
+          "customer.email" => customer.email,
+        ),
+      )
+    end
 
-    expect(Raven.context.user).to include(
-      admin_id: admin.id,
-      id: customer.id,
-    )
-    expect(Raven.context.tags).to include(
-      "customer.email" => customer.email,
-      "admin.email" => admin.email,
-    )
+    it "captures context for admins" do
+      admin = Webhookdb::Fixtures.customer.admin.create
+      customer = Webhookdb::Fixtures.customer.create
+      impersonate(admin:, target: customer)
+
+      get "/hello?world=1"
+      expect(last_response).to have_status(201)
+
+      expect(Sentry.get_current_scope).to have_attributes(
+        user: include(
+          admin_id: admin.id,
+          id: customer.id,
+        ),
+        tags: include(
+          "customer.email" => customer.email,
+          "admin.email" => admin.email,
+        ),
+      )
+    end
   end
 
   describe "etag mixin" do
@@ -515,7 +539,7 @@ RSpec.describe Webhookdb::Service, :db do
 
     it "sets the custom in thread local and clears it after the request" do
       login_as(customer)
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer"
       expect(last_response).to have_status(200)
       expect(last_response.headers["Test-TLS-User-Id"]).to eq(customer.id.to_s)
@@ -538,14 +562,14 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the impersonated user (even if deleted)" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id)
     end
 
     it "errors and clears cookies if the admin impersonating a user is deleted" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.soft_delete
       get "/current_customer"
       expect(last_response).to have_status(401)
@@ -553,7 +577,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "errors if the admin impersonating a user does not have the admin role" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.remove_all_roles
       get "/current_customer"
       expect(last_response).to have_status(401)
@@ -585,14 +609,14 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the impersonated user (even if deleted)" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/current_customer_safe"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id)
     end
 
     it "errors if the admin impersonating a user is deleted/missing role" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       admin.soft_delete
       get "/current_customer_safe"
       expect(last_response).to have_status(401)
@@ -633,7 +657,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the admin, even while impersonating" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/admin_customer"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: admin.id)
@@ -674,7 +698,7 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "returns the admin, even while impersonating" do
-      impersonate(admin: admin, target: customer)
+      impersonate(admin:, target: customer)
       get "/admin_customer_safe"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: admin.id)
@@ -689,52 +713,72 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer, :mytz)
         end
-        r = ent.represent(double(time: t, customer: double(mytz: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", mytz: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "renders using a path to an object with a :timezone method" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(double(time: t, customer: double(timezone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", timezone: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "renders using a path to an object with a :time_zone method" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(double(time: t, customer: double(time_zone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          time: t,
+                          customer: instance_double("Customer", time_zone: "America/New_York"),),
+        )
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
+
       it "uses the default rendering if any item in the path is missing" do
         ts = t.iso8601
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer, :mytz)
         end
 
-        d = double(time: t)
+        d = instance_double("Obj", time: t)
         expect(d).to receive(:customer).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double)
+        d = instance_double("Obj", time: t, customer: instance_double("Customer"))
         expect(d.customer).to receive(:mytz).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double(mytz: nil))
+        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: nil))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = double(time: t, customer: double(mytz: ""))
+        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: ""))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
       end
+
       it "can pull from an explicit field" do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time_not_here, &self.timezone(:customer, field: :mytime)
         end
-        r = ent.represent(double(mytime: t, customer: double(time_zone: "America/New_York")))
+        r = ent.represent(
+          instance_double("Obj",
+                          mytime: t,
+                          customer: instance_double("Customer", time_zone: "America/New_York"),),
+        )
         expect(r.as_json[:time_not_here]).to eq("2021-09-16T08:41:23-04:00")
       end
     end

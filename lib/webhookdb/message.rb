@@ -134,8 +134,8 @@ module Webhookdb::Message
       return self.contents.respond_to?(name)
     end
 
-    def method_missing(name, *args, &block)
-      return self.contents.respond_to?(name) ? self.contents.send(name, *args, &block) : super
+    def method_missing(name, *args, &)
+      return self.contents.respond_to?(name) ? self.contents.send(name, *args, &) : super
     end
   end
 end

@@ -1,6 +1,7 @@
 require:
   - rubocop-performance
   - rubocop-rake
+  - rubocop-rspec
   - rubocop-sequel
 
 inherit_from: .rubocop_todo.yml
@@ -8,9 +9,14 @@ inherit_from: .rubocop_todo.yml
 AllCops:
   NewCops: enable
   SuggestExtensions: false
+  TargetRubyVersion: 3.1
   Exclude:
+    # Explicitly list all excludes: https://github.com/rubocop/rubocop/issues/9832
     - 'webhookdb-website/**/*'
     - 'node_modules/**/*'
+    - 'tmp/**/*'
+    - 'vendor/**/*'
+    - '.git/**/*'
 
 Layout/ParameterAlignment:
   EnforcedStyle: with_fixed_indentation
@@ -83,6 +89,31 @@ Naming/PredicateName:
 Naming/MethodParameterName:
   Enabled: false
 
+RSpec/BeforeAfterAll:
+  Enabled: false
+RSpec/ContextWording:
+  Enabled: false
+RSpec/DescribeClass:
+  Enabled: false
+RSpec/EmptyExampleGroup:
+  Enabled: false
+RSpec/ExampleLength:
+  Enabled: false
+RSpec/HookArgument:
+  EnforcedStyle: 'each'
+RSpec/InstanceVariable:
+  Enabled: false
+RSpec/MessageSpies:
+  Enabled: false
+RSpec/MultipleMemoizedHelpers:
+  Enabled: false
+RSpec/MultipleExpectations:
+  Enabled: false
+RSpec/NotToNot:
+  EnforcedStyle: 'to_not'
+RSpec/StubbedMock:
+  Enabled: false
+
 Sequel/ColumnDefault:
   Enabled: false
 Sequel/ConcurrentIndex:
@@ -96,7 +127,7 @@ Style/AndOr:
 Style/CaseEquality:
   Enabled: false
 Style/ClassAndModuleChildren:
-  EnforcedStyle: compact
+  Enabled: false
 Style/FormatStringToken:
   Enabled: false
 Style/Documentation:

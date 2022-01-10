@@ -26,8 +26,8 @@ class Webhookdb::ConnectionCache
 
   singleton_attr_accessor :_instance
 
-  def self.borrow(url, &block)
-    return self._instance.borrow(url, &block)
+  def self.borrow(url, &)
+    return self._instance.borrow(url, &)
   end
 
   def self.disconnect(url)

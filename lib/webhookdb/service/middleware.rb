@@ -3,6 +3,7 @@
 require "rack/cors"
 require "rack/protection"
 require "rack/ssl-enforcer"
+require "sentry-ruby"
 require "appydays/loggable/request_logger"
 
 require "webhookdb/service" unless defined?(Webhookdb::Service)
@@ -31,6 +32,7 @@ module Webhookdb::Service::Middleware
   def self.add_common_middleware(builder)
     builder.use(Rack::ContentLength)
     builder.use(Rack::Chunked)
+    builder.use(Sentry::Rack::CaptureExceptions)
   end
 
   def self.add_dev_middleware(builder)

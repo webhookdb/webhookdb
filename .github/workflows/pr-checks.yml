@@ -10,26 +10,17 @@ jobs:
           ref: ${{ github.head_ref }}
       - name: Set up ruby
         uses: ruby/setup-ruby@v1
-      - uses: actions/cache@v1
         with:
-          path: vendor/bundle
-          key: bundle-use-ruby-${{ hashFiles('.ruby-version') }}-${{ hashFiles('**/Gemfile.lock') }}
-          restore-keys: |
-            bundle-use-ruby-${{ hashFiles('.ruby-version') }}-
+          bundler-cache: true
       - name: Install dependencies
         run: |
           sudo apt-get -yqq install libpq-dev
-          gem install bundler -v '2.1.2'
-          bundle config path vendor/bundle
-          bundle install --jobs 4 --retry 3
       - name: Start backing services
         run: docker-compose up -d
       - name: Wait for services to come up
         run: sleep 10
-# Reenable this once we figure out what's up with Rubocop
-# See https://github.com/lithictech/webhookdb-api/pull/46
-#      - name: Run rubocop
-#        run: bundle exec rubocop
+      - name: Run rubocop
+        run: bundle exec rubocop
       - name: Run specs
         env:
           RACK_ENV: test

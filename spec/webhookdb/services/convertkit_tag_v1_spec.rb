@@ -120,12 +120,13 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       def stub_service_request
         return stub_request(:get, "https://api.convertkit.com/v3/tags?api_secret=bfsek").
             to_return(status: 200, body: "", headers: {})
       end
-      it "it asks for backfill secret" do
+      it "asks for backfill secret" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
@@ -136,6 +137,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
           output: match("we need to use the API to make requests"),
         )
       end
+
       it "returns a complete step if it has a secret" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request

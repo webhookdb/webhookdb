@@ -104,7 +104,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
     if pagination_token.blank?
       date_send_max = Date.tomorrow
       url += "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
-        "?PageSize=100&DateSend%3C=#{date_send_max}"
+             "?PageSize=100&DateSend%3C=#{date_send_max}"
     else
       url += pagination_token
     end

@@ -20,6 +20,7 @@ RSpec.describe "Webhookdb::Customer", :db do
   context "ensure_role" do
     let(:customer) { Webhookdb::Fixtures.customer.create }
     let(:role) { Webhookdb::Role.create(name: "customer-test") }
+
     it "can set a role by a role object" do
       customer.ensure_role(role)
 
@@ -94,36 +95,36 @@ RSpec.describe "Webhookdb::Customer", :db do
   describe "::register_or_login" do
     let(:email) { "jane@farmers.org" }
     let(:customer_params) do
-      {email: email}
+      {email:}
     end
 
     describe "for an email that does not match an existing customer" do
       it "creates a customer" do
         step, c = described_class.register_or_login(**customer_params)
         expect(c).to_not be_nil
-        expect(c).to have_attributes(email: email)
+        expect(c).to have_attributes(email:)
         expect(step.output).to include("Welcome to WebhookDB")
       end
 
       it "lowercases the email" do
-        step, me = described_class.register_or_login(customer_params.merge(email: "HEARME@ROAR.coM"))
+        step, me = described_class.register_or_login(**customer_params.merge(email: "HEARME@ROAR.coM"))
         expect(me).to have_attributes(email: "hearme@roar.com")
       end
 
       it "trims spaces from email" do
-        step, me = described_class.register_or_login(customer_params.merge(email: " barf@sb.com "))
+        step, me = described_class.register_or_login(**customer_params.merge(email: " barf@sb.com "))
         expect(me).to have_attributes(email: "barf@sb.com")
       end
 
       it "creates a new email reset code for the customer" do
-        step, me = described_class.register_or_login(email: email)
+        step, me = described_class.register_or_login(email:)
         new_code = me.refresh.reset_codes.first
         expect(new_code).to_not be_expired
         expect(new_code).to have_attributes(transport: "email")
       end
 
       it "creates new organization and membership for current customer if doesn't exist" do
-        step, me = described_class.register_or_login(email: email)
+        step, me = described_class.register_or_login(email:)
 
         new_org = Webhookdb::Organization[name: "Org for #{email}"]
         expect(new_org).to_not be_nil
@@ -137,9 +138,9 @@ RSpec.describe "Webhookdb::Customer", :db do
       let!(:customer) { Webhookdb::Fixtures.customer(**customer_params).create }
 
       it "expires and creates a new email reset code for the customer" do
-        existing_code = Webhookdb::Fixtures.reset_code(customer: customer).email.create
+        existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
 
-        step, me = described_class.register_or_login(email: email)
+        step, me = described_class.register_or_login(email:)
 
         expect(me).to be === customer
         expect(existing_code.refresh).to be_expired
@@ -155,7 +156,7 @@ RSpec.describe "Webhookdb::Customer", :db do
     let(:email) { "jane@farmers.org" }
     let(:opaque_id) { "cus_testing" }
     let(:customer_params) do
-      {email: email, opaque_id: opaque_id}
+      {email:, opaque_id:}
     end
     let!(:customer) { Webhookdb::Fixtures.customer(**customer_params).create }
 
@@ -170,7 +171,7 @@ RSpec.describe "Webhookdb::Customer", :db do
       default_org = Webhookdb::Fixtures.organization.create
       customer.add_membership(organization: default_org)
 
-      step, me = described_class.finish_otp(opaque_id: opaque_id, token: code.token)
+      step, me = described_class.finish_otp(opaque_id:, token: code.token)
 
       expect(me).to be === customer
       expect(step.output).to include("Welcome!")
@@ -179,15 +180,15 @@ RSpec.describe "Webhookdb::Customer", :db do
 
     it "fails if the token does not belong to the customer" do
       code = Webhookdb::Fixtures.reset_code.create
-      step, me = described_class.finish_otp(opaque_id: opaque_id, token: code.token)
+      step, me = described_class.finish_otp(opaque_id:, token: code.token)
       expect(me).to be_nil
       expect(step).to have_attributes(error_code: "invalid_otp")
     end
 
     it "fails if the token is invalid" do
-      code = Webhookdb::Fixtures.reset_code(customer: customer).create
+      code = Webhookdb::Fixtures.reset_code(customer:).create
       code.expire!
-      step, me = described_class.finish_otp(opaque_id: opaque_id, token: code.token)
+      step, me = described_class.finish_otp(opaque_id:, token: code.token)
       expect(me).to be_nil
       expect(step).to have_attributes(error_code: "invalid_otp")
     end
@@ -195,7 +196,7 @@ RSpec.describe "Webhookdb::Customer", :db do
     it "logs the user in if the code is invalid and auth skipping is enabled for the customer email" do
       Webhookdb::Customer.skip_authentication_allowlist = ["*@cats.org"]
       customer.update(email: "meow@cats.org")
-      step, me = described_class.finish_otp(opaque_id: opaque_id, token: "a")
+      step, me = described_class.finish_otp(opaque_id:, token: "a")
       expect(me).to be === customer
     ensure
       Webhookdb::Customer.reset_configuration

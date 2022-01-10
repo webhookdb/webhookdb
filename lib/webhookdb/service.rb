@@ -4,7 +4,7 @@ require "appydays/configurable"
 require "grape"
 require "appydays/loggable"
 require "pg"
-require "raven"
+require "sentry-ruby"
 require "sequel"
 require "sequel/adapters/postgres"
 require "set"
@@ -34,10 +34,10 @@ class Webhookdb::Service < Grape::API
 
     # Note that changing the secret would invalidate all existing sessions!
     setting :session_secret, "Tritiphamhockbiltongpigporkchoptbonebeefsala" \
-      "michickenmeatballKielbasajowldrumstickbeefri" \
-      "bsfiletmignonbiltongPorkbellyballtipbacontai" \
-      "lgroundroundshankDrumstickcornedbeefbiltongp" \
-      "ancettaTbone"
+                             "michickenmeatballKielbasajowldrumstickbeefri" \
+                             "bsfiletmignonbiltongPorkbellyballtipbacontai" \
+                             "lgroundroundshankDrumstickcornedbeefbiltongp" \
+                             "ancettaTbone"
 
     # Must be nil/unset on localhost, otherwise set to something.
     setting :cookie_domain, ""
@@ -88,46 +88,50 @@ class Webhookdb::Service < Grape::API
 
   def self.error_body(status, message, code: nil, more: {})
     error = more.merge(
-      message: message,
-      status: status,
+      message:,
+      status:,
     )
     error[:code] = code unless code.nil?
-    return {error: error}
+    return {error:}
   end
 
   Grape::Middleware::Auth::Strategies.add(:admin, Webhookdb::Service::Auth::Admin)
 
   # Add some context to Sentry on each request.
   before do
-    raven_tags = {
-      agent: env["HTTP_USER_AGENT"],
-      host: env["HTTP_HOST"],
-      method: env["REQUEST_METHOD"],
-      path: env["PATH_INFO"],
-      query: env["QUERY_STRING"],
-      referrer: env["HTTP_REFERER"],
-    }
-    raven_user = {ip_address: request.ip}
-    if (customer = current_customer?)
-      raven_user.merge!(
-        id: customer.id,
-        email: customer.email,
-        name: customer.name,
-        ip_address: request.ip,
-      )
-      raven_tags["customer.email"] = customer.email
+    customer = current_customer?
+    admin = admin_customer?
+    Sentry.configure_scope do |scope|
+      sentry_tags = {
+        agent: env["HTTP_USER_AGENT"],
+        host: env["HTTP_HOST"],
+        method: env["REQUEST_METHOD"],
+        path: env["PATH_INFO"],
+        query: env["QUERY_STRING"],
+        referrer: env["HTTP_REFERER"],
+      }
+      sentry_user = {ip_address: request.ip}
+      if customer
+        sentry_user.merge!(
+          id: customer.id,
+          email: customer.email,
+          name: customer.name,
+          ip_address: request.ip,
+        )
+        sentry_tags["customer.email"] = customer.email
+      end
+      if admin
+        sentry_user.merge!(
+          admin_id: admin.id,
+          admin_email: admin.email,
+          admin_name: admin.name,
+        )
+        sentry_tags["admin.email"] = admin.email
+      end
+      scope.set_user(sentry_user)
+      sentry_tags.delete_if { |_, v| v.blank? }
+      scope.set_tags(sentry_tags)
     end
-    if (admin = admin_customer?)
-      raven_user.merge!(
-        admin_id: admin.id,
-        admin_email: admin.email,
-        admin_name: admin.name,
-      )
-      raven_tags["admin.email"] = admin.email
-    end
-    Raven.user_context(**raven_user)
-    raven_tags.delete_if { |_, v| v.blank? }
-    Raven.tags_context(raven_tags)
 
     Webhookdb.set_request_user_and_admin(customer, admin)
   end
@@ -168,17 +172,17 @@ class Webhookdb::Service < Grape::API
       puts e.backtrace
     end
 
-    more = {error_id: error_id, error_signature: error_signature}
+    more = {error_id:, error_signature:}
 
     if Webhookdb::Service.devmode
       msg = e.message
       more[:backtrace] = e.backtrace.join("\n")
     else
-      Raven.capture_exception(e, tags: more) if Webhookdb::Raven.enabled?
+      Sentry.capture_exception(e, tags: more) if Webhookdb::Sentry.enabled?
       msg = "An internal error occurred of type #{error_signature}. Error ID: #{error_id}"
     end
-    Webhookdb::Service.logger.error("api_exception", {error_id: error_id, error_signature: error_signature}, e)
-    merror!(status, msg, code: "api_error", more: more)
+    Webhookdb::Service.logger.error("api_exception", {error_id:, error_signature:}, e)
+    merror!(status, msg, code: "api_error", more:)
   end
 
   finally do

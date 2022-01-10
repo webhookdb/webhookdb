@@ -2,48 +2,25 @@
 
 require "webhookdb/postgres"
 
+module WebhookdbTestModels; end
+
 RSpec.describe "Webhookdb::Postgres::Model", :db do
   let(:described_class) { Webhookdb::Postgres::Model }
-
-  before(:each) do
-    @original_subclasses = described_class.subclasses.dup
-  end
-
-  after(:each) do
-    described_class.subclasses.replace(@original_subclasses)
-  end
 
   it "is abstract (doesn't have a dataset of its own)" do
     expect { described_class.dataset }.to raise_error(Sequel::Error, /no dataset/i)
   end
 
   context "a subclass" do
-    after(:each) do
-      Webhookdb.send(:remove_const, :StripeyAnimal) if Webhookdb.const_defined?(:StripeyAnimal)
-    end
-
-    let(:subclass) do
-      classobj = Class.new(described_class) do
-        def self.name
-          "Webhookdb::StripeyAnimal"
-        end
-      end
-      Webhookdb.const_set(:StripeyAnimal, classobj)
-      classobj
-    end
-
     it "gets the database connection when one is set on the parent" do
+      subclass = create_model(:conn_setter)
       expect(described_class.db).to_not be_nil
       expect(subclass.db).to eq(described_class.db)
     end
 
     it "registers a topological dependency for associations" do
+      subclass = create_model(:allergies)
       other_class = create_model(:food_preferences)
-      other_class.instance_eval do
-        def self.name
-          "Webhookdb::FoodPreference"
-        end
-      end
       other_class.many_to_one :related, class: subclass, key: :a_key
 
       sorted_classes = described_class.tsort
@@ -51,13 +28,14 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "doesn't register a dependency for an association marked as ':polymorphic'" do
-      other_class = create_model(:tickets)
-      other_class.many_to_one :subject, reciprocal: :tickets
-      subclass.one_to_many :tickets,
-                           class: other_class,
-                           key: :subject_id,
-                           conditions: {subject_type: subclass.name},
-                           polymorphic: true
+      animal = create_model(:animals)
+      ticket = create_model(:tickets)
+      ticket.many_to_one :subject, class: animal, reciprocal: :tickets
+      animal.one_to_many :tickets,
+                         class: ticket,
+                         key: :subject_id,
+                         conditions: {subject_type: animal.name},
+                         polymorphic: true
 
       # NameError: uninitialized constant Webhookdb::Ticket
       expect { described_class.tsort }.to_not raise_error
@@ -70,38 +48,42 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         end
       end
 
+      subclass = create_model("modext")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.new.some_extension_stuff).to eq(:extension_stuff)
     end
 
     it "can be extended at runtime with class methods via a ClassMethods submodule" do
-      extension_mod = Module.new do
-        module ClassMethods
-          def some_class_extension_stuff
-            :class_extension_stuff
-          end
+      extension_mod = Module.new
+      extension_mod.const_set :ClassMethods, Module.new
+      extension_mod::ClassMethods.module_eval do
+        def some_class_extension_stuff
+          :class_extension_stuff
         end
       end
 
+      subclass = create_model("classmethods")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.some_class_extension_stuff).to eq(:class_extension_stuff)
     end
 
     it "can override methods at runtime with a PrependedMethods submodule" do
-      extension_mod = Module.new do
+      extension_mod = Module.new
+      extension_mod.module_eval do
         def a_method
           :original_a_method
         end
-
-        module PrependedMethods
-          def a_method
-            :extension_a_method
-          end
+      end
+      extension_mod.const_set :PrependedMethods, Module.new
+      extension_mod::PrependedMethods.module_eval do
+        def a_method
+          :extension_a_method
         end
       end
 
+      subclass = create_model("prepends")
       subclass.add_extensions(extension_mod)
 
       expect(subclass.new.a_method).to eq(:extension_a_method)
@@ -109,10 +91,10 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
   end
 
   it "can create a schema even if it does exist" do
-    expect(described_class.schema_exists?(:testing)).to be_falsey
+    expect(described_class).to_not be_schema_exists(:testing)
     described_class.create_schema(:testing)
     described_class.create_schema(:testing)
-    expect(described_class.schema_exists?(:testing)).to be_truthy
+    expect(described_class).to be_schema_exists(:testing)
   end
 
   it "knows what its schema is named" do
@@ -162,15 +144,15 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     it "will find again if the create fails due to a race condition (UniqueConstraintViolation)" do
       name = "foo"
       placeholder = model_class.create(name: "not-" + name)
-      expect(model_class).to receive(:find).with(name: name).twice do
+      expect(model_class).to receive(:find).with(name:).twice do
         placeholder.name == name ? placeholder : nil
       end
-      expect(model_class).to receive(:create).with(name: name) do
+      expect(model_class).to receive(:create).with(name:) do
         placeholder.name = name
         raise Sequel::UniqueConstraintViolation
       end
 
-      got = model_class.find_or_create_or_find(name: name)
+      got = model_class.find_or_create_or_find(name:)
       expect(got).to_not be_nil
       expect(got).to be(placeholder)
     end
@@ -312,7 +294,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "touches updated_at after the block returns" do
-      expect { instance.resource_lock! { true } }.to(change { instance.updated_at })
+      expect { instance.resource_lock! { true } }.to(change(instance, :updated_at))
     end
 
     it "ignores fractional microseconds since databases do not store that precision" do
@@ -325,6 +307,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
   describe "slow query logging" do
     before(:each) { @duration = described_class.db.log_warn_duration }
+
     after(:each) { described_class.db.log_warn_duration = @duration }
 
     it "logs slow queries with structure" do
@@ -353,27 +336,28 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
   describe "each_cursor_page" do
     names = ["a", "b", "c", "d"]
-    Cls = Webhookdb::Postgres::TestingPixie
-    let(:ds) { Cls.dataset }
+    cls = Webhookdb::Postgres::TestingPixie
+    let(:ds) { cls.dataset }
+
     before(:each) do
-      names.each { |n| Cls.create(name: n) }
+      names.each { |n| cls.create(name: n) }
     end
 
     it "chunks pages and calls each item in the block" do
       result = []
-      Cls.each_cursor_page(page_size: 2) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2) { |r| result << r.name }
       expect(result).to eq(names)
     end
 
     it "can order by a column" do
       result = []
-      Cls.each_cursor_page(page_size: 2, order: Sequel.desc(:name)) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2, order: Sequel.desc(:name)) { |r| result << r.name }
       expect(result).to eq(names.reverse)
     end
 
     it "can order by multiple columns" do
       result = []
-      Cls.each_cursor_page(page_size: 2, order: [Sequel.desc(:name), :id]) { |r| result << r.name }
+      cls.each_cursor_page(page_size: 2, order: [Sequel.desc(:name), :id]) { |r| result << r.name }
       expect(result).to eq(names.reverse)
     end
 
@@ -393,7 +377,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         action_calls += 1
         ds.multi_insert(v)
       }
-      Cls.each_cursor_page_action(page_size: 3, action: action) do |tp|
+      cls.each_cursor_page_action(page_size: 3, action:) do |tp|
         tp.name == "a" ? (Array.new(10) { |i| {name: "a#{i}"} }) : nil
       end
       expect(ds.order(:id).all.map(&:name)).to eq(
@@ -403,7 +387,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
 
     it "ignores nil results returned from the block" do
-      Cls.each_cursor_page_action(page_size: 1, action: ds.method(:multi_insert)) do |tp|
+      cls.each_cursor_page_action(page_size: 1, action: ds.method(:multi_insert)) do |tp|
         tp.name >= "c" ? nil : {name: tp.name + "prime"}
       end
       expect(ds.order(:id).all.map(&:name)).to eq(

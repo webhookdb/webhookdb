@@ -1,16 +1,12 @@
 # frozen_string_literal: true
 
-require "redis"
 require "appydays/configurable"
 require "appydays/loggable"
+require "sentry-sidekiq"
 require "sidekiq"
 require "sidekiq-cron"
 
 require "webhookdb"
-
-# Remove this when this is fixed:
-# https://github.com/ondrejbartas/sidekiq-cron/issues/286
-Redis.exists_returns_integer = false
 
 # Host module and namespace for the Webhookdb async jobs system.
 #
@@ -154,7 +150,7 @@ module Webhookdb::Async
     after_configured do
       # Very hard to to test this, so it's not tested.
       url = self.sidekiq_redis_provider.present? ? ENV[self.sidekiq_redis_provider] : self.sidekiq_redis_url
-      redis_params = {url: url}
+      redis_params = {url:}
       if url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
         # rediss: schema is Redis with SSL. They use self-signed certs, so we have to turn off SSL verification.
         # There is not a clear KB on this, you have to piece it together from Heroku and Sidekiq docs.
@@ -165,7 +161,8 @@ module Webhookdb::Async
         config.options[:job_logger] = Webhookdb::Async::JobLogger
         # We do NOT want the unstructured default error handler
         config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
-        config.error_handlers << Raven::Sidekiq::ErrorHandler.new
+        # We must then replace the otherwise-automatically-added sentry middleware
+        config.error_handlers << Sentry::Sidekiq::ErrorHandler.new
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
       end
 

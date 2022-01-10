@@ -6,12 +6,12 @@ require "webhookdb"
 
 RSpec.describe Webhookdb do
   describe "configuration" do
-    before do
+    before(:each) do
       @env = ENV[described_class::CONFIG_ENV_VAR]
       @tempfiles = []
     end
 
-    after do
+    after(:each) do
       ENV[described_class::CONFIG_ENV_VAR] = @end
       @tempfiles.each { |t| t.close(true) }
     end
@@ -90,12 +90,12 @@ RSpec.describe Webhookdb do
   end
 
   describe "idempotency keys" do
-    before do
+    before(:each) do
       @bust_idem = described_class.bust_idempotency
       described_class.bust_idempotency = false
     end
 
-    after do
+    after(:each) do
       described_class.bust_idempotency = @bust_idem
     end
 
@@ -125,7 +125,7 @@ RSpec.describe Webhookdb do
 
       key1 = described_class.idempotency_key(customer1)
       key2 = described_class.idempotency_key(customer2)
-      expect(key1).not_to eq(key2)
+      expect(key1).to_not eq(key2)
     end
 
     it "is unique for model types" do
@@ -134,7 +134,7 @@ RSpec.describe Webhookdb do
 
       customerkey = described_class.idempotency_key(customer)
       personkey = described_class.idempotency_key(person)
-      expect(customerkey).not_to eq(personkey)
+      expect(customerkey).to_not eq(personkey)
     end
 
     it "is randomized if bust_idempotency is true" do
@@ -142,7 +142,7 @@ RSpec.describe Webhookdb do
       customer = Webhookdb::Customer.new
       key1 = described_class.idempotency_key(customer)
       key2 = described_class.idempotency_key(customer)
-      expect(key1).not_to eq(key2)
+      expect(key1).to_not eq(key2)
     end
 
     it "is unique when different `parts` are passed" do
@@ -160,7 +160,7 @@ RSpec.describe Webhookdb do
       key1 = described_class.idempotency_key(customer)
       customer.updated_at = Time.now
       key2 = described_class.idempotency_key(customer)
-      expect(key1).not_to eq(key2)
+      expect(key1).to_not eq(key2)
     end
 
     it "is unique on created_at if updated_at is empty or undefined and created_at is defined" do
@@ -169,7 +169,7 @@ RSpec.describe Webhookdb do
       key1 = described_class.idempotency_key(customer)
       customer.created_at = Time.now
       key2 = described_class.idempotency_key(customer)
-      expect(key1).not_to eq(key2)
+      expect(key1).to_not eq(key2)
     end
 
     it "does not use created_at or updated_at if the model does not have it" do
@@ -181,7 +181,7 @@ RSpec.describe Webhookdb do
 
       pixie.id = 11
       neq_key = described_class.idempotency_key(pixie)
-      expect(key).not_to eq(neq_key)
+      expect(key).to_not eq(neq_key)
     end
   end
 
@@ -202,28 +202,30 @@ RSpec.describe Webhookdb do
 
   describe "request users" do
     it "can get and set the request user" do
-      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
-      Webhookdb.set_request_user_and_admin(1, 2)
-      expect(Webhookdb.request_user_and_admin).to eq([1, 2])
-      Webhookdb.set_request_user_and_admin(nil, nil)
-      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+      expect(described_class.request_user_and_admin).to eq([nil, nil])
+      described_class.set_request_user_and_admin(1, 2)
+      expect(described_class.request_user_and_admin).to eq([1, 2])
+      described_class.set_request_user_and_admin(nil, nil)
+      expect(described_class.request_user_and_admin).to eq([nil, nil])
     end
+
     it "can set request user with a block" do
-      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
-      Webhookdb.set_request_user_and_admin(1, 2) do
-        expect(Webhookdb.request_user_and_admin).to eq([1, 2])
+      expect(described_class.request_user_and_admin).to eq([nil, nil])
+      described_class.set_request_user_and_admin(1, 2) do
+        expect(described_class.request_user_and_admin).to eq([1, 2])
       end
-      expect(Webhookdb.request_user_and_admin).to eq([nil, nil])
+      expect(described_class.request_user_and_admin).to eq([nil, nil])
     end
+
     it "errors when setting request user multiple times" do
       # this is okay
-      Webhookdb.set_request_user_and_admin(nil, nil)
-      Webhookdb.set_request_user_and_admin(nil, nil)
+      described_class.set_request_user_and_admin(nil, nil)
+      described_class.set_request_user_and_admin(nil, nil)
       # this will not be
-      Webhookdb.set_request_user_and_admin(1, 2)
-      expect { Webhookdb.set_request_user_and_admin(1, 2) }.to raise_error(Webhookdb::InvalidPrecondition)
+      described_class.set_request_user_and_admin(1, 2)
+      expect { described_class.set_request_user_and_admin(1, 2) }.to raise_error(Webhookdb::InvalidPrecondition)
     ensure
-      Webhookdb.set_request_user_and_admin(nil, nil)
+      described_class.set_request_user_and_admin(nil, nil)
     end
   end
 end

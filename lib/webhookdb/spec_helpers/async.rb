@@ -135,7 +135,7 @@ module Webhookdb::SpecHelpers::Async
 
       @missing.each do |event, payload|
         message = "expected a '%s' event to be fired" % [event]
-        message << " with a payload of %p" % [payload] unless payload.nil?
+        message << (" with a payload of %p" % [payload]) unless payload.nil?
         message << " but none was."
 
         messages << message
@@ -145,7 +145,7 @@ module Webhookdb::SpecHelpers::Async
         messages << "No events were sent."
       else
         parts = @recorded_events.map(&:inspect)
-        messages << "The following events were recorded: %s" % [parts.join(", ")]
+        messages << ("The following events were recorded: %s" % [parts.join(", ")])
       end
 
       return messages.join("\n")
@@ -155,7 +155,7 @@ module Webhookdb::SpecHelpers::Async
       messages = []
       @matched.each do |event, _payload|
         message = "expected a '%s' event not to be fired" % [event]
-        message << " with a payload of %p" % [@expected_payload] if @expected_payload
+        message << (" with a payload of %p" % [@expected_payload]) if @expected_payload
         message << " but one was."
         messages << message
       end

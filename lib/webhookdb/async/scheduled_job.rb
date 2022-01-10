@@ -50,7 +50,7 @@ module Webhookdb::Async::ScheduledJob
     # This is useful in crontab notation, when we want something to happen at
     # a certain local time and don't want it to shift with DST.
     def utc_hour(hour, timezone)
-      return Time.now.in_time_zone(timezone).change(hour: hour).in_time_zone("UTC").hour
+      return Time.now.in_time_zone(timezone).change(hour:).in_time_zone("UTC").hour
     end
 
     def cron(expr)

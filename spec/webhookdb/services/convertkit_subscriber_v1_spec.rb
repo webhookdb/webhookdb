@@ -267,6 +267,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
+
     before(:each) do
       sint.organization.prepare_database_connections
       svc.create_table
@@ -278,47 +279,50 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
     it "uses nil if the subscriber state is active" do
       body["state"] = "active"
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first).to include(convertkit_id: 1, canceled_at: nil, state: "active")
       end
     end
+
     it "uses now if the subscriber state is inactive and canceled_at is nil" do
       body["state"] = "inactive"
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(Time.now).within(5), state: "inactive")
       end
     end
+
     it "replaces canceled_at with nil if state is active (such as due to a resubscribe)" do
       body["state"] = "inactive"
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first).to include(canceled_at: be_present)
       end
 
       body["state"] = "active"
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first).to include(convertkit_id: 1, canceled_at: nil, state: "active")
       end
     end
+
     it "does not change canceled_at if the subscriber state is inactive and canceled_at is set" do
       t = 3.months.ago
       Timecop.freeze(t) do
         body["state"] = "inactive"
-        svc.upsert_webhook(body: body)
+        svc.upsert_webhook(body:)
         svc.readonly_dataset do |ds|
           expect(ds.all).to have_length(1)
           expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(t), state: "inactive")
         end
       end
 
-      svc.upsert_webhook(body: body)
+      svc.upsert_webhook(body:)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first).to include(convertkit_id: 1, canceled_at: match_time(t), state: "inactive")
@@ -421,12 +425,13 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
         )
       end
     end
+
     describe "calculate_backfill_state_machine" do
       def stub_service_request
         return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
             to_return(status: 200, body: "", headers: {})
       end
-      it "it asks for backfill secret" do
+      it "asks for backfill secret" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
@@ -437,6 +442,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
           output: match("which requires your API Secret"),
         )
       end
+
       it "returns backfill in progress message" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request

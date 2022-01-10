@@ -48,8 +48,8 @@ module Webhookdb::Fixtures::Customers
     self.email = (username || Faker::Internet.username) + "@example.com"
   end
 
-  decorator :in_org, presave: true do |org={}|
+  decorator :in_org, presave: true do |org={}, opts={}|
     org = Webhookdb::Fixtures.organization.create(org) unless org.is_a?(Webhookdb::Organization)
-    self.add_membership(organization: org)
+    self.add_membership(organization: org, **opts)
   end
 end

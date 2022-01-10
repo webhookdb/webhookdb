@@ -315,7 +315,7 @@ module Webhookdb::SpecHelpers::Service
       @response = response
       unless response.respond_to?(:status)
         raise "response has no .status method, did you pass in last_response.status " \
-          " instead of last_response?"
+              " instead of last_response?"
       end
       return response.status == @expected_status
     end
@@ -326,14 +326,14 @@ module Webhookdb::SpecHelpers::Service
       if parsed&.include?("error")
         suffix = +""
         if (errmsg = parsed["error"].delete("message"))
-          suffix << "\nMessage: %s" % [errmsg]
+          suffix << ("\nMessage: %s" % [errmsg])
         end
         if (backtrace = parsed["error"].delete("backtrace"))
-          suffix << "\nBacktrace:\n%s" % [backtrace]
+          suffix << ("\nBacktrace:\n%s" % [backtrace])
         end
-        msg << "Body: %s%s" % [parsed.to_json, suffix]
+        msg << ("Body: %s%s" % [parsed.to_json, suffix])
       else
-        msg << "Body: %s" % [@response.body]
+        msg << ("Body: %s" % [@response.body])
       end
       return msg
     end
@@ -390,17 +390,17 @@ module Webhookdb::SpecHelpers::Service
   module WebhookdbTestMethods
     include Rack::Test::Methods
 
-    def post(uri, params={}, env={}, &block)
+    def post(uri, params={}, env={}, &)
       env, params = make_json_request(env, params)
       super
     end
 
-    def put(uri, params={}, env={}, &block)
+    def put(uri, params={}, env={}, &)
       env, params = make_json_request(env, params)
       super
     end
 
-    def patch(uri, params={}, env={}, &block)
+    def patch(uri, params={}, env={}, &)
       env, params = make_json_request(env, params)
       super
     end

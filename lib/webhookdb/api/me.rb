@@ -9,7 +9,7 @@ class Webhookdb::API::Me < Webhookdb::API::V1
     desc "Return the current customer"
     get do
       customer = current_customer
-      present customer, with: Webhookdb::API::CurrentCustomerEntity, env: env
+      present customer, with: Webhookdb::API::CurrentCustomerEntity, env:
     end
 
     desc "Update supported fields on the customer"

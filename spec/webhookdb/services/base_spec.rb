@@ -8,6 +8,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
       end
     end
     let(:sint) { Webhookdb::Fixtures.service_integration(table_name: "mytbl").instance }
+
     it "generates the correct sql" do
       s = svc_cls.new(sint)
       expect(s._create_table_sql).to eq(<<~S.rstrip)
@@ -18,6 +19,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         );
       S
     end
+
     it "denormalizes and indexes denormalized columns" do
       test_svc_cls = Class.new(svc_cls) do
         def _denormalized_columns
@@ -40,6 +42,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         CREATE INDEX IF NOT EXISTS denorm2_idx ON mytbl ("denorm2");
       S
     end
+
     it "creates enrichment tables" do
       test_svc_cls = Class.new(svc_cls) do
         def _create_enrichment_tables_sql

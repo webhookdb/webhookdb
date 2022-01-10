@@ -6,7 +6,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require "appydays/dotenviable"
 Appydays::Dotenviable.load
 
-require "raven"
+require "sentry-ruby"
 
 require "webhookdb/tasks/annotate"
 Webhookdb::Tasks::Annotate.new

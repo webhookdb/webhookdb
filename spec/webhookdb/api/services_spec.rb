@@ -22,6 +22,7 @@ RSpec.describe Webhookdb::API::Services, :db do
         schema_sql: include("CREATE TABLE fake_v1_fixture"),
       )
     end
+
     it "403s if the service does not exist" do
       get "/v1/services/nopers/fixtures"
 

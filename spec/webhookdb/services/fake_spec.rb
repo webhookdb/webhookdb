@@ -4,9 +4,15 @@ require "support/shared_examples_for_services"
 
 RSpec.describe Webhookdb::Services::Fake, :db do
   before(:each) do
-    Webhookdb::Services::Fake.reset
+    described_class.reset
     Webhookdb::Services::FakeWithEnrichments.reset
   end
+
+  after(:each) do
+    described_class.reset
+    Webhookdb::Services::FakeWithEnrichments.reset
+  end
+
   it_behaves_like "a service implementation", "fake_v1" do
     let(:body) do
       {
@@ -63,8 +69,9 @@ RSpec.describe Webhookdb::Services::Fake, :db do
 
   it_behaves_like "a service implementation that upserts webhooks only under specific conditions", "fake_v1" do
     before(:each) do
-      Webhookdb::Services::Fake.prepare_for_insert_hook = ->(_h) {}
+      described_class.prepare_for_insert_hook = ->(_h) {}
     end
+
     let(:incorrect_webhook) do
       {
         "my_id" => "abc",
@@ -99,6 +106,7 @@ RSpec.describe Webhookdb::Services::Fake, :db do
   describe "base class functionality" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create }
     let(:fake) { sint.service_instance }
+
     describe "verify_backfill_credentials" do
       before(:each) do
         fake.define_singleton_method(:_verify_backfill_408_err_msg) do
@@ -108,16 +116,19 @@ RSpec.describe Webhookdb::Services::Fake, :db do
           "default message"
         end
       end
+
       it "verifies on success" do
         described_class.stub_backfill_request([])
         result = fake.verify_backfill_credentials
         expect(result).to include(verified: true, message: "")
       end
+
       it "uses a default error message" do
         described_class.stub_backfill_request([], status: 401)
         result = fake.verify_backfill_credentials
         expect(result).to include(verified: false, message: "default message")
       end
+
       it "can use code-specific error messages" do
         described_class.stub_backfill_request([], status: 408)
         result = fake.verify_backfill_credentials
@@ -129,21 +140,25 @@ RSpec.describe Webhookdb::Services::Fake, :db do
       before(:each) do
         sint.organization.prepare_database_connections
       end
+
       after(:each) do
         sint.organization.remove_related_database
       end
+
       it "uses create_table SQL if the table does not exist" do
         expect(fake.ensure_all_columns_sql).to eq(fake.create_table_sql)
         fake.ensure_all_columns
-        fake.readonly_dataset { |ds| expect(ds.db.table_exists?(sint.table_name)).to be_truthy }
+        fake.readonly_dataset { |ds| expect(ds.db).to be_table_exists(sint.table_name) }
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
       end
+
       it "returns empty string if all columns exist" do
         fake.create_table
         expect(fake.ensure_all_columns_sql).to eq("")
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
       end
+
       it "can build and execute SQL for columns that exist in code but not in the DB" do
         fake.create_table
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }

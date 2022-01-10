@@ -50,7 +50,7 @@ class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliver
       self.lock!
       return nil if self.sent? || self.soft_deleted?
       (transport_message_id = self.transport.send!(self)) or return nil
-      self.update(transport_message_id: transport_message_id, sent_at: Time.now)
+      self.update(transport_message_id:, sent_at: Time.now)
       return self
     end
   end
@@ -84,7 +84,7 @@ class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliver
     self.db.transaction(rollback: commit ? nil : :always) do
       to = Webhookdb::Fixtures.customer.create
       template = template_class.fixtured(to)
-      delivery = template.dispatch(to, transport: transport)
+      delivery = template.dispatch(to, transport:)
       delivery.bodies # Fetch this ahead of time so it is there after rollback
     end
     return delivery

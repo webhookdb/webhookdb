@@ -38,7 +38,7 @@ module Webhookdb::API
           def ensure_admin!
             customer = current_customer
             org = lookup_org!
-            admin_membership = org.memberships_dataset[customer: customer, membership_role: Webhookdb::Role.admin_role]
+            admin_membership = org.memberships_dataset[customer:, membership_role: Webhookdb::Role.admin_role]
             # rubocop:disable Style/GuardClause
             if admin_membership.nil?
               merror!(400,
@@ -49,7 +49,9 @@ module Webhookdb::API
         end
 
         before do
-          Raven.tags_context(application: "public-api")
+          Sentry.configure_scope do |scope|
+            scope.set_tags(application: "public-api")
+          end
         end
       end
     end

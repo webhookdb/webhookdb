@@ -23,7 +23,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def self.stub_backfill_request(items, status: 200)
     return WebMock::API.stub_request(:get, "https://fake-integration/?token=").
-        to_return(status: status, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
+        to_return(status:, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
   end
 
   def webhook_response(request)
@@ -39,7 +39,8 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     end
 
     step.output = "The integration creation flow is working correctly. Here is " \
-"the integration's opaque id, which you'll need to enter in a second: #{self.service_integration.opaque_id}"
+                  "the integration's opaque id, which you'll need to enter in a second: " \
+                  "#{self.service_integration.opaque_id}"
     return step.completed
   end
 

@@ -17,7 +17,7 @@ class Webhookdb::API::Uploads < Webhookdb::API::V1
       current_customer
       url = Webhookdb::AWS.s3.presigned_put_url(params[:bucket], params[:filename], prefix: params[:prefix])
       status 200
-      {url: url}
+      {url:}
     end
   end
 end

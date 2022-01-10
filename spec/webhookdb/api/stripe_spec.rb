@@ -8,8 +8,6 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
 
   let(:app) { described_class.build_app }
 
-  let!(:org) { Webhookdb::Fixtures.organization.create }
-
   describe "POST /v1/stripe/webhook" do
     let(:webhook_secret) { "xyz" }
     let(:webhook_body) do

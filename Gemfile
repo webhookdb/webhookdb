@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 source "https://rubygems.org"
-ruby "2.7.5"
+ruby "3.1.0"
 
 gem "activesupport"
 gem "appydays"
@@ -33,7 +33,8 @@ gem "rack-protection"
 gem "rack-ssl-enforcer"
 gem "rake"
 gem "semantic_logger"
-gem "sentry-raven"
+gem "sentry-ruby"
+gem "sentry-sidekiq"
 gem "sequel"
 gem "sequel-annotate"
 gem "sequel-money-fields"
@@ -65,6 +66,7 @@ group :test_group do
   gem "rubocop"
   gem "rubocop-performance", require: false
   gem "rubocop-rake", require: false
+  gem "rubocop-rspec", require: false
   gem "rubocop-sequel", require: false
   gem "timecop"
   gem "watir"

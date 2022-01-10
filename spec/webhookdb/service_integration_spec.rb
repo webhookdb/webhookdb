@@ -16,9 +16,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       Webhookdb::Fixtures.subscription.active.for_org(sint.organization).create
       expect(sint.plan_supports_integration?).to eq(true)
     end
+
     it "returns true if the organization has no active subscription and sint is in first integrations" do
       expect(sint.plan_supports_integration?).to eq(true)
     end
+
     it "returns false if the organization has no subscription and sint is not in first integrations" do
       twilio_sint = Webhookdb::ServiceIntegration.create(
         {

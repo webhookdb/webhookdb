@@ -56,7 +56,7 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
       name: obj_of_interest["name"],
       phone: obj_of_interest["phone"],
       stripe_id: obj_of_interest["id"],
-      updated: updated,
+      updated:,
     }
   end
 

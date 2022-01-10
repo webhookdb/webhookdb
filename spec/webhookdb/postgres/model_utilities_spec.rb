@@ -2,7 +2,7 @@
 
 require "webhookdb/postgres/model_utilities"
 
-RSpec.describe Webhookdb::Postgres::ModelUtilities, "an extended class" do
+RSpec.describe Webhookdb::Postgres::ModelUtilities do
   before(:all) do
     @real_superclasses = Webhookdb::Postgres.model_superclasses.dup
     @real_models = Webhookdb::Postgres.registered_models.dup

@@ -4,9 +4,9 @@ require "grape"
 
 module Webhookdb::Service::Types
   def self.included(ctx)
-    ctx.const_set("NormalizedEmail", NormalizedEmail)
-    ctx.const_set("NormalizedPhone", NormalizedPhone)
-    ctx.const_set("CommaSepArray", CommaSepArray)
+    ctx.const_set(:NormalizedEmail, NormalizedEmail)
+    ctx.const_set(:NormalizedPhone, NormalizedPhone)
+    ctx.const_set(:CommaSepArray, CommaSepArray)
   end
 
   class NormalizedEmail

@@ -104,7 +104,7 @@ module Webhookdb::Service::Helpers
 
   def merror!(status, message, code: nil, more: {}, headers: {})
     header "Content-Type", "application/json"
-    body = Webhookdb::Service.error_body(status, message, code: code, more: more)
+    body = Webhookdb::Service.error_body(status, message, code:, more:)
     error!(body, status, headers)
   end
 
@@ -129,7 +129,7 @@ module Webhookdb::Service::Helpers
     errors = [errors] unless errors.respond_to?(:to_ary)
     message ||= errors.join(", ")
     message = message.first.upcase + message[1..]
-    merror!(400, message, code: "validation_error", more: {errors: errors})
+    merror!(400, message, code: "validation_error", more: {errors:})
   end
 
   def search_param_to_sql(params, column, param: :search)

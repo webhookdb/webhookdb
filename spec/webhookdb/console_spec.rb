@@ -28,12 +28,12 @@ RSpec.describe Webhookdb::Console, :db do
 
     context "with no unsafe block" do
       it "allows selects" do
-        expect { dataset.all }.not_to raise_error
+        expect { dataset.all }.to_not raise_error
       end
 
       it "allows updates with a WHERE" do
-        expect { dataset.where(id: instance.id).update(name: "newname") }.not_to raise_error
-        expect { instance.update(name: "newername") }.not_to raise_error
+        expect { dataset.where(id: instance.id).update(name: "newname") }.to_not raise_error
+        expect { instance.update(name: "newername") }.to_not raise_error
       end
 
       it "forbids updates without a WHERE" do
@@ -56,7 +56,7 @@ RSpec.describe Webhookdb::Console, :db do
     end
 
     context "with an unsafe block" do
-      around do |example|
+      around(:each) do |example|
         described_class.unsafe do
           example.run
         end
@@ -67,10 +67,10 @@ RSpec.describe Webhookdb::Console, :db do
       end
 
       it "allows DELETE with a WHERE" do
-        expect { instance.destroy }.not_to raise_error
+        expect { instance.destroy }.to_not raise_error
         model.create
-        expect { dataset.destroy }.not_to raise_error
-        expect { dataset.where(id: 0).delete }.not_to raise_error
+        expect { dataset.destroy }.to_not raise_error
+        expect { dataset.where(id: 0).delete }.to_not raise_error
       end
 
       it "forbids DELETE without a WHERE" do

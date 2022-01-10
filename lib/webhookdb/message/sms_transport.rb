@@ -70,7 +70,7 @@ class Webhookdb::Message::SmsTransport < Webhookdb::Message::Transport
   def add_bodies(delivery, content)
     bodies = []
     raise "content is not set" if content.blank?
-    bodies << delivery.add_body(content: content, mediatype: "text/plain")
+    bodies << delivery.add_body(content:, mediatype: "text/plain")
     return bodies
   end
 end

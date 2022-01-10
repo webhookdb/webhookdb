@@ -30,7 +30,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   PLACEHOLDER_PASSWORD_DIGEST = "$2a$11$....................................................."
 
   # Regex that matches the prefix of a deleted user's email
-  DELETED_EMAIL_PATTERN = /^(?<prefix>\d+(?:\.\d+)?)\+(?<rest>.*)$/.freeze
+  DELETED_EMAIL_PATTERN = /^(?<prefix>\d+(?:\.\d+)?)\+(?<rest>.*)$/
 
   plugin :timestamps
   plugin :soft_deletes
@@ -56,10 +56,10 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     self.db.transaction do
       email = email.strip.downcase
       new_customer = false
-      unless (me = Webhookdb::Customer[email: email])
+      unless (me = Webhookdb::Customer[email:])
         new_customer = true
         self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
-        me = Webhookdb::Customer.create(email: email, password: SecureRandom.hex(16))
+        me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
         me.add_membership(organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true)
       end
       me.reset_codes_dataset.usable.each(&:expire!)
@@ -92,7 +92,7 @@ It contains a One Time Password used to log in.
 
   # @return Tuple of <Step, Customer>. Customer is nil if token was invalid.
   def self.finish_otp(opaque_id:, token:)
-    me = Webhookdb::Customer[opaque_id: opaque_id]
+    me = Webhookdb::Customer[opaque_id:]
     if me.nil?
       step = Webhookdb::Services::StateMachineStep.new
       step.output = %(Sorry, no one with that email exists. Try running:

@@ -7,7 +7,7 @@ module Faker::Webhookdb
     def s3_url(opts={})
       opts[:region] ||= ["us-east-2.", ""].sample
       host = "potato.s3.#{opts[:region]}amazonaws.com"
-      return self.image_url(host: host)
+      return self.image_url(host:)
     end
 
     def image_url(opts={})
