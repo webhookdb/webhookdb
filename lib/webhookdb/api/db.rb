@@ -7,7 +7,7 @@ require "webhookdb/services"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
   resource :db do
-    route_param :identifier, type: String do
+    route_param :org_identifier, type: String do
       desc "Returns the connection string"
       get :connection do
         _customer = current_customer

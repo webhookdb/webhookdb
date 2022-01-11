@@ -28,7 +28,7 @@ module Webhookdb::API
 
           def lookup_org!
             customer = current_customer
-            org = Webhookdb::Organization.lookup_by_identifier(params[:identifier])
+            org = Webhookdb::Organization.lookup_by_identifier(params[:org_identifier])
             merror!(403, "There is no organization with that identifier.") if org.nil?
             membership = customer.memberships_dataset[organization: org, verified: true]
             merror!(403, "You don't have permissions with that organization.") if membership.nil?

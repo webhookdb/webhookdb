@@ -233,11 +233,7 @@ module Webhookdb::Postgres::ModelUtilities
 
     # Publish an event in the current db's/transaction's +after_commit+ hook.
     def publish_deferred(type, *payload)
-      if Webhookdb::Postgres.do_not_defer_events?
-        self.publish_immediate(type, *payload)
-        return
-      end
-      self.db.after_commit do
+      Webhookdb::Postgres.defer_after_commit(self.db) do
         self.publish_immediate(type, *payload)
       end
     end

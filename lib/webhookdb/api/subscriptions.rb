@@ -7,7 +7,7 @@ require "webhookdb/admin_api"
 
 class Webhookdb::API::Subscriptions < Webhookdb::API::V1
   resource :organizations do
-    route_param :identifier, type: String do
+    route_param :org_identifier, type: String do
       resource :subscriptions do
         desc "Provides the user with subscription information for the organization"
         get do

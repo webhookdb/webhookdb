@@ -19,7 +19,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     # GET
 
-    route_param :identifier, type: String do
+    route_param :org_identifier, type: String do
       desc "Return organization with the given identifier."
       get do
         _customer = current_customer
@@ -38,14 +38,6 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       end
 
       resource :service_integrations do
-        helpers do
-          def lookup_sint!
-            sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
-            merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
-            return sint
-          end
-        end
-
         desc "Return all integrations associated with the organization."
         get do
           integrations = lookup_org!.service_integrations

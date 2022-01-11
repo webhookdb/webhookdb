@@ -128,6 +128,8 @@ module Webhookdb::Async
     "webhookdb/jobs/process_webhook",
     "webhookdb/jobs/prepare_database_connections",
     "webhookdb/jobs/send_invite",
+    "webhookdb/jobs/send_webhook",
+    "webhookdb/jobs/send_test_webhook",
     "webhookdb/jobs/reset_code_create_dispatch",
     "webhookdb/jobs/transistor_episode_backfill",
     "webhookdb/jobs/trim_logged_webhooks",

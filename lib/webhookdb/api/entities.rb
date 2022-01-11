@@ -53,4 +53,11 @@ module Webhookdb::API
     expose :output
     expose :error_code
   end
+
+  class WebhookSubscriptionEntity < BaseEntity
+    expose :opaque_id
+    expose :deliver_to_url
+    expose :organization, with: OrganizationEntity
+    expose :service_integration, with: ServiceIntegrationEntity
+  end
 end

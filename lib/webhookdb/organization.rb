@@ -15,6 +15,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
+  one_to_many :webhook_subscriptions
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
 
   def before_validation

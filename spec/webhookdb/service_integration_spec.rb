@@ -11,6 +11,15 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     Webhookdb::Subscription.where(stripe_customer_id: sint.organization.stripe_customer_id).delete
   end
 
+  describe "all_webhook_subs" do
+    it "returns the webhook subs associated with both the integration and the org" do
+      Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
+      Webhookdb::Fixtures.webhook_subscription.create(organization: sint.organization)
+
+      expect(sint.all_webhook_subs).to have_length(2)
+    end
+  end
+
   describe "plan_supports_integration?" do
     it "returns true if the organization has an active subscription" do
       Webhookdb::Fixtures.subscription.active.for_org(sint.organization).create

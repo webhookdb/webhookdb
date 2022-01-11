@@ -36,6 +36,10 @@ class Webhookdb::Postgres::Model
     # Ref: http://sequel.jeremyevans.net/rdoc/files/doc/opening_databases_rdoc.html#label-General+connection+options
     setting :max_connections, 4
 
+    # rubocop:disable Naming/VariableNumber
+    setting :encryption_key_0, "Tc3X6zkxXgZfHE81MFz2EILStV++BuQY"
+    # rubocop:enable Naming/VariableNumber
+
     after_configured do
       options = {
         max_connections: self.max_connections,
@@ -82,5 +86,9 @@ class Webhookdb::Postgres::Model
         prepend(submod)
       end
     end
+  end
+
+  plugin :column_encryption do |enc|
+    enc.key 0, self.encryption_key_0
   end
 end

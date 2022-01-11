@@ -195,6 +195,16 @@ class Webhookdb::Services::Base
       ).insert(inserting)
     end
     self._after_insert(inserting, enrichment:)
+
+    self.service_integration.publish_deferred(
+      "rowupsert",
+      self.service_integration.id,
+      {
+        row: inserting,
+        external_id_column: self._remote_key_column.name,
+        external_id: inserting[self._remote_key_column.name],
+      },
+    )
   end
 
   # Given a webhook body that is going to be inserted,
