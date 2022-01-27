@@ -261,9 +261,18 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
   end
 
-  describe "cancelated_at calculations" do
+  describe "canceled_at calculations" do
     let(:body) do
-      {"id" => 1, "created_at" => "2016-02-28T08:07:00Z"}
+      {
+        "id" => 1,
+        "first_name" => "Bob",
+        "email_address" => "bob@beats.com",
+        "state" => "active",
+        "created_at" => "2016-01-01T08:07:00Z",
+        "fields" => {
+          "last_name" => "Kaufman",
+        },
+      }
     end
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }

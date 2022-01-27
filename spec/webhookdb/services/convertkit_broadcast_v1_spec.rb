@@ -20,7 +20,8 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         {
           "id":2641288,
           "name":"Example Broadcast",
-          "created_at":"2021-09-22T20:40:49.000Z"
+          "created_at":"2021-09-22T20:40:49.000Z",#{' '}
+          "subject": "The Meaning of Life"
         }
       J
     end

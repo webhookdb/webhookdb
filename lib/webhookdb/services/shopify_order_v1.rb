@@ -45,21 +45,21 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
 
   def _prepare_for_insert(body, **_kwargs)
     return {
-      app_id: body["app_id"],
-      cancelled_at: body["cancelled_at"],
-      cart_token: body["cart_token"],
-      checkout_token: body["checkout_token"],
-      closed_at: body["closed_at"],
-      created_at: body["created_at"],
-      customer_id: body["customer"]["id"],
-      email: body["email"],
-      name: body["name"],
-      order_number: body["order_number"],
-      phone: body["phone"],
-      shopify_id: body["id"],
-      token: body["token"],
-      updated_at: body["updated_at"],
-      user_id: body["user_id"],
+      app_id: body.fetch("app_id"),
+      cancelled_at: body.fetch("cancelled_at"),
+      cart_token: body.fetch("cart_token"),
+      checkout_token: body.fetch("checkout_token"),
+      closed_at: body.fetch("closed_at"),
+      created_at: body.fetch("created_at"),
+      customer_id: body.dig("customer", "id"),
+      email: body.fetch("email"),
+      name: body.fetch("name"),
+      order_number: body.fetch("order_number"),
+      phone: body.fetch("phone"),
+      shopify_id: body.fetch("id"),
+      token: body.fetch("token"),
+      updated_at: body.fetch("updated_at"),
+      user_id: body.fetch("user_id"),
     }
   end
 

@@ -48,23 +48,23 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
     # backfilling.
     updated = 0
     obj_of_interest = body
-    if body["object"] == "event"
-      updated = body["created"]
-      obj_of_interest = body["data"]["object"]
+    if body.fetch("object") == "event"
+      updated = body.fetch("created")
+      obj_of_interest = body.fetch("data").fetch("object")
     end
     return {
       data: obj_of_interest.to_json,
-      amount: obj_of_interest["amount"],
-      balance_transaction: obj_of_interest["balance_transaction"],
-      billing_email: obj_of_interest["billing_details"]["email"],
-      created: obj_of_interest["created"],
-      customer_id: obj_of_interest["customer"],
-      invoice_id: obj_of_interest["invoice"],
-      payment_type: obj_of_interest["payment_method_details"]["type"],
-      receipt_email: obj_of_interest["receipt_email"],
-      status: obj_of_interest["status"],
+      amount: obj_of_interest.fetch("amount"),
+      balance_transaction: obj_of_interest.fetch("balance_transaction"),
+      billing_email: obj_of_interest.dig("billing_details", "email"),
+      created: obj_of_interest.fetch("created"),
+      customer_id: obj_of_interest.fetch("customer"),
+      invoice_id: obj_of_interest.fetch("invoice"),
+      payment_type: obj_of_interest.dig("payment_method_details", "type"),
+      receipt_email: obj_of_interest.fetch("receipt_email"),
+      status: obj_of_interest.fetch("status"),
       updated:,
-      stripe_id: obj_of_interest["id"],
+      stripe_id: obj_of_interest.fetch("id"),
     }
   end
 

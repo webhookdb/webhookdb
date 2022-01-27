@@ -46,11 +46,11 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
               end
 
     return {
-      account_id: obj_of_interest["account_id"],
-      amount: obj_of_interest["amount"],
-      date: obj_of_interest["date"],
-      increase_id: obj_of_interest["id"],
-      route_id: obj_of_interest["route_id"],
+      account_id: obj_of_interest.fetch("account_id"),
+      amount: obj_of_interest.fetch("amount"),
+      date: obj_of_interest.fetch("date"),
+      increase_id: obj_of_interest.fetch("id"),
+      route_id: obj_of_interest.fetch("route_id"),
       updated_at: updated,
     }
   end

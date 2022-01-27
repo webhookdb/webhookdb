@@ -58,16 +58,21 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   end
 
   def _prepare_for_insert(body, enrichment:)
+    # we aren't using `fetch` on the enrichment kwarg here because `fetch` throws an error
+    # when a key is not present, and implementing fetch here would require us to rework our
+    # base shared examples (e.g. `a service implementation`, `a service implementation that can
+    # backfill`, etc.) to account for the possible presence of an enrichment object in order to
+    # avoid those errors
     return {
-      convertkit_id: body["id"],
-      created_at: body["created_at"],
+      convertkit_id: body.fetch("id"),
+      created_at: body.fetch("created_at"),
       click_rate: enrichment["click_rate"],
       open_rate: enrichment["open_rate"],
       progress: enrichment["progress"],
       recipients: enrichment["recipients"],
       show_total_clicks: enrichment["show_total_clicks"],
       status: enrichment["status"],
-      subject: body["subject"],
+      subject: body.fetch("subject"),
       total_clicks: enrichment["total_clicks"],
       unsubscribes: enrichment["unsubscribes"],
     }

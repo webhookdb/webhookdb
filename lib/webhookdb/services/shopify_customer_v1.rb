@@ -40,16 +40,16 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
 
   def _prepare_for_insert(body, **_kwargs)
     return {
-      created_at: body["created_at"],
-      email: body["email"],
-      first_name: body["first_name"],
-      last_name: body["last_name"],
-      last_order_id: body["last_order_id"],
-      last_order_name: body["last_order_name"],
-      phone: body["phone"],
-      shopify_id: body["id"],
-      state: body["state"],
-      updated_at: body["updated_at"],
+      created_at: body.fetch("created_at"),
+      email: body.fetch("email"),
+      first_name: body.fetch("first_name"),
+      last_name: body.fetch("last_name"),
+      last_order_id: body.fetch("last_order_id"),
+      last_order_name: body.fetch("last_order_name"),
+      phone: body.fetch("phone"),
+      shopify_id: body.fetch("id"),
+      state: body.fetch("state"),
+      updated_at: body.fetch("updated_at"),
     }
   end
 

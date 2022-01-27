@@ -88,14 +88,14 @@ Both of these values should be visible from the homepage of your Twilio admin Da
 
   def _prepare_for_insert(body, **_kwargs)
     return {
-      twilio_id: body["sid"],
-      date_created: Time.parse(body["date_created"]),
-      date_sent: Time.parse(body["date_sent"]),
-      date_updated: Time.parse(body["date_updated"]),
-      direction: body["direction"],
-      from: body["from"],
-      status: body["status"],
-      to: body["to"],
+      twilio_id: body.fetch("sid"),
+      date_created: Time.parse(body.fetch("date_created")),
+      date_sent: Time.parse(body.fetch("date_sent")),
+      date_updated: Time.parse(body.fetch("date_updated")),
+      direction: body.fetch("direction"),
+      from: body.fetch("from"),
+      status: body.fetch("status"),
+      to: body.fetch("to"),
     }
   end
 

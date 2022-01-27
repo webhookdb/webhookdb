@@ -44,18 +44,18 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
     # backfilling.
     updated = 0
     obj_of_interest = body
-    if body["object"] == "event"
-      updated = body["created"]
-      obj_of_interest = body["data"]["object"]
+    if body.fetch("object") == "event"
+      updated = body.fetch("created")
+      obj_of_interest = body.fetch("data").fetch("object")
     end
     return {
       data: obj_of_interest.to_json,
-      balance: obj_of_interest["balance"],
-      created: obj_of_interest["created"],
-      email: obj_of_interest["email"],
-      name: obj_of_interest["name"],
-      phone: obj_of_interest["phone"],
-      stripe_id: obj_of_interest["id"],
+      balance: obj_of_interest.fetch("balance"),
+      created: obj_of_interest.fetch("created"),
+      email: obj_of_interest.fetch("email"),
+      name: obj_of_interest.fetch("name"),
+      phone: obj_of_interest.fetch("phone"),
+      stripe_id: obj_of_interest.fetch("id"),
       updated:,
     }
   end

@@ -130,10 +130,10 @@ your database will be populated.
     object_of_interest = body["subscriber"].present? ? body["subscriber"] : body
     state = object_of_interest["state"]
     return {
-      convertkit_id: object_of_interest["id"],
-      created_at: object_of_interest["created_at"],
-      email_address: object_of_interest["email_address"],
-      first_name: object_of_interest["first_name"],
+      convertkit_id: object_of_interest.fetch("id"),
+      created_at: object_of_interest.fetch("created_at"),
+      email_address: object_of_interest.fetch("email_address"),
+      first_name: object_of_interest.fetch("first_name"),
       last_name: object_of_interest.dig("fields", "last_name"),
       state:,
       # Subscribers do not store a cancelation time (nor an updated at time),

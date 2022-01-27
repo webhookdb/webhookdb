@@ -49,14 +49,14 @@ class Webhookdb::Services::IncreaseACHTransferV1 < Webhookdb::Services::Base
               end
 
     return {
-      account_number: obj_of_interest["account_number"],
-      account_id: obj_of_interest["account_id"],
-      amount: obj_of_interest["amount"],
-      created_at: obj_of_interest["created_at"],
-      increase_id: obj_of_interest["id"],
-      routing_number: obj_of_interest["routing_number"],
-      status: obj_of_interest["status"],
-      transaction_id: obj_of_interest["transaction_id"],
+      account_number: obj_of_interest.fetch("account_number"),
+      account_id: obj_of_interest.fetch("account_id"),
+      amount: obj_of_interest.fetch("amount"),
+      created_at: obj_of_interest.fetch("created_at"),
+      increase_id: obj_of_interest.fetch("id"),
+      routing_number: obj_of_interest.fetch("routing_number"),
+      status: obj_of_interest.fetch("status"),
+      transaction_id: obj_of_interest.fetch("transaction_id"),
       updated_at: updated,
     }
   end
