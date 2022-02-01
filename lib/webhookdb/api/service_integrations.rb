@@ -6,8 +6,64 @@ require "webhookdb/api"
 require "webhookdb/aws"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
-  # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
-  # it is the url that customers should point their webhooks to
+  resource :service_integrations do
+    route_param :opaque_id do
+      helpers do
+        def lookup_unauthed!
+          sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
+          merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
+          return sint
+        end
+
+        def log_webhook(sint, sstatus)
+          # Status can be set from:
+          # - the 'status' method, which will be 201 if it hasn't been set,
+          # or another value if it has been set.
+          # - the webhook responder, which could respond with 401, etc
+          # - if there was an exception- so no status is set yet- use 0
+          # The main thing to watch out for is that we:
+          # - Cannot assume an exception is a 500 (it can be rescued later)
+          # - Must handle error! calls
+          # Anyway, this is all pretty confusing, but it's all tested.
+          rstatus = status == 201 ? (sstatus || 0) : status
+          request.body.rewind
+          Webhookdb::LoggedWebhook.dataset.insert(
+            request_body: request.body.read,
+            request_headers: request.headers.to_json,
+            response_status: rstatus,
+            organization_id: sint&.organization_id,
+            service_integration_opaque_id: params[:opaque_id],
+          )
+        end
+      end
+
+      # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
+      # it is the url that customers should point their webhooks to.
+      # we can't check org permissions on this endpoint
+      # because external services will be posting webhooks here
+      # hence, it has a special lookup function
+      post do
+        sint = lookup_unauthed!
+        svc = Webhookdb::Services.service_instance(sint)
+        s_status, s_headers, s_body = svc.webhook_response(request)
+
+        if s_status >= 400
+          logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
+                                          webhook_body: env["api.request.body"]
+        else
+          sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
+        end
+
+        env["api.format"] = :binary
+        s_headers.each { |k, v| header k, v }
+        body s_body
+        status s_status
+      ensure
+        log_webhook(sint, s_status)
+      end
+    end
+  end
+
   resource :organizations do
     route_param :org_identifier, type: String do
       resource :service_integrations do
@@ -95,62 +151,12 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               return sint
             end
 
-            def lookup_unauthed!
-              sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
-              merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
-              return sint
-            end
-
             def ensure_plan_supports!
               sint = lookup!
               # TODO: Fix this message?
               err_msg = "Integration no longer supported--please visit website to activate subscription."
               merror!(402, err_msg) unless sint.plan_supports_integration?
             end
-
-            def log_webhook(sint, sstatus)
-              # Status can be set from:
-              # - the 'status' method, which will be 201 if it hasn't been set,
-              # or another value if it has been set.
-              # - the webhook responder, which could respond with 401, etc
-              # - if there was an exception- so no status is set yet- use 0
-              # The main thing to watch out for is that we:
-              # - Cannot assume an exception is a 500 (it can be rescued later)
-              # - Must handle error! calls
-              # Anyway, this is all pretty confusing, but it's all tested.
-              rstatus = status == 201 ? (sstatus || 0) : status
-              request.body.rewind
-              Webhookdb::LoggedWebhook.dataset.insert(
-                request_body: request.body.read,
-                request_headers: request.headers.to_json,
-                response_status: rstatus,
-                organization_id: sint&.organization_id,
-                service_integration_opaque_id: params[:opaque_id],
-              )
-            end
-          end
-
-          # we can't check org permissions on this endpoint
-          # because external services will be posting webhooks here
-          # hence, it has a special lookup function
-          post do
-            sint = lookup_unauthed!
-            svc = Webhookdb::Services.service_instance(sint)
-            s_status, s_headers, s_body = svc.webhook_response(request)
-
-            if s_status >= 400
-              logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
-                                              webhook_body: env["api.request.body"]
-            else
-              sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
-            end
-
-            env["api.format"] = :binary
-            s_headers.each { |k, v| header k, v }
-            body s_body
-            status s_status
-          ensure
-            log_webhook(sint, s_status)
           end
 
           resource :reset do
@@ -175,7 +181,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               svc = Webhookdb::Services.service_instance(sint)
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               state_machine = svc.calculate_backfill_state_machine
-              if state_machine.complete == true
+              if state_machine.complete
                 Webhookdb.publish(
                   "webhookdb.serviceintegration.backfill", sint.id,
                 )

@@ -154,7 +154,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id" do
+  describe "POST /v1/service_integrations/:opaque_id" do
     before(:each) do
       # this endpoint should be unauthed, so we will test it unauthed
       logout
@@ -163,7 +163,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "publishes an event with the data for the webhook", :async do
       header "X-My-Test", "abc"
       expect do
-        post "/v1/organizations/#{org.key}/service_integrations/xyz", foo: 1
+        post "/v1/service_integrations/xyz", foo: 1
         expect(last_response).to have_status(202)
       end.to publish("webhookdb.serviceintegration.webhook").with_payload(
         match_array(
@@ -179,7 +179,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "handles default response behavior" do
-      post "/v1/organizations/#{org.key}/service_integrations/xyz"
+      post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(202)
       expect(last_response.body).to eq("ok")
@@ -189,7 +189,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "returns the response from the configured service" do
       Webhookdb::Services::Fake.webhook_response = [203, {"Content-Type" => "text/xml"}, "<x></x>"]
 
-      post "/v1/organizations/#{org.key}/service_integrations/xyz"
+      post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(203)
       expect(last_response.body).to eq("<x></x>")
@@ -199,7 +199,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "400s if there is no active service integration" do
       sint.soft_delete
       header "X-My-Test", "abc"
-      post "/v1/organizations/#{org.key}/service_integrations/xyz", foo: 1
+      post "/v1/service_integrations/xyz", foo: 1
       expect(last_response).to have_status(400)
     end
 
@@ -207,13 +207,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       Webhookdb::Services::Fake.webhook_verified = false
 
       expect do
-        post "/v1/organizations/#{org.key}/service_integrations/xyz"
+        post "/v1/service_integrations/xyz"
         expect(last_response).to have_status(401)
       end.to_not publish("webhookdb.serviceintegration.webhook")
     end
 
     it "db logs on success" do
-      post "/v1/organizations/#{org.key}/service_integrations/xyz", a: 1
+      post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
         include(
@@ -228,7 +228,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on lookup and other errors" do
-      post "/v1/organizations/#{org.key}/service_integrations/abc"
+      post "/v1/service_integrations/abc"
       expect(last_response).to have_status(400)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
         include(
@@ -241,7 +241,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "db logs on failed validation" do
       Webhookdb::Services::Fake.webhook_verified = false
-      post "/v1/organizations/#{org.key}/service_integrations/xyz"
+      post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(401)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
         include(
@@ -254,7 +254,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "db logs on exception" do
       Webhookdb::Services::Fake.webhook_verified = RuntimeError.new("foo")
-      post "/v1/organizations/#{org.key}/service_integrations/xyz"
+      post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(500)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
         include(
