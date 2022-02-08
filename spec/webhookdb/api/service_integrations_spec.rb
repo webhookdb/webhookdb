@@ -266,6 +266,48 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
   end
 
+  describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/status" do
+    before(:each) do
+      # successful webhooks
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").success.create
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").success.create
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").success.create
+      # rejected webhooks
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").failure.create
+    end
+
+    it "returns expected data as object" do
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/status", fmt: :object
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        total_count: 4,
+        rejected_count: 1,
+        success_count: 3,
+        rejected_percent: "25.0%",
+        success_percent: "75.0%",
+      )
+    end
+
+    it "returns expected data in table format" do
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/status"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        headers: ["name", "value"],
+        rows: match_array(
+          [
+            ["Total Webhooks Logged", 4],
+            ["Successful Webhooks", 3],
+            ["Percent Successful", "75.0%"],
+            ["Rejected Webhooks", 1],
+            ["Percent Rejected", "25.0%"],
+          ],
+        ),
+      )
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/reset" do
     before(:each) do
       login_as(customer)

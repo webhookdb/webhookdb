@@ -53,4 +53,44 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       expect(shopify_sint.plan_supports_integration?).to eq(false)
     end
   end
+
+  describe "stats" do
+    before(:each) do
+      # successful webhooks
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).success.create
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).success.create
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).success.create
+      # rejected webhooks
+      Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).failure.create
+    end
+
+    it "returns information in 'table' format" do
+      expect(sint.stats("table")).to include(
+        headers: ["name", "value"],
+        rows: match_array(
+          [
+            ["Total Webhooks Logged", 4],
+            ["Successful Webhooks", 3],
+            ["Percent Successful", "75.0%"],
+            ["Rejected Webhooks", 1],
+            ["Percent Rejected", "25.0%"],
+          ],
+        ),
+      )
+    end
+
+    it "returns information as an object" do
+      expect(sint.stats("object")).to include(
+        total_count: 4,
+        rejected_count: 1,
+        success_count: 3,
+        rejected_percent: "25.0%",
+        success_percent: "75.0%",
+      )
+    end
+
+    it "raises ArgumentError if format parameter is invalid" do
+      expect { sint.stats("wrong") }.to raise_error(ArgumentError, "\"wrong\" is not a valid format for webhook stats")
+    end
+  end
 end

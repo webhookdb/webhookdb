@@ -54,6 +54,45 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return false
   end
 
+  # STATS ON LOGGED WEBHOOKS
+  VALID_STATS_FORMATS = ["table", "object"].freeze
+
+  def stats(format)
+    raise ArgumentError, "\"#{format}\" is not a valid format for webhook stats" unless format.in?(VALID_STATS_FORMATS)
+    all_logged_webhooks = Webhookdb::LoggedWebhook.where(
+      service_integration_opaque_id: self.opaque_id,
+    ).where { inserted_at > 7.days.ago }
+
+    total_count = all_logged_webhooks.count
+    rejected_count = all_logged_webhooks.where { response_status >= 400 }.count
+    success_count = total_count - rejected_count
+    rejected_percent = "%.1f%%" % ((rejected_count.to_f / total_count) * 100)
+    success_percent = "%.1f%%" % ((success_count.to_f / total_count) * 100)
+
+    # this "table" format is designed to make formatting the CLI output easier by returning data
+    # in the form that our Go table formatting library requires
+    if format == "table"
+      return {
+        headers: ["name", "value"],
+        rows: [
+          ["Total Webhooks Logged", total_count],
+          ["Successful Webhooks", success_count],
+          ["Percent Successful", success_percent],
+          ["Rejected Webhooks", rejected_count],
+          ["Percent Rejected", rejected_percent],
+        ],
+      }
+    end
+
+    return {
+      total_count:,
+      rejected_count:,
+      success_count:,
+      rejected_percent:,
+      success_percent:,
+    }
+  end
+
   #
   # :Sequel Hooks:
   #
