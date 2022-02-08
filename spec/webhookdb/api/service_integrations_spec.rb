@@ -385,7 +385,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
-        prompt: false,
+        prompt: "",
         prompt_is_secret: false,
         post_to_url: "",
         complete: true,

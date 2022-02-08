@@ -147,7 +147,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
-          prompt: false,
+          prompt: "",
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,

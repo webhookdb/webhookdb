@@ -17,14 +17,31 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       end
     end
 
+    helpers do
+      def finish_auth(me)
+        set_customer(me) if me
+        extras = {}
+        extras[:current_customer] = Webhookdb::API::CurrentCustomerEntity.represent(me).as_json if me
+        return extras
+      end
+    end
+
     params do
       requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
+      optional :token, type: String
     end
     post do
       guard_logged_in!
-      step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
-      status 202
-      present step, with: Webhookdb::API::StateMachineEntity
+      if params[:token].blank?
+        step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
+        extras = {}
+        status 202
+      else
+        step, me = Webhookdb::Customer.finish_otp(Webhookdb::Customer[email: params[:email]], token: params[:token])
+        extras = finish_auth(me)
+        status 200
+      end
+      present step, with: Webhookdb::API::StateMachineEntity, extras:
     end
 
     resource :login_otp do
@@ -35,10 +52,11 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
         end
         post do
           guard_logged_in!
-          step, me = Webhookdb::Customer.finish_otp(opaque_id: params[:opaque_id], token: params[:value])
-          set_customer(me) if me
+          step, me = Webhookdb::Customer.finish_otp(Webhookdb::Customer[opaque_id: params[:opaque_id]],
+                                                    token: params[:value],)
+          extras = finish_auth(me)
           status 200
-          present step, with: Webhookdb::API::StateMachineEntity
+          present step, with: Webhookdb::API::StateMachineEntity, extras:
         end
       end
     end

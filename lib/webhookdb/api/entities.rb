@@ -52,6 +52,9 @@ module Webhookdb::API
     expose :complete
     expose :output
     expose :error_code
+    expose :extras do |_, opts|
+      opts[:extras] || {}
+    end
   end
 
   class WebhookSubscriptionEntity < BaseEntity

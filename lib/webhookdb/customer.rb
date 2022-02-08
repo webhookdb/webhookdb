@@ -70,18 +70,18 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
 To finish registering, please look for an email we just sent to #{email}.
 It contains a One Time Password code to validate your email.
-%)
+)
       else
         %(Welcome back!
 
 To finish logging in, please look for an email we just sent to #{email}.
 It contains a One Time Password used to log in.
-%)
+)
                     end
       step.output += %(You can enter it here, or if you want to finish up from a new prompt, use:
 
   webhookdb auth login --username=#{email} --token=<#{Webhookdb::Customer::ResetCode::TOKEN_LENGTH} digit token>
-%)
+)
       step.prompt = "Enter the token from your email:"
       step.prompt_is_secret = true
       step.needs_input = true
@@ -91,8 +91,7 @@ It contains a One Time Password used to log in.
   end
 
   # @return Tuple of <Step, Customer>. Customer is nil if token was invalid.
-  def self.finish_otp(opaque_id:, token:)
-    me = Webhookdb::Customer[opaque_id:]
+  def self.finish_otp(me, token:)
     if me.nil?
       step = Webhookdb::Services::StateMachineStep.new
       step.output = %(Sorry, no one with that email exists. Try running:
@@ -128,7 +127,7 @@ It contains a One Time Password used to log in.
     step = Webhookdb::Services::StateMachineStep.new
     step.output = %(Welcome! For help getting started, please check out
 our docs at https://webhookdb.com/docs/cli.
-%)
+)
     step.needs_input = false
     step.complete = true
     return [step, me]

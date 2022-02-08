@@ -30,6 +30,13 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(customer).to_not be_nil
         expect(customer).to have_attributes(email:)
       end
+
+      it "fails if a token is provided" do
+        post "/v1/auth", token: "123456", **customer_params
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(output: /Sorry, no one with that/)
+      end
     end
 
     describe "for an email matching an existing customer" do
@@ -48,6 +55,28 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(new_code).to have_attributes(transport: "email")
 
         expect(Webhookdb::Customer.all).to(have_length(1))
+      end
+
+      it "logs in if the provided token is correct" do
+        existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
+
+        post "/v1/auth", email: email, token: existing_code.token
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(output: /Welcome!/)
+        expect(existing_code.refresh).to be_expired
+        expect(customer.refresh.reset_codes).to contain_exactly(be === existing_code) # No new token
+      end
+
+      it "fails if the provided token is incorrect" do
+        existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
+
+        post "/v1/auth", email: email, token: "123456"
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(output: /Sorry, that token is invalid/)
+        expect(existing_code.refresh).to_not be_expired
+        expect(customer.refresh.reset_codes).to contain_exactly(be === existing_code) # No new token
       end
     end
   end
@@ -69,7 +98,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       expect(last_response).to have_json_body.that_includes(output: /Sorry, no one with that email/)
     end
 
-    it "establishes an auth session and returns the default_org" do
+    it "establishes an auth session and returns the current_customer with default org" do
       code = customer.add_reset_code(transport: "email")
       default_org = Webhookdb::Fixtures.organization.create
       customer.add_membership(organization: default_org)
@@ -78,7 +107,16 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(output: /Welcome!/)
+        that_includes(
+          output: /Welcome!/,
+          extras: include(
+            current_customer: include(
+              default_organization: include(
+                id: default_org.id,
+              ),
+            ),
+          ),
+        )
       expect(last_response).to have_session_cookie
       expect(code.refresh).to have_attributes(used: true)
     end

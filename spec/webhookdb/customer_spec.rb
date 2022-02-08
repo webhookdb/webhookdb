@@ -160,8 +160,8 @@ RSpec.describe "Webhookdb::Customer", :db do
     end
     let!(:customer) { Webhookdb::Fixtures.customer(**customer_params).create }
 
-    it "errors if the opaque id does not belong to an existing customer" do
-      step, me = described_class.finish_otp(opaque_id: "cus_nope", token: "abcd")
+    it "errors if the customer is nil" do
+      step, me = described_class.finish_otp(nil, token: "abcd")
       expect(me).to be_nil
       expect(step.output).to include("no one with that email")
     end
@@ -171,7 +171,7 @@ RSpec.describe "Webhookdb::Customer", :db do
       default_org = Webhookdb::Fixtures.organization.create
       customer.add_membership(organization: default_org)
 
-      step, me = described_class.finish_otp(opaque_id:, token: code.token)
+      step, me = described_class.finish_otp(customer, token: code.token)
 
       expect(me).to be === customer
       expect(step.output).to include("Welcome!")
@@ -180,7 +180,7 @@ RSpec.describe "Webhookdb::Customer", :db do
 
     it "fails if the token does not belong to the customer" do
       code = Webhookdb::Fixtures.reset_code.create
-      step, me = described_class.finish_otp(opaque_id:, token: code.token)
+      step, me = described_class.finish_otp(customer, token: code.token)
       expect(me).to be_nil
       expect(step).to have_attributes(error_code: "invalid_otp")
     end
@@ -188,7 +188,7 @@ RSpec.describe "Webhookdb::Customer", :db do
     it "fails if the token is invalid" do
       code = Webhookdb::Fixtures.reset_code(customer:).create
       code.expire!
-      step, me = described_class.finish_otp(opaque_id:, token: code.token)
+      step, me = described_class.finish_otp(customer, token: code.token)
       expect(me).to be_nil
       expect(step).to have_attributes(error_code: "invalid_otp")
     end
@@ -196,7 +196,7 @@ RSpec.describe "Webhookdb::Customer", :db do
     it "logs the user in if the code is invalid and auth skipping is enabled for the customer email" do
       Webhookdb::Customer.skip_authentication_allowlist = ["*@cats.org"]
       customer.update(email: "meow@cats.org")
-      step, me = described_class.finish_otp(opaque_id:, token: "a")
+      step, me = described_class.finish_otp(customer, token: "a")
       expect(me).to be === customer
     ensure
       Webhookdb::Customer.reset_configuration

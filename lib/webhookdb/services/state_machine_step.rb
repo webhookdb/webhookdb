@@ -11,7 +11,7 @@ class Webhookdb::Services::StateMachineStep
 
   def initialize
     @needs_input = false
-    @prompt = false
+    @prompt = ""
     @prompt_is_secret = false
     @post_to_url = ""
     @complete = false

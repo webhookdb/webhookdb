@@ -4345,7 +4345,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
-          prompt: false,
+          prompt: "",
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
@@ -4417,7 +4417,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
-          prompt: false,
+          prompt: "",
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
