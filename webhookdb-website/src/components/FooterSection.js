@@ -32,7 +32,9 @@ export default function FooterSection() {
             </Nav>
           </Row>
           <Row className="justify-content-center my-3">
-            <Image src={Logo} />
+            <a href="/">
+              <Image src={Logo} />
+            </a>
           </Row>
           <Row className="justify-content-center my-3">
             <p> © {new Date().getFullYear()}</p>
