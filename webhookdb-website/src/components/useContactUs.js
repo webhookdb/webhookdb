@@ -6,10 +6,11 @@ import React from "react";
 
 export default function useContactUs() {
   const [showContactUs, setContactUs] = React.useState(false);
-  const closeContactUs = () => setContactUs(false);
-  const openContactUs = () => setContactUs(true);
-  const renderContactUs = () => (
-    <ContactUs showContactUs={showContactUs} closeContactUs={closeContactUs} />
+  const closeContactUs = React.useCallback(() => setContactUs(false), []);
+  const openContactUs = React.useCallback(() => setContactUs(true), []);
+  const renderContactUs = React.useCallback(
+    () => <ContactUs showContactUs={showContactUs} closeContactUs={closeContactUs} />,
+    [showContactUs, closeContactUs]
   );
   return {
     render: renderContactUs,

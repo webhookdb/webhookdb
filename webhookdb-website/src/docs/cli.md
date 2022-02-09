@@ -49,6 +49,9 @@ You have logged out.
 
 To set up integrations, you need to be part of an Organization.
 
+**NOTE: You get a default organization when you sign up,
+so you can skip this part if you are just taking things for a spin.**
+
 You can create a new organization:
 
 ```arff
@@ -216,3 +219,16 @@ webhookdb db sql "SELECT * FROM stripe_charges_v1"
 Note that for some integrations, WebhookDB is limited in what it can backfill,
 such as the last 90 days of Shopify Orders, for example.
 The CLI will let you know when we cannot backfill a full history.
+
+## [Proxy webhooks](#proxy-webhooks)
+
+If you also need to subscribe to changes in a 3rd party service,
+you can subscribe to receive changes from WebhookDB,
+rather than having to set up webhooks in each API you use.
+This allows you to have a consistent way to configure and verify webhooks.
+
+TODO: stats
+
+## [Other commands](#other-commands)
+
+TODO: stats

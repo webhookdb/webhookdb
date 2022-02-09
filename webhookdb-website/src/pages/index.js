@@ -6,8 +6,10 @@ import Helmet from "react-helmet";
 import { Integrations } from "../components/Integrations";
 import LayoutPage from "../components/LayoutPage";
 import React from "react";
+import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
+import staticData from "../components/staticData";
 import useContactUs from "../components/useContactUs";
 
 export default function IndexPage() {
@@ -29,35 +31,45 @@ export default function IndexPage() {
       </Helmet>
       <Container className="bg-primary text-light pt-5 px-4" fluid>
         <Centered>
-          <h2>
-            Your 3<sup>rd</sup> Party Data in SQL.
-          </h2>
-          <p>
-            Querying a database with SQL is easy. SQL databases are among the most
-            well-supported and ubiquitous technologies around.
+          <h2>Query any API, in real-time, with SQL.</h2>
+          <p className="lead">
+            WebhookDB mirrors data from 3rd party APIs into a dedicated Postgres
+            database in realtime.
           </p>
-          <p>APIs are great, but not nearly as seamless to use.</p>
-          <p>
-            What if you could query data from 3rd party services as easily as your own
-            application data?
+          <p className="lead">
+            Use this database connection in your applications and analytics systems.
           </p>
-          <p className="lead">Enter WebhookDB.</p>
+          <ul className="lead">
+            <li>
+              <span className="font-weight-bold">Fast</span>: Updates are immediate in
+              most cases, or appear within a few seconds if the API requires polling for
+              changes.
+            </li>
+            <li>
+              <span className="font-weight-bold">Secure</span>: All your data lives in a
+              dedicated database. Enterprise customers can self-host their data.
+            </li>
+            <li>
+              <span className="font-weight-bold">Practical</span>: Get up and running in
+              seconds for any supported API. Great unit testing setup too.
+            </li>
+            <li>
+              <span className="font-weight-bold">Resilient</span>: Never worry about
+              losing a webhook or out-of-order delivery. Use WebhookDB in applications
+              as well as analytics.
+            </li>
+          </ul>
           <p>
-            WebhookDB solves a simple problem, and it solves it very well. We store data
-            from the APIs you use in a database, and gives you an Postgres connection
-            string, so you can query it from both your applications, and your analytics
-            systems.
+            Mirroring data from 3rd party APIs so it can be quickly and easily queried
+            in SQL is an <span className="font-weight-bold">extremely common need</span>
+            .
           </p>
           <p>
-            <em>
-              That&rsquo;s right, we built WebhookDB to be used in applications, not
-              just analytics.
-            </em>
-          </p>
-          <p>
-            You may have built something similar &mdash; we definitely had many times
-            before building WebhookDB. We save you the undifferentiated work of turning
-            3rd party data into ergonomic SQL tables.
+            It&rsquo;s also undifferentiated.{" "}
+            <span className="font-weight-bold">
+              You shouldn&rsquo;t have to build this internally!
+            </span>{" "}
+            Use WebhookDB.
           </p>
           <Button href="/docs/home" variant="outline-light" size="lg" className="mt-2">
             Get Started
@@ -67,25 +79,47 @@ export default function IndexPage() {
       <Waves />
       <Container className="px-4 mt-5" fluid>
         <Centered>
-          <h2>Features.</h2>
+          <h2>Why WebhookDB?</h2>
           <ul className="list-flush list-comfy">
             <li>
-              Connection to your own isolated Postgres database containing your data.
+              Never have to figure out webhooks in an API again. Our CLI guides you
+              through setting up webhooks interactively.
+            </li>
+            <li>Structured schema with important fields denormalized and indexed.</li>
+            <li>
+              Automatically backfill resources when you add an integration, and at any
+              time afterwards.
+            </li>
+            <li>Never worry about failed and out-of-order webhook deliveries.</li>
+            <li>
+              Enterprise customers can provide their own database credentials to
+              self-host data.
             </li>
             <li>
               Highly-available infrastructure so you don&rsquo;t need to worry about
               lost updates.
             </li>
             <li>
-              Synchronization to handle out-of-order webhook updates, without having to
-              re-query the service.
-            </li>
-            <li>
-              Backfilling of resources created before you set up your integration.
+              You can proxy all webhooks through WebhookDB if you still want to see them
+              yourself. No need for many verification routines or config secrets.
             </li>
             <li>
               WebhookDB is developer-focused, and entirely managed through an extremely
               friendly CLI.
+            </li>
+            <li>
+              Automatic Foreign Data Wrappers so you can JOIN with WebhookDB tables, or
+              import them into Materialized Views.
+            </li>
+            <li>
+              If you love unit testing as much as we do, it&rsquo;s much easier to test
+              code using WebhookDB than HTTP.
+            </li>
+            <li>
+              <SafeExternalLink href={staticData.announcementBlog}>
+                Learn why we built WebhookDB
+              </SafeExternalLink>
+              .
             </li>
           </ul>
         </Centered>
@@ -94,8 +128,8 @@ export default function IndexPage() {
         <Centered>
           <h2>Supported Integrations.</h2>
           <p>
-            We currently support the following integrations. If you need a service or
-            resource not listed below, please{" "}
+            We currently support the following integrations, with more released every
+            week. If you need a service or resource not listed below, please{" "}
             <a href="#" onClick={openContactUs}>
               Contact Us
             </a>
@@ -108,29 +142,25 @@ export default function IndexPage() {
           <Row className="justify-content-sm-center justify-content-xs-start align-items-start mt-5">
             {Integrations.map((integration, idx) => {
               return (
-                <Col key={idx} className="col-12 col-sm-6  col-md-4 col-lg-4">
+                <Col key={idx} className="col-12 col-sm-6 col-md-4 col-lg-4">
                   <Image
                     src={integration.logo}
                     className="mb-3 img-fluid"
                     style={{ maxHeight: 80 }}
                   />
-                  <ul className="list-unstyled mb-5">
-                    {integration.resources.map((r) => (
-                      <li key={r} className="font-weight-bolder lead">
-                        {r}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="lead font-weight-bold mb-5">
+                    {integration.resources.join(", ")}
+                  </div>
                 </Col>
               );
             })}
           </Row>
           <p>
-            * Indicates coming soon (before end of 2021). Please{" "}
+            * Indicates coming soon. Please{" "}
             <a href="#" onClick={openContactUs}>
               Contact Us
             </a>{" "}
-            if you would like it earlier.
+            if you need it immediately, or want any API not listed here.
           </p>
         </Centered>
       </Container>

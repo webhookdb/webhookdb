@@ -75,3 +75,7 @@ h1, h2, h3 {
 .max-width-xl {
   max-width: map.get($grid-breakpoints, 'xl');
 }
+
+.font-small {
+  font-size: 80%;
+}
