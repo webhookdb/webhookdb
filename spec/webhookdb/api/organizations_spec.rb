@@ -373,4 +373,45 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       )
     end
   end
+
+  describe "POST /v1/organizations/fdw" do
+    let(:org) do
+      super().update(
+        readonly_connection_url_raw: "postgres://me:l33t@somehost:5555/mydb",
+        admin_connection_url_raw: "postgres://invalidurl",
+      )
+    end
+    let(:params) { {remote_server_name: "svr", fetch_size: "1", local_schema: "sch", view_schema: "vw"} }
+
+    it "generates an FDW response" do
+      post "/v1/organizations/#{org.key}/fdw", **params
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(
+          :fdw_sql,
+          :views,
+          :views_sql,
+          :compound_sql,
+          # No views so trails with three newlines
+          message: start_with("CREATE EXTENSION").and(end_with("vw;\n\n\n")),
+        )
+    end
+
+    it "can return views sql message" do
+      post "/v1/organizations/#{org.key}/fdw", message_views: true, **params
+
+      expect(last_response).to have_status(200)
+      # No service integrations so no message
+      expect(last_response).to have_json_body.that_includes(message: "")
+    end
+
+    it "can return only fdw sql message" do
+      post "/v1/organizations/#{org.key}/fdw", message_fdw: true, **params
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(message: start_with("CREATE EXTENSION").and(end_with("vw;\n")))
+    end
+  end
 end

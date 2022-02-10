@@ -17,8 +17,6 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       present_collection orgs, with: Webhookdb::API::OrganizationEntity, message:
     end
 
-    # GET
-
     route_param :org_identifier, type: String do
       desc "Return organization with the given identifier."
       get do
@@ -46,8 +44,6 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           present_collection fake_entities, with: Webhookdb::API::ServiceEntity
         end
       end
-
-      # POST
 
       resource :invite do
         desc "Generates an invitation code for a user, adds pending membership in the organization."
@@ -147,6 +143,34 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message:
           end
         end
+      end
+
+      params do
+        optional :message_fdw, type: Boolean
+        optional :message_views, type: Boolean
+        optional :message_all, type: Boolean
+        requires :remote_server_name, type: String
+        requires :fetch_size, type: String
+        requires :local_schema, type: String
+        requires :view_schema, type: String
+      end
+      post :fdw do
+        org = lookup_org!
+        resp = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
+          remote_server_name: params[:remote_server_name],
+          fetch_size: params[:fetch_size],
+          local_schema: params[:local_schema],
+          view_schema: params[:view_schema],
+        )
+        resp[:message] = if params[:message_fdw]
+                           resp[:fdw_sql]
+        elsif params[:message_views]
+          resp[:views_sql]
+        else
+          resp[:compound_sql]
+        end
+        status 200
+        present resp
       end
     end
 
