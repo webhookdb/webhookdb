@@ -63,11 +63,23 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
       service_integration_opaque_id: self.opaque_id,
     ).where { inserted_at > 7.days.ago }
 
+    no_logged_webhooks_msg = "We have no record of receiving webhooks for that integration in the past seven days."
+
+    if all_logged_webhooks.empty?
+      if format == "table"
+        return {
+          headers: ["Message"],
+          rows: [[no_logged_webhooks_msg]],
+        }
+      end
+      return no_logged_webhooks_msg
+    end
+
     total_count = all_logged_webhooks.count
     rejected_count = all_logged_webhooks.where { response_status >= 400 }.count
-    success_count = total_count - rejected_count
-    rejected_percent = "%.1f%%" % ((rejected_count.to_f / total_count) * 100)
-    success_percent = "%.1f%%" % ((success_count.to_f / total_count) * 100)
+    success_count = (total_count - rejected_count)
+    rejected_percent = (rejected_count.to_f / total_count)
+    success_percent = (success_count.to_f / total_count)
 
     # this "table" format is designed to make formatting the CLI output easier by returning data
     # in the form that our Go table formatting library requires
@@ -75,11 +87,11 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
       return {
         headers: ["name", "value"],
         rows: [
-          ["Total Webhooks Logged", total_count],
-          ["Successful Webhooks", success_count],
-          ["Percent Successful", success_percent],
-          ["Rejected Webhooks", rejected_count],
-          ["Percent Rejected", rejected_percent],
+          ["Total Webhooks Logged", total_count.to_s],
+          ["Successful Webhooks", success_count.to_s],
+          ["Percent Successful", "%.1f%%" % (success_percent * 100)],
+          ["Rejected Webhooks", rejected_count.to_s],
+          ["Percent Rejected", "%.1f%%" % (rejected_percent * 100)],
         ],
       }
     end

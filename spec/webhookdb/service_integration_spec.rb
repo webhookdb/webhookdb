@@ -64,29 +64,46 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).failure.create
     end
 
-    it "returns information in 'table' format" do
+    it "returns expected information in 'table' format" do
       expect(sint.stats("table")).to include(
         headers: ["name", "value"],
         rows: match_array(
           [
-            ["Total Webhooks Logged", 4],
-            ["Successful Webhooks", 3],
+            ["Total Webhooks Logged", "4"],
+            ["Successful Webhooks", "3"],
             ["Percent Successful", "75.0%"],
-            ["Rejected Webhooks", 1],
+            ["Rejected Webhooks", "1"],
             ["Percent Rejected", "25.0%"],
           ],
         ),
       )
     end
 
-    it "returns information as an object" do
+    it "returns expected information as an object" do
       expect(sint.stats("object")).to include(
         total_count: 4,
         rejected_count: 1,
         success_count: 3,
-        rejected_percent: "25.0%",
-        success_percent: "75.0%",
+        rejected_percent: 0.25,
+        success_percent: 0.75,
       )
+    end
+
+    it "returns 'no webhooks logged' message in 'table' format" do
+      Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).delete
+      expect(sint.stats("table")).to include(
+        headers: ["Message"],
+        rows: match_array(
+          [
+            [match(/We have no record of receiving webhooks/)],
+          ],
+        ),
+      )
+    end
+
+    it "returns 'no webhooks logged' message as a string" do
+      Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).delete
+      expect(sint.stats("object")).to match(/We have no record of receiving webhooks/)
     end
 
     it "raises ArgumentError if format parameter is invalid" do

@@ -284,8 +284,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         total_count: 4,
         rejected_count: 1,
         success_count: 3,
-        rejected_percent: "25.0%",
-        success_percent: "75.0%",
+        rejected_percent: 0.25,
+        success_percent: 0.75,
       )
     end
 
@@ -297,10 +297,10 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         headers: ["name", "value"],
         rows: match_array(
           [
-            ["Total Webhooks Logged", 4],
-            ["Successful Webhooks", 3],
+            ["Total Webhooks Logged", "4"],
+            ["Successful Webhooks", "3"],
             ["Percent Successful", "75.0%"],
-            ["Rejected Webhooks", 1],
+            ["Rejected Webhooks", "1"],
             ["Percent Rejected", "25.0%"],
           ],
         ),
