@@ -201,4 +201,46 @@ class Webhookdb::Organization::DbBuilder
     @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_uri, @org.dbname)
   end
+
+  def generate_fdw_payload(
+    remote_server_name:,
+    fetch_size:,
+    local_schema:,
+    view_schema:
+  )
+    conn = URI(@org.readonly_connection_url)
+    fdw_sql = <<~FDW_SERVER
+      CREATE EXTENSION IF NOT EXISTS postgres_fdw;
+      DROP SERVER IF EXISTS #{remote_server_name} CASCADE;
+      CREATE SERVER #{remote_server_name}
+        FOREIGN DATA WRAPPER postgres_fdw
+        OPTIONS (host '#{conn.host}', port '#{conn.port}', dbname '#{conn.path[1..]}', fetch_size '#{fetch_size}');
+
+      CREATE USER MAPPING FOR CURRENT_USER
+        SERVER #{remote_server_name}
+        OPTIONS (user '#{conn.user}', password '#{conn.password}');
+
+      CREATE SCHEMA IF NOT EXISTS #{local_schema};
+      IMPORT FOREIGN SCHEMA public
+        FROM SERVER #{remote_server_name}
+        INTO #{local_schema};
+
+      CREATE SCHEMA IF NOT EXISTS #{view_schema};
+    FDW_SERVER
+
+    views_for_integrations = @org.service_integrations.to_h do |sint|
+      cmd = "CREATE MATERIALIZED VIEW IF NOT EXISTS #{view_schema}.#{sint.service_name} " \
+            "AS SELECT * FROM #{local_schema}.#{sint.table_name};"
+      [sint.opaque_id, cmd]
+    end
+    views_sql = views_for_integrations.values.sort.join("\n")
+
+    result = {
+      fdw_sql:,
+      views_sql:,
+      compound_sql: "#{fdw_sql}\n\n#{views_sql}",
+      views: views_for_integrations,
+    }
+    return result
+  end
 end

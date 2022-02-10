@@ -338,4 +338,39 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       expect(o.available_services).to include("fake_v1", "fake_with_enrichments_v1")
     end
   end
+
+  describe "generate_fdw_payload" do
+    let(:org) do
+      Webhookdb::Fixtures.organization.create(
+        readonly_connection_url_raw: "postgres://me:l33t@somehost:5555/mydb",
+        admin_connection_url_raw: "postgres://invalidurl",
+      )
+    end
+
+    before(:each) do
+      sint_fac = Webhookdb::Fixtures.service_integration(organization: org)
+      sint_fac.create(table_name: "fake_v1_abc", opaque_id: "svi_abc")
+      sint_fac.create(table_name: "fake_v1_xyz", opaque_id: "svi_xyz")
+    end
+
+    it "generates expected results with including all fields" do
+      result = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
+        remote_server_name: "myserver",
+        fetch_size: 100,
+        local_schema: "myschema",
+        view_schema: "vw",
+      )
+      # rubocop:disable Layout/LineLength
+      expect(result).to eq(
+        fdw_sql: "CREATE EXTENSION IF NOT EXISTS postgres_fdw;\nDROP SERVER IF EXISTS myserver CASCADE;\nCREATE SERVER myserver\n  FOREIGN DATA WRAPPER postgres_fdw\n  OPTIONS (host 'somehost', port '5555', dbname 'mydb', fetch_size '100');\n\nCREATE USER MAPPING FOR CURRENT_USER\n  SERVER myserver\n  OPTIONS (user 'me', password 'l33t');\n\nCREATE SCHEMA IF NOT EXISTS myschema;\nIMPORT FOREIGN SCHEMA public\n  FROM SERVER myserver\n  INTO myschema;\n\nCREATE SCHEMA IF NOT EXISTS vw;\n",
+        views: {
+          "svi_abc" => "CREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_abc;",
+          "svi_xyz" => "CREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_xyz;",
+        },
+        views_sql: "CREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_abc;\nCREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_xyz;",
+        compound_sql: "CREATE EXTENSION IF NOT EXISTS postgres_fdw;\nDROP SERVER IF EXISTS myserver CASCADE;\nCREATE SERVER myserver\n  FOREIGN DATA WRAPPER postgres_fdw\n  OPTIONS (host 'somehost', port '5555', dbname 'mydb', fetch_size '100');\n\nCREATE USER MAPPING FOR CURRENT_USER\n  SERVER myserver\n  OPTIONS (user 'me', password 'l33t');\n\nCREATE SCHEMA IF NOT EXISTS myschema;\nIMPORT FOREIGN SCHEMA public\n  FROM SERVER myserver\n  INTO myschema;\n\nCREATE SCHEMA IF NOT EXISTS vw;\n\n\nCREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_abc;\nCREATE MATERIALIZED VIEW IF NOT EXISTS vw.fake_v1 AS SELECT * FROM myschema.fake_v1_xyz;",
+      )
+      # rubocop:enable Layout/LineLength
+    end
+  end
 end
