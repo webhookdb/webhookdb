@@ -11,13 +11,16 @@
 
 <table bgcolor="#FFFFFF" width="100%">
   <tr>
-    <td align="center" valign="top">
-      <center>
+    <td align="left" valign="top">
+      <div class="p2">
         {% partial 'logo_header' %}
 
+        <div class="wrapper">
         {{ content }}
+        </div>
 
-      </center>
+        {%  partial 'footer' %}
+      </div>
     </td>
   </tr>
 </table>

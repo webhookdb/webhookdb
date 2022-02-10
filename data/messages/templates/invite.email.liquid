@@ -1,10 +1,15 @@
-{% expose subject %}Welcome to WEBHOOKDB{% endexpose %}
+{% expose subject %}Join {{ organization_name }} on WebhookDB{% endexpose %}
 
 {% partial 'greeting' %}
 
-<p>
-    You have been invited to the {{ organization_name }} organization on WebhookDB. To join the
-    organization, use the invite code {{ invite_code }} through the CLI.
-</p>
+<p>You have been invited to the {{ organization_name }} organization on <a href="https://webhookdb.com">webhookdb.com</a>.</p>
+<p>WebhookDB allows you to query any API, in real time, with SQL.</p>
+<p>To get started, <a href="https://webhookdb.com/download/">download the CLI</a> and then:</p>
+<pre>> webhookdb auth login
+> webhookdb org join {{ invite_code }}</pre>
+
+<p>You can <a href="https://webhookdb.com/docs/cli/">read our WebhookDB guide</a> to learn more.</p>
+
+<p>If you have any trouble, please reply to this email, we&rsquo;re happy to help out!</p>
 
 {% partial 'signoff' %}
