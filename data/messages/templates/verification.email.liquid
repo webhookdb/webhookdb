@@ -1,17 +1,14 @@
-{% expose subject %}Your Webhookdb Verification Code{% endexpose %}
+{% expose subject %}Your WebhookDB Verification Code{% endexpose %}
 
 {% partial 'greeting' %}
 
+<p>Your auth verification code is:</p>
+<h2>{{ token }}</h2>
 <p>
-    The verification code you requested is:
+    If the CLI prompt is still up, you can paste or type in this code.
+    Or you can finish logging in from a new prompt with:
 </p>
-
-<p>
-    {{ token }}
-</p>
-
-<p>
-    If you didn&rsquo;t submit a request, you should get in contact with us by replying to this email.
-</p>
+<pre>webhookdb auth login --username="{{ email }}" --token={{ token }}</pre>
+<p>If you didn&rsquo;t submit a request, you should get in contact with us by replying to this email.</p>
 
 {% partial 'signoff' %}

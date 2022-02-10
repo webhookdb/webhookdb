@@ -17,6 +17,7 @@ class Webhookdb::Messages::Verification < Webhookdb::Message::Template
     return super.merge(
       expire_at: @reset_code.expire_at,
       token: @reset_code.token,
+      email: @reset_code.customer.email,
     )
   end
 end

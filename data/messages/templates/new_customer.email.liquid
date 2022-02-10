@@ -1,37 +1,20 @@
-{% expose subject %}Welcome to WEBHOOKDB{% endexpose %}
+{% expose subject %}Welcome to WebhookDB{% endexpose %}
 
 {% partial 'greeting' %}
 
-<p>
-    Thanks for signing up for Webhookdb, by Lithic Technology.
-    We built Webhookdb because we were tired of trying to keep multiple calendars and free/busy states in sync,
-    and hope it solves that problem for you, too!
-</p>
+<p>Thanks for signing up for WebhookDB! Here are some tips for getting started.</p>
 <ul class="list-buffer">
-    <li>
-        From <a href="{{ app_url }}">webhookdb.lithic.tech</a>,
-        you can add additional Google accounts to synchronize.
-    </li>
-    <li>
-        When you add or edit an event, you should do it on the "right" calendar.
-        Add work appointments on your work calendar, personal ones on your personal calendar, etc.
-    </li>
-    <li>
-        Changes are copied to the accounts hooked together in Webhookdb,
-        with color coding so the "source" fo the event is easy to identify.
-        Only you can see the details of the copied events, though- so even if you have a public work calendar,
-        coworkers will not be able to see details of your personal calendar events,
-        just that you are busy.
-    </li>
-    <li>If you are currently sharing calendars between multiple accounts in Google,
-        you can hide all but one. Normally you'll keep your personal calendar
-        (which now reflects all events) visible, and hide the others.
-    </li>
+    <li>View our guide at <a href="https://webhookdb.com/docs/cli">https://webhookdb.com/docs/cli</a>.</li>
+    <li>View available integrations with: <code>webhookdb services list</code></li>
+    <li>Then set up a new integration: <code>webhookdb integrations create stripe_charge_v1</code></li>
+    <li>The CLI will take things from there, like showing you how to backfill historical data.</li>
+    <li>At this point, you can use any SQL viewer (like <code>psql</code> or <code>pgcli</code>) to check out your data.</li>
+    <li>Or use the CLI to see tables in your database: <code>webhookdb db tables</code></li>
+    <li>And query them: <code>webhookdb db sql "SELECT * from stripe_charges_v1_abc123"</code></li>
 </ul>
-
 <p>
     And finally &mdash; we're here to help!
-    Email <a href="mailto:webhookdb@lithic.tech" target="_blank">webhookdb@lithic.tech</a>
+    Reply to this email or email <a href="mailto:webhookdb@lithic.tech" target="_blank">webhookdb@lithic.tech</a>
     if you need anything or want to say "hi".
 </p>
 

@@ -93,7 +93,7 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
     it "can use partial" do
       tmpl = testers::WithPartial.new
       r = Webhookdb::Message.render(tmpl, :email, recipient)
-      expect(r.contents).to include("Webhookdb 🚀</p>")
+      expect(r.contents).to include("<p>&mdash; The team at WebhookDB")
     end
 
     it "can use layout" do
