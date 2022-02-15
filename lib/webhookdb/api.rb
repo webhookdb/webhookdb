@@ -18,6 +18,8 @@ module Webhookdb::API
 
         require "webhookdb/service/helpers"
         helpers Webhookdb::Service::Helpers
+        require "webhookdb/api/helpers"
+        helpers Webhookdb::API::Helpers
 
         helpers do
           def verified_customer!

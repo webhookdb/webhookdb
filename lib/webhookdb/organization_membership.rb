@@ -3,6 +3,8 @@
 require "webhookdb/postgres/model"
 
 class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organization_memberships)
+  VALID_ROLE_NAMES = ["admin", "member"].freeze
+
   many_to_one :organization, class: "Webhookdb::Organization"
   many_to_one :customer, class: "Webhookdb::Customer"
   many_to_one :membership_role, class: "Webhookdb::Role"

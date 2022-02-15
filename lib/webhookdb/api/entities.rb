@@ -49,6 +49,8 @@ module Webhookdb::API
     expose :prompt
     expose :prompt_is_secret
     expose :post_to_url
+    expose :post_params
+    expose :post_params_value_key
     expose :complete
     expose :output
     expose :error_code

@@ -127,7 +127,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
           desc "Create service integration on a given organization"
           params do
-            requires :service_name, type: String, allow_blank: false
+            requires :service_name, type: String, allow_blank: false,
+                                    prompt: "Enter the name of the service to create an integration for. " \
+                                            "Run 'webhookdb services list' to see available services:"
           end
           post do
             customer = current_customer

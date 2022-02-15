@@ -1,5 +1,5 @@
 ---
-title: About
+title: WebhookDB Docs
 path: /docs/home
 order: 1
 ---

@@ -28,7 +28,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
 
       desc "Execute an arbitrary query against an org's connection string"
       params do
-        requires :query, type: String, allow_blank: false
+        requires :query, type: String, allow_blank: false, prompt: "Input your SQL query, and then press Enter:"
       end
       post :sql do
         _customer = current_customer
@@ -43,6 +43,14 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         present({rows: r.rows, columns: r.columns, max_rows_reached: r.max_rows_reached})
       end
 
+      params do
+        requires :guard_confirm,
+                 prompt: [
+                   "WARNING: This will invalid your existing database credentials. " \
+                   "Enter to proceed, or Ctrl+C to quit:",
+                   ->(v) { !v.nil? },
+                 ]
+      end
       post :roll_credentials do
         ensure_admin!
         org = lookup_org!
@@ -50,6 +58,34 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         r = {connection_url: org.readonly_connection_url}
         status 200
         present r
+      end
+
+      params do
+        optional :message_fdw, type: Boolean
+        optional :message_views, type: Boolean
+        optional :message_all, type: Boolean
+        requires :remote_server_name, type: String
+        requires :fetch_size, type: String
+        requires :local_schema, type: String
+        requires :view_schema, type: String
+      end
+      post :fdw do
+        org = lookup_org!
+        resp = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
+          remote_server_name: params[:remote_server_name],
+          fetch_size: params[:fetch_size],
+          local_schema: params[:local_schema],
+          view_schema: params[:view_schema],
+        )
+        resp[:message] = if params[:message_fdw]
+                           resp[:fdw_sql]
+        elsif params[:message_views]
+          resp[:views_sql]
+        else
+          resp[:compound_sql]
+        end
+        status 200
+        present resp
       end
     end
   end

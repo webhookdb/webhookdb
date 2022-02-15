@@ -58,7 +58,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
       new_customer = false
       unless (me = Webhookdb::Customer[email:])
         new_customer = true
-        self_org = Webhookdb::Organization.create(name: "Org for #{email}", billing_email: email.to_s)
+        self_org = Webhookdb::Organization.create(name: "#{email} Org", billing_email: email.to_s)
         me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
         me.add_membership(organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true)
       end
@@ -85,7 +85,9 @@ It contains a One Time Password used to log in.
       step.prompt = "Enter the token from your email:"
       step.prompt_is_secret = true
       step.needs_input = true
-      step.post_to_url = "/v1/auth/login_otp/#{me.opaque_id}"
+      step.post_to_url = "/v1/auth"
+      step.post_params = {email: email}
+      step.post_params_value_key = "token"
       return [step, me]
     end
   end

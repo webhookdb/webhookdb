@@ -126,7 +126,7 @@ RSpec.describe "Webhookdb::Customer", :db do
       it "creates new organization and membership for current customer if doesn't exist" do
         step, me = described_class.register_or_login(email:)
 
-        new_org = Webhookdb::Organization[name: "Org for #{email}"]
+        new_org = Webhookdb::Organization[name: "#{email} Org"]
         expect(new_org).to_not be_nil
         expect(new_org.billing_email).to eq(email)
 

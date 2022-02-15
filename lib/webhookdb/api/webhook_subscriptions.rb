@@ -7,7 +7,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
     helpers do
       def lookup_sint!
         # verify service integration existence
-        sint = Webhookdb::ServiceIntegration[opaque_id: params[:sint_opaque_id]]
+        sint = Webhookdb::ServiceIntegration[opaque_id: params[:service_integration_opaque_id]]
         merror!(400, "There is no integration with that id.") if sint.nil? || sint.soft_deleted?
         org = sint.organization
 
@@ -20,17 +20,16 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
     end
 
     params do
-      requires :webhook_secret
-      requires :url
+      requires :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
+      requires :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
       optional :org_identifier
-      optional :sint_opaque_id
-      exactly_one_of :org_identifier, :sint_opaque_id
-      mutually_exclusive :org_identifier, :sint_opaque_id
+      optional :service_integration_opaque_id
+      exactly_one_of :org_identifier, :service_integration_opaque_id
+      mutually_exclusive :org_identifier, :service_integration_opaque_id
     end
-
     post :create do
       org = params[:org_identifier].nil? ? nil : lookup_org!
-      sint = params[:sint_opaque_id].nil? ? nil : lookup_sint!
+      sint = params[:service_integration_opaque_id].nil? ? nil : lookup_sint!
       webhook_sub = Webhookdb::WebhookSubscription.create(
         webhook_secret: params[:webhook_secret],
         deliver_to_url: params[:url],

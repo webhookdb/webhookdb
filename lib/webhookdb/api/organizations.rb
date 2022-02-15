@@ -18,6 +18,18 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     end
 
     route_param :org_identifier, type: String do
+      helpers do
+        def check_self_role_modification!(email)
+          return unless email == current_customer.email
+          return if params.key?(:guard_confirm)
+          Webhookdb::API::Helpers.prompt_for_required_param!(
+            request,
+            :guard_confirm,
+            "WARNING: You are modifying your own permissions. Enter to proceed, or Ctrl+C to quit",
+          )
+        end
+      end
+
       desc "Return organization with the given identifier."
       get do
         _customer = current_customer
@@ -48,7 +60,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       resource :invite do
         desc "Generates an invitation code for a user, adds pending membership in the organization."
         params do
-          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
+          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+                           prompt: "Enter the email to send the invitation to:"
         end
         post do
           customer = current_customer
@@ -82,12 +95,15 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       resource :remove do
         desc "Allows organization admin to remove customer from an organization"
         params do
-          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
+          requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+                           prompt: "Enter the email of the member you are removing permissions from:"
+          optional :guard_confirm
         end
         post do
           customer = current_customer
           org = lookup_org!
           ensure_admin!
+          check_self_role_modification!(params[:email])
           customer.db.transaction do
             to_delete = org.memberships_dataset.where(customer: Webhookdb::Customer[email: params[:email]])
             merror!(400, "That user is not a member of #{org.name}.") if to_delete.empty?
@@ -126,13 +142,18 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       resource :change_roles do
         desc "Allows organization admin to change customer's role in an organization"
         params do
-          requires :emails, type: Array[String], coerce_with: CommaSepArray
-          requires :role_name, type: String
+          requires :emails, type: Array[String], coerce_with: CommaSepArray,
+                            prompt: "Enter the emails to modify the roles of as a comma-separated list:"
+          requires :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
+                               prompt: "Enter the name of the role to assign " \
+                                       "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')})"
+          optional :guard_confirm
         end
         post do
           customer = current_customer
           org = lookup_org!
           ensure_admin!
+          params[:emails].each { |e| check_self_role_modification!(e) }
           customer.db.transaction do
             new_role = Webhookdb::Role.find_or_create_or_find(name: params[:role_name])
             memberships = org.memberships_dataset.where(customer: Webhookdb::Customer.where(email: params[:emails]))
@@ -144,40 +165,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           end
         end
       end
-
-      params do
-        optional :message_fdw, type: Boolean
-        optional :message_views, type: Boolean
-        optional :message_all, type: Boolean
-        requires :remote_server_name, type: String
-        requires :fetch_size, type: String
-        requires :local_schema, type: String
-        requires :view_schema, type: String
-      end
-      post :fdw do
-        org = lookup_org!
-        resp = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
-          remote_server_name: params[:remote_server_name],
-          fetch_size: params[:fetch_size],
-          local_schema: params[:local_schema],
-          view_schema: params[:view_schema],
-        )
-        resp[:message] = if params[:message_fdw]
-                           resp[:fdw_sql]
-        elsif params[:message_views]
-          resp[:views_sql]
-        else
-          resp[:compound_sql]
-        end
-        status 200
-        present resp
-      end
     end
 
     resource :create do
       desc "Creates a new organization and adds current customer as a member."
       params do
-        requires :name, type: String, allow_blank: false
+        requires :name, type: String, allow_blank: false, prompt: "Enter the name of the organization:"
       end
       post do
         customer = current_customer
@@ -187,8 +180,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           new_org.billing_email = customer.email
           new_org.save_changes
           new_org.add_membership(customer:, membership_role: Webhookdb::Role.admin_role, verified: true)
-          message = "Your organization identifier is: #{new_org.key} \n Use `webhookdb org invite <email>` " \
-                    "to invite members to #{new_org.name}."
+          message = "Your organization identifier is: #{new_org.key}\nIt is now active.\n" \
+                    "Use `webhookdb org invite` to invite members to #{new_org.name}."
           status 200
           present new_org, with: Webhookdb::API::OrganizationEntity, message:
         end
@@ -198,7 +191,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     resource :join do
       desc "Allows user to verify membership in an organization with an invitation code."
       params do
-        requires :invitation_code, type: String, allow_blank: false
+        requires :invitation_code, type: String, allow_blank: false, prompt: "Enter the invitation code:"
       end
       post do
         customer = current_customer

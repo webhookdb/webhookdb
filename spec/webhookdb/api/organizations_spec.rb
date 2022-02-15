@@ -230,6 +230,18 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         message: "roadrunner@wb.com is no longer a part of the Lithic Technology organization.",
       )
     end
+
+    it "fails if the current customer is modifying their own role" do
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      post "v1/organizations/#{org.key}/remove", email: customer.email
+      expect(last_response).to have_status(426)
+    end
+
+    it "succeeds if the current customer is modifying their own role and has confirmed" do
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      post "v1/organizations/#{org.key}/remove", email: customer.email, guard_confirm: false
+      expect(last_response).to have_status(200)
+    end
   end
 
   describe "POST /v1/organizations/:org_identifier/update" do
@@ -281,17 +293,15 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       membership_a = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "pepelepew@yahoo.com"))
       membership_b = org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "marvinthe@martian.com"))
 
-      post "v1/organizations/#{org.key}/change_roles", emails: "pepelepew@yahoo.com,marvinthe@martian.com",
-                                                       role_name: "troublemaker"
+      post "v1/organizations/#{org.key}/change_roles",
+           emails: "pepelepew@yahoo.com,marvinthe@martian.com", role_name: "member", guard_confirm: true
 
-      troublemaker_memberships = org.memberships_dataset.where(
-        membership_role_id: Webhookdb::Role[name: "troublemaker"].id,
-      )
-      expect(troublemaker_memberships).to have_same_ids_as([membership_a, membership_b])
+      memberships = org.memberships_dataset.where(membership_role_id: Webhookdb::Role[name: "member"].id)
+      expect(memberships).to have_same_ids_as([membership_a, membership_b])
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        include(message: "Success! These users have now been assigned the role of troublemaker in #{org.name}."),
+        include(message: "Success! These users have now been assigned the role of member in #{org.name}."),
       )
     end
 
@@ -299,7 +309,8 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       customer.memberships_dataset.update(membership_role_id: admin_role.id)
       Webhookdb::Fixtures.customer.create(email: "sylvester@yahoo.com")
 
-      post "/v1/organizations/#{org.key}/change_roles", emails: "sylvester@yahoo.com", role_name: "cat"
+      post "/v1/organizations/#{org.key}/change_roles",
+           emails: "sylvester@yahoo.com", role_name: "member", guard_confirm: true
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -310,13 +321,31 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if request customer doesn't have admin privileges" do
       org.add_membership(customer: Webhookdb::Fixtures.customer.create(email: "foghornleghorn@gmail.com"))
 
-      post "/v1/organizations/#{org.key}/change_roles", emails: "foghornleghorn@gmail.com",
-                                                        role_name: "twilio specialist"
+      post "/v1/organizations/#{org.key}/change_roles",
+           emails: "foghornleghorn@gmail.com", role_name: "member", guard_confirm: true
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
       )
+    end
+
+    it "fails if the current customer is modifying their own role" do
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+
+      post "v1/organizations/#{org.key}/change_roles",
+           emails: customer.email, role_name: "member"
+
+      expect(last_response).to have_status(426)
+    end
+
+    it "succeeds if the current customer is modifying their own role and has confirmed" do
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+
+      post "v1/organizations/#{org.key}/change_roles",
+           emails: customer.email, role_name: "member", guard_confirm: true
+
+      expect(last_response).to have_status(200)
     end
   end
 
@@ -371,47 +400,6 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "Looks like that invite code is invalid. Please try again."),
       )
-    end
-  end
-
-  describe "POST /v1/organizations/fdw" do
-    let(:org) do
-      super().update(
-        readonly_connection_url_raw: "postgres://me:l33t@somehost:5555/mydb",
-        admin_connection_url_raw: "postgres://invalidurl",
-      )
-    end
-    let(:params) { {remote_server_name: "svr", fetch_size: "1", local_schema: "sch", view_schema: "vw"} }
-
-    it "generates an FDW response" do
-      post "/v1/organizations/#{org.key}/fdw", **params
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.
-        that_includes(
-          :fdw_sql,
-          :views,
-          :views_sql,
-          :compound_sql,
-          # No views so trails with three newlines
-          message: start_with("CREATE EXTENSION").and(end_with("vw;\n\n\n")),
-        )
-    end
-
-    it "can return views sql message" do
-      post "/v1/organizations/#{org.key}/fdw", message_views: true, **params
-
-      expect(last_response).to have_status(200)
-      # No service integrations so no message
-      expect(last_response).to have_json_body.that_includes(message: "")
-    end
-
-    it "can return only fdw sql message" do
-      post "/v1/organizations/#{org.key}/fdw", message_fdw: true, **params
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.
-        that_includes(message: start_with("CREATE EXTENSION").and(end_with("vw;\n")))
     end
   end
 end

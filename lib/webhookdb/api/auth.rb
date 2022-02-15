@@ -12,8 +12,9 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
   resource :auth do
     helpers do
       def guard_logged_in!
-        return unless (c = current_customer?)
-        merror!(403, "You are already logged in as #{c.email}. You must log out first", code: "already_logged_in")
+        c = current_customer?
+        return if c.nil?
+        merror!(403, "You are already logged in as #{c.email}. You must log out first.", code: "already_logged_in")
       end
     end
 
@@ -27,7 +28,8 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     params do
-      requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail
+      requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+                       prompt: "Welcome to WebhookDB!\nPlease enter your email:"
       optional :token, type: String
     end
     post do

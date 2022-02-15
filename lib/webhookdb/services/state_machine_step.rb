@@ -7,7 +7,9 @@ class Webhookdb::Services::StateMachineStep
                 :post_to_url,
                 :complete,
                 :output,
-                :error_code
+                :error_code,
+                :post_params,
+                :post_params_value_key
 
   def initialize
     @needs_input = false
@@ -17,6 +19,8 @@ class Webhookdb::Services::StateMachineStep
     @complete = false
     @output = ""
     @error_code = ""
+    @post_params = {}
+    @post_params_value_key = "value"
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
@@ -32,8 +36,12 @@ class Webhookdb::Services::StateMachineStep
   end
 
   def prompting(field, secret: false)
+    return self.set_prompt("Paste or type your #{field} here:", secret:)
+  end
+
+  def set_prompt(value, secret: false)
     self.needs_input = true
-    self.prompt = "Paste or type your #{field} here:"
+    self.prompt = value
     self.prompt_is_secret = secret
     self.complete = false
     return self
