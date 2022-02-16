@@ -18,8 +18,6 @@ class Webhookdb::Jobs::CreateStripeCustomer
         metadata: {
           org_id: org.id,
         },
-      }, {
-        api_key: Webhookdb::Stripe.api_key,
       },
     )
     org.stripe_customer_id = stripe_customer.id

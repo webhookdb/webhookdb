@@ -166,8 +166,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       {
         customer: self.stripe_customer_id,
         return_url: Webhookdb.api_url + "/v1/subscriptions/portal_return",
-      }, {
-        api_key: Webhookdb::Stripe.api_key,
       },
     )
 
@@ -186,8 +184,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         mode: "subscription",
         payment_method_types: ["card"],
         success_url: Webhookdb.api_url + "/v1/subscriptions/checkout_success",
-      }, {
-        api_key: Webhookdb::Stripe.api_key,
       },
     )
 

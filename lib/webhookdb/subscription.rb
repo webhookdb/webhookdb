@@ -36,7 +36,7 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   end
 
   def self.create_or_update_from_id(id)
-    subscription_obj = Stripe::Subscription.retrieve(id, {api_key: Webhookdb::Stripe.api_key})
+    subscription_obj = Stripe::Subscription.retrieve(id)
     self.create_or_update_from_stripe_hash(subscription_obj.as_json)
   end
 
