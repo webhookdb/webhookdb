@@ -132,7 +132,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
           needs_input: true,
           prompt: include("Paste or type"),
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_secret"),
           complete: false,
           output: match("we need to use the API to make requests"),
         )

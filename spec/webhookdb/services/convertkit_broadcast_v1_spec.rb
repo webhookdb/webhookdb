@@ -134,7 +134,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           needs_input: true,
           prompt: be_present,
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_secret"),
           complete: false,
           output: match("We've created your"),
         )

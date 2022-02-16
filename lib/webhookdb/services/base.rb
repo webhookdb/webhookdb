@@ -345,7 +345,7 @@ class Webhookdb::Services::Base
   end
 
   protected def _webhook_endpoint
-    return "#{Webhookdb.api_url}/v1/service_integrations/#{self.service_integration.opaque_id}"
+    return "#{Webhookdb.api_url}#{self.service_integration.unauthed_webhook_path}"
   end
 
   protected def _backfill_command

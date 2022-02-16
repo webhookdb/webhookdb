@@ -446,7 +446,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
           needs_input: true,
           prompt: start_with("Paste or type"),
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_secret"),
           complete: false,
           output: match("which requires your API Secret"),
         )

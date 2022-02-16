@@ -52,7 +52,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
       step.output = "Now let's test the backfill flow."
       step.prompt = "Paste or type a string here:"
       step.prompt_is_secret = false
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/backfill_secret"
+      step.post_to_url = self.service_integration.unauthed_webhook_path + "/transition/backfill_secret"
       step.complete = false
       return step
     end

@@ -25,7 +25,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           Webhookdb::API::Helpers.prompt_for_required_param!(
             request,
             :guard_confirm,
-            "WARNING: You are modifying your own permissions. Enter to proceed, or Ctrl+C to quit",
+            "WARNING: You are modifying your own permissions. Enter to proceed, or Ctrl+C to quit:",
           )
         end
       end
@@ -85,7 +85,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code:)
 
             Webhookdb.publish("webhookdb.organizationmembership.invite", membership.id)
-            message = "An invitation has been sent to #{params[:email]}. Their invite code is: \n #{invitation_code}"
+            message = "An invitation to organization #{org.name} has been sent to #{params[:email]}.\n" \
+                      "Their invite code is:\n  #{invitation_code}"
             status 200
             present membership, with: Webhookdb::API::OrganizationMembershipEntity, message:
           end
@@ -146,7 +147,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
                             prompt: "Enter the emails to modify the roles of as a comma-separated list:"
           requires :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
                                prompt: "Enter the name of the role to assign " \
-                                       "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')})"
+                                       "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')}): "
           optional :guard_confirm
         end
         post do
@@ -161,7 +162,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
             message = "Success! These users have now been assigned the role of #{new_role.name} in #{org.name}."
             status 200
-            present memberships.all, with: Webhookdb::API::OrganizationMembershipEntity, message:
+            present_collection memberships, with: Webhookdb::API::OrganizationMembershipEntity, message:
           end
         end
       end

@@ -53,7 +53,7 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
         "https://api.convertkit.com/v3/automations/hooks",
         {
           "api_secret" => self.service_integration.backfill_secret,
-          "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
+          "target_url" => self.service_integration.unauthed_webhook_path,
           "event" => {"name" => "subscriber.subscriber_activate"},
         },
         logger: self.logger,
@@ -71,7 +71,7 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
         "https://api.convertkit.com/v3/automations/hooks",
         {
           "api_secret" => self.service_integration.backfill_secret,
-          "target_url" => "https://api.webhookdb.com/v1/service_integrations/#{self.service_integration.opaque_id}",
+          "target_url" => self.service_integration.unauthed_webhook_path,
           "event" => {"name" => "subscriber.subscriber_unsubscribe"},
         },
         logger: self.logger,

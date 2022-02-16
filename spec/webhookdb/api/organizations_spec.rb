@@ -150,7 +150,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       # returns correct status and response
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(message: include("An invitation has been sent to speedygonzalez@nasa.org."))
+        that_includes(message: match(/An invitation .* speedygonzalez@nasa\.org/))
     end
 
     it "behaves correctly if customer membership is unverified" do
@@ -170,7 +170,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       # returns correct status and response
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(message: include("An invitation has been sent to elmerfudd@comcast.net."))
+        that_includes(message: match(/An invitation .* elmerfudd@comcast\.net/))
     end
 
     it "returns 400 if customer is already a part of the organization" do
@@ -301,7 +301,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        include(message: "Success! These users have now been assigned the role of member in #{org.name}."),
+        message: start_with("Success! These users"),
       )
     end
 

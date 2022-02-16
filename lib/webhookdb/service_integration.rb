@@ -31,6 +31,14 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return Webhookdb::Services.service_instance(self)
   end
 
+  def authed_api_path
+    return "/v1/organizations/#{self.organization_id}/service_integrations/#{self.opaque_id}"
+  end
+
+  def unauthed_webhook_path
+    return "/v1/service_integrations/#{self.opaque_id}"
+  end
+
   # WEBHOOK SUBSCRIPTION
 
   def all_webhook_subs

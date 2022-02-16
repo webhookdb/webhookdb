@@ -59,6 +59,9 @@ class Webhookdb::Service::Collection
           expose :page_count
           expose :total_count
           expose :more?, as: :has_more
+          expose :message do |_instance, options|
+            options[:message]
+          end
         end
         Webhookdb::Service::Collection.collection_entity_cache[item_entity] = collection_entity
       end

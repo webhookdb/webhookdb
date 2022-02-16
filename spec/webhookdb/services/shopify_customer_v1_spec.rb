@@ -451,7 +451,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
           needs_input: eq(true),
           prompt: eq("Paste or type your secret here:"),
           prompt_is_secret: eq(true),
-          post_to_url: eq("/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: eq(false),
           output: match("We've made an endpoint available for Shopify Customer webhooks:"),
         )
@@ -491,7 +491,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
           needs_input: true,
           prompt: start_with("Paste or type"),
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
           output: match("In order to backfill Shopify Customers, we need an API key and password."),
         )
@@ -504,7 +504,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
           needs_input: true,
           prompt: start_with("Paste or type"),
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_secret"),
           complete: false,
           output: "",
         )
@@ -518,7 +518,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
           needs_input: true,
           prompt: start_with("Paste or type"),
           prompt_is_secret: false,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/shop_name",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/shop_name"),
           complete: false,
           output: match("Nice! Now we need the name of your shop so that we can construct the api url."),
         )

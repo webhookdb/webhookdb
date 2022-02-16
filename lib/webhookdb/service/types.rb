@@ -23,6 +23,7 @@ module Webhookdb::Service::Types
 
   class CommaSepArray
     def self.parse(value)
+      return value if value.respond_to?(:to_ary)
       return value.split(",").map(&:strip)
     end
   end

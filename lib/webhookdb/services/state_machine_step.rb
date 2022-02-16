@@ -49,19 +49,19 @@ class Webhookdb::Services::StateMachineStep
 
   # @return [Webhookdb::Services::StateMachineStep]
   def backfill_secret(sint)
-    self.post_to_url = "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_secret"
+    self.post_to_url = sint.authed_api_path + "/transition/backfill_secret"
     return self
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
   def backfill_key(sint)
-    self.post_to_url = "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key"
+    self.post_to_url = sint.authed_api_path + "/transition/backfill_key"
     return self
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
   def webhook_secret(sint)
-    self.post_to_url = "/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret"
+    self.post_to_url = sint.authed_api_path + "/transition/webhook_secret"
     return self
   end
 end

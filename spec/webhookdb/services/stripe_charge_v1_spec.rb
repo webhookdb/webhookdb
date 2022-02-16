@@ -1268,7 +1268,7 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
           needs_input: true,
           prompt: "Paste or type your secret here:",
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/webhook_secret",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
           output: match("We've made an endpoint available for Stripe Charge webhooks:"),
         )
@@ -1311,7 +1311,7 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
           needs_input: true,
           prompt: "Paste or type your Restricted Key here:",
           prompt_is_secret: true,
-          post_to_url: "/v1/service_integrations/#{sint.opaque_id}/transition/backfill_key",
+          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
           output: match("In order to backfill Stripe Charges, we need an API key."),
         )

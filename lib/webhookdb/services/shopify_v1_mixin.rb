@@ -104,7 +104,7 @@ We need both the API Key and Password.
 This is the name that is used by Shopify for URL purposes.
 It should be in the top left corner of your Admin Dashboard next to the Shopify logo.
       )
-      step.post_to_url = "/v1/service_integrations/#{self.service_integration.opaque_id}/transition/shop_name"
+      step.post_to_url = self.service_integration.authed_api_path + "/transition/shop_name"
       return step.prompting("Shop Name")
     end
 
