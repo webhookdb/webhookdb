@@ -61,6 +61,16 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
     end
     return data
   end
+
+  def self.backfill_from_stripe(limit: 50, page_size: 50)
+    subs = Stripe::Subscription.list({limit: page_size})
+    done = 0
+    subs.auto_paging_each do |sub|
+      self.create_or_update_from_stripe_hash(sub.as_json)
+      done += 1
+      break if !limit.nil? && done >= limit
+    end
+  end
 end
 
 # Table: subscriptions

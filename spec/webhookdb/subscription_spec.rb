@@ -85,4 +85,26 @@ RSpec.describe "Webhookdb::Subscription", :db do
       expect(data[:sub_status]).to eq("active")
     end
   end
+
+  describe "backfill_from_stripe" do
+    it "requests a single page by default" do
+      req = stub_request(:get, "https://api.stripe.com/v1/subscriptions?limit=20").
+        to_return(body: load_fixture_data("stripe/subscription_list", raw: true))
+
+      expect(Webhookdb::Subscription.all).to be_empty
+      described_class.backfill_from_stripe(page_size: 20)
+      expect(req).to have_been_made
+      expect(Webhookdb::Subscription.all).to have_length(2)
+    end
+
+    it "processes up to limit" do
+      req = stub_request(:get, "https://api.stripe.com/v1/subscriptions?limit=50").
+        to_return(body: load_fixture_data("stripe/subscription_list", raw: true))
+
+      expect(Webhookdb::Subscription.all).to be_empty
+      described_class.backfill_from_stripe(limit: 1)
+      expect(req).to have_been_made
+      expect(Webhookdb::Subscription.all).to have_length(1)
+    end
+  end
 end
