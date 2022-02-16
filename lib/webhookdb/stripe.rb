@@ -8,6 +8,10 @@ class Webhookdb::Stripe
   configurable(:stripe) do
     setting :api_key, "lithic_stripe_api_key", key: "STRIPE_API_KEY"
     setting :webhook_secret, "lithic_stripe_webhook_secret", key: "STRIPE_WEBHOOK_SECRET"
+
+    after_configured do
+      ::Stripe.api_key = self.api_key
+    end
   end
 
   def self.webhook_response(request, webhook_secret)

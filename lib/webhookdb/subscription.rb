@@ -36,7 +36,7 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   end
 
   def self.create_or_update_from_id(id)
-    subscription_obj = Stripe::Subscription.retrieve(id, {api_key: Webhookdb::Stripe.api_key})
+    subscription_obj = Stripe::Subscription.retrieve(id)
     self.create_or_update_from_stripe_hash(subscription_obj.as_json)
   end
 
@@ -60,6 +60,16 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
       data[:sub_status] = subscription.status
     end
     return data
+  end
+
+  def self.backfill_from_stripe(limit: 50, page_size: 50)
+    subs = Stripe::Subscription.list({limit: page_size})
+    done = 0
+    subs.auto_paging_each do |sub|
+      self.create_or_update_from_stripe_hash(sub.as_json)
+      done += 1
+      break if !limit.nil? && done >= limit
+    end
   end
 end
 
