@@ -69,24 +69,30 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
         headers: ["name", "value"],
         rows: match_array(
           [
-            ["Total Webhooks Logged", "4"],
-            ["Successful Webhooks", "3"],
-            ["Percent Successful", "75.0%"],
-            ["Rejected Webhooks", "1"],
-            ["Percent Rejected", "25.0%"],
+            ["Count Last 7 Days", "4"],
+            ["Successful Last 7 Days", "3"],
+            ["Successful Last 7 Days (Percent)", "75.0%"],
+            ["Rejected Last 7 Days", "1"],
+            ["Rejected Last 7 Days (Percent)", "25.0%"],
+            ["Successful Of Last 10 Webhooks", "3"],
+            ["Rejected Of Last 10 Webhooks", "1"],
           ],
         ),
       )
     end
 
     it "returns expected information as an object" do
+      # rubocop:disable Naming/VariableNumber
       expect(sint.stats("object")).to include(
-        total_count: 4,
-        rejected_count: 1,
-        success_count: 3,
-        rejected_percent: 0.25,
-        success_percent: 0.75,
+        count_last_7_days: 4,
+        rejected_last_7_days: 1,
+        rejected_last_7_days_percent: 0.25,
+        success_last_7_days: 3,
+        success_last_7_days_percent: 0.75,
+        successful_of_last_10: 3,
+        rejected_of_last_10: 1,
       )
+      # rubocop:enable Naming/VariableNumber
     end
 
     it "returns 'no webhooks logged' message in 'table' format" do
@@ -103,7 +109,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
 
     it "returns 'no webhooks logged' message as a string" do
       Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).delete
-      expect(sint.stats("object")).to match(/We have no record of receiving webhooks/)
+      expect(sint.stats("object")).to include(message: /We have no record of receiving webhooks/)
     end
 
     it "raises ArgumentError if format parameter is invalid" do

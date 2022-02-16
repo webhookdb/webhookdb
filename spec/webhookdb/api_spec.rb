@@ -48,12 +48,12 @@ RSpec.describe Webhookdb::API, :db do
 
     it "errors with the correct state machine if any param is missing" do
       post "/v1/prompt_missing_params", y: 2
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
 
       step = last_response_json_body[:error][:state_machine_step]
       new_body = step[:post_params].merge(step[:post_params_value_key] => "1")
       post step[:post_to_url], new_body
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
 
       step = last_response_json_body[:error][:state_machine_step]
       new_body = step[:post_params].merge(step[:post_params_value_key] => 3)
@@ -63,40 +63,40 @@ RSpec.describe Webhookdb::API, :db do
 
     it "can be used with required" do
       post "/v1/prompt_missing_required"
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
     end
 
     it "can use conditional promps" do
       post "/v1/prompt_if"
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "x")
 
       post "/v1/prompt_if", {x: ""}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "x")
 
       post "/v1/prompt_if", {x: "1"}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
       post "/v1/prompt_if", {x: "1", y: "\u0400"}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
       post "/v1/prompt_if", {x: "1", y: "\u0400"}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
       post "/v1/prompt_if", {x: "1", y: "1"}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
       post "/v1/prompt_if", {x: "1", y: "1", z: ""}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
       post "/v1/prompt_if", {x: "1", y: "1", z: "0"}
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
       expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
       post "/v1/prompt_if", {x: "1", y: "1", z: "1"}

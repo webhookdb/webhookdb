@@ -266,7 +266,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
   end
 
-  describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/status" do
+  describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/stats" do
     before(:each) do
       # successful webhooks
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").success.create
@@ -277,33 +277,19 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns expected data as object" do
-      get "/v1/organizations/#{org.key}/service_integrations/xyz/status", fmt: :object
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/stats", fmt: :object
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        total_count: 4,
-        rejected_count: 1,
-        success_count: 3,
-        rejected_percent: 0.25,
-        success_percent: 0.75,
-      )
+      expect(last_response).to have_json_body.that_includes(count_last_7_days: 4)
     end
 
     it "returns expected data in table format" do
-      get "/v1/organizations/#{org.key}/service_integrations/xyz/status"
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/stats"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         headers: ["name", "value"],
-        rows: match_array(
-          [
-            ["Total Webhooks Logged", "4"],
-            ["Successful Webhooks", "3"],
-            ["Percent Successful", "75.0%"],
-            ["Rejected Webhooks", "1"],
-            ["Percent Rejected", "25.0%"],
-          ],
-        ),
+        rows: include(["Count Last 7 Days", "4"]),
       )
     end
   end

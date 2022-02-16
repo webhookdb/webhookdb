@@ -234,7 +234,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if the current customer is modifying their own role" do
       customer.memberships_dataset.update(membership_role_id: admin_role.id)
       post "v1/organizations/#{org.key}/remove", email: customer.email
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
     end
 
     it "succeeds if the current customer is modifying their own role and has confirmed" do
@@ -336,7 +336,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "v1/organizations/#{org.key}/change_roles",
            emails: customer.email, role_name: "member"
 
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
     end
 
     it "succeeds if the current customer is modifying their own role and has confirmed" do

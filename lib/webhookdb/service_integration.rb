@@ -80,14 +80,17 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
           rows: [[no_logged_webhooks_msg]],
         }
       end
-      return no_logged_webhooks_msg
+      return {message: no_logged_webhooks_msg}
     end
 
-    total_count = all_logged_webhooks.count
-    rejected_count = all_logged_webhooks.where { response_status >= 400 }.count
-    success_count = (total_count - rejected_count)
-    rejected_percent = (rejected_count.to_f / total_count)
-    success_percent = (success_count.to_f / total_count)
+    # rubocop:disable Naming/VariableNumber
+    count_last_7_days = all_logged_webhooks.count
+    rejected_last_7_days = all_logged_webhooks.where { response_status >= 400 }.count
+    success_last_7_days = (count_last_7_days - rejected_last_7_days)
+    rejected_last_7_days_percent = (rejected_last_7_days.to_f / count_last_7_days)
+    success_last_7_days_percent = (success_last_7_days.to_f / count_last_7_days)
+    last_10 = Webhookdb::LoggedWebhook.order_by(Sequel.desc(:inserted_at)).limit(10).select_map(:response_status)
+    last_10_success, last_10_rejected = last_10.partition { |rs| rs < 400 }
 
     # this "table" format is designed to make formatting the CLI output easier by returning data
     # in the form that our Go table formatting library requires
@@ -95,22 +98,27 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
       return {
         headers: ["name", "value"],
         rows: [
-          ["Total Webhooks Logged", total_count.to_s],
-          ["Successful Webhooks", success_count.to_s],
-          ["Percent Successful", "%.1f%%" % (success_percent * 100)],
-          ["Rejected Webhooks", rejected_count.to_s],
-          ["Percent Rejected", "%.1f%%" % (rejected_percent * 100)],
+          ["Count Last 7 Days", count_last_7_days.to_s],
+          ["Successful Last 7 Days", success_last_7_days.to_s],
+          ["Successful Last 7 Days (Percent)", "%.1f%%" % (success_last_7_days_percent * 100)],
+          ["Rejected Last 7 Days", rejected_last_7_days.to_s],
+          ["Rejected Last 7 Days (Percent)", "%.1f%%" % (rejected_last_7_days_percent * 100)],
+          ["Successful Of Last 10 Webhooks", last_10_success.size.to_s],
+          ["Rejected Of Last 10 Webhooks", last_10_rejected.size.to_s],
         ],
       }
     end
 
     return {
-      total_count:,
-      rejected_count:,
-      success_count:,
-      rejected_percent:,
-      success_percent:,
+      count_last_7_days:,
+      success_last_7_days:,
+      success_last_7_days_percent:,
+      rejected_last_7_days:,
+      rejected_last_7_days_percent:,
+      successful_of_last_10: last_10_success.size,
+      rejected_of_last_10: last_10_rejected.size,
     }
+    # rubocop:enable Naming/VariableNumber
   end
 
   #

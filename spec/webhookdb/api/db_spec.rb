@@ -126,7 +126,7 @@ RSpec.describe Webhookdb::API::Db, :db do
 
       post "/v1/db/#{org.key}/roll_credentials"
 
-      expect(last_response).to have_status(426)
+      expect(last_response).to have_status(422)
     end
   end
 

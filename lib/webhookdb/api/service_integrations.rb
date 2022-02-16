@@ -224,7 +224,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           params do
             optional :fmt, values: Webhookdb::ServiceIntegration::VALID_STATS_FORMATS, default: "table"
           end
-          get :status do
+          get :stats do
             sint = lookup!
             data = sint.stats(params[:fmt])
             status 200

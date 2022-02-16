@@ -29,11 +29,11 @@ module Webhookdb::API::Helpers
     step.post_params_value_key = key
     step.set_prompt(prompt)
     body = Webhookdb::Service.error_body(
-      426,
+      422,
       "Prompt for required params",
       code: "prompt_required_params",
       more: {state_machine_step: Webhookdb::API::StateMachineEntity.represent(step)},
     )
-    throw :error, message: body, status: 426, headers: {}
+    throw :error, message: body, status: 422, headers: {}
   end
 end
