@@ -24,7 +24,11 @@ module Webhookdb::Service::Middleware
     builder.use(Rack::Cors) do
       allow do
         origins(*Webhookdb::Service.cors_origins)
-        resource "*", headers: :any, methods: :any, credentials: true
+        resource "*",
+                 headers: :any,
+                 methods: :any,
+                 credentials: true,
+                 expose: ["ETag", Webhookdb::Service::AUTH_TOKEN_HEADER]
       end
     end
   end
@@ -46,6 +50,7 @@ module Webhookdb::Service::Middleware
 
   ### Add middleware for maintaining sessions to +builder+.
   def self.add_session_middleware(builder)
+    builder.use CopyCookieToExplicitHeader
     builder.use Rack::Session::Cookie, Webhookdb::Service.cookie_config
     builder.use(SessionReader)
   end
@@ -66,6 +71,24 @@ module Webhookdb::Service::Middleware
     def call(env)
       env["rack.session"]["_"] = "_" unless env["rack.session"].loaded?
       @app.call(env)
+    end
+  end
+
+  # In browser environments, they can't access the Cookie header for API requests,
+  # and it doesn't always get the automatic binding behavior we want
+  # (for example fetches made from WASM).
+  # So copy it into something we can access.
+  # This must be before the Rack session middleware.
+  class CopyCookieToExplicitHeader
+    def initialize(app)
+      @app = app
+    end
+
+    def call(env)
+      env["HTTP_COOKIE"] = env[Webhookdb::Service::AUTH_TOKEN_HTTP] if env[Webhookdb::Service::AUTH_TOKEN_HTTP]
+      status, headers, body = @app.call(env)
+      headers[Webhookdb::Service::AUTH_TOKEN_HEADER] = headers["Set-Cookie"] if headers["Set-Cookie"]
+      return status, headers, body
     end
   end
 

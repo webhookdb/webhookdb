@@ -64,6 +64,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(output: /Welcome!/)
+        expect(last_response.headers).to include("Whdb-Auth-Token")
         expect(existing_code.refresh).to be_expired
         expect(customer.refresh.reset_codes).to contain_exactly(be === existing_code) # No new token
       end

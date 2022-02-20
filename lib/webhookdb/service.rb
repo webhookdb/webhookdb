@@ -26,7 +26,8 @@ class Webhookdb::Service < Grape::API
   # Name of the session in the server response cookie.
   # Note that it is always 'rack.session' in code though.
   SESSION_COOKIE = "webhookdb.session"
-
+  AUTH_TOKEN_HEADER = "Whdb-Auth-Token"
+  AUTH_TOKEN_HTTP = "HTTP_WHDB_AUTH_TOKEN"
   DEFAULT_CORS_ORIGINS = [/localhost:\d+/, /192\.168\.\d{1,3}\.\d{1,3}:\d{3,5}/].freeze
 
   configurable(:service) do
