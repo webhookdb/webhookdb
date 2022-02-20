@@ -1,4 +1,5 @@
 {
+  "ignorePatterns": ["**/vendor/*.js"],
   "parser": "babel-eslint", // uses babel-eslint transforms
   "settings": {
     "react": {

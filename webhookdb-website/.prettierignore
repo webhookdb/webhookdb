@@ -31,3 +31,4 @@ coverage
 
 # forestry files
 .forestry/**/*
+**/vendor/*.js

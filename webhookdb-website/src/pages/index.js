@@ -9,6 +9,7 @@ import React from "react";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
+import Webterm from "../components/Webterm";
 import staticData from "../components/staticData";
 import useContactUs from "../components/useContactUs";
 
@@ -164,7 +165,7 @@ export default function IndexPage() {
           </p>
         </Centered>
       </Container>
-      <Container className="px-4 mt-5 mb-5" fluid>
+      <Container className="px-4 mt-5" fluid>
         <Centered>
           <h2>Our Guide.</h2>
           <p>
@@ -180,6 +181,29 @@ export default function IndexPage() {
           >
             Documentation
           </Button>
+        </Centered>
+      </Container>
+      <Container className="px-4 mt-5" fluid>
+        <Centered>
+          <h2>Try It.</h2>
+          <p>
+            We&rsquo;ve hosted the WebhookDB CLI as a Web Assembly binary you can run in
+            your browser. This is a fully functional WebhookDB CLI, so you can get
+            started here, and continue using it on your own machine.
+          </p>
+          <Webterm loading="lazy" width="100%" height="500" />
+        </Centered>
+      </Container>
+      <Container className="px-4 mt-5 mb-5" fluid>
+        <Centered>
+          <h2>Get In Touch.</h2>
+          <p>
+            We&rsquo;re an independent, bootstrapped team. So it&rsquo;s extra special
+            when we hear from our customers. We&rsquo;d love for you to{" "}
+            <a onClick={openContactUs} href="#">
+              get in touch!
+            </a>
+          </p>
         </Centered>
       </Container>
       {renderContactUs()}

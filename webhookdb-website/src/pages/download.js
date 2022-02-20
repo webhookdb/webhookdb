@@ -34,6 +34,10 @@ export default function Download() {
           <p>
             Check out <a href="/docs/cli">instructions on getting started</a>.
           </p>
+          <p>
+            You can also try WebhookDB online using our{" "}
+            <a href="/terminal">terminal in the browser</a>.
+          </p>
         </Card>
         <Accordion defaultActiveKey={defaultOS} className="mb-5">
           <Card>

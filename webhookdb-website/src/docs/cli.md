@@ -12,7 +12,9 @@ The WebhookDB api is a developer tool designed to help you interface with your W
 
 WebhookDB is a single binary (written in Go) that should work on pretty much any OS.
 
-Follow the instructions on our [Download](https://webhookdb.com/download/) page.
+Follow the instructions on our [Download](/download/) page.
+
+You can also try the CLI out using our [terminal in your browser](/terminal/)
 
 You can find the source [on GitHub](https://github.com/lithictech/webhookdb-cli).
 

@@ -15,12 +15,12 @@
     "build": "gatsby build && yarn run copy-static",
     "serve": "gatsby serve",
     "clean": "gatsby clean",
-    "prettier": "prettier --write '*.js' './tools/*.js' './src/**/*.js'",
-    "prettier-check": "prettier --check '*.js' './tools/*.js' './src/**/*.js'",
+    "prettier": "prettier --write '*.js' './tools/*.js' './src/**/*.js' './static/**/*.js'",
+    "prettier-check": "prettier --check '*.js' './tools/*.js' './src/**/*.js' './static/**/*.js'",
     "sort-imports": "import-sort --write '*.js' './tools/*.js' './src/**/*.js'",
     "sort-imports-check": "import-sort --list-different '*.js' './tools/*.js' './src/**/*.js'",
-    "eslint": "eslint '*.js' './tools/*.js' './src/**/*.js'",
-    "eslint-fix": "eslint --fix '*.js' './tools/*.js' './src/**/*.js'"
+    "eslint": "eslint '*.js' './tools/*.js' './src/**/*.js' './static/**/*.js'",
+    "eslint-fix": "eslint --fix '*.js' './tools/*.js' './src/**/*.js' './static/**/*.js'"
   },
   "dependencies": {
     "@deckdeckgo/highlight-code": "^3.3.0",
