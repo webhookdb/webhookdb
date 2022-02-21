@@ -5,6 +5,7 @@ import { Button, Col, Container, Image, Row } from "react-bootstrap";
 import Helmet from "react-helmet";
 import { Integrations } from "../components/Integrations";
 import LayoutPage from "../components/LayoutPage";
+import { Link } from "gatsby";
 import React from "react";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
@@ -190,6 +191,10 @@ export default function IndexPage() {
             We&rsquo;ve hosted the WebhookDB CLI as a Web Assembly binary you can run in
             your browser. This is a fully functional WebhookDB CLI, so you can get
             started here, and continue using it on your own machine.
+          </p>
+          <p>
+            Use the terminal window below, or go to the{" "}
+            <Link to="/terminal">dedicated terminal page</Link>.
           </p>
           <Webterm loading="lazy" width="100%" height="500" />
         </Centered>

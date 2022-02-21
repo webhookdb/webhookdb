@@ -10,7 +10,7 @@ export default function Terminal() {
       <Seo title="WebhookDB Terminal" />
       <Container className="bg-light text-light pt-2 px-2" fluid>
         <div className="m-3">
-          <Webterm width="100%" style={{ height: "80vh" }} />
+          <Webterm width="100%" style={{ height: "80vh" }} autofocus />
         </div>
       </Container>
     </LayoutPage>

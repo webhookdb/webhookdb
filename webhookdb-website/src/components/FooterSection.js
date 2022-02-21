@@ -2,6 +2,7 @@ import "../styles/custom.scss";
 
 import { Col, Container, Image, Nav, Row } from "react-bootstrap";
 
+import { Link } from "gatsby";
 import Logo from "../images/blueonwhite.png";
 import React from "react";
 import useContactUs from "./useContactUs";
@@ -32,9 +33,9 @@ export default function FooterSection() {
             </Nav>
           </Row>
           <Row className="justify-content-center my-3">
-            <a href="/">
+            <Link to="/">
               <Image src={Logo} />
-            </a>
+            </Link>
           </Row>
           <Row className="justify-content-center my-3">
             <p> © {new Date().getFullYear()}</p>

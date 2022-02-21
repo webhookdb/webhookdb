@@ -56,6 +56,22 @@
       document.getElementById("input_source").focus();
     }
   };
+  document.onkeyup = function (e) {
+    // If we keypress outside of the input, we want to focus it,
+    // and potentially append its value to what's there.
+    // This will fire on any keypress inside the iframe, not outside,
+    // so won't catch errant keypresses.
+    if (e.target?.id === "input_source") {
+      return;
+    }
+    const input = document.getElementById("input_source");
+    input.focus();
+    // Assume any key that is more than a single char is a modifier key.
+    // Only append the key value if it's not a modifier key.
+    if (e.key.length === 1) {
+      input.value += e.key;
+    }
+  };
 
   document.getElementById("input_source").addEventListener("keyup", inputKeyUp);
 
@@ -238,4 +254,8 @@
   };
   // Update the auth display when we start up.
   window.webhookdbRun(env, ["webhookdb", "debug", "update-auth-display"]);
+
+  if (new URL(window.location.href).searchParams.get("autofocus")) {
+    document.getElementById("input_source").focus();
+  }
 })();

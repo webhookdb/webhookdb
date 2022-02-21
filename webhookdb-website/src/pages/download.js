@@ -9,6 +9,7 @@ import {
   FaWindows,
 } from "react-icons/fa";
 
+import { Link } from "gatsby";
 import React from "react";
 import Releases from "../components/Releases";
 import { SafeExternalLink } from "../components/links";
@@ -32,11 +33,11 @@ export default function Download() {
           <h2>Download WebhookDB CLI</h2>
           <p>Download the WebhookDB CLI for your platform.</p>
           <p>
-            Check out <a href="/docs/cli">instructions on getting started</a>.
+            Check out <Link to="/docs/cli">instructions on getting started</Link>.
           </p>
           <p>
             You can also try WebhookDB online using our{" "}
-            <a href="/terminal">terminal in the browser</a>.
+            <Link to="/terminal">terminal in the browser</Link>.
           </p>
         </Card>
         <Accordion defaultActiveKey={defaultOS} className="mb-5">
