@@ -31,6 +31,16 @@ def connect
   return
 end
 
+def copt
+  rc = Appydays::Loggable[self].silence(:fatal) do
+    Webhookdb::Customer::ResetCode.order(:id).last
+  end
+  tok = rc.token
+  Clipboard.copy tok
+  puts "Copied OTP #{tok} for #{rc.customer.email} to clipboard"
+  return tok
+end
+
 # Load models and fixtures. Use this when riffing locally.
 def repl
   require "webhookdb"
