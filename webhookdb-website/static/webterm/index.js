@@ -10,20 +10,30 @@
   const historyReversedStack = [];
   let historyIdx = null;
   let historyCommandCache = null;
+  let currentBlock;
+  let currentInput;
+
+  function getCommandInput() {
+    return document.getElementById("input_source");
+  }
+  function getInlineInput() {
+    return document.getElementById("inline-input");
+  }
+  currentInput = getCommandInput();
 
   function removePrompt() {
     document.getElementById("input_title").innerText = "";
-    document.getElementById("input_source").classList.add("nocaret");
+    getCommandInput().classList.add("nocaret");
   }
 
   function restorePrompt() {
     document.getElementById("input_title").innerText = prompt;
-    document.getElementById("input_source").classList.remove("nocaret");
+    const input = getCommandInput();
+    input.classList.remove("nocaret");
+    input.focus();
   }
 
   restorePrompt();
-
-  let currentBlock;
 
   function newBlock() {
     const wrapper = document.getElementById("wrapper");
@@ -51,9 +61,17 @@
     wrapper.innerHTML += "<div class='log'><p>" + message + "</p></div>";
   }
 
-  document.getElementById("screen").onclick = function (e) {
-    if (e.target.id === "screen") {
-      document.getElementById("input_source").focus();
+  /**
+   * On every click, we want to try to focus.
+   * However we only re-focus if we click empty space, or if there is nothing selected.
+   * There is a little weird behavior where if we select text, then release,
+   * we have to click again to focus. But oh well.
+   */
+  document.getElementById("screen").onmouseup = function (e) {
+    const shouldFocus =
+      e.target.id === "screen" || !document.getSelection()?.toString();
+    if (shouldFocus) {
+      currentInput.focus();
     }
   };
   document.onkeyup = function (e) {
@@ -61,19 +79,18 @@
     // and potentially append its value to what's there.
     // This will fire on any keypress inside the iframe, not outside,
     // so won't catch errant keypresses.
-    if (e.target?.id === "input_source") {
+    if (e.target?.tagName?.toUpperCase() === "INPUT") {
       return;
     }
-    const input = document.getElementById("input_source");
-    input.focus();
+    currentInput.focus();
     // Assume any key that is more than a single char is a modifier key.
     // Only append the key value if it's not a modifier key.
     if (e.key.length === 1) {
-      input.value += e.key;
+      currentInput.value += e.key;
     }
   };
 
-  document.getElementById("input_source").addEventListener("keyup", inputKeyUp);
+  getCommandInput().addEventListener("keyup", inputKeyUp);
 
   function registerCmd(cmd_name, func) {
     registry.set(cmd_name.toString().toLowerCase(), func);
@@ -95,11 +112,12 @@
       // No history, nothing to do.
       return;
     }
+    const input = getCommandInput();
     if (historyIdx === null) {
       // This is the first time we are hitting up, so use the previous command.
       // Store this value in the 'pending' cache so we can restore it on 'down'.
-      historyCommandCache = document.getElementById("input_source").value;
-      document.getElementById("input_source").value = historyReversedStack[0];
+      historyCommandCache = input.value;
+      input.value = historyReversedStack[0];
       historyIdx = 0;
       return;
     }
@@ -108,7 +126,7 @@
       return;
     }
     historyIdx += 1;
-    document.getElementById("input_source").value = historyReversedStack[historyIdx];
+    input.value = historyReversedStack[historyIdx];
   }
 
   function handleDownArrow() {
@@ -124,17 +142,17 @@
       // We are leaving our history. Set the index to null,
       // and restore any cached command from the first 'up'.
       historyIdx = null;
-      document.getElementById("input_source").value = historyCommandCache;
+      getCommandInput().value = historyCommandCache;
       return;
     }
     // Use the history at the new index.
     historyIdx -= 1;
-    document.getElementById("input_source").value = historyReversedStack[historyIdx];
+    getCommandInput().value = historyReversedStack[historyIdx];
   }
 
   function handleEnter() {
-    const shellStr = document.getElementById("input_source").value;
-    document.getElementById("input_source").value = "";
+    const shellStr = getCommandInput().value;
+    getCommandInput().value = "";
 
     newBlock();
 
@@ -232,8 +250,41 @@
 
   registerCmd("wh", whcmd);
   registerCmd("webhookdb", whcmd);
+  /**
+   * Called from Go. Print feedback to terminal.
+   */
   window.wasmFeedback = function (text) {
     blockLog(text);
+  };
+  /**
+   * Called from Go. Create a new element prompting for inline input.
+   * On submit, invoke the given callback, and replace the input
+   * with plain text.
+   */
+  window.wasmPropt = async function (text, hidden, callback) {
+    currentBlock.innerHTML += `<div class="inline-input-root">
+      <p>${text}</p>
+      <input id="inline-input" class="inline-input command-input"
+        type="${hidden ? "new-password" : "text"}"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus="on">
+    </div>`;
+    currentInput = getInlineInput();
+    currentInput.focus();
+    currentInput.addEventListener("keyup", (e) => {
+      if (e.key !== "Enter") {
+        return;
+      }
+      const inputEl = getInlineInput();
+      const value = inputEl.value;
+      const parent = inputEl.parentElement;
+      inputEl.remove();
+      currentInput = getCommandInput();
+      const valueElement = document.createElement("p");
+      valueElement.classList.add("inline-input");
+      valueElement.innerText = hidden ? "***" : value;
+      parent.appendChild(valueElement);
+      callback(value);
+    });
   };
 
   log(
@@ -256,6 +307,6 @@
   window.webhookdbRun(env, ["webhookdb", "debug", "update-auth-display"]);
 
   if (new URL(window.location.href).searchParams.get("autofocus")) {
-    document.getElementById("input_source").focus();
+    getCommandInput().focus();
   }
 })();

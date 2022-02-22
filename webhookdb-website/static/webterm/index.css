@@ -74,7 +74,7 @@ body {
     flex: 1;
 }
 
-input[type="command"] {
+.command-input {
     background-color: black;
     border: 0;
     color: var(--color-input);
@@ -89,4 +89,15 @@ input[type="command"] {
 
 .input-label {
     display: none;
+}
+
+.inline-input-root {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.inline-input {
+    margin-left: 8px !important;
+    flex: 1 !important;
 }
