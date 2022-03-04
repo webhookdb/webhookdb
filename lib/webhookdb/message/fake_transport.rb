@@ -13,6 +13,9 @@ class Webhookdb::Message::FakeTransport < Webhookdb::Message::Transport
   singleton_attr_accessor :disable_func
   @disable_func = nil
 
+  singleton_attr_accessor :return_nil_on_send
+  @return_nil_on_send = false
+
   def self.reset!
     self.sent_deliveries.clear
     self.disable_func = nil
@@ -38,13 +41,13 @@ class Webhookdb::Message::FakeTransport < Webhookdb::Message::Transport
 
   def send!(delivery)
     if Webhookdb::Message::FakeTransport.disable_func&.call(delivery)
-      Webhookdb.logger.debug "Did not deliver Delivery[%d] to %s because it was skipped by disable_func" %
-        [delivery.id, delivery.to]
-      return nil
+      raise Webhookdb::Message::Transport::UndeliverableRecipient,
+            "Did not deliver Delivery[#{delivery.id}] to #{delivery.to} because it was skipped by disable_func"
     end
 
     Webhookdb.logger.debug "Storing Delivery[%d] to %s as sent" % [delivery.id, delivery.to]
     Webhookdb::Message::FakeTransport.sent_deliveries << delivery
+    return nil if Webhookdb::Message::FakeTransport.return_nil_on_send
     return "#{delivery.id}-#{SecureRandom.hex(6)}"
   end
 end

@@ -55,20 +55,28 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
   end
 
   def send!(delivery)
-    return nil unless allowlisted?(delivery.to)
+    unless allowlisted?(delivery.to)
+      raise Webhookdb::Message::Transport::UndeliverableRecipient,
+            "#{delivery.to} is not allowlisted"
+    end
 
     from = delivery.extra_fields["from"].present? ? delivery.extra_fields["from"] : self.class.from
-    response = Webhookdb::Postmark.send_email(
-      from,
-      delivery.to,
-      delivery.body_with_mediatype("subject")&.content,
-      plain: delivery.body_with_mediatype!("text/plain")&.content,
-      html: delivery.body_with_mediatype!("text/html")&.content,
-      to_name: delivery.recipient&.name,
-      reply_to: delivery.extra_fields["reply_to"],
-    )
-    raise Webhookdb::Message::Transport::Error, response.inspect if response[:error_code].positive?
-    return response[:message_id]
+    begin
+      response = Webhookdb::Postmark.send_email(
+        from,
+        delivery.to,
+        delivery.body_with_mediatype("subject")&.content,
+        plain: delivery.body_with_mediatype!("text/plain")&.content,
+        html: delivery.body_with_mediatype!("text/html")&.content,
+        to_name: delivery.recipient&.name,
+        reply_to: delivery.extra_fields["reply_to"],
+      )
+    rescue Postmark::InactiveRecipientError => e
+      raise Webhookdb::Message::Transport::UndeliverableRecipient, "#{delivery.to} cannot be reached: #{e.inspect}"
+    else
+      raise Webhookdb::Message::Transport::Error, response.inspect if response[:error_code].positive?
+      return response[:message_id]
+    end
   end
 
   protected def extract_email_part(email)

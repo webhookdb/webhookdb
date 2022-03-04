@@ -75,11 +75,19 @@ RSpec.describe "Webhookdb::Message::Delivery", :db, :messaging do
       )
     end
 
-    it "does not set sent_at if the transport message ID is nil" do
+    it "soft deletes delivery if UndeliverableRecipient error is raised" do
       d = Webhookdb::Fixtures.message_delivery.create
       Webhookdb::Message::FakeTransport.disable_func = proc { true }
-      expect(d.send!).to be_nil
-      expect(d).to have_attributes(sent_at: nil, transport_message_id: nil)
+      expect(d.send!).to_not be_nil
+      expect(d.soft_deleted_at).to be_within(5).of(Time.now)
+    end
+
+    it "sets transport message ID as warning if the transport message ID is nil" do
+      d = Webhookdb::Fixtures.message_delivery.create
+      Webhookdb::Message::FakeTransport.return_nil_on_send = true
+
+      expect(d.send!).to_not be_nil
+      expect(d.transport_message_id).to eq("WARNING-NOT-SET")
     end
   end
 

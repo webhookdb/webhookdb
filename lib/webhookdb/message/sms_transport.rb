@@ -57,7 +57,10 @@ class Webhookdb::Message::SmsTransport < Webhookdb::Message::Transport
     formatted_phone = self.class.format_phone(delivery.to)
     raise Webhookdb::Message::Transport::Error, "Could not format phone number" if formatted_phone.nil?
 
-    return nil unless self.allowlisted?(formatted_phone)
+    unless self.allowlisted?(formatted_phone)
+      raise Webhookdb::Message::Transport::UndeliverableRecipient,
+            "#{delivery.to} cannot be reached: the number is not allowlisted"
+    end
 
     body = delivery.bodies.first.content
     self.logger.info("send_twilio_sms", to: formatted_phone, message_preview: body.slice(0, 20))

@@ -68,10 +68,24 @@ RSpec.describe Webhookdb::Message::EmailTransport, :db do
       expect(send_mail_req).to have_been_made
     end
 
-    it "does not send mail if the email is not allowlisted" do
+    it "raises UndeliverableRecipient error if it is a Postmark::InactiveRecipientError" do
+      send_mail_req = stub_email_post(status: 422, fixture: "postmark/mail_send_inactive_recipient")
+
+      delivery = Webhookdb::Fixtures.message_delivery.email("blah@lithic.tech").create
+
+      expect do
+        described_class.new.send!(delivery)
+      end.to raise_error(Webhookdb::Message::Transport::UndeliverableRecipient, /cannot be reached/)
+
+      expect(send_mail_req).to have_been_made
+    end
+
+    it "raises error if the email is not allowlisted" do
       delivery = Webhookdb::Fixtures.message_delivery.email("stone@gmail.com").create
-      result = described_class.new.send!(delivery)
-      expect(result).to be_nil
+      expect do
+        described_class.new.send!(delivery)
+      end.to raise_error(Webhookdb::Message::Transport::UndeliverableRecipient,
+                         /is not allowlisted/,)
     end
 
     it 'pulls "reply_to" and "from" from extra fields' do

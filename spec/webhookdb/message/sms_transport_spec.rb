@@ -32,10 +32,12 @@ RSpec.describe Webhookdb::Message::SmsTransport, :db do
       end.to raise_error(/could not format/i)
     end
 
-    it "does not send sms if the phone number is not allowlisted" do
+    it "raises error if the phone number is not allowlisted" do
       delivery = Webhookdb::Fixtures.message_delivery.sms("404-555-0128").create
-      result = described_class.new.send!(delivery)
-      expect(result).to be_nil
+      expect do
+        described_class.new.send!(delivery)
+      end.to raise_error(Webhookdb::Message::Transport::UndeliverableRecipient,
+                         /the number is not allowlisted/,)
     end
 
     it "warns and noops if the phone number is invalid" do

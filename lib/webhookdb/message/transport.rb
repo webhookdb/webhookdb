@@ -6,6 +6,7 @@ class Webhookdb::Message::Transport
   extend Webhookdb::MethodUtilities
 
   class Error < RuntimeError; end
+  class UndeliverableRecipient < Error; end
 
   singleton_attr_reader :transports
   @transports = {}

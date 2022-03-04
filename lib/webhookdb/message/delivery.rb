@@ -49,7 +49,17 @@ class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliver
     self.db.transaction do
       self.lock!
       return nil if self.sent? || self.soft_deleted?
-      (transport_message_id = self.transport.send!(self)) or return nil
+      begin
+        transport_message_id = self.transport.send!(self)
+      rescue Webhookdb::Message::Transport::UndeliverableRecipient
+        self.logger.warn("undeliverable_recipient", recipient: self.to, message_delivery_id: self.id)
+        self.soft_delete
+        return self
+      end
+      if transport_message_id.blank?
+        self.logger.error("empty_transport_message_id", message_delivery_id: self.id)
+        transport_message_id = "WARNING-NOT-SET"
+      end
       self.update(transport_message_id:, sent_at: Time.now)
       return self
     end
