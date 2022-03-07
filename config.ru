@@ -26,6 +26,7 @@ require "webhookdb/api/stripe"
 require "webhookdb/api/subscriptions"
 require "webhookdb/api/system"
 require "webhookdb/api/uploads"
+require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
 require "webhookdb/admin_api/message_deliveries"
@@ -44,6 +45,7 @@ module Webhookdb::App
     mount Webhookdb::API::Subscriptions
     mount Webhookdb::API::System
     mount Webhookdb::API::Uploads
+    mount Webhookdb::API::WebhookSubscriptions
 
     mount Webhookdb::AdminAPI::Auth
     mount Webhookdb::AdminAPI::MessageDeliveries

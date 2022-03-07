@@ -32,7 +32,10 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
     it "creates webhook subscription for service integration" do
       post "/v1/webhook_subscriptions/create",
-           service_integration_opaque_id: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
+           service_integration_opaque_id: sint.opaque_id,
+           org_identifier: "",
+           webhook_secret: "wh_secret",
+           url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(service_integration: sint).first
@@ -92,7 +95,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
     it "returns a webhook subscription entity for organization" do
       post "/v1/webhook_subscriptions/create",
-           org_identifier: org.key, webhook_secret: "wh_secret", url: "https://example.com"
+           org_identifier: org.key, service_integration_opaque_id: "", webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first

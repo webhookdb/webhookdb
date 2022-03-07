@@ -19,11 +19,18 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       end
     end
 
+    before_validation do
+      # Our CLI will submit both of these params no matter what--in order to avoid triggering the 'mutually exclusive'
+      # param error, we need to delete the param that shows up as an empty string
+      params.delete(:org_identifier) if params[:org_identifier] == ""
+      params.delete(:service_integration_opaque_id) if params[:service_integration_opaque_id] == ""
+    end
+
     params do
       requires :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
       requires :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
-      optional :org_identifier
-      optional :service_integration_opaque_id
+      optional :org_identifier, type: String, allow_blank: false
+      optional :service_integration_opaque_id, type: String, allow_blank: false
       exactly_one_of :org_identifier, :service_integration_opaque_id
       mutually_exclusive :org_identifier, :service_integration_opaque_id
     end
