@@ -37,8 +37,8 @@ function ContactForm() {
     <div id="contact">
       <div>
         <p>
-          Email us at <a href="mailto:hello@lithic.tech">hello@lithic.tech</a> or use
-          this form:
+          Email us at <a href="mailto:webhookdb@lithic.tech">webhookdb@lithic.tech</a>{" "}
+          or use this form:
         </p>
         <Form
           as="form"

@@ -82,7 +82,7 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
   def _mixin_backfill_warning
     return %(Please note that Shopify only allows us to have access to orders made in the last 60 days,
 so this history will not be comprehensive.
-Please email hello@lithic.tech if you need a complete history backfill.
+Please email webhookdb@lithic.tech if you need a complete history backfill.
 )
   end
 end

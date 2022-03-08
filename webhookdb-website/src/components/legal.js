@@ -9,7 +9,7 @@ export function LegalContactText() {
       <br />
       Portland, OR, 97214
       <br />
-      Email Address: support@lithic.tech
+      Email Address: webhookdb@lithic.tech
       <br />
     </p>
   );

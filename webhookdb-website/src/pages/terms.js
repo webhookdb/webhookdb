@@ -12,7 +12,7 @@ export default function Terms() {
       <p>
         Okay, here’s the lawyer-y bit. Hopefully this is intelligible to the average
         bear — but if you have any questions, concerns, or suggestions, please reach out
-        to support@lithic.tech.
+        to webhookdb@lithic.tech.
       </p>
 
       <h3>Agreement Between User and Lithic Technology LLC</h3>
