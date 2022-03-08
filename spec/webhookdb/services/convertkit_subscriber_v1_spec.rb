@@ -244,18 +244,20 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:expected_old_items_count) { 1 }
     let(:last_backfilled) { "2016-02-01T21:45:16.000Z" }
 
+    # We're using regex for the urls here because the `updated_from` parameter occurs conditionally, and we want to
+    # account for both its presence and its absence
     def stub_service_requests_new_records
       return [
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
+        stub_request(:get, %r{https://api.convertkit.com/v3/subscribers\?api_secret=bfsek&page=1(?!&sort_field=cancelled_at)&sort_order=desc}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc&sort_field=cancelled_at").
+        stub_request(:get, %r{https://api.convertkit.com/v3/subscribers\?api_secret=bfsek&page=1&sort_field=cancelled_at&sort_order=desc}).
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_requests_old_records
       return [
-        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=2&sort_order=desc").
+        stub_request(:get, %r{https://api.convertkit.com/v3/subscribers\?api_secret=bfsek&page=2&sort_order=desc}).
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
     end

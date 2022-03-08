@@ -163,6 +163,7 @@ your database will be populated.
     list_being_iterated, page = pagination_token
 
     url = "https://api.convertkit.com/v3/subscribers?api_secret=#{self.service_integration.backfill_secret}&page=#{page}&sort_order=desc"
+    url += "&updated_from=#{last_backfilled.strftime('%FT%TZ')}" if last_backfilled.present?
     url += "&sort_field=cancelled_at" if list_being_iterated == "cancelled"
 
     response = Webhookdb::Http.get(url, logger: self.logger)
