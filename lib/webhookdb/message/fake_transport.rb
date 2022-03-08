@@ -19,6 +19,7 @@ class Webhookdb::Message::FakeTransport < Webhookdb::Message::Transport
   def self.reset!
     self.sent_deliveries.clear
     self.disable_func = nil
+    self.return_nil_on_send = false
   end
 
   def type

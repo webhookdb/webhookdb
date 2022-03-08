@@ -3,6 +3,10 @@
 RSpec.describe "Webhookdb::Message::Delivery", :db, :messaging do
   let(:described_class) { Webhookdb::Message::Delivery }
 
+  before(:each) do
+    Webhookdb::Message::FakeTransport.reset!
+  end
+
   context "datasets" do
     it "has a dataset for sent and unsent messages" do
       unsent = Webhookdb::Fixtures.message_delivery.create
