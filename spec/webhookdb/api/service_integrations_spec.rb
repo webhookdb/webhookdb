@@ -197,9 +197,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "400s if there is no active service integration" do
-      sint.soft_delete
       header "X-My-Test", "abc"
-      post "/v1/service_integrations/xyz", foo: 1
+      post "/v1/service_integrations/abc", foo: 1
       expect(last_response).to have_status(400)
     end
 
@@ -442,6 +441,70 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+      )
+    end
+  end
+
+  describe "POST /v1/organizations/:key/service_integrations/:opaque_id/delete" do
+    before(:each) do
+      login_as(customer)
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+    end
+
+    it "destroys the integration and drops the table" do
+      org.prepare_database_connections
+      sint.service_instance.create_table
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(message: /deleted all secrets for.*containing its data has been dropped./)
+
+      expect(org.service_integrations_dataset.all).to be_empty
+
+      expect do
+        sint.service_instance.admin_dataset(&:count)
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+    ensure
+      org.remove_related_database
+    end
+
+    it "succeeds even if the table does not exist (in case it was never created)" do
+      org.prepare_database_connections
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
+
+      expect(last_response).to have_status(200)
+      expect(org.service_integrations_dataset.all).to be_empty
+    ensure
+      org.remove_related_database
+    end
+
+    it "422s if the table name is not given as the confirmation value" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(code: "prompt_required_params"),
+      )
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name + "x"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(code: "prompt_required_params"),
+      )
+    end
+
+    it "400s if the current user cannot modify the integration due to org permissions" do
+      customer.memberships_dataset.update(membership_role_id: nil)
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: /admin privileges/),
       )
     end
   end

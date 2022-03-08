@@ -57,6 +57,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
 
   describe "status_for_org" do
     let!(:org) { Webhookdb::Fixtures.organization.create }
+    let!(:test_delete) { Webhookdb::Fixtures.organization.create }
 
     it "returns correct information if subscription does not exist" do
       data = Webhookdb::Subscription.status_for_org(org)
@@ -74,6 +75,8 @@ RSpec.describe "Webhookdb::Subscription", :db do
       org.update(billing_email: "santa@northpole.org")
       Webhookdb::Fixtures.subscription.active.for_org(org).create
       Webhookdb::Fixtures.service_integration.create(organization: org)
+      Webhookdb::Fixtures.service_integration.create(organization: test_delete)
+      Webhookdb::Fixtures.service_integration.soft_delete
 
       data = Webhookdb::Subscription.status_for_org(org)
       expect(data[:org_name]).to eq(org.name)
