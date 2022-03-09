@@ -166,6 +166,24 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           end
         end
       end
+
+      desc "Allow organization admin to change the name of the organization"
+      params do
+        requires :name, type: String
+      end
+      post :rename do
+        customer = current_customer
+        org = lookup_org!
+        ensure_admin!
+        customer.db.transaction do
+          prev_name = org.name
+          org.name = params[:name]
+          org.save_changes
+          status 200
+          present org, with: Webhookdb::API::OrganizationEntity,
+                       message: "The organization #{org.key} has been renamed from #{prev_name} to #{org.name}."
+        end
+      end
     end
 
     resource :create do

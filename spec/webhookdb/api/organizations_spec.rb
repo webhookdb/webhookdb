@@ -402,4 +402,28 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       )
     end
   end
+
+  describe "POST /v1/organizations/:org_identifier/rename" do
+    it "fails if request customer doesn't have admin privileges" do
+      post "/v1/organizations/#{org.key}/rename", name: "Acme Corp"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+      )
+    end
+
+    it "renames org" do
+      org.update(name: "alice")
+      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+
+      post "/v1/organizations/#{org.key}/rename", name: "bob"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        message: "The organization #{org.key} has been renamed from alice to bob.",
+      )
+      expect(org.refresh).to have_attributes(name: "bob")
+    end
+  end
 end
