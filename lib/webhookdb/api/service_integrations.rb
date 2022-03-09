@@ -239,12 +239,12 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               ensure_plan_supports!
               ensure_admin!
               sint = lookup!
-              if sint.table_name != params[:confirm]
+              if sint.table_name != params[:confirm]&.strip
                 Webhookdb::API::Helpers.prompt_for_required_param!(
                   request,
-                  :guard_confirm,
+                  :confirm,
                   "Please confirm your deletion by entering the integration's table name '#{sint.table_name}'. " \
-                  "The table and all data for this integration will also be removed.",
+                  "The table and all data for this integration will also be removed:",
                 )
               end
 

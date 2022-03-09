@@ -414,14 +414,14 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
 
     it "renames org" do
-      org.update(name: "alice")
+      org.update(name: "alice", key: "nat")
       customer.memberships_dataset.update(membership_role_id: admin_role.id)
 
       post "/v1/organizations/#{org.key}/rename", name: "bob"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        message: "The organization #{org.key} has been renamed from alice to bob.",
+        message: "The organization 'nat' has been renamed from 'alice' to 'bob'.",
       )
       expect(org.refresh).to have_attributes(name: "bob")
     end

@@ -169,7 +169,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allow organization admin to change the name of the organization"
       params do
-        requires :name, type: String
+        optional :name, type: String, prompt: "Enter the new organization name:"
       end
       post :rename do
         customer = current_customer
@@ -181,7 +181,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           org.save_changes
           status 200
           present org, with: Webhookdb::API::OrganizationEntity,
-                       message: "The organization #{org.key} has been renamed from #{prev_name} to #{org.name}."
+                       message: "The organization '#{org.key}' has been renamed from '#{prev_name}' to '#{org.name}'."
         end
       end
     end

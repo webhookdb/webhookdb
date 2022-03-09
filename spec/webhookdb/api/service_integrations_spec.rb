@@ -473,7 +473,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "succeeds even if the table does not exist (in case it was never created)" do
       org.prepare_database_connections
 
-      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: " #{sint.table_name} \n"
 
       expect(last_response).to have_status(200)
       expect(org.service_integrations_dataset.all).to be_empty
