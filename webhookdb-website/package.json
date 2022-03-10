@@ -8,8 +8,8 @@
     "gatsby"
   ],
   "scripts": {
-    "develop": "gatsby develop",
-    "develop-network": "gatsby develop -H 0.0.0.0",
+    "develop": "gatsby develop -p 18002",
+    "develop-network": "gatsby develop -H 0.0.0.0 -p 18002",
     "start": "gatsby develop",
     "copy-static": "node ./tools/copystatic.js",
     "build": "gatsby build && yarn run copy-static",

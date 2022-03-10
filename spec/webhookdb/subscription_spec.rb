@@ -5,6 +5,23 @@ require "webhookdb/subscription"
 RSpec.describe "Webhookdb::Subscription", :db do
   let(:described_class) { Webhookdb::Subscription }
 
+  describe "list_plans" do
+    it "lists plans" do
+      req = stub_request(:get, "https://api.stripe.com/v1/prices?active=true").
+        to_return(status: 200, body: load_fixture_data("stripe/prices_get", raw: true), headers: {})
+
+      plans = described_class.list_plans
+      expect(plans.as_json).to match_array(
+        [
+          {description: "Monthly Subscription", key: "monthly", price: cost("$89")},
+          {description: "Yearly Subscription (2 months free)", key: "yearly", price: cost("$890")},
+        ],
+      )
+
+      expect(req).to have_been_made
+    end
+  end
+
   describe "create_or_update" do
     describe "create_or_update_from_webhook" do
       it "creates a subscription for a given org if one doesn't exist" do

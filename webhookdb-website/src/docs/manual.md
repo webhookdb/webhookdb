@@ -395,6 +395,18 @@ Open stripe portal to edit subscription.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
+**--plan, -p**="": Plan name, like 'yearly', 'monthly', etc. Use `webhookdb subscription plans` to see available plans.
+
+<a id="plans"></a>
+
+#### [plans](#plans)
+
+Print information about the WebhookDB pricing plans.
+
+**--format, -f**="": Format of the output. One of: json, csv, table (default: table)
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
 <a id="update"></a>
 
 ### [update](#update)

@@ -11,16 +11,6 @@ class Webhookdb::Jobs::CreateStripeCustomer
 
   def _perform(event)
     org = self.lookup_model(Webhookdb::Organization, event)
-    stripe_customer = Stripe::Customer.create(
-      {
-        name: org.name,
-        email: org.billing_email,
-        metadata: {
-          org_id: org.id,
-        },
-      },
-    )
-    org.stripe_customer_id = stripe_customer.id
-    org.save_changes
+    org.register_in_stripe
   end
 end

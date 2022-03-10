@@ -5,12 +5,35 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   include Appydays::Configurable
   include Appydays::Loggable
 
+  class Plan
+    attr_accessor :key, :description, :price, :stripe_price_id, :stripe_product_id
+
+    def initialize(key, stripe_price)
+      @key = key
+      @description = stripe_price.nickname
+      @price = Money.new(stripe_price.unit_amount)
+      @stripe_price_id = stripe_price.id
+      @stripe_product_id = stripe_price.product
+    end
+
+    def as_json
+      return {key:, description:, price:}
+    end
+  end
+
   plugin :timestamps
   plugin :soft_deletes
 
   configurable(:subscriptions) do
     setting :max_free_integrations, 2
-    setting :paid_plan_stripe_price_id, "lithic_stripe_paid_plan_price"
+  end
+
+  def self.list_plans
+    prices = Stripe::Price.list(active: true)
+    monthly = prices.find { |pr| pr.recurring.interval == "month" }
+    yearly = prices.find { |pr| pr.recurring.interval == "year" }
+    raise "Expected month and year prices in: #{prices.to_json}" unless monthly && yearly
+    return [Plan.new("monthly", monthly), Plan.new("yearly", yearly)]
   end
 
   def initialize(*)

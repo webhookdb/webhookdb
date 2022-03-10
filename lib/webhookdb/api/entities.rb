@@ -59,6 +59,13 @@ module Webhookdb::API
     end
   end
 
+  # We do NOT want the message here, so use Grape directly
+  class SubscriptionPlanEntity < Grape::Entity
+    expose :key
+    expose :description
+    expose :price, with: MoneyEntity
+  end
+
   class WebhookSubscriptionEntity < BaseEntity
     expose :opaque_id
     expose :deliver_to_url
