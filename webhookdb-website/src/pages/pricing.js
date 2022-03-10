@@ -33,7 +33,7 @@ export default function Pricing() {
             <PricingCard
               title="Premium"
               cta="Get Started"
-              sub="Upgrade to a paid subscription for $50/month once you are ready."
+              sub="Upgrade to a paid subscription for $89/month or $890/year once you are ready."
               features={[
                 "Unlimited active integrations",
                 "Unlimited storage for each integration*",

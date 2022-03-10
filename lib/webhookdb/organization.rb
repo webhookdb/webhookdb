@@ -160,12 +160,28 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  def register_in_stripe
+    raise Webhookdb::InvalidPrecondition, "org already in Stripe" if self.stripe_customer_id.present?
+    stripe_customer = Stripe::Customer.create(
+      {
+        name: self.name,
+        email: self.billing_email,
+        metadata: {
+          org_id: self.id,
+        },
+      },
+    )
+    self.stripe_customer_id = stripe_customer.id
+    self.save_changes
+    return stripe_customer
+  end
+
   def get_stripe_billing_portal_url
     raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
     session = Stripe::BillingPortal::Session.create(
       {
         customer: self.stripe_customer_id,
-        return_url: Webhookdb.api_url + "/v1/subscriptions/portal_return",
+        return_url: Webhookdb.app_url + "/jump/portal-return",
       },
     )
 
@@ -177,13 +193,13 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     session = Stripe::Checkout::Session.create(
       {
         customer: self.stripe_customer_id,
-        cancel_url: Webhookdb.api_url + "/v1/subscriptions/checkout_cancel",
+        cancel_url: Webhookdb.app_url + "/jump/checkout-cancel",
         line_items: [{
           price: price_id, quantity: 1,
         }],
         mode: "subscription",
         payment_method_types: ["card"],
-        success_url: Webhookdb.api_url + "/v1/subscriptions/checkout_success",
+        success_url: Webhookdb.app_url + "/jump/checkout-success",
       },
     )
 

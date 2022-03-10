@@ -25,10 +25,10 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
 
   describe "retry_logs" do
     it "retries and returns results" do
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/a").
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/a").
         with(body: "{\"a\":1}").
         to_return(status: 202)
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/b").
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/b").
         with(body: "{}").
         to_return(status: 400)
       lw1 = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").body(a: 1).create
@@ -41,8 +41,8 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
     it "can truncate successes" do
       lw1 = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
       lw2 = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "b").create
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/a").to_return(status: 202)
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/b").to_return(status: 400)
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/a").to_return(status: 202)
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/b").to_return(status: 400)
       described_class.retry_logs([lw1, lw2], truncate_successful: true)
       expect(lw1.refresh).to be_truncated
       expect(lw2.refresh).to_not be_truncated
@@ -58,7 +58,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
           "Version" => "HTTP/1.1",
           "User-Agent" => "curl/7.64.1",
         ).create
-      req = stub_request(:post, "http://localhost:17001/v1/service_integrations/a").
+      req = stub_request(:post, "http://localhost:18001/v1/service_integrations/a").
         with(
           body: "{\"a\": 1}",
           headers: {
@@ -78,13 +78,13 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
   describe "retry_one" do
     it "returns true on success" do
       lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/a").to_return(status: 202)
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/a").to_return(status: 202)
       expect(lw.retry_one).to be_truthy
     end
 
     it "returns false on failure" do
       lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
-      stub_request(:post, "http://localhost:17001/v1/service_integrations/a").to_return(status: 500)
+      stub_request(:post, "http://localhost:18001/v1/service_integrations/a").to_return(status: 500)
       expect(lw.retry_one).to be_falsey
     end
   end

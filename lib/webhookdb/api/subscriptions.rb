@@ -73,33 +73,4 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
       end
     end
   end
-
-  resource :subscriptions do
-    resource :portal_return do
-      desc "provides a landing page for after the stripe billing page"
-      get do
-        rendered = render_liquid("pages/billing_callback.liquid")
-        status 200
-        body rendered
-      end
-    end
-
-    resource :checkout_cancel do
-      desc "provides a landing page for after cancelling the stripe checkout process"
-      get do
-        rendered = render_liquid("pages/checkout_success.liquid")
-        status 200
-        body rendered
-      end
-    end
-
-    resource :checkout_success do
-      desc "provides a landing page for after the stripe checkout process"
-      get do
-        rendered = render_liquid("pages/checkout_success.liquid")
-        status 200
-        body rendered
-      end
-    end
-  end
 end

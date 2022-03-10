@@ -137,7 +137,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       Webhookdb::Fixtures.subscription.active.for_org(org).create
       session_req = stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions").
         with(
-          body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
+          body: {"customer" => "foobar", "return_url" => "http://localhost:18002/jump/portal-return"},
         ).
         to_return(status: 200, body: {url: "https://billing.stripe.com/session/foobar"}.to_json)
 
@@ -170,18 +170,6 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(:url)
       expect(session_req).to have_been_made
-    end
-  end
-
-  describe "GET v1/subscriptions/portal_return" do
-    it "returns an html page with the right message" do
-      get "/v1/subscriptions/portal_return"
-
-      expect(last_response).to have_status(200)
-      expect(last_response.headers).to include("Content-Type" => "text/html")
-      expect(last_response.body).to match(
-        "You have successfully viewed or updated your billing information",
-      )
     end
   end
 end

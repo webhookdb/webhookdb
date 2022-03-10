@@ -228,7 +228,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     it "returns session url if stripe customer is registered" do
       req = stub_request(:post, "https://api.stripe.com/v1/billing_portal/sessions").
         with(
-          body: {"customer" => "foobar", "return_url" => "http://localhost:17001/v1/subscriptions/portal_return"},
+          body: {"customer" => "foobar", "return_url" => "http://localhost:18002/jump/portal-return"},
         ).
         to_return(
           status: 200,
