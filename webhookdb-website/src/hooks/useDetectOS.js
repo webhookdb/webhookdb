@@ -2,7 +2,10 @@ import React from "react";
 
 export default function useDetectOS() {
   const val = React.useMemo(() => {
-    const ua = navigator.userAgent;
+    if (typeof window === "undefined") {
+      return OTHER;
+    }
+    const ua = window.navigator.userAgent;
     if (substrAny(ua, ["Win"])) {
       return WIN;
     }
