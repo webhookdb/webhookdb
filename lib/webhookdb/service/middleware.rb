@@ -52,6 +52,7 @@ module Webhookdb::Service::Middleware
   def self.add_session_middleware(builder)
     builder.use CopyCookieToExplicitHeader
     builder.use Rack::Session::Cookie, Webhookdb::Service.cookie_config
+    builder.use SessionLength
     builder.use(SessionReader)
   end
 
@@ -89,6 +90,20 @@ module Webhookdb::Service::Middleware
       status, headers, body = @app.call(env)
       headers[Webhookdb::Service::AUTH_TOKEN_HEADER] = headers["Set-Cookie"] if headers["Set-Cookie"]
       return status, headers, body
+    end
+  end
+
+  # In some environments, like the browser, we may want a shorter session.
+  # Use a dedicated header to provide a short session.
+  class SessionLength
+    def initialize(app)
+      @app = app
+    end
+
+    def call(env)
+      env["rack.session.options"][:expire_after] = 2.hours.to_i if
+        env[Webhookdb::Service::SHORT_SESSION_HTTP].present?
+      return @app.call(env)
     end
   end
 

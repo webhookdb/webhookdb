@@ -296,6 +296,30 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_session_id).to be_present
   end
 
+  describe "session length" do
+    it "is the default normally" do
+      header "Whdb-Short-Session", ""
+
+      get "/hello"
+
+      expect(last_response).to have_status(201)
+      cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
+      expect(cookie).to include("webhookdb.session")
+      expect(Time.parse(cookie["expires"][0])).to be > (10.days.from_now)
+    end
+
+    it "is very short if Whdb-Short-Session header is present" do
+      header "Whdb-Short-Session", "1"
+
+      get "/hello"
+
+      expect(last_response).to have_status(201)
+      cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
+      expect(cookie).to include("webhookdb.session")
+      expect(Time.parse(cookie["expires"][0])).to be < (2.hours.from_now)
+    end
+  end
+
   describe "endpoint caching" do
     after(:all) do
       described_class.endpoint_caching = false

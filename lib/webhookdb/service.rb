@@ -28,10 +28,12 @@ class Webhookdb::Service < Grape::API
   SESSION_COOKIE = "webhookdb.session"
   AUTH_TOKEN_HEADER = "Whdb-Auth-Token"
   AUTH_TOKEN_HTTP = "HTTP_WHDB_AUTH_TOKEN"
+  SHORT_SESSION_HEADER = "Whdb-Short-Session"
+  SHORT_SESSION_HTTP = "HTTP_WHDB_SHORT_SESSION"
   DEFAULT_CORS_ORIGINS = [/localhost:\d+/, /192\.168\.\d{1,3}\.\d{1,3}:\d{3,5}/].freeze
 
   configurable(:service) do
-    setting :max_session_age, 30.days.to_i
+    setting :max_session_age, 90.days.to_i
 
     # Note that changing the secret would invalidate all existing sessions!
     setting :session_secret, "Tritiphamhockbiltongpigporkchoptbonebeefsala" \
