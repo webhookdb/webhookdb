@@ -14,12 +14,18 @@ WebhookDB is managed entirely through our lightweight, cross-platform, single-bi
 
 Check out our step-by-step [Quickstart Guide](/docs/cli) to get started.
 
-<a href="/docs/cli" class="mt-1 mb-5 btn btn-primary btn-lg">
+<a href="/docs/cli" class="mb-4 btn btn-primary btn-lg">
     Read the Guide
 </a>
 
 We also have an online terminal that allows you to get started using WebhookDB without downloading anything.
 
-<a href="/terminal" class="mt-1 mb-2 btn btn-primary btn-lg">
+<a href="/terminal" class="mb-4 btn btn-primary btn-lg">
     Try Right Now
+</a>
+
+To see all the available commands, take the CLI for a spin or check out the [Manual](/docs/manual).
+
+<a href="/docs/manual" class="mb-4 btn btn-outline-primary btn-lg">
+    The Manual
 </a>

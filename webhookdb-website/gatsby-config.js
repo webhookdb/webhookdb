@@ -6,7 +6,6 @@ module.exports = {
   plugins: [
     "gatsby-plugin-sass",
     "gatsby-plugin-image",
-    "gatsby-transformer-remark",
     "gatsby-plugin-sharp",
     "gatsby-transformer-sharp",
     {
@@ -43,12 +42,24 @@ module.exports = {
       options: {
         plugins: [
           {
+            resolve: `gatsby-remark-table-of-contents`,
+            options: {
+              exclude: "Table of Contents",
+              tight: false,
+              ordered: false,
+              fromHeading: 1,
+              toHeading: 6,
+              className: "table-of-contents",
+            },
+          },
+          {
             resolve: `gatsby-remark-highlight-code`,
             options: {
               terminal: "carbon",
               theme: "blackboard",
             },
           },
+          `gatsby-remark-autolink-headers`,
         ],
       },
     },

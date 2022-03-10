@@ -1,27 +1,22 @@
 import "../styles/custom.scss";
 
 import { Accordion, Card, Container, Row } from "react-bootstrap";
-import {
-  FaApple,
-  FaClipboard,
-  FaClipboardCheck,
-  FaLinux,
-  FaWindows,
-} from "react-icons/fa";
+import { FaApple, FaDocker, FaLinux, FaWindows } from "react-icons/fa";
+import useDetectOS, { LINUX, MAC, WIN } from "../hooks/useDetectOS";
 
+import CopyableCodeBlock from "../components/CopyableCodeBlock";
 import { Link } from "gatsby";
 import React from "react";
-import Releases from "../components/Releases";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import WavesLayout from "../components/WavesLayout";
-import useDetectOS from "../hooks/useDetectOS";
+import { defineCustomElements as deckDeckGoElement } from "@deckdeckgo/highlight-code/dist/loader";
 
 export default function Download() {
-  const [defaultOS, setdefaultOS] = React.useState("1");
+  const defaultOS = useDetectOS();
 
   React.useEffect(() => {
-    setdefaultOS(useDetectOS);
+    deckDeckGoElement().then(() => null);
   }, []);
 
   return (
@@ -36,84 +31,124 @@ export default function Download() {
             Check out <Link to="/docs/cli">instructions on getting started</Link>.
           </p>
           <p>
-            You can also try WebhookDB online using our{" "}
-            <Link to="/terminal">terminal in the browser</Link>.
+            We recommend you first try WebhookDB online using our{" "}
+            <Link to="/terminal">terminal in the browser</Link>. After you get started,
+            download and install the CLI to keep going.
           </p>
         </Card>
         <Accordion defaultActiveKey={defaultOS} className="mb-5">
-          <Card>
-            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="0">
-              <Row className="align-items-center px-3">
-                <FaWindows className="mr-2" /> Windows
-              </Row>
-            </Accordion.Toggle>
-            <Accordion.Collapse className="bg-dark" eventKey="0">
-              <Card.Body className="text-light">
-                <p>TBD</p>
-              </Card.Body>
-            </Accordion.Collapse>
-          </Card>
-          <Card>
-            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="1">
-              <Row className="align-items-center px-3">
-                <FaApple className="mr-2" /> MacOS
-              </Row>
-            </Accordion.Toggle>
-            <Accordion.Collapse className="bg-dark" eventKey="1">
-              <Card.Body className="text-light">
-                <p>
-                  It&rsquo;s simple to install webhookdb on Mac- we just need to
-                  download and extract it to the right spot.
-                </p>
-                <p>
-                  <strong>Make sure you choose the right architecture</strong>. M1 Macs
-                  use the ARM process, others use AMD.
-                </p>
-                <p>For AMD:</p>
-                <CodeBlock
-                  text={`curl ${Releases.mac_amd} -s -L | tar xz -C ${Releases.mac_bindir} && chmod +x ${Releases.mac_bindir}/webhookdb`}
-                />
-                <p>For ARM (M1 Macs):</p>
-                <CodeBlock
-                  text={`curl ${Releases.mac_arm} -s -L | tar xz -C ${Releases.mac_bindir} && chmod +x ${Releases.mac_bindir}/webhookdb`}
-                />
-                <p>
-                  You can also build from source, check it out{" "}
-                  <SafeExternalLink href={Releases.source}>on GitHub</SafeExternalLink>.
-                </p>
-              </Card.Body>
-            </Accordion.Collapse>
-          </Card>
-          <Card>
-            <Accordion.Toggle as={Card.Header} className="bg-light" eventKey="2">
-              <Row className="align-items-center px-3">
-                <FaLinux className="mr-2" /> Linux
-              </Row>
-            </Accordion.Toggle>
-            <Accordion.Collapse className="bg-dark" eventKey="2">
-              <Card.Body className="text-light">
-                <p>TBD</p>
-              </Card.Body>
-            </Accordion.Collapse>
-          </Card>
+          <PlatformCard Icon={FaApple} title="MacOS" eventKey={MAC}>
+            <p>
+              <strong>Make sure you choose the right architecture</strong>. M1 Macs use
+              the ARM process, others use AMD.
+            </p>
+            <ol>
+              <li>
+                Download the latest MacOS <code>tar.gz</code> file from{" "}
+                <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>
+              </li>
+              <li>
+                Unzip the file:{" "}
+                <code>tar -xvf webhookdb_X.X.X_darwin_x86_64.tar.gz</code>. For ARM (M1
+                Macs) it would be:{" "}
+                <code>tar -xvf webhookdb_X.X.X_darwin_arm64.tar.gz</code>
+              </li>
+              <li>
+                Move <code>./webhookdb</code> to your execution path, like{" "}
+                <code>/usr/local/bin</code>.
+              </li>
+            </ol>
+            <p>You can also do this in one step:</p>
+            <CopyableCodeBlock
+              className="mx-3 mb-3"
+              language="bash"
+              code={`curl ${latestDownloadUrl(
+                "webhookdb_darwin_x86_64.tar.gz"
+              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
+            />
+            <p>For ARM (M1 Macs):</p>
+            <CopyableCodeBlock
+              className="mx-3 mb-3"
+              language="bash"
+              code={`curl ${latestDownloadUrl(
+                "webhookdb_darwin_arm64.tar.gz"
+              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
+            />
+          </PlatformCard>
+          <PlatformCard Icon={FaLinux} title="Linux" eventKey={LINUX}>
+            <ol>
+              <li>
+                Download the latest Linux <code>tar.gz</code> file from{" "}
+                <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>
+              </li>
+              <li>
+                Unzip the file:{" "}
+                <code>tar -xvf webhookdb_X.X.X_linux_x86_64.tar.gz</code>
+              </li>
+              <li>
+                Move <code>./webhookdb</code> to your execution path, like{" "}
+                <code>/usr/local/bin</code>.
+              </li>
+            </ol>
+            <p>You can also do this in one step:</p>
+            <CopyableCodeBlock
+              className="mx-3 mb-3"
+              language="bash"
+              code={`curl ${latestDownloadUrl(
+                "webhookdb_linux_x86_64.tar.gz"
+              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
+            />
+          </PlatformCard>
+          <PlatformCard Icon={FaWindows} title="Windows" eventKey={WIN}>
+            <ol>
+              <li>
+                Download the latest Windows <code>tar.gz</code> file from{" "}
+                <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>
+              </li>
+              <li>
+                Unzip the <code>webhookdb_X.X.X_windows_x86_64.zip</code> file.
+              </li>
+              <li>
+                Run the unzipped <code>webhookdb.exe</code> file.
+              </li>
+            </ol>
+          </PlatformCard>
+          <PlatformCard Icon={FaDocker} title="Docker" eventKey="docker">
+            <p>
+              The CLI is also available as a Docker image:{" "}
+              <SafeExternalLink href="https://hub.docker.com/r/webhookdb/webhookdb-cli">
+                webhookdb/webhookdb-cli
+              </SafeExternalLink>
+            </p>
+            <CopyableCodeBlock
+              className="mx-3 mb-3"
+              language="bash"
+              code="docker run --rm -it webhookdb/webhookdb-cli version"
+            />
+          </PlatformCard>
         </Accordion>
       </Container>
     </WavesLayout>
   );
 }
 
-function CodeBlock({ text }) {
-  const [checked, setChecked] = React.useState(false);
-  function onClick() {
-    navigator.clipboard.writeText(text);
-    setChecked(true);
-    window.setTimeout(() => setChecked(false), 3000);
-  }
-  const Comp = checked ? FaClipboardCheck : FaClipboard;
+function PlatformCard({ Icon, title, eventKey, children }) {
   return (
-    <p className="mx-3">
-      <Comp className="mr-4 d-block float-right cursor-pointer" onClick={onClick} />
-      <code>{text}</code>
-    </p>
+    <Card>
+      <Accordion.Toggle as={Card.Header} className="bg-light" eventKey={eventKey}>
+        <Row className="align-items-center px-3">
+          <Icon className="mr-2" /> {title}
+        </Row>
+      </Accordion.Toggle>
+      <Accordion.Collapse eventKey={eventKey}>
+        <Card.Body>{children}</Card.Body>
+      </Accordion.Collapse>
+    </Card>
   );
+}
+
+const RELEASE = "https://github.com/lithictech/webhookdb-cli/releases/latest";
+
+function latestDownloadUrl(filename) {
+  return `https://github.com/lithictech/webhookdb-cli/releases/latest/download/${filename}`;
 }
