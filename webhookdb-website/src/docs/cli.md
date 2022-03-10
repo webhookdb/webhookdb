@@ -222,6 +222,8 @@ Note that for some integrations, WebhookDB is limited in what it can backfill,
 such as the last 90 days of Shopify Orders, for example.
 The CLI will let you know when we cannot backfill a full history.
 
+<a id="proxy-webhooks"></a>
+
 ## [Proxy webhooks](#proxy-webhooks)
 
 If you also need to subscribe to changes in a 3rd party service,
@@ -229,8 +231,131 @@ you can subscribe to receive changes from WebhookDB,
 rather than having to set up webhooks in each API you use.
 This allows you to have a consistent way to configure and verify webhooks.
 
-TODO: stats
+TODO
 
-## [Other commands](#other-commands)
+<a id="monitor"></a>
 
-TODO: stats
+## [Monitor your deliveries](#monitor)
+
+You can monitor whether your integration's endpoint is successfully receiving webhooks.
+For example, maybe the webhook secret used to sign payloads was changed,
+and deliveries are now failing.
+
+You can view the recent delivery history:
+
+```arff
+webhookdb integrations stats svi_n5ix69j1on4g4y32z7vlfq1n
+
+           NAME               VALUE   
+Count Last 7 Days                  458
+Successful Last 7 Days             458
+Successful Last 7 Days (Percent) 100.0%
+Rejected Last 7 Days                  0
+Rejected Last 7 Days (Percent)      0.0%
+Successful Of Last 10 Webhooks       10
+Rejected Of Last 10 Webhooks          0
+```
+
+In the future, you will be able to automatically monitor and alert on failed webhooks.
+For now, the WebhookDB team will reach out when we notice
+endpoints become undeliverable.
+
+Note that rejected webhooks are preserved and retried for some time,
+so can be retried once the secrets are updated.
+
+<a id="unit-testing"></a>
+
+## [Unit Testing with WebhookDB](#unit-testing)
+
+WebhookDB is designed to fit into a unit testing workflow.
+There are two parts to integrating it: schema, and data.
+
+To get the schema of a WebhookDB table, you can run:
+
+```
+webhookdb fixtures stripe_charge_v1
+```
+
+This will return the SQL query you can use to build this table:
+
+```sql
+CREATE TABLE stripe_charge_v1_fixture (
+  pk bigserial PRIMARY KEY,
+  "stripe_id" text UNIQUE NOT NULL,
+  "amount" numeric ,
+  "balance_transaction" text ,
+  "billing_email" text ,
+  "created" integer ,
+  "customer_id" text ,
+  "invoice_id" text ,
+  "payment_type" text ,
+  "receipt_email" text ,
+  "status" text ,
+  "updated" integer ,
+  data jsonb NOT NULL
+);
+CREATE INDEX IF NOT EXISTS amount_idx ON stripe_charge_v1_fixture ("amount");
+CREATE INDEX IF NOT EXISTS balance_transaction_idx ON stripe_charge_v1_fixture ("balance_transaction");
+CREATE INDEX IF NOT EXISTS billing_email_idx ON stripe_charge_v1_fixture ("billing_email");
+CREATE INDEX IF NOT EXISTS created_idx ON stripe_charge_v1_fixture ("created");
+CREATE INDEX IF NOT EXISTS customer_id_idx ON stripe_charge_v1_fixture ("customer_id");
+CREATE INDEX IF NOT EXISTS invoice_id_idx ON stripe_charge_v1_fixture ("invoice_id");
+CREATE INDEX IF NOT EXISTS payment_type_idx ON stripe_charge_v1_fixture ("payment_type");
+CREATE INDEX IF NOT EXISTS receipt_email_idx ON stripe_charge_v1_fixture ("receipt_email");
+CREATE INDEX IF NOT EXISTS status_idx ON stripe_charge_v1_fixture ("status");
+CREATE INDEX IF NOT EXISTS updated_idx ON stripe_charge_v1_fixture ("updated");
+```
+
+Take this SQL, and run it against your test database to generate WebhookDB table facsimiles.
+Outside of tests, you will use the real WebhookDB connection string;
+but in tests, the connection string will be the same as your (test) application database.
+
+Then, in your unit tests, you can insert data into this database.
+
+For example, let's say that you have an object in your database representing an Invoice to a customer.
+You are using Stripe to charge customer bank accounts.
+Once the customer submits a payment, you create a Charge in Stripe.
+Once the charge settles, you want to update your Invoice.
+
+Your code could look something like this:
+
+```ruby
+module Webhookdb
+  DATABASE_URL = ENV['WHDB_DATABASE_URL']
+  STRIPE_CHARGES_TABLE = ENV['WHDB_STRIPE_CHARGES_TABLE']
+  CONN = Sequel.connect(DATABASE_URL)
+  
+  def self.stripe_charges
+    CONN[STRIPE_CHARGES_TABLE]
+  end
+end
+
+# And in your job, endpoint, etc:
+
+my_invoice = user.invoices_dataset[invoice_id]
+charge = Webhookdb.stripe_charges.where(stripe_id: my_invoice.stripe_id).first
+if charge[:status] == 'succeeded'
+  # handle charge succeeded
+elsif charge[:status] == 'failed'
+  # handle charge failed
+end
+
+# And in your test
+
+fake_invoice.update(stripe_id: 'ch_abc')
+Webhookdb.stripe_charges.insert(stripe_id: 'ch_abc', status: 'succeeded')
+# run app code and test
+```
+
+Compare how simple this is to testing based on mocking HTTP calls!
+
+Needless to say, the application code is also many times faster than
+having to check Stripe via its API.
+
+<a id="and-more"></a>
+
+## And More!(#and-more)
+
+There are many commands not covered here that are of somewhat less interest.
+
+Check out [The Manual](/docs/manual) to see what's available.
