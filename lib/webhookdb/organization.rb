@@ -172,14 +172,14 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return session.url
   end
 
-  def get_stripe_checkout_url
+  def get_stripe_checkout_url(price_id)
     raise Webhookdb::InvalidPrecondition, "organization must be registered in Stripe" if self.stripe_customer_id.blank?
     session = Stripe::Checkout::Session.create(
       {
         customer: self.stripe_customer_id,
         cancel_url: Webhookdb.api_url + "/v1/subscriptions/checkout_cancel",
         line_items: [{
-          price: Webhookdb::Subscription.paid_plan_stripe_price_id, quantity: 1,
+          price: price_id, quantity: 1,
         }],
         mode: "subscription",
         payment_method_types: ["card"],

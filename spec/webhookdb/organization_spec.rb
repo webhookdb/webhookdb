@@ -247,20 +247,18 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
   describe "get_stripe_checkout_url" do
     it "raises error if org has no stripe customer ID" do
       o.update(stripe_customer_id: "")
-      expect { o.get_stripe_checkout_url }.to raise_error(Webhookdb::InvalidPrecondition)
+      expect { o.get_stripe_checkout_url("price_a") }.to raise_error(Webhookdb::InvalidPrecondition)
     end
 
     it "returns checkout url if stripe customer is registered" do
       req = stub_request(:post, "https://api.stripe.com/v1/checkout/sessions").
         to_return(
           status: 200,
-          body: {
-            url: "https://checkout.stripe.com/pay/cs_test_foobar",
-          }.to_json,
+          body: {url: "https://checkout.stripe.com/pay/cs_test_foobar"}.to_json,
         )
 
       o.update(stripe_customer_id: "foobar")
-      url = o.get_stripe_checkout_url
+      url = o.get_stripe_checkout_url("price_a")
       expect(req).to have_been_made
       expect(url).to eq("https://checkout.stripe.com/pay/cs_test_foobar")
     end
