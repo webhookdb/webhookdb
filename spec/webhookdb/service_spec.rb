@@ -403,20 +403,23 @@ RSpec.describe Webhookdb::Service, :db do
     before(:each) do
       # We need to fake doing what Sentry would be doing for initialization,
       # so we can assert it has the right data in its scope.
+      Webhookdb::Sentry.dsn = "foo"
       hub = Sentry::Hub.new(
         Sentry::Client.new(Sentry::Configuration.new),
         Sentry::Scope.new,
       )
-      Thread.current.thread_variable_set(Sentry::THREAD_LOCAL, hub)
+      expect(Sentry).to_not be_initialized
+      Sentry.instance_variable_set(:@main_hub, hub)
+      expect(Sentry).to be_initialized
     end
 
     after(:each) do
       Webhookdb::Sentry.reset_configuration
+      expect(Sentry).to_not be_initialized
     end
 
     it "reports errors to Sentry if devmode is off and Sentry is enabled" do
       described_class.devmode = false
-      Webhookdb::Sentry.dsn = "foo"
       expect(Sentry).to receive(:capture_exception).
         with(ZeroDivisionError, tags: include(:error_id, :error_signature))
 
@@ -426,7 +429,6 @@ RSpec.describe Webhookdb::Service, :db do
 
     it "does not report errors to Sentry if devmode is on and Sentry is enabled" do
       described_class.devmode = true
-      Webhookdb::Sentry.dsn = "foo"
       expect(Sentry).to_not receive(:capture_exception)
 
       get "/unhandled"
@@ -436,6 +438,7 @@ RSpec.describe Webhookdb::Service, :db do
     it "does not report errors to Sentry if devmode is on and Sentry is disabled" do
       described_class.devmode = true
       Webhookdb::Sentry.reset_configuration
+      expect(Sentry).to_not be_initialized
       expect(Sentry).to_not receive(:capture_exception)
 
       get "/unhandled"
@@ -445,6 +448,7 @@ RSpec.describe Webhookdb::Service, :db do
     it "does not report errors to Sentry if devmode is off and Sentry is disabled" do
       described_class.devmode = false
       Webhookdb::Sentry.reset_configuration
+      expect(Sentry).to_not be_initialized
       expect(Sentry).to_not receive(:capture_exception)
 
       get "/unhandled"
@@ -452,10 +456,13 @@ RSpec.describe Webhookdb::Service, :db do
     end
 
     it "captures context for unauthed customers" do
+      scope = Webhookdb::SpecHelpers::Service::FakeSentryScope.new
+      expect(Sentry).to receive(:configure_scope).and_yield(scope)
+
       get "/hello?world=1"
       expect(last_response).to have_status(201)
 
-      expect(Sentry.get_current_scope).to have_attributes(
+      expect(scope).to have_attributes(
         user: include(ip_address: "127.0.0.1"),
         tags: include(host: "example.org", method: "GET", path: "/hello", query: "world=1"),
       )
@@ -465,10 +472,13 @@ RSpec.describe Webhookdb::Service, :db do
       customer = Webhookdb::Fixtures.customer.create
       login_as(customer)
 
+      scope = Webhookdb::SpecHelpers::Service::FakeSentryScope.new
+      expect(Sentry).to receive(:configure_scope).and_yield(scope)
+
       get "/hello?world=1"
       expect(last_response).to have_status(201)
 
-      expect(Sentry.get_current_scope).to have_attributes(
+      expect(scope).to have_attributes(
         user: include(
           ip_address: "127.0.0.1",
           id: customer.id,
@@ -490,10 +500,13 @@ RSpec.describe Webhookdb::Service, :db do
       customer = Webhookdb::Fixtures.customer.create
       impersonate(admin:, target: customer)
 
+      scope = Webhookdb::SpecHelpers::Service::FakeSentryScope.new
+      expect(Sentry).to receive(:configure_scope).and_yield(scope)
+
       get "/hello?world=1"
       expect(last_response).to have_status(201)
 
-      expect(Sentry.get_current_scope).to have_attributes(
+      expect(scope).to have_attributes(
         user: include(
           admin_id: admin.id,
           id: customer.id,

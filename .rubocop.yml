@@ -99,6 +99,8 @@ RSpec/EmptyExampleGroup:
   Enabled: false
 RSpec/ExampleLength:
   Enabled: false
+RSpec/ExpectInHook:
+  Enabled: false
 RSpec/HookArgument:
   EnforcedStyle: 'each'
 RSpec/InstanceVariable:

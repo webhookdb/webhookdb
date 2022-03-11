@@ -75,6 +75,23 @@ module Webhookdb::SpecHelpers::Service
     end
   end
 
+  class FakeSentryScope
+    attr_accessor :user, :tags
+
+    def initialize
+      @user = {}
+      @tags = {}
+    end
+
+    def set_user(user)
+      @user.merge!(user)
+    end
+
+    def set_tags(tags)
+      @tags.merge!(tags)
+    end
+  end
+
   # RSpec matcher for matching Rack::Test response body
   #
   # Expect that the response consists of JSON of some sort:
