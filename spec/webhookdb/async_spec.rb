@@ -155,13 +155,16 @@ RSpec.describe "Webhookdb::Async", :db, :async do
   end
 
   describe "audit logging" do
-    it "logs all events once" do
-      noop_job = Class.new do
+    let(:described_class) { Webhookdb::Async::AuditLogger }
+    let(:noop_job) do
+      Class.new do
         extend Webhookdb::Async::Job
         def _perform(*); end
       end
+    end
 
-      logs = capture_logs_from(Webhookdb::Async::AuditLogger.logger, level: :info, formatter: :json) do
+    it "logs all events once" do
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
         expect do
           Webhookdb.publish("some.event", 123)
         end.to perform_async_job(noop_job)
@@ -175,6 +178,31 @@ RSpec.describe "Webhookdb::Async", :db, :async do
             event_id: be_a(String),
             event_name: "some.event",
             event_payload: [123],
+          },
+        ),
+      )
+    end
+
+    it "can eliminate large strings from the payload" do
+      stub_const("Webhookdb::Async::AuditLogger::MAX_STR_LEN", 6)
+      stub_const("Webhookdb::Async::AuditLogger::STR_PREFIX_LEN", 2)
+      shortstr = "abcdef"
+      longstr = "abcdefg"
+      payload = {x: {y: {longarr: [shortstr, 1, longstr, 2], longhash: longstr, shorthash: shortstr}}}
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        expect do
+          Webhookdb.publish("some.event", payload)
+        end.to perform_async_job(noop_job)
+      end
+      expect(logs).to contain_exactly(
+        include_json(
+          "level" => "info",
+          name: "Webhookdb::Async::AuditLogger",
+          message: "async_job_audit",
+          context: {
+            event_id: be_a(String),
+            event_name: "some.event",
+            event_payload: [{x: {y: {longarr: ["abcdef", 1, "abc...", 2], longhash: "abc...", shorthash: "abcdef"}}}],
           },
         ),
       )
