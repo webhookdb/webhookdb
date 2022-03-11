@@ -17,6 +17,8 @@ module Webhookdb::Sentry
     # See https://docs.sentry.io/clients/ruby/config/ for more info.
     after_configured do
       if self.dsn
+        # See https://github.com/getsentry/sentry-ruby/issues/1756
+        require "sentry-sidekiq"
         Sentry.init do |config|
           config.dsn = dsn
           config.logger = self.logger
