@@ -6,7 +6,7 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::TrimLoggedWebhooks
   extend Webhookdb::Async::ScheduledJob
 
-  cron "* 8 * * *"
+  cron "17 8 * * *"
   splay 300
 
   def _perform
