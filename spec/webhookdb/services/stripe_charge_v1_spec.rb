@@ -39,7 +39,6 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
               "captured": true,
               "created": 1619548785,
               "currency": "usd",
-              "customer": null,
               "description": "Example charge",
               "destination": null,
               "dispute": null,
@@ -48,7 +47,6 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
               "failure_message": null,
               "fraud_details": {
               },
-              "invoice": null,
               "livemode": false,
               "metadata": {
               },
