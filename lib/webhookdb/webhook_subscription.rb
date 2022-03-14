@@ -2,13 +2,13 @@
 
 class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subscriptions)
   plugin :timestamps
-
   plugin :column_encryption do |enc|
     enc.column :webhook_secret
   end
 
   many_to_one :service_integration, class: Webhookdb::ServiceIntegration
   many_to_one :organization, class: Webhookdb::Organization
+  many_to_one :created_by, class: Webhookdb::Customer
 
   def deliver(service_name:, table_name:, row:, external_id:, external_id_column:)
     body = {

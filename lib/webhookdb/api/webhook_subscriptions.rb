@@ -43,6 +43,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
         organization: org,
         service_integration: sint,
         opaque_id: SecureRandom.hex(6),
+        created_by: current_customer,
       )
       message = if sint
                   "All webhooks for this #{sint.service_name} integration will be sent to #{params[:url]}"
