@@ -208,7 +208,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         new_org.billing_email = customer.email
         new_org.save_changes
         new_org.add_membership(customer:, membership_role: Webhookdb::Role.admin_role, verified: true)
-        message = "Your organization identifier is: #{new_org.key}\nIt is now active.\n" \
+        message = "Organization created with identifier '#{new_org.key}'.\n" \
                   "Use `webhookdb org invite` to invite members to #{new_org.name}."
         status 200
         present new_org, with: Webhookdb::API::OrganizationEntity, message:

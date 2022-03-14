@@ -401,7 +401,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        message: include("Your organization identifier is: acme_corporation"),
+        message: include("Organization created with identifier 'acme_corporation'."),
       )
     end
 
