@@ -3,7 +3,7 @@
 require "grape"
 
 require "webhookdb/api"
-require "webhookdb/aws"
+require "webhookdb/formatting"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
   resource :service_integrations do
@@ -222,7 +222,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
           desc "Gets stats about webhooks for this service integration."
           params do
-            optional :fmt, values: Webhookdb::ServiceIntegration::VALID_STATS_FORMATS, default: "table"
+            optional :fmt, values: Webhookdb::Formatting::FORMATS, default: Webhookdb::Formatting::TABLE
           end
           get :stats do
             sint = lookup!

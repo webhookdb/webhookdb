@@ -56,12 +56,20 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     self.db.transaction do
       email = email.strip.downcase
       new_customer = false
+      # If there is no Customer object associated with the email, create one
       unless (me = Webhookdb::Customer[email:])
+        me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
+      end
+      # This accounts for the case where a user has been invited to an org and is logging in to WebhookDB
+      # for the first time. Because they have been invited to an org, they have both a customer object
+      # and a single membership, but the membership will be unverified. If a user has at least one verified
+      # membership, we don't need to create a personal org for them and we can assume they've logged in before.
+      unless Webhookdb::OrganizationMembership[verified: true, customer: me].present?
         new_customer = true
         self_org = Webhookdb::Organization.create(name: "#{email} Org", billing_email: email.to_s)
-        me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
         me.add_membership(organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true)
       end
+
       me.reset_codes_dataset.usable.each(&:expire!)
       me.add_reset_code(transport: "email")
       step = Webhookdb::Services::StateMachineStep.new

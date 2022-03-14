@@ -113,7 +113,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     end
 
     it "raises ArgumentError if format parameter is invalid" do
-      expect { sint.stats("wrong") }.to raise_error(ArgumentError, "\"wrong\" is not a valid format for webhook stats")
+      expect { sint.stats("wrong") }.to raise_error(ArgumentError, "'wrong' is not a valid format")
     end
   end
 end

@@ -295,6 +295,14 @@ Change the role of members of your organization.
 
 **--usernames**="": Takes multiple emails.
 
+<a id="close"></a>
+
+#### [close](#close)
+
+Close down this organization.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
 <a id="create"></a>
 
 #### [create](#create)

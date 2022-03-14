@@ -147,7 +147,33 @@ RSpec.describe "Webhookdb::Customer", :db do
         new_code = me.refresh.reset_codes.first
         expect(new_code).to_not be_expired
         expect(new_code).to have_attributes(transport: "email")
+      end
+
+      it "provides welcome message if user has no verified memberships" do
+        step, me = described_class.register_or_login(email:)
+
+        expect(me).to be === customer
+        expect(step.output).to include("Welcome to WebhookDB")
+      end
+
+      it "provides welcome back message if user has at least one verified membership" do
+        Webhookdb::Fixtures.organization.with_member(customer).create
+        step, me = described_class.register_or_login(email:)
+
+        expect(me).to be === customer
         expect(step.output).to include("Welcome back")
+      end
+
+      it "creates new organization and membership for current customer if user has no verified memberships" do
+        invited_org = Webhookdb::Fixtures.organization.create
+        invited_org.add_membership(verified: false, customer:)
+        _step, me = described_class.register_or_login(email:)
+
+        new_org = Webhookdb::Organization[name: "#{email} Org"]
+        expect(new_org).to_not be_nil
+        expect(new_org.billing_email).to eq(email)
+
+        expect(new_org.memberships_dataset.where(customer: me).all).to contain_exactly(have_attributes(status: "admin"))
       end
     end
   end

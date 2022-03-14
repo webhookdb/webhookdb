@@ -167,4 +167,10 @@ module Webhookdb::Postgres
     return yield if self.do_not_defer_events?
     return db.after_commit(&block)
   end
+
+  def self.defer_after_rollback(db, &block)
+    raise LocalJumpError unless block
+    return yield if self.do_not_defer_events?
+    return db.after_rollback(&block)
+  end
 end

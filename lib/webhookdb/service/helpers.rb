@@ -102,10 +102,17 @@ module Webhookdb::Service::Helpers
     merror!(403, "Sorry, this action is unavailable.", code: "role_check")
   end
 
-  def merror!(status, message, code: nil, more: {}, headers: {})
+  def merror!(status, message, code: nil, more: {}, headers: {}, rollback_db: nil)
     header "Content-Type", "application/json"
     body = Webhookdb::Service.error_body(status, message, code:, more:)
-    error!(body, status, headers)
+    if rollback_db
+      Webhookdb::Postgres.defer_after_rollback(rollback_db) do
+        error!(body, status, headers)
+      end
+      raise Sequel::Rollback
+    else
+      error!(body, status, headers)
+    end
   end
 
   def unauthenticated!

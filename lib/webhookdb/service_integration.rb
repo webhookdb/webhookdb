@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "webhookdb/formatting"
 require "webhookdb/id"
 require "webhookdb/postgres/model"
 require "sequel/plugins/soft_deletes"
@@ -62,11 +63,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return false
   end
 
-  # STATS ON LOGGED WEBHOOKS
-  VALID_STATS_FORMATS = ["table", "object"].freeze
-
   def stats(format)
-    raise ArgumentError, "\"#{format}\" is not a valid format for webhook stats" unless format.in?(VALID_STATS_FORMATS)
+    Webhookdb::Formatting.validate!(format)
     all_logged_webhooks = Webhookdb::LoggedWebhook.where(
       service_integration_opaque_id: self.opaque_id,
     ).where { inserted_at > 7.days.ago }
@@ -94,7 +92,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
     # this "table" format is designed to make formatting the CLI output easier by returning data
     # in the form that our Go table formatting library requires
-    if format == "table"
+    if format == Webhookdb::Formatting::TABLE
       return {
         headers: ["name", "value"],
         rows: [

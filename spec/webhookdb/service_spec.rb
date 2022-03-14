@@ -17,6 +17,19 @@ class Webhookdb::API::TestService < Webhookdb::Service
   end
 
   params do
+    requires :id
+    requires :email
+    requires :rollback, type: Boolean
+  end
+  get :merror_rollback do
+    c = Webhookdb::Customer[params[:id]]
+    c.db.transaction do
+      c.update(email: params[:email])
+      merror!(403, "Hello!", rollback_db: params[:rollback] ? c.db : nil)
+    end
+  end
+
+  params do
     requires :arg1
     requires :arg2
   end
@@ -188,6 +201,24 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_response_json_body).to eq(
       error: {doc_url: "http://some-place", message: "Hello!", status: 403, code: "test_err"},
     )
+  end
+
+  it "rolls back the transaction on merrors", db: :no_transaction do
+    c = Webhookdb::Fixtures.customer.create(email: "a@b.c")
+
+    get "/merror_rollback", id: c.id, email: "x@y.z", rollback: true
+
+    expect(last_response).to have_status(403)
+    expect(c.refresh).to have_attributes(email: "a@b.c")
+  end
+
+  it "does not roll back transactions by default", db: :no_transaction do
+    c = Webhookdb::Fixtures.customer.create(email: "a@b.c")
+
+    get "/merror_rollback", id: c.id, email: "x@y.z", rollback: false
+
+    expect(last_response).to have_status(403)
+    expect(c.refresh).to have_attributes(email: "x@y.z")
   end
 
   it "uses a consistent error shape for validation errors" do

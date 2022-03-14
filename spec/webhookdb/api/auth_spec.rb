@@ -44,6 +44,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
       it "expires and creates a new email reset code for the customer" do
         existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
+        _org = Webhookdb::Fixtures.organization.with_member(customer).create
 
         post "/v1/auth", email: email
 
