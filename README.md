@@ -15,3 +15,28 @@ We use a somewhat novel approach to auth to create a smooth CLI flow.
 - Customer enters that code into the CLI prompt
 - Customer is authed and verified
 - Token (cookie) is stored on their machine
+
+## Response Shapes
+
+We try to avoid as much rendering logic on the client as possible.
+
+In some cases, like for auth or querying the database,
+we deal with bespoke endpoint resonse shapes.
+They always have a 'message' field,
+but how the response is rendered is up to the CLI.
+
+Otherwise, there are just two response forms we care about:
+
+- Collection responses: They always have a `display_headers` key which is an array of
+  `[<item key>, <display field name>]` pairs, like `["billing_email", "Billing email"]`.
+  The display headers allow custom strings and an explicit order to be used
+  when we render responses.
+  The collection of items are under the `items` key.
+  For example: `{display_headers: [['email', 'Email']], items: [{email: 'a@b.c'}]}`.
+- Single responses. Like collection responses, there is a `display_headers`,
+  but each key points to a key in the root object.
+  They can be rendered as a key-value list, or tabular like a single-item collection.
+  For example: `{display_headers: [['email', 'Email']], email: 'a@b.c'}`.
+
+Note most every response has a 'message' at its top level.
+Usually this is displayed to the user.

@@ -1,14 +1,6 @@
 # frozen_string_literal: true
 
 module Webhookdb::Formatting
-  TABLE = "table"
-  OBJECT = "object"
-  FORMATS = [TABLE, OBJECT].freeze
-
-  def self.validate!(fmt)
-    raise ArgumentError, "'#{fmt}' is not a valid format" unless fmt.in?(FORMATS)
-  end
-
   def self.blocks
     return Blocks.new
   end

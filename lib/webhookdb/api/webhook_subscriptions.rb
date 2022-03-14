@@ -44,8 +44,13 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
         service_integration: sint,
         opaque_id: SecureRandom.hex(6),
       )
+      message = if sint
+                  "All webhooks for this #{sint.service_name} integration will be sent to #{params[:url]}"
+      else
+        "All webhooks for all integrations belong to organization #{org.name} will be sent to #{params[:url]}."
+      end
       status 200
-      present webhook_sub, with: Webhookdb::API::WebhookSubscriptionEntity
+      present webhook_sub, with: Webhookdb::API::WebhookSubscriptionEntity, message:
     end
 
     route_param :opaque_id, type: String do
@@ -59,15 +64,17 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       post :test do
         webhook_sub = lookup_sub!
         webhook_sub.publish_immediate("test")
+        message = "A test event has been sent to #{webhook_sub.deliver_to_url}."
         status 200
-        present({o: "k"})
+        present({}, with: Webhookdb::API::BaseEntity, message:)
       end
 
       post :delete do
         webhook_sub = lookup_sub!
         webhook_sub.delete
+        message = "Events will not longer be sent to #{webhook_sub.deliver_to_url}."
         status 200
-        present({o: "k"})
+        present({}, with: Webhookdb::API::BaseEntity, message:)
       end
     end
   end

@@ -15,7 +15,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
   end
 
   describe "GET /v1/organizations/:identifier/subscriptions/plans" do
-    it "returns plans as a table" do
+    it "returns plans as an object" do
       stub_request(:get, "https://api.stripe.com/v1/prices?active=true").
         to_return(status: 200, body: load_fixture_data("stripe/prices_get", raw: true), headers: {})
 
@@ -23,35 +23,25 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        headers: [
-          "key",
-          "description",
-          "price",
+        message: "Use `webhookdb subscription edit` to set up or modify your subscription.",
+        items: [
+          include(description: "Monthly Subscription", price_formatted: "$89.00"),
+          include(description: "Yearly Subscription (2 months free)", price_formatted: "$890.00"),
         ],
-        rows: [
+        display_headers: [
           [
-            "monthly",
-            "Monthly Subscription",
-            "$89.00",
+            "key",
+            "Key",
           ],
           [
-            "yearly",
-            "Yearly Subscription (2 months free)",
-            "$890.00",
+            "description",
+            "Description",
+          ],
+          [
+            "price_formatted",
+            "Price",
           ],
         ],
-      )
-    end
-
-    it "returns plans as an object" do
-      stub_request(:get, "https://api.stripe.com/v1/prices?active=true").
-        to_return(status: 200, body: load_fixture_data("stripe/prices_get", raw: true), headers: {})
-
-      get "/v1/organizations/#{org.key}/subscriptions/plans", fmt: "object"
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        items: [include(description: "Monthly Subscription"), include(key: "yearly")],
       )
     end
   end
@@ -61,13 +51,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       get "/v1/organizations/#{org.key}/subscriptions"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        org_name: org.name,
-        billing_email: "",
-        integrations_used: 0,
-        plan_name: "Free",
-        integrations_left: Webhookdb::Subscription.max_free_integrations,
-      )
+      expect(last_response).to have_json_body.that_includes(plan_name: "Free")
     end
 
     it "returns correct subscription information for premium tier" do
@@ -78,15 +62,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
       get "/v1/organizations/#{org.key}/subscriptions"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        org_name: org.name,
-        billing_email: "santa@northpole.org",
-        integrations_used: 1,
-        plan_name: "Premium",
-        integrations_left: 2_000_000_000,
-        integrations_left_display: "unlimited",
-        sub_status: "active",
-      )
+      expect(last_response).to have_json_body.that_includes(plan_name: "fixtured plan")
     end
   end
 

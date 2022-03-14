@@ -11,10 +11,6 @@ module Webhookdb::API
 
   class BaseEntity < Webhookdb::Service::Entities::Base; end
 
-  class CustomerSettingsEntity < BaseEntity
-    expose :name
-  end
-
   class OrganizationEntity < BaseEntity
     expose :id
     expose :name
@@ -24,24 +20,56 @@ module Webhookdb::API
   class OrganizationMembershipEntity < BaseEntity
     expose :customer_email, as: :email
     expose :organization, with: OrganizationEntity
+    expose :organization_name, &self.delegate_to(:organization, :name)
+    expose :organization_key, &self.delegate_to(:organization, :key)
     expose :status
+
+    def self.display_headers
+      return [
+        [:email, "Email"],
+        [:organization_name, "Organization Name"],
+        [:organization_key, "Organization Key"],
+        [:status, "Role"],
+      ]
+    end
   end
 
   class CurrentCustomerEntity < BaseEntity
     expose :email
     expose :name
-    expose :memberships, with: OrganizationMembershipEntity
     expose :default_organization, with: OrganizationEntity
+    expose :default_organization_formatted,
+           &self.delegate_to(:default_organization, :display_string, safe_with_default: "")
+    expose :memberships, with: OrganizationMembershipEntity
+    expose :memberships_formatted do |instance|
+      lines = instance.memberships.map { |m| "#{m.organization.display_string}: #{m.status}" }
+      lines.join("\n")
+    end
+    expose :display_headers do |_|
+      [
+        [:email, "Email"],
+        [:default_organization_formatted, "Default Org"],
+        [:memberships_formatted, "Memberships"],
+      ]
+    end
   end
 
   class ServiceIntegrationEntity < BaseEntity
     expose :opaque_id
     expose :service_name
     expose :table_name
+
+    def self.display_headers
+      return [[:service_name, "Name"], [:table_name, "Table"], [:opaque_id, "Id"]]
+    end
   end
 
   class ServiceEntity < BaseEntity
     expose :name
+
+    def self.display_headers
+      return [[:name, "Name"]]
+    end
   end
 
   class StateMachineEntity < BaseEntity
@@ -59,11 +87,15 @@ module Webhookdb::API
     end
   end
 
-  # We do NOT want the message here, so use Grape directly
-  class SubscriptionPlanEntity < Grape::Entity
+  class SubscriptionPlanEntity < BaseEntity
     expose :key
     expose :description
     expose :price, with: MoneyEntity
+    expose :price_formatted, &self.delegate_to(:price, :format)
+
+    def self.display_headers
+      return [[:key, "Key"], [:description, "Description"], [:price_formatted, "Price"]]
+    end
   end
 
   class WebhookSubscriptionEntity < BaseEntity
@@ -74,5 +106,14 @@ module Webhookdb::API
     expose :service_integration, with: ServiceIntegrationEntity
     expose :associated_type
     expose :associated_id
+
+    def self.display_headers
+      return [
+        [:opaque_id, "Id"],
+        [:deliver_to_url, "Url"],
+        [:associated_type, "Associated Type"],
+        [:associated_id, "Associated Id"],
+      ]
+    end
   end
 end

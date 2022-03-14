@@ -17,8 +17,27 @@ RSpec.describe Webhookdb::API::Me, :db do
       get "/v1/me"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.
-        that_includes(email: customer.email)
+      expect(last_response).to have_json_body.that_includes(email: customer.email)
+    end
+
+    it "can render a full customer" do
+      org = Webhookdb::Fixtures.organization(name: "Hi").create
+      customer.update(email: "a@b.c")
+      customer.add_membership(organization: org)
+      customer.add_membership(organization: Webhookdb::Fixtures.organization(name: "Bar").create)
+
+      get "/v1/me"
+
+      expect(last_response).to have_status(200)
+      b = last_response_json_body
+      lines = b[:display_headers].map { |(k, f)| [f, b[k.to_sym]] }
+      expect(lines).to match_array(
+        [
+          ["Default Org", "Hi (hi)"],
+          ["Email", "a@b.c"],
+          ["Memberships", "Hi (hi): invited\nBar (bar): invited"],
+        ],
+      )
     end
 
     it "errors if the customer is soft deleted" do
@@ -35,30 +54,6 @@ RSpec.describe Webhookdb::API::Me, :db do
       get "/v1/me"
 
       expect(last_response).to have_status(401)
-    end
-  end
-
-  describe "POST /v1/me/update" do
-    it "updates the given fields on the customer" do
-      post "/v1/me/update", name: "Hassan", other_thing: "abcd"
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.
-        that_includes(name: "Hassan")
-
-      expect(customer.refresh).to have_attributes(name: "Hassan")
-    end
-  end
-
-  describe "GET /v1/me/settings" do
-  end
-
-  describe "PATCH /v1/me/settings" do
-    it "can update the customer name" do
-      patch "/v1/me/settings", name: "Matz"
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(name: "Matz")
     end
   end
 

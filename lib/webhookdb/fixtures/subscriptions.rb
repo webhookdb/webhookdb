@@ -12,16 +12,18 @@ module Webhookdb::Fixtures::Subscriptions
   fixtured_class Webhookdb::Subscription
 
   base :subscription do
-    self.stripe_id = "sub_" + SecureRandom.hex(8)
-    self.stripe_customer_id = "cus_" + SecureRandom.hex(8)
+    self.stripe_id ||= "sub_" + SecureRandom.hex(8)
+    self.stripe_customer_id ||= "cus_" + SecureRandom.hex(8)
+    self.stripe_json ||= {}
+    self.stripe_json.merge!("plan" => {"nickname" => "fixtured plan"})
   end
 
   decorator :active do
-    self.stripe_json = {status: "active"}.to_json
+    self.stripe_json.merge!("status" => "active")
   end
 
   decorator :canceled do
-    self.stripe_json = {status: "canceled"}.to_json
+    self.stripe_json.merge!("status" => "canceled")
   end
 
   decorator :for_org, presave: true do |org={}|

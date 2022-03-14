@@ -79,9 +79,13 @@ class Webhookdb::API::TestService < Webhookdb::Service
     body "hi"
   end
 
-  class CustomerEntity < Grape::Entity
+  class CustomerEntity < Webhookdb::Service::Entities::Base
     expose :id
     expose :note
+
+    def self.display_headers
+      return [[:id, "ID"]]
+    end
   end
 
   get :current_customer do
@@ -96,13 +100,17 @@ class Webhookdb::API::TestService < Webhookdb::Service
   end
 
   get :collection_dataset do
-    present_collection Webhookdb::Customer.dataset, with: CustomerEntity
+    present_collection Webhookdb::Customer.dataset, with: CustomerEntity, message: "hello"
   end
 
   get :collection_direct do
     coll = Webhookdb::Service::Collection.new([5, 6, 7], current_page: 10, page_count: 20, total_count: 3,
                                                          last_page: false,)
     present_collection coll
+  end
+
+  get :entity do
+    present Webhookdb::Customer.first, with: CustomerEntity, message: "hello"
   end
 
   get :caching do
@@ -376,6 +384,15 @@ RSpec.describe Webhookdb::Service, :db do
     end
   end
 
+  it "can represent a customer with a message" do
+    customer = Webhookdb::Fixtures.customer.create
+
+    get "/entity"
+
+    expect(last_response).to have_status(200)
+    expect(last_response_json_body).to eq(id: customer.id, note: customer.note, message: "hello")
+  end
+
   describe "collections" do
     it "can wrap an array of items" do
       get "/collection_array"
@@ -391,7 +408,7 @@ RSpec.describe Webhookdb::Service, :db do
       )
     end
 
-    it "can wrap a Sequel dataset" do
+    it "can wrap a Sequel dataset with a real entity" do
       customer = Webhookdb::Fixtures.customer.create
 
       get "/collection_dataset"
@@ -404,6 +421,8 @@ RSpec.describe Webhookdb::Service, :db do
         has_more: false,
         page_count: 1,
         total_count: 1,
+        display_headers: [["id", "ID"]],
+        message: "hello",
       )
     end
 

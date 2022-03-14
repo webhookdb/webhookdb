@@ -339,13 +339,13 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     it "filters out services that the org should not have access to" do
       # by default the org does not have the "internal" feature role assigned to it,
       # so our "fake" integrations should not show up in this list
-      expect(o.available_services).to_not include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_service_names).to_not include("fake_v1", "fake_with_enrichments_v1")
     end
 
     it "includes services that the org should have access to" do
       internal_role = Webhookdb::Role.create(name: "internal")
       o.add_feature_role(internal_role)
-      expect(o.available_services).to include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_service_names).to include("fake_v1", "fake_with_enrichments_v1")
     end
   end
 

@@ -118,6 +118,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return ur.user
   end
 
+  def display_string
+    return "#{self.name} (#{self.key})"
+  end
+
   # Build the org-specific users, database, and set our connection URLs to it.
   def prepare_database_connections
     self.db.transaction do
@@ -234,7 +238,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
   end
 
-  def available_services
+  def available_service_names
     available = Webhookdb::Services.registered.values.filter do |desc|
       # The org must have any of the flags required for the service. In other words,
       # the intersection of desc[:feature_roles] & org.feature_roles must

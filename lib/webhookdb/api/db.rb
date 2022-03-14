@@ -20,10 +20,13 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       get :tables do
         _customer = current_customer
         org = lookup_org!
-        r = Webhookdb::ConnectionCache.borrow(org.readonly_connection_url_raw) do |conn|
-          {tables: conn.tables}
+        tables = Webhookdb::ConnectionCache.borrow(org.readonly_connection_url_raw, &:tables)
+        message = ""
+        if tables.empty?
+          message = "You have not set up any service integrations.\n" \
+                    "Use `webhookdb services list` and `webhookdb integrations create` to get started."
         end
-        present r
+        present({tables:, message:})
       end
 
       desc "Execute an arbitrary query against an org's connection string"
@@ -40,7 +43,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
           merror!(403, "You do not have permission to perform this query. Queries must be read-only.")
         end
         status 200
-        present({rows: r.rows, columns: r.columns, max_rows_reached: r.max_rows_reached})
+        present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
       end
 
       params do
@@ -55,9 +58,13 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         ensure_admin!
         org = lookup_org!
         org.roll_database_credentials
-        r = {connection_url: org.readonly_connection_url}
+        connection_url = org.readonly_connection_url
         status 200
-        present r
+        present(
+          {connection_url:},
+          with: Webhookdb::API::BaseEntity,
+          message: "Your database connection string is now: #{connection_url}",
+        )
       end
 
       params do

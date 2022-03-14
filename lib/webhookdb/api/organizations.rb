@@ -38,9 +38,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       get do
         _customer = current_customer
         org = lookup_org!
-        # create a nested object so that we can unmarshal the org as a single entity in the cli
-        org_object = {organization: {id: org.id, name: org.name, key: org.key}}
-        present org_object
+        present org, with: Webhookdb::API::OrganizationEntity
       end
 
       resource :members do
@@ -56,8 +54,9 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         get do
           _customer = current_customer
           org = lookup_org!
-          fake_entities = org.available_services.map { |name| {name:} }
-          present_collection fake_entities, with: Webhookdb::API::ServiceEntity
+          fake_entities = org.available_service_names.map { |name| {name:} }
+          message = "Run `webhookdb integrations create <service name>` to start mirroring webhooks to your database."
+          present_collection fake_entities, with: Webhookdb::API::ServiceEntity, message:
         end
       end
 

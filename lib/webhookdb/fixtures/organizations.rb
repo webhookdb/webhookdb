@@ -11,7 +11,7 @@ module Webhookdb::Fixtures::Organizations
   fixtured_class Webhookdb::Organization
 
   base :organization do
-    self.name ||= Faker::Business.name + SecureRandom.hex(2)
+    self.name ||= Faker::Company.name + SecureRandom.hex(2)
     self.stripe_customer_id = "cus_" + SecureRandom.hex(8)
   end
 

@@ -59,7 +59,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(message: "Organization doesn't have any integrations yet.")
+        that_includes(message: include("have any integrations set up yet"))
     end
   end
 
@@ -129,7 +129,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       customer.memberships_dataset.update(membership_role_id: admin_role.id)
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
-      available_services = org.available_services.join("\n\t")
+      available_services = org.available_service_names.join("\n\t")
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
@@ -144,7 +144,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
 
-      available_services = org.available_services.join("\n\t")
+      available_services = org.available_service_names.join("\n\t")
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
@@ -275,21 +275,12 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").failure.create
     end
 
-    it "returns expected data as object" do
-      get "/v1/organizations/#{org.key}/service_integrations/xyz/stats", fmt: :object
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(count_last_7_days: 4)
-    end
-
-    it "returns expected data in table format" do
+    it "returns expected response" do
       get "/v1/organizations/#{org.key}/service_integrations/xyz/stats"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        headers: ["name", "value"],
-        rows: include(["Count Last 7 Days", "4"]),
-      )
+      expect(last_response).to have_json_body.
+        that_includes(count_last_7_days: 4, message: "", display_headers: be_an(Array))
     end
   end
 

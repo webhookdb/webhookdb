@@ -70,14 +70,18 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         desc "Return all integrations associated with the organization."
         get do
           integrations = lookup_org!.service_integrations
-          message = integrations.empty? ? "Organization doesn't have any integrations yet." : ""
+          message = ""
+          if integrations.empty?
+            message = "This organization doesn't have any integrations set up yet.\n" \
+                      "Use `webhookdb services list` and `webhookdb integrations create` to set one up."
+          end
           present_collection integrations, with: Webhookdb::API::ServiceIntegrationEntity, message:
         end
 
         resource :create do
           helpers do
             def create_integration(org, name)
-              available_services_list = org.available_services.join("\n\t")
+              available_services_list = org.available_service_names.join("\n\t")
 
               # If provided service name is invalid
               if Webhookdb::Services.registered_service_type(name).nil?
@@ -97,7 +101,7 @@ You can run `webhookdb services list` at any time to see our list of available s
               end
 
               # If org does not have access to the given service
-              unless org.available_services.include?(name)
+              unless org.available_service_names.include?(name)
                 step = Webhookdb::Services::StateMachineStep.new
                 step.needs_input = false
                 step.output =
@@ -221,14 +225,11 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
 
           desc "Gets stats about webhooks for this service integration."
-          params do
-            optional :fmt, values: Webhookdb::Formatting::FORMATS, default: Webhookdb::Formatting::TABLE
-          end
           get :stats do
             sint = lookup!
-            data = sint.stats(params[:fmt])
+            stats = sint.stats
             status 200
-            present data
+            present stats.as_json
           end
 
           resource :delete do

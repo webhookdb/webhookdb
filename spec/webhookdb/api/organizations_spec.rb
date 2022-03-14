@@ -28,7 +28,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
-        that_includes(organization: include(id: org.id))
+        that_includes(id: org.id)
     end
 
     it "403s if the org does not exist or customer doesn't have permissions" do

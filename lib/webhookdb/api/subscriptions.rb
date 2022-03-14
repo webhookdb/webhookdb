@@ -12,8 +12,9 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
         desc "Provides the user with subscription information for the organization"
         get do
           org = lookup_org!
+          status = Webhookdb::Subscription.status_for_org(org)
           status 200
-          present Webhookdb::Subscription.status_for_org(org)
+          present status.as_json
         end
 
         desc "Authenticates stripe user and returns stripe checkout session or billing portal url"
@@ -54,21 +55,11 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
         end
 
         desc "Returns information about subscription plans"
-        params do
-          optional :fmt, values: ["table", "object"], default: "table"
-        end
         get :plans do
           plans = Webhookdb::Subscription.list_plans
+          message = "Use `webhookdb subscription edit` to set up or modify your subscription."
           status 200
-          if params[:fmt] == "table"
-            tbl = {
-              headers: ["key", "description", "price"],
-              rows: plans.map { |p| [p.key, p.description, p.price.format] },
-            }
-            present tbl
-          else
-            present_collection plans, with: Webhookdb::API::SubscriptionPlanEntity
-          end
+          present_collection plans, with: Webhookdb::API::SubscriptionPlanEntity, message:
         end
       end
     end

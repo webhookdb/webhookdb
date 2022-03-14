@@ -56,7 +56,7 @@ module Webhookdb::Service::Entities
     end
 
     expose :message do |_instance, options|
-      options[:message]
+      options[:message] || ""
     end
   end
 

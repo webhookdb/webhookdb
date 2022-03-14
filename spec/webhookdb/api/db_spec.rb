@@ -77,7 +77,7 @@ RSpec.describe Webhookdb::API::Db, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        columns: ["pk", "my_id", "at", "data"],
+        headers: ["pk", "my_id", "at", "data"],
         rows: [[be_a(Numeric), "abcxyz", nil, {}]],
       )
     end
@@ -111,8 +111,9 @@ RSpec.describe Webhookdb::API::Db, :db do
       post "/v1/db/#{org.key}/roll_credentials", guard_confirm: true
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(connection_url: not_eq(original_ro))
       expect(org.refresh).to have_attributes(readonly_connection_url: not_eq(original_ro))
+      expect(last_response).to have_json_body.
+        that_includes(message: "Your database connection string is now: #{org.refresh.readonly_connection_url_raw}")
     end
 
     it "requires admin" do

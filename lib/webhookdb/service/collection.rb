@@ -49,6 +49,12 @@ class Webhookdb::Service::Collection
   module Helpers
     def present_collection(collection, opts={})
       item_entity = opts.delete(:with) || opts.delete(:using)
+      if !item_entity.nil? && (item_entity < Webhookdb::Service::Entities::Base)
+        # If we have a real entity, we only want message on the top level, not any nested
+        item_entity = Class.new(item_entity) do
+          unexpose :message
+        end
+      end
       unless (collection_entity = Webhookdb::Service::Collection.collection_entity_cache[item_entity])
         collection_entity = Class.new(Webhookdb::Service::Entities::Base) do
           define_method(:object_type) do
@@ -60,7 +66,10 @@ class Webhookdb::Service::Collection
           expose :total_count
           expose :more?, as: :has_more
           expose :message do |_instance, options|
-            options[:message]
+            options[:message] || ""
+          end
+          expose :display_headers do |_, _|
+            item_entity.respond_to?(:display_headers) ? item_entity.send(:display_headers) : []
           end
         end
         Webhookdb::Service::Collection.collection_entity_cache[item_entity] = collection_entity

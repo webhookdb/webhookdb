@@ -73,19 +73,31 @@ RSpec.describe "Webhookdb::Subscription", :db do
   end
 
   describe "status_for_org" do
-    let!(:org) { Webhookdb::Fixtures.organization.create }
+    let!(:org) { Webhookdb::Fixtures.organization(name: "My Org").create }
     let!(:test_delete) { Webhookdb::Fixtures.organization.create }
 
     it "returns correct information if subscription does not exist" do
-      data = Webhookdb::Subscription.status_for_org(org)
-
-      expect(data[:org_name]).to eq(org.name)
-      expect(data[:billing_email]).to eq("")
-      expect(data[:integrations_used]).to eq(0)
-      expect(data[:plan_name]).to eq("Free")
-      expect(data[:integrations_left]).to eq(Webhookdb::Subscription.max_free_integrations)
-      expect(data[:integrations_left_display]).to eq(Webhookdb::Subscription.max_free_integrations.to_s)
-      expect(data[:sub_status]).to eq("")
+      status = described_class.status_for_org(org)
+      expect(status.as_json).to include(
+        organization_name: org.name,
+        organization_key: org.key,
+        billing_email: "",
+        integrations_used: 0,
+        plan_name: "Free",
+        integrations_remaining: 2,
+        integrations_remaining_formatted: "2",
+        sub_status: "",
+      )
+      expect(status.display_headers.map { |k, f| [f, status.data[k]] }).to match_array(
+        [
+          ["Organization", "My Org (my_org)"],
+          ["Billing email", ""],
+          ["Plan name", "Free"],
+          ["Integrations used", "0"],
+          ["Integrations left", "2"],
+          ["Status", ""],
+        ],
+      )
     end
 
     it "returns correct information if subscription exists" do
@@ -95,14 +107,27 @@ RSpec.describe "Webhookdb::Subscription", :db do
       Webhookdb::Fixtures.service_integration.create(organization: test_delete)
       Webhookdb::Fixtures.service_integration.soft_delete
 
-      data = Webhookdb::Subscription.status_for_org(org)
-      expect(data[:org_name]).to eq(org.name)
-      expect(data[:billing_email]).to eq("santa@northpole.org")
-      expect(data[:integrations_used]).to eq(1)
-      expect(data[:plan_name]).to eq("Premium")
-      expect(data[:integrations_left]).to eq(2_000_000_000)
-      expect(data[:integrations_left_display]).to eq("unlimited")
-      expect(data[:sub_status]).to eq("active")
+      status = described_class.status_for_org(org)
+      expect(status.as_json).to include(
+        organization_name: org.name,
+        organization_key: org.key,
+        billing_email: "santa@northpole.org",
+        integrations_used: 1,
+        plan_name: "fixtured plan",
+        integrations_remaining: 2_000_000_000,
+        integrations_remaining_formatted: "unlimited",
+        sub_status: "active",
+      )
+      expect(status.display_headers.map { |k, f| [f, status.data[k]] }).to match_array(
+        [
+          ["Organization", "My Org (my_org)"],
+          ["Billing email", "santa@northpole.org"],
+          ["Plan name", "fixtured plan"],
+          ["Integrations used", "1"],
+          ["Integrations left", "unlimited"],
+          ["Status", "active"],
+        ],
+      )
     end
   end
 

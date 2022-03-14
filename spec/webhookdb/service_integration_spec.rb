@@ -63,56 +63,49 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: sint.opaque_id).failure.create
     end
 
-    it "returns expected information in 'table' format" do
-      expect(sint.stats("table")).to include(
-        headers: ["name", "value"],
-        rows: match_array(
-          [
-            ["Count Last 7 Days", "4"],
-            ["Successful Last 7 Days", "3"],
-            ["Successful Last 7 Days (Percent)", "75.0%"],
-            ["Rejected Last 7 Days", "1"],
-            ["Rejected Last 7 Days (Percent)", "25.0%"],
-            ["Successful Of Last 10 Webhooks", "3"],
-            ["Rejected Of Last 10 Webhooks", "1"],
-          ],
-        ),
-      )
-    end
-
-    it "returns expected information as an object" do
+    it "returns expected information" do
+      stats = sint.stats
       # rubocop:disable Naming/VariableNumber
-      expect(sint.stats("object")).to include(
+      expect(stats.as_json).to include(
+        message: "",
         count_last_7_days: 4,
+        count_last_7_days_formatted: "4",
         rejected_last_7_days: 1,
+        rejected_last_7_days_formatted: "1",
         rejected_last_7_days_percent: 0.25,
+        rejected_last_7_days_percent_formatted: "25.0%",
         success_last_7_days: 3,
+        success_last_7_days_formatted: "3",
         success_last_7_days_percent: 0.75,
+        success_last_7_days_percent_formatted: "75.0%",
         successful_of_last_10: 3,
+        successful_of_last_10_formatted: "3",
         rejected_of_last_10: 1,
+        rejected_of_last_10_formatted: "1",
+        display_headers: be_an(Array),
       )
       # rubocop:enable Naming/VariableNumber
     end
 
     it "returns 'no webhooks logged' message in 'table' format" do
       Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).delete
-      expect(sint.stats("table")).to include(
-        headers: ["Message"],
-        rows: match_array(
-          [
-            [match(/We have no record of receiving webhooks/)],
-          ],
-        ),
+      stats = sint.stats
+      expect(stats.as_json).to include(message: match(/We have no record of receiving webhooks/))
+    end
+
+    it "can use display headers to describe itself" do
+      stats = sint.stats
+      expect(stats.display_headers.map { |k, f| [f, stats.data[k]] }).to eq(
+        [
+          ["Count Last 7 Days", "4"],
+          ["Successful Last 7 Days", "3"],
+          ["Successful Last 7 Days %", "75.0%"],
+          ["Rejected Last 7 Days", "1"],
+          ["Rejected Last 7 Days %", "25.0%"],
+          ["Successful Of Last 10 Webhooks", "3"],
+          ["Rejected Of Last 10 Webhooks", "1"],
+        ],
       )
-    end
-
-    it "returns 'no webhooks logged' message as a string" do
-      Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).delete
-      expect(sint.stats("object")).to include(message: /We have no record of receiving webhooks/)
-    end
-
-    it "raises ArgumentError if format parameter is invalid" do
-      expect { sint.stats("wrong") }.to raise_error(ArgumentError, "'wrong' is not a valid format")
     end
   end
 end

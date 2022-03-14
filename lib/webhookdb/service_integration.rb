@@ -62,22 +62,41 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return false
   end
 
-  def stats(format)
-    Webhookdb::Formatting.validate!(format)
+  class Stats
+    attr_reader :message, :data
+
+    def initialize(message, data)
+      @message = message
+      @data = data
+    end
+
+    def display_headers
+      return [
+        [:count_last_7_days_formatted, "Count Last 7 Days"],
+        [:success_last_7_days_formatted, "Successful Last 7 Days"],
+        [:success_last_7_days_percent_formatted, "Successful Last 7 Days %"],
+        [:rejected_last_7_days_formatted, "Rejected Last 7 Days"],
+        [:rejected_last_7_days_percent_formatted, "Rejected Last 7 Days %"],
+        [:successful_of_last_10_formatted, "Successful Of Last 10 Webhooks"],
+        [:rejected_of_last_10_formatted, "Rejected Of Last 10 Webhooks"],
+      ]
+    end
+
+    def as_json(*_o)
+      return @data.merge(message: @message, display_headers: self.display_headers)
+    end
+  end
+
+  def stats
     all_logged_webhooks = Webhookdb::LoggedWebhook.where(
       service_integration_opaque_id: self.opaque_id,
     ).where { inserted_at > 7.days.ago }
 
-    no_logged_webhooks_msg = "We have no record of receiving webhooks for that integration in the past seven days."
-
     if all_logged_webhooks.empty?
-      if format == "table"
-        return {
-          headers: ["Message"],
-          rows: [[no_logged_webhooks_msg]],
-        }
-      end
-      return {message: no_logged_webhooks_msg}
+      return Stats.new(
+        "We have no record of receiving webhooks for that integration in the past seven days.",
+        {},
+      )
     end
 
     # rubocop:disable Naming/VariableNumber
@@ -89,33 +108,24 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     last_10 = Webhookdb::LoggedWebhook.order_by(Sequel.desc(:inserted_at)).limit(10).select_map(:response_status)
     last_10_success, last_10_rejected = last_10.partition { |rs| rs < 400 }
 
-    # this "table" format is designed to make formatting the CLI output easier by returning data
-    # in the form that our Go table formatting library requires
-    if format == Webhookdb::Formatting::TABLE
-      return {
-        headers: ["name", "value"],
-        rows: [
-          ["Count Last 7 Days", count_last_7_days.to_s],
-          ["Successful Last 7 Days", success_last_7_days.to_s],
-          ["Successful Last 7 Days (Percent)", "%.1f%%" % (success_last_7_days_percent * 100)],
-          ["Rejected Last 7 Days", rejected_last_7_days.to_s],
-          ["Rejected Last 7 Days (Percent)", "%.1f%%" % (rejected_last_7_days_percent * 100)],
-          ["Successful Of Last 10 Webhooks", last_10_success.size.to_s],
-          ["Rejected Of Last 10 Webhooks", last_10_rejected.size.to_s],
-        ],
-      }
-    end
-
-    return {
+    data = {
       count_last_7_days:,
+      count_last_7_days_formatted: count_last_7_days.to_s,
       success_last_7_days:,
+      success_last_7_days_formatted: success_last_7_days.to_s,
       success_last_7_days_percent:,
+      success_last_7_days_percent_formatted: "%.1f%%" % (success_last_7_days_percent * 100),
       rejected_last_7_days:,
+      rejected_last_7_days_formatted: rejected_last_7_days.to_s,
       rejected_last_7_days_percent:,
+      rejected_last_7_days_percent_formatted: "%.1f%%" % (rejected_last_7_days_percent * 100),
       successful_of_last_10: last_10_success.size,
+      successful_of_last_10_formatted: last_10_success.size.to_s,
       rejected_of_last_10: last_10_rejected.size,
+      rejected_of_last_10_formatted: last_10_rejected.size.to_s,
     }
     # rubocop:enable Naming/VariableNumber
+    return Stats.new("", data)
   end
 
   #
