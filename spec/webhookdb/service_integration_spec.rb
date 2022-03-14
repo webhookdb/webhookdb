@@ -6,17 +6,16 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
   let(:described_class) { Webhookdb::ServiceIntegration }
 
   let!(:sint) { Webhookdb::Fixtures.service_integration.create }
+  let!(:org) { sint.organization }
 
-  before(:each) do
-    Webhookdb::Subscription.where(stripe_customer_id: sint.organization.stripe_customer_id).delete
-  end
-
-  describe "all_webhook_subs" do
+  describe "#all_webhook_subscriptions" do
     it "returns the webhook subs associated with both the integration and the org" do
-      Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
-      Webhookdb::Fixtures.webhook_subscription.create(organization: sint.organization)
+      sint_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
+      org_sub = Webhookdb::Fixtures.webhook_subscription.create(organization: org)
+      other_sint_for_org = Webhookdb::Fixtures.service_integration(organization: org).create
+      _other_sint_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: other_sint_for_org)
 
-      expect(sint.all_webhook_subs).to have_length(2)
+      expect(sint.all_webhook_subscriptions).to have_same_ids_as(sint_sub, org_sub)
     end
   end
 

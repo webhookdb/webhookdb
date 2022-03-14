@@ -10,7 +10,12 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   plugin :soft_deletes
 
   many_to_one :organization, class: "Webhookdb::Organization"
-  one_to_many :webhook_subscriptions
+  one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
+  one_to_many :all_webhook_subscriptions,
+              class: "Webhookdb::WebhookSubscription",
+              readonly: true do |ds|
+    ds.or(Sequel[organization_id: :organization_id])
+  end
 
   def process_state_change(field, value)
     return Webhookdb::Services.service_instance(self).process_state_change(field, value)
@@ -38,12 +43,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   def unauthed_webhook_path
     return "/v1/service_integrations/#{self.opaque_id}"
-  end
-
-  # WEBHOOK SUBSCRIPTION
-
-  def all_webhook_subs
-    return self.webhook_subscriptions + self.organization.webhook_subscriptions
   end
 
   # SUBSCRIPTION PERMISSIONS

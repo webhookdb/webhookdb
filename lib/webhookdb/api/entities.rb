@@ -67,9 +67,12 @@ module Webhookdb::API
   end
 
   class WebhookSubscriptionEntity < BaseEntity
+    expose :created_at
     expose :opaque_id
     expose :deliver_to_url
     expose :organization, with: OrganizationEntity
     expose :service_integration, with: ServiceIntegrationEntity
+    expose :associated_type
+    expose :associated_id
   end
 end

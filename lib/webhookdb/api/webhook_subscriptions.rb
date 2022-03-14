@@ -71,4 +71,23 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       end
     end
   end
+
+  resource :organizations do
+    route_param :org_identifier, type: String do
+      resource :webhook_subscriptions do
+        desc "Return all webhook subscriptions for the given org, and all integrations."
+        get do
+          org = lookup_org!
+          subs = org.all_webhook_subscriptions
+          message = ""
+          if subs.empty?
+            message = "Organization #{org.name} has no webhook subscriptions set up.\n" \
+                      "Use `webhookdb webhooks create` to set one up."
+          end
+          status 200
+          present_collection subs, with: Webhookdb::API::WebhookSubscriptionEntity, message:
+        end
+      end
+    end
+  end
 end

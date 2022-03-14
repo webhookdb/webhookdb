@@ -284,6 +284,18 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
+  describe "#all_webhook_subscriptions" do
+    it "returns the webhook subs associated with the org and all integrations" do
+      org_sub = Webhookdb::Fixtures.webhook_subscription.create(organization: o)
+      sint_fac = Webhookdb::Fixtures.service_integration(organization: o)
+      sint1_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint_fac.create)
+      sint2_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint_fac.create)
+      _other_sub = Webhookdb::Fixtures.webhook_subscription.create
+
+      expect(o.all_webhook_subscriptions).to have_same_ids_as(org_sub, sint1_sub, sint2_sub)
+    end
+  end
+
   describe "active_subscription?" do
     before(:each) do
       Webhookdb::Subscription.where(stripe_customer_id: o.stripe_customer_id).delete

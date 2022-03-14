@@ -29,4 +29,21 @@ RSpec.describe "Webhookdb::WebhookSubscription" do
       expect(req).to have_been_made
     end
   end
+
+  describe "associated_type and id" do
+    it "is '' if no association set" do
+      sub = Webhookdb::Fixtures.webhook_subscription.instance
+      expect(sub).to have_attributes(associated_type: "", associated_id: "")
+    end
+
+    it "is organization if org id is set" do
+      sub = Webhookdb::Fixtures.webhook_subscription.for_org(key: "myorg").instance
+      expect(sub).to have_attributes(associated_type: "organization", associated_id: "myorg")
+    end
+
+    it "is 'service_integration' if sint id is set" do
+      sub = Webhookdb::Fixtures.webhook_subscription.for_service_integration(opaque_id: "hello").instance
+      expect(sub).to have_attributes(associated_type: "service_integration", associated_id: "hello")
+    end
+  end
 end

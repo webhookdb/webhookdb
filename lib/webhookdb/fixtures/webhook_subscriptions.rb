@@ -26,4 +26,10 @@ module Webhookdb::Fixtures::WebhookSubscriptions
     self.service_integration = nil
     self.organization = org
   end
+
+  decorator :for_service_integration do |sint={}|
+    sint = Webhookdb::Fixtures.service_integration.create(sint) unless sint.is_a?(Webhookdb::ServiceIntegration)
+    self.organization = nil
+    self.service_integration = sint
+  end
 end

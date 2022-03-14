@@ -15,8 +15,18 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
-  one_to_many :webhook_subscriptions
+  one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
+  one_to_many :all_webhook_subscriptions,
+              class: "Webhookdb::WebhookSubscription",
+              readonly: true,
+              dataset: (lambda do |r|
+                          org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
+                          r.associated_dataset.where(
+                            Sequel[organization_id: id] |
+                              Sequel[service_integration_id: org_sints.select(:id)],
+                          )
+                        end)
 
   def before_validation
     self.key ||= Webhookdb.to_slug(self.name)

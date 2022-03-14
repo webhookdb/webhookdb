@@ -19,6 +19,30 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     Webhookdb::Services::Fake.reset
   end
 
+  describe "GET /v1/organizations/:identifier/webhook_subscriptions" do
+    it "returns the subscriptions for the org and any service integrations" do
+      sint_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
+      org_sub = Webhookdb::Fixtures.webhook_subscription.create(organization: org)
+
+      get "/v1/organizations/#{org.key}/webhook_subscriptions"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        items: have_same_ids_as(sint_sub, org_sub).pk_field(:opaque_id),
+      )
+    end
+
+    it "returns a message if there are no subscriptions" do
+      get "/v1/organizations/#{org.key}/webhook_subscriptions"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        items: [],
+        message: include("has no webhook subscriptions set up"),
+      )
+    end
+  end
+
   describe "POST /v1/webhook_subscriptions/create" do
     it "400s if service integration with given identifier doesn't exist" do
       post "/v1/webhook_subscriptions/create",
