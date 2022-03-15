@@ -138,6 +138,8 @@ Style/FormatString:
   EnforcedStyle: percent
 Style/NumericPredicate:
   IgnoredMethods: ['where']
+  Exclude:
+    - 'db/migrations/*'
 Style/RedundantReturn:
   Enabled: false
 Style/RedundantSelf:
