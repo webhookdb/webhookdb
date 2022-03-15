@@ -187,7 +187,7 @@ class Webhookdb::Services::Base
     inserting.merge!(prepared)
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
-    self.admin_dataset do |ds|
+    upserted_rows = self.admin_dataset do |ds|
       ds.insert_conflict(
         target: remote_key_col.name,
         update: updating,
@@ -196,6 +196,7 @@ class Webhookdb::Services::Base
     end
     self._after_insert(inserting, enrichment:)
 
+    return unless upserted_rows.present?
     self.service_integration.publish_deferred(
       "rowupsert",
       self.service_integration.id,
@@ -232,8 +233,11 @@ class Webhookdb::Services::Base
 
   # The argument for insert_conflict update_where clause.
   # Used to conditionally update, like updating only if a row is newer than what's stored.
+  # We must always have an 'update where' because we never want to overwrite with the same data
+  # as exists. If an integration does not have any way to detect if a resource changed,
+  # it can compare data columns.
   def _update_where_expr
-    return nil
+    raise NotImplementedError
   end
 
   # Given the webhook headers and body, return a hash of what will be inserted.

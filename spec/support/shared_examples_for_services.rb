@@ -31,13 +31,21 @@ RSpec.shared_examples "a service implementation" do |name|
     end
   end
 
-  it "emits the rowupsert event", :async, :do_not_defer_events do
+  it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events do
     svc.create_table
     expect do
       svc.upsert_webhook(body:)
     end.to publish("webhookdb.serviceintegration.rowupsert").with_payload(
       match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
     )
+  end
+
+  it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events do
+    svc.create_table
+    svc.upsert_webhook(body:)
+    expect do
+      svc.upsert_webhook(body:)
+    end.to_not publish("webhookdb.serviceintegration.rowupsert")
   end
 
   it "handles webhooks" do

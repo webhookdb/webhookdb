@@ -145,6 +145,10 @@ your database will be populated.
     }
   end
 
+  def _update_where_expr
+    return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
+  end
+
   def _upsert_update_expr(inserting, **_kwargs)
     state = inserting.fetch(:state)
     # If the state is active, we want to use canceled_at:nil unconditionally.

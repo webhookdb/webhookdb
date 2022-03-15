@@ -48,6 +48,10 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
     ]
   end
 
+  def _update_where_expr
+    return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
+  end
+
   def _fetch_enrichment(body)
     broadcast_id = body.fetch("id")
     url = "https://api.convertkit.com/v3/broadcasts/#{broadcast_id}/stats?api_secret=#{self.service_integration.backfill_secret}"
