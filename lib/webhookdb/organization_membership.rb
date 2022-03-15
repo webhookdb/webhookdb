@@ -9,6 +9,14 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
   many_to_one :customer, class: "Webhookdb::Customer"
   many_to_one :membership_role, class: "Webhookdb::Role"
 
+  def verified?
+    return self.verified
+  end
+
+  def default?
+    return self.is_default
+  end
+
   def customer_email
     return self.customer.email
   end
@@ -17,20 +25,9 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
     return self.organization.name
   end
 
-  def set_status
-    self.status = ""
-    self.status = self.membership_role.name unless self.membership_role.nil?
-    self.status = "invited" unless self.verified
-  end
-
-  def before_create
-    self.set_status
-    super
-  end
-
-  def before_save
-    self.set_status
-    super
+  def status
+    return "invited" unless self.verified
+    self.membership_role.name
   end
 end
 

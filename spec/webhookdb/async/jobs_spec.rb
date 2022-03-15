@@ -183,10 +183,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
   describe "SendInvite" do
     it "sends an email with an invitation code" do
-      customer = Webhookdb::Fixtures.customer(email: "lucy@lithic.tech").create
-      org = Webhookdb::Fixtures.organization.create
-      membership = Webhookdb::OrganizationMembership.create(customer:, organization: org,
-                                                            invitation_code: "join-abcxyz",)
+      membership = Webhookdb::Fixtures.organization_membership.
+        customer(email: "lucy@lithic.tech").
+        invite.
+        code("join-abcxyz").
+        create
       expect do
         Webhookdb.publish(
           "webhookdb.organizationmembership.invite", membership.id,

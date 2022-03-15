@@ -13,7 +13,15 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     setting :max_query_rows, 1000
   end
 
-  one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :verified_memberships,
+              class: "Webhookdb::OrganizationMembership",
+              conditions: {verified: true},
+              adder: (->(om) { om.update(organization_id: id, verified: true) })
+  one_to_many :invited_memberships,
+              class: "Webhookdb::OrganizationMembership",
+              conditions: {verified: false},
+              adder: (->(om) { om.update(organization_id: id, verified: false) })
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
@@ -218,6 +226,18 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     )
 
     return session.url
+  end
+
+  #
+  # :section: Memberships
+  #
+
+  def add_membership(opts={})
+    if !opts.is_a?(Webhookdb::OrganizationMembership) && !opts.key?(:verified)
+      raise ArgumentError, "must pass :verified or a model into add_membership, it is ambiguous otherwise"
+    end
+    self.associations.delete(opts[:verified] ? :verified_memberships : :invited_memberships)
+    return self.add_all_membership(opts)
   end
 
   # SUBSCRIPTION PERMISSIONS

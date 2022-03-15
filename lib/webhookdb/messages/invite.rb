@@ -5,7 +5,7 @@ require "webhookdb/message/template"
 class Webhookdb::Messages::Invite < Webhookdb::Message::Template
   def self.fixtured(recipient)
     org = Webhookdb::Fixtures.organization.with_member(recipient).create
-    membership = org.memberships[0]
+    membership = org.all_memberships[0]
     return self.new(membership)
   end
 

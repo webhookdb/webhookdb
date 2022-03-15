@@ -12,6 +12,12 @@ class Webhookdb::Role < Webhookdb::Postgres::Model(:roles)
     end
   end
 
+  def self.non_admin_role
+    return Webhookdb.cached_get("role_member") do
+      self.find_or_create_or_find(name: "member")
+    end
+  end
+
   # used to indicate user status within the org, e.g. whether user is an org admin & can create services
   one_to_many :organization_memberships, class: "Webhookdb::OrganizationMembership"
 

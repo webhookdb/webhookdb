@@ -40,16 +40,22 @@ module Webhookdb::API
     expose :default_organization, with: OrganizationEntity
     expose :default_organization_formatted,
            &self.delegate_to(:default_organization, :display_string, safe_with_default: "")
-    expose :memberships, with: OrganizationMembershipEntity
-    expose :memberships_formatted do |instance|
-      lines = instance.memberships.map { |m| "#{m.organization.display_string}: #{m.status}" }
+    expose :verified_memberships, with: OrganizationMembershipEntity
+    expose :verified_memberships_formatted do |instance|
+      lines = instance.verified_memberships.map { |m| "#{m.organization.display_string}: #{m.status}" }
+      lines.join("\n")
+    end
+    expose :invited_memberships, as: :invitations, with: OrganizationMembershipEntity
+    expose :invitations_formatted do |instance|
+      lines = instance.invited_memberships.map { |m| "#{m.organization.display_string}: #{m.invitation_code}" }
       lines.join("\n")
     end
     expose :display_headers do |_|
       [
         [:email, "Email"],
         [:default_organization_formatted, "Default Org"],
-        [:memberships_formatted, "Memberships"],
+        [:verified_memberships_formatted, "Memberships"],
+        [:invitations_formatted, "Invitations"],
       ]
     end
   end

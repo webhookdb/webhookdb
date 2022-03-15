@@ -24,8 +24,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         # If the current customer is the last admin of the org, we cannot allow them to remove themselves,
         # since the org would have no admins.
         def roll_back_if_no_admins!(org)
-          has_admins = !org.memberships_dataset.
-            where(membership_role: Webhookdb::Role.admin_role, verified: true).
+          has_admins = !org.verified_memberships_dataset.
+            where(membership_role: Webhookdb::Role.admin_role).
             empty?
           return if has_admins
           msg = "Sorry, you are the last admin in #{org.name} and cannot remove yourself. " \
@@ -44,7 +44,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       resource :members do
         desc "Return all customers associated with the organization"
         get do
-          org_memberships = lookup_org!.memberships
+          org_memberships = lookup_org!.all_memberships
           present_collection org_memberships, with: Webhookdb::API::OrganizationMembershipEntity
         end
       end
@@ -64,31 +64,37 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       params do
         requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
                          prompt: "Enter the email to send the invitation to:"
+        optional :role_name,
+                 type: String,
+                 values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
+                 default: "member"
       end
       post :invite do
         customer = current_customer
         org = lookup_org!
         ensure_admin!
         customer.db.transaction do
+          email = params[:email]
           # cannot use find_or_create_or_find here because all customers must be created with a random password,
           # which can't be included in find parameters
-          if Webhookdb::Customer[email: params[:email]].nil?
-            Webhookdb::Customer.create(email: params[:email], password: SecureRandom.hex(8))
-          end
-          invitee = Webhookdb::Customer[email: params[:email]]
-          merror!(400, "That person is already a member of the organization.") if invitee.verified_member_of?(org)
+          invitee = Webhookdb::Customer[email:] ||
+            Webhookdb::Customer.create(email:, password: SecureRandom.hex(8))
 
-          membership = Webhookdb::OrganizationMembership.find_or_create_or_find(
-            organization: org, customer: invitee,
+          membership = org.all_memberships_dataset[customer: invitee]
+          merror!(400, "That person is already a member of the organization.") if membership&.verified?
+
+          membership ||= Webhookdb::OrganizationMembership.new(
             verified: false,
+            organization: org,
+            customer: invitee,
           )
-          # set/reset the code
-          invitation_code = "join-" + SecureRandom.hex(4)
-          Webhookdb::OrganizationMembership.where(id: membership.id).update(invitation_code:)
+          membership.membership_role = Webhookdb::Role.find_or_create_or_find(name: params[:role_name])
+          membership.invitation_code = "join-" + SecureRandom.hex(4)
+          membership.save_changes
 
           Webhookdb.publish("webhookdb.organizationmembership.invite", membership.id)
-          message = "An invitation to organization #{org.name} has been sent to #{params[:email]}.\n" \
-                    "Their invite code is:\n  #{invitation_code}"
+          message = "An invitation to organization #{org.name} has been sent to #{email}.\n" \
+                    "Their invite code is:\n  #{membership.invitation_code}"
           status 200
           present membership, with: Webhookdb::API::OrganizationMembershipEntity, message:
         end
@@ -107,7 +113,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         email = params[:email]
         check_self_role_modification!(params[:email])
         customer.db.transaction do
-          to_delete = org.memberships_dataset.where(customer: Webhookdb::Customer[email:])
+          to_delete = org.all_memberships_dataset.where(customer: Webhookdb::Customer[email:])
           merror!(400, "That user is not a member of #{org.name}.") if to_delete.empty?
           to_delete.delete
           roll_back_if_no_admins!(org)
@@ -155,7 +161,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         params[:emails].each { |e| check_self_role_modification!(e) }
         customer.db.transaction do
           new_role = Webhookdb::Role.find_or_create_or_find(name: params[:role_name])
-          memberships = org.memberships_dataset.where(customer: Webhookdb::Customer.where(email: params[:emails]))
+          memberships = org.all_memberships_dataset.where(customer: Webhookdb::Customer.where(email: params[:emails]))
           merror!(400, "Those emails do not belong to members of #{org.name}.") if memberships.empty?
           memberships.update(membership_role_id: new_role.id)
           roll_back_if_no_admins!(org)
@@ -207,7 +213,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         merror!(400, "An organization with that name already exists.") if new_org.nil?
         new_org.billing_email = customer.email
         new_org.save_changes
-        new_org.add_membership(customer:, membership_role: Webhookdb::Role.admin_role, verified: true)
+        mem = new_org.add_membership(customer:, membership_role: Webhookdb::Role.admin_role, verified: true)
+        customer.replace_default_membership(mem)
         message = "Organization created with identifier '#{new_org.key}'.\n" \
                   "Use `webhookdb org invite` to invite members to #{new_org.name}."
         status 200
@@ -222,10 +229,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
     post :join do
       customer = current_customer
       customer.db.transaction do
-        membership = customer.memberships_dataset[invitation_code: params[:invitation_code]]
+        membership = customer.invited_memberships_dataset[invitation_code: params[:invitation_code]]
         merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
         membership.verified = true
+        membership.invitation_code = ""
         membership.save_changes
+        customer.replace_default_membership(membership)
         message = "Congratulations! You are now a member of #{membership.organization_name}."
         status 200
         present membership, with: Webhookdb::API::OrganizationMembershipEntity, message:

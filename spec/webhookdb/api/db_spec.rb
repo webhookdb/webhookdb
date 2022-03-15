@@ -8,7 +8,7 @@ RSpec.describe Webhookdb::API::Db, :db do
   let(:app) { described_class.build_app }
 
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:customer) { Webhookdb::Fixtures.customer.in_org(org, verified: true).create }
+  let!(:customer) { Webhookdb::Fixtures.customer.verified_in_org(org).create }
   let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do
@@ -105,7 +105,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "modifies the database credentials and updates the org" do
-      customer.memberships_dataset.first.update(membership_role: admin_role)
+      customer.all_memberships_dataset.first.update(membership_role: admin_role)
       original_ro = org.readonly_connection_url
 
       post "/v1/db/#{org.key}/roll_credentials", guard_confirm: true
@@ -123,7 +123,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "errors if guard_confirm is not given" do
-      customer.memberships_dataset.first.update(membership_role: admin_role)
+      customer.all_memberships_dataset.first.update(membership_role: admin_role)
 
       post "/v1/db/#{org.key}/roll_credentials"
 

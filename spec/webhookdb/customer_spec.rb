@@ -124,13 +124,14 @@ RSpec.describe "Webhookdb::Customer", :db do
       end
 
       it "creates new organization and membership for current customer if doesn't exist" do
-        step, me = described_class.register_or_login(email:)
+        _step, me = described_class.register_or_login(email:)
 
         new_org = Webhookdb::Organization[name: "#{email} Org"]
         expect(new_org).to_not be_nil
         expect(new_org.billing_email).to eq(email)
-
-        expect(new_org.memberships_dataset.where(customer: me).all).to contain_exactly(have_attributes(status: "admin"))
+        expect(new_org.all_memberships_dataset.where(customer: me).all).to contain_exactly(
+          have_attributes(status: "admin", verified?: true, default?: true),
+        )
       end
     end
 
@@ -165,15 +166,16 @@ RSpec.describe "Webhookdb::Customer", :db do
       end
 
       it "creates new organization and membership for current customer if user has no verified memberships" do
-        invited_org = Webhookdb::Fixtures.organization.create
-        invited_org.add_membership(verified: false, customer:)
+        Webhookdb::Fixtures.organization.with_invite(customer).create
         _step, me = described_class.register_or_login(email:)
 
         new_org = Webhookdb::Organization[name: "#{email} Org"]
         expect(new_org).to_not be_nil
         expect(new_org.billing_email).to eq(email)
 
-        expect(new_org.memberships_dataset.where(customer: me).all).to contain_exactly(have_attributes(status: "admin"))
+        expect(new_org.all_memberships_dataset.where(customer: me).all).to contain_exactly(
+          have_attributes(status: "admin"),
+        )
       end
     end
   end
@@ -194,13 +196,13 @@ RSpec.describe "Webhookdb::Customer", :db do
 
     it "returns a succesful step and the user" do
       code = customer.add_reset_code(transport: "email")
-      default_org = Webhookdb::Fixtures.organization.create
-      customer.add_membership(organization: default_org)
+      Webhookdb::Fixtures.organization_membership.verified.create(customer:)
 
       step, me = described_class.finish_otp(customer, token: code.token)
 
       expect(me).to be === customer
       expect(step.output).to include("Welcome!")
+      expect(step.output).to include("Quick tip:")
       expect(code.refresh).to have_attributes(used: true)
     end
 
@@ -226,6 +228,23 @@ RSpec.describe "Webhookdb::Customer", :db do
       expect(me).to be === customer
     ensure
       Webhookdb::Customer.reset_configuration
+    end
+
+    it "tells the user about pending invites" do
+      code = customer.add_reset_code(transport: "email")
+      Webhookdb::Fixtures.organization_membership(customer:).org(name: "Blah").invite.code("abcd").create
+
+      step, me = described_class.finish_otp(customer, token: code.token)
+
+      expect(me).to be === customer
+      expect(step.output).to end_with(
+        "You have the following pending invites:
+
+  Blah (blah): abcd
+
+Use `webhookdb org join <code>` to accept an invitation.
+",
+      )
     end
   end
 end

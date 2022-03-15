@@ -48,7 +48,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       def make_item(i)
         # Sorting is newest first, so the first items we create need to the the oldest.
         created = Time.now - i.days
-        return admin.update(created_at: created) if i == 0
+        return admin.update(created_at: created) if i.zero?
         return Webhookdb::Fixtures.customer.create(created_at: created)
       end
     end
@@ -57,7 +57,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       let(:url) { "/admin/v1/customers" }
       let(:order_by_field) { "note" }
       def make_item(i)
-        return admin.update(note: i.to_s) if i == 0
+        return admin.update(note: i.to_s) if i.zero?
         return Webhookdb::Fixtures.customer.create(created_at: Time.now + rand(1..100).days, note: i.to_s)
       end
     end

@@ -21,10 +21,12 @@ RSpec.describe Webhookdb::API::Me, :db do
     end
 
     it "can render a full customer" do
-      org = Webhookdb::Fixtures.organization(name: "Hi").create
       customer.update(email: "a@b.c")
-      customer.add_membership(organization: org)
-      customer.add_membership(organization: Webhookdb::Fixtures.organization(name: "Bar").create)
+      om_fac = Webhookdb::Fixtures.organization_membership(customer:)
+      om_fac.org(name: "Hi").verified.default.create
+      om_fac.org(name: "Bye").verified.admin.create
+      om_fac.org(name: "Bar").invite.code("code1").create
+      om_fac.org(name: "Foo").invite.code("code2").create
 
       get "/v1/me"
 
@@ -35,7 +37,8 @@ RSpec.describe Webhookdb::API::Me, :db do
         [
           ["Default Org", "Hi (hi)"],
           ["Email", "a@b.c"],
-          ["Memberships", "Hi (hi): invited\nBar (bar): invited"],
+          ["Memberships", "Hi (hi): member\nBye (bye): admin"],
+          ["Invitations", "Bar (bar): code1\nFoo (foo): code2"],
         ],
       )
     end
@@ -59,9 +62,14 @@ RSpec.describe Webhookdb::API::Me, :db do
 
   describe "GET /v1/me/organization_memberships" do
     let!(:org) { Webhookdb::Fixtures.organization.create }
-    let!(:membership) { org.add_membership(customer:, verified: true) }
+    let!(:membership) { Webhookdb::Fixtures.organization_membership(customer:, organization: org).verified.create }
     let!(:invited_org) { Webhookdb::Fixtures.organization.create }
-    let!(:invited_membership) { invited_org.add_membership(customer:, verified: false, invitation_code: "join-abc123") }
+    let!(:invited_membership) do
+      Webhookdb::Fixtures.organization_membership(
+        customer:,
+        organization: invited_org,
+      ).invite.create(invitation_code: "join-abc123")
+    end
 
     it "returns correct 'block' information for a customer with both verified and unverified memberships" do
       get "/v1/me/organization_memberships", active_org_identifier: org.key

@@ -35,7 +35,16 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   plugin :timestamps
   plugin :soft_deletes
 
-  one_to_many :memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :invited_memberships,
+              class: "Webhookdb::OrganizationMembership",
+              conditions: {verified: false},
+              adder: (->(om) { om.update(customer_id: id, verified: false) })
+  one_to_many :verified_memberships,
+              class: "Webhookdb::OrganizationMembership",
+              conditions: {verified: true},
+              adder: (->(om) { om.update(customer_id: id, verified: true) })
+  one_to_one :default_membership, class: "Webhookdb::OrganizationMembership", conditions: {is_default: true}
   one_to_many :message_deliveries, key: :recipient_id, class: "Webhookdb::Message::Delivery"
   one_to_many :reset_codes, class: "Webhookdb::Customer::ResetCode", order: Sequel.desc([:created_at])
   many_to_many :roles, class: "Webhookdb::Role", join_table: :roles_customers
@@ -67,7 +76,9 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
       unless Webhookdb::OrganizationMembership[verified: true, customer: me].present?
         new_customer = true
         self_org = Webhookdb::Organization.create(name: "#{email} Org", billing_email: email.to_s)
-        me.add_membership(organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true)
+        me.add_membership(
+          organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true, is_default: true,
+        )
       end
 
       me.reset_codes_dataset.usable.each(&:expire!)
@@ -134,18 +145,21 @@ It contains a One Time Password used to log in.
       end
     end
 
+    welcome_tutorial = "Quick tip: Use `webhookdb services list` to see what services are available."
+    if me.invited_memberships.present?
+      welcome_tutorial = "You have the following pending invites:\n\n" +
+        me.invited_memberships.map { |om| "  #{om.organization.display_string}: #{om.invitation_code}" }.join("\n") +
+        "\n\nUse `webhookdb org join <code>` to accept an invitation."
+    end
     step = Webhookdb::Services::StateMachineStep.new
     step.output = %(Welcome! For help getting started, please check out
 our docs at https://webhookdb.com/docs/cli.
+
+#{welcome_tutorial}
 )
     step.needs_input = false
     step.complete = true
     return [step, me]
-  end
-
-  # Helper function for dealing with organization memberships
-  def verified_member_of?(org)
-    return !org.memberships_dataset[customer_id: self.id, verified: true].nil?
   end
 
   # If the SKIP_PHONE|EMAIL_VERIFICATION are set, verify the phone/email.
@@ -170,8 +184,30 @@ our docs at https://webhookdb.com/docs/cli.
     return self.name.present? ? self.name : "there"
   end
 
+  #
+  # :section: Memberships
+  #
+
+  def add_membership(opts={})
+    if !opts.is_a?(Webhookdb::OrganizationMembership) && !opts.key?(:verified)
+      raise ArgumentError, "must pass :verified or a model into add_membership, it is ambiguous otherwise"
+    end
+    self.associations.delete(opts[:verified] ? :verified_memberships : :invited_memberships)
+    return self.add_all_membership(opts)
+  end
+
+  def verified_member_of?(org)
+    return !org.verified_memberships_dataset.where(customer_id: self.id).empty?
+  end
+
   def default_organization
-    return self.memberships.first&.organization
+    return self.default_membership&.organization
+  end
+
+  def replace_default_membership(new_mem)
+    self.verified_memberships_dataset.update(is_default: false)
+    self.associations.delete(:verified_memberships)
+    new_mem.update(is_default: true)
   end
 
   #

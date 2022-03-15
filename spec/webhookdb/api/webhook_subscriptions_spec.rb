@@ -8,7 +8,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
   let(:app) { described_class.build_app }
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:membership) { org.add_membership(customer:, verified: true) }
+  let!(:membership) { Webhookdb::Fixtures.organization_membership(customer:, organization: org).verified.create }
   let!(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, service_name: "fake_v1") }
 
   before(:each) do

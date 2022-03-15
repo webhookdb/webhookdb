@@ -13,7 +13,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
 
         # verify permissions
         customer = current_customer
-        membership = customer.memberships_dataset[organization: org, verified: true]
+        membership = customer.verified_memberships_dataset[organization: org]
         merror!(403, "You don't have permissions with that organization.") if membership.nil?
         return sint
       end

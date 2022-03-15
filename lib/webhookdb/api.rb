@@ -32,7 +32,7 @@ module Webhookdb::API
             customer = current_customer
             org = Webhookdb::Organization.lookup_by_identifier(params[:org_identifier])
             merror!(403, "There is no organization with that identifier.") if org.nil?
-            membership = customer.memberships_dataset[organization: org, verified: true]
+            membership = customer.verified_memberships_dataset[organization: org]
             merror!(403, "You don't have permissions with that organization.") if membership.nil?
             return membership.organization
           end
@@ -40,7 +40,7 @@ module Webhookdb::API
           def ensure_admin!
             customer = current_customer
             org = lookup_org!
-            admin_membership = org.memberships_dataset[customer:, membership_role: Webhookdb::Role.admin_role]
+            admin_membership = org.verified_memberships_dataset[customer:, membership_role: Webhookdb::Role.admin_role]
             # rubocop:disable Style/GuardClause
             if admin_membership.nil?
               merror!(400,

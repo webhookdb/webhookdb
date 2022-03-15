@@ -9,7 +9,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   let(:app) { described_class.build_app }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:customer) { Webhookdb::Fixtures.customer.in_org(org, verified: true).create }
+  let!(:customer) { Webhookdb::Fixtures.customer.create }
+  let!(:membership) { Webhookdb::Fixtures.organization_membership(organization: org, customer:).verified.create }
   let!(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       opaque_id: "xyz",
@@ -18,7 +19,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       backfill_key: "qwerty",
     )
   end
-  let!(:admin_role) { Webhookdb::Role.create(name: "admin") }
+  let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do
     Webhookdb::Services::Fake.reset
@@ -36,9 +37,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   end
 
   describe "GET v1/organizations/:org_identifier/service_integrations" do
-    let(:blank_org) { Webhookdb::Fixtures.organization.create } # create org without any integrations attached
-    let(:membership) { blank_org.add_membership(customer:, verified: true) }
-
     it "returns all service integrations associated with organization" do
       # add new integration to ensure that the endpoint can return multiple integrations
       new_integration = Webhookdb::Fixtures.service_integration.create(organization: org)
@@ -67,7 +65,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     let(:internal_role) { Webhookdb::Role.create(name: "internal") }
 
     it "creates a service integration" do
-      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      membership.update(membership_role: admin_role)
       org.add_feature_role(internal_role)
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
@@ -77,7 +75,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns a state machine step" do
-      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      membership.update(membership_role: admin_role)
       org.add_feature_role(internal_role)
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
@@ -126,7 +124,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns a state machine step if org does not have required feature role access" do
-      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      membership.update(membership_role: admin_role)
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       available_services = org.available_service_names.join("\n\t")
@@ -139,7 +137,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns a state machine step if the given service name is not valid" do
-      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      membership.update(membership_role: admin_role)
       org.add_feature_role(internal_role)
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
@@ -439,7 +437,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:key/service_integrations/:opaque_id/delete" do
     before(:each) do
       login_as(customer)
-      customer.memberships_dataset.update(membership_role_id: admin_role.id)
+      membership.update(membership_role: admin_role)
     end
 
     it "destroys the integration and drops the table" do
@@ -489,7 +487,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "400s if the current user cannot modify the integration due to org permissions" do
-      customer.memberships_dataset.update(membership_role_id: nil)
+      membership.update(membership_role: Webhookdb::Role.non_admin_role)
 
       post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
 

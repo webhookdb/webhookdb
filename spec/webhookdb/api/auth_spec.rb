@@ -103,7 +103,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
     it "establishes an auth session and returns the current_customer with default org" do
       code = customer.add_reset_code(transport: "email")
       default_org = Webhookdb::Fixtures.organization.create
-      customer.add_membership(organization: default_org)
+      Webhookdb::Fixtures.organization_membership(organization: default_org, customer:).default.verified.create
 
       post "/v1/auth/login_otp/#{opaque_id}", value: code.token
 
