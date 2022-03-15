@@ -9,8 +9,9 @@ class Webhookdb::Jobs::SendWebhook
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
-    sint.all_webhook_subscriptions.each do |sub|
-      sub.deliver(service_name: sint.service_name, table_name: sint.table_name, **event.payload[1].symbolize_keys)
+    sint.all_webhook_subscriptions_dataset.active.each do |sub|
+      payload = {service_name: sint.service_name, table_name: sint.table_name, **event.payload[1]}
+      sub.enqueue_delivery(payload)
     end
   end
 end

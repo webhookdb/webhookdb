@@ -3,6 +3,7 @@
 require "sidekiq/testing"
 
 require "webhookdb/async"
+require "webhookdb/slack"
 require "webhookdb/spec_helpers"
 
 module Webhookdb::SpecHelpers::Async

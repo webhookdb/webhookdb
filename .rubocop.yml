@@ -111,6 +111,8 @@ RSpec/MultipleMemoizedHelpers:
   Enabled: false
 RSpec/MultipleExpectations:
   Enabled: false
+RSpec/NestedGroups:
+  Max: 4
 RSpec/NotToNot:
   EnforcedStyle: 'to_not'
 RSpec/StubbedMock:

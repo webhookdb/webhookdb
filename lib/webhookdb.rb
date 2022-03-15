@@ -265,6 +265,7 @@ module Webhookdb
 end
 
 require "webhookdb/aggregate_result"
+require "webhookdb/developer_alert"
 require "webhookdb/http"
 require "webhookdb/phone_number"
 require "webhookdb/services"

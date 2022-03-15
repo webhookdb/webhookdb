@@ -112,11 +112,13 @@ module Webhookdb::API
     expose :service_integration, with: ServiceIntegrationEntity
     expose :associated_type
     expose :associated_id
+    expose :status
 
     def self.display_headers
       return [
         [:opaque_id, "Id"],
         [:deliver_to_url, "Url"],
+        [:status, "Status"],
         [:associated_type, "Associated Type"],
         [:associated_id, "Associated Id"],
       ]

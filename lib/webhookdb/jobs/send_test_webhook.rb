@@ -7,14 +7,12 @@ class Webhookdb::Jobs::SendTestWebhook
 
   on "webhookdb.webhooksubscription.test"
 
+  # If this job fails for a programmer error,
+  # we don't want to retry and randomly send a payload later.
+  sidekiq_options retry: false
+
   def _perform(event)
     webhook_sub = self.lookup_model(Webhookdb::WebhookSubscription, event)
-    webhook_sub.deliver(
-      service_name: "test service",
-      table_name: "test_table_name",
-      external_id: SecureRandom.hex(6),
-      external_id_column: "external_id",
-      row: {data: ["alpha", "beta", "charlie", "delta"]},
-    )
+    webhook_sub.deliver_test_event
   end
 end

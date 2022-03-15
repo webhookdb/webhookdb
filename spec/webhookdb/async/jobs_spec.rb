@@ -83,6 +83,23 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "DeveloperAlertHandle", :slack do
+    it "posts to Slack" do
+      alert = Webhookdb::DeveloperAlert.new(
+        subsystem: "Sales",
+        emoji: ":dollar:",
+        fallback: "message",
+        fields: [
+          {title: "Greeting", value: "hello", short: false},
+        ],
+      )
+      expect do
+        alert.emit
+      end.to perform_async_job(Webhookdb::Jobs::DeveloperAlertHandle)
+      expect(Webhookdb::Slack.http_client.posts).to have_length(1)
+    end
+  end
+
   describe "MessageDispatched", messaging: true do
     it "sends the delivery on create" do
       email = "wibble@lithic.tech"
@@ -211,7 +228,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     describe "SendWebhook" do
-      it "sends request to correct endpoint" do
+      it "sends request to correct endpoint (via async delivery behavior)" do
         req = stub_request(:post, webhook_sub.deliver_to_url).to_return(status: 200, body: "", headers: {})
         expect do
           Webhookdb.publish(
@@ -225,6 +242,22 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           )
         end.to perform_async_job(Webhookdb::Jobs::SendWebhook)
         expect(req).to have_been_made
+      end
+
+      it "does not query for deactivated subscriptions" do
+        webhook_sub.deactivate.save_changes
+        expect do
+          Webhookdb.publish(
+            "webhookdb.serviceintegration.rowupsert",
+            sint.id,
+            {
+              row: {},
+              external_id_column: "external id column",
+              external_id: "external id",
+            },
+          )
+        end.to perform_async_job(Webhookdb::Jobs::SendWebhook)
+        expect(Webhookdb::WebhookSubscription::Delivery.all).to be_empty
       end
     end
 

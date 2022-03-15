@@ -57,6 +57,7 @@ module Webhookdb::Postgres
     "webhookdb/service_integration",
     "webhookdb/subscription",
     "webhookdb/webhook_subscription",
+    "webhookdb/webhook_subscription/delivery",
   ].freeze
 
   # If true, deferred model events publish immediately.
