@@ -82,6 +82,15 @@ RSpec.describe Webhookdb::API::Db, :db do
       )
     end
 
+    it "has a clear error if the table does not exist" do
+      post "/v1/db/#{org.key}/sql", query: "select * from fake_v1"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: include('table "fake_v1" does not exist')),
+      )
+    end
+
     it "errors for a query for which permissions are missing" do
       svc = Webhookdb::Services.service_instance(sint)
       svc.create_table
@@ -91,6 +100,18 @@ RSpec.describe Webhookdb::API::Db, :db do
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "You do not have permission to perform this query. Queries must be read-only."),
+      )
+    end
+
+    it "otherwise presents the raw Postgres error message" do
+      svc = Webhookdb::Services.service_instance(sint)
+      svc.create_table
+
+      post "/v1/db/#{org.key}/sql", query: "this is invalid"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "ERROR:  syntax error at or near \"this\"\nLINE 1: this is invalid\n        ^\n"),
       )
     end
   end

@@ -40,7 +40,20 @@ class Webhookdb::API::Db < Webhookdb::API::V1
           r = org.execute_readonly_query(params[:query])
         rescue Sequel::DatabaseError => e
           self.logger.error("db_query_database_error", error: e)
-          merror!(403, "You do not have permission to perform this query. Queries must be read-only.")
+          # We want to handle InsufficientPrivileges and UndefinedTable explicitly
+          # since we can hint the user at what to do.
+          # Otherwise, we should just return the Postgres exception.
+          case e.wrapped_exception
+            when PG::UndefinedTable
+              missing_table = e.wrapped_exception.message.match(/relation (.+) does not/)&.captures&.first
+              msg = "The table #{missing_table} does not exist. Run `webhookdb db tables` to see available tables." if
+                missing_table
+            when PG::InsufficientPrivilege
+              msg = "You do not have permission to perform this query. Queries must be read-only."
+          else
+              msg = e.wrapped_exception.message
+          end
+          merror!(403, msg, code: "invalid_query")
         end
         status 200
         present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
