@@ -23,19 +23,30 @@ You can find the source [on GitHub](https://github.com/lithictech/webhookdb-cli)
 ## [Create or login to your WebhookDB account.](#create-or-login-to-your-webhookdb-account)
 
 WebhookDB uses one-time passwords for authentication. Every time you log in, you'll be asked 
-to provide an email with the `username` flag. WebhookDB will then send a one-time password to 
-that email: 
+to provide an email. WebhookDB will then send a one-time password to 
+that email. To use the OTP, simply enter it in the terminal when prompted. You can also include it with the `token` flag and  
+the `username` flag in a separate `auth login` command.
 
 ```arff
-$ webhookdb auth login --username joe@webhookdb.com
-Please check your email joe@webhookdb.com for a login code.
-```
+$ Welcome to WebhookDB!
+Please enter your email:
 
-To use the OTP, include it with the `token` flag to the `auth otp` command: 
+joe@lithic.tech
 
-```arff
-$ webhookdb auth otp --username joe@webhookdb.com --token 123456
-You are now logged in as joe@webhookdb.com
+Welcome back!
+
+To finish logging in, please look for an email we just sent to natalie@lithic.tech.
+It contains a One Time Password used to log in.
+You can enter it here, or if you want to finish up from a new prompt, use:
+
+  webhookdb auth login --username=joe@lithic.tech --token=<6 digit token>
+
+Enter the token from your email:
+
+***
+
+Welcome! For help getting started, please check out
+our docs at https://webhookdb.com/docs/cli.
 ```
 
 You can also log out:
@@ -51,23 +62,25 @@ You have logged out.
 
 To set up integrations, you need to be part of an Organization.
 
-**NOTE: You get a default organization when you sign up,
+**NOTE: You get a default organization when you sign up or have been invited to ,
 so you can skip this part if you are just taking things for a spin.**
 
 You can create a new organization:
 
 ```arff
-$ webhookdb org create
-What is your organization name? Acme Corp
-Your organization identifier is: acmecorp
+$ webhookdb org create "Acme Corp"
+Your organization identifier is: acme_corp
+It is now active.
+Use `webhookdb org invite` to invite members to Acme Corp.
 ```
 
-You can invite others to your organization:
+You can invite others to your organization by using the `username` flag to provide their email address:
 
 ```arff
 $ webhookdb org invite --username=ashley@webhookdb.com
-An invitation has been sent to ashley@webhookdb.com. Their invite code is:
-join-f26b81a2
+An invitation has been sent to ashley@webhookdb.com. 
+Their invite code is:
+  join-f26b81a2
 ```
 
 
@@ -106,7 +119,7 @@ Justice League is now your active organization.
 You can also override the organization for a specific command:
 
 ```arff
-$ webhookdb --org=acmecorp integrations list
+$ webhookdb integrations list --org=acmecorp
 ```
 
 <a id="add-an-integration"></a>
@@ -123,29 +136,36 @@ Let's see what services are available:
 
 ```arff
 $ webhookdb services list
+convertkit_broadcast_v1
+convertkit_subscriber_v1
+convertkit_tag_v1
+increase_ach_transfer_v1
+increase_transaction_v1
 shopify_customer_v1
 shopify_order_v1
 stripe_charge_v1
 stripe_customer_v1
+transistor_episode_v1
+transistor_show_v1
 twilio_sms_v1
 ```
 
-We can then use a service name to create an "integration":
+We can then use a service name to create an integration:
 
 ```arff
 $ webhookdb integrations create stripe_charge_v1
-You are about to start reflecting Stripe Charges into webhookdb.
-We've made an endpoint available for Stripe Charges webhooks:
+You are about to start reflecting Stripe Charge info into webhookdb.
+We've made an endpoint available for Stripe Charge webhooks:
 
-https://api.webhookdb.com/v1/integrations/0d675ecfeb3fb9ed
+https://api.webhookdb.com/v1/service_integrations/svi_dd4qg2ax629ab022x0pq2fiiq
 
 From your Stripe Dashboard, go to Developers -> Webhooks -> Add Endpoint.
-Use the URL above, and choose all of the Charges events.
+Use the URL above, and choose all of the Charge events.
 Then click Add Endpoint.
 
 The page for the webhook will have a 'Signing Secret' section.
 Reveal it, then copy the secret (it will start with `whsec_`).
-
+      
 Paste or type your secret here: ***
 
 Great! WebhookDB is now listening for Stripe Charges webhooks.
@@ -155,7 +175,7 @@ postgres://d6ab999a:d652560e@bd421d8d.db.webhookdb.com:5432/673a2eaf
 
 You can also run a query through the CLI:
 
-webhookdb db sql "SELECT * FROM stripe_charges_v1"
+webhookdb db sql "SELECT * FROM stripe_charges_v1_d50b"
 
 If you want to backfill existing Stripe Charges, we'll need your API key.
 Run `webhookdb backfill stripe-charges` to get started.
@@ -168,7 +188,7 @@ Run `webhookdb backfill stripe-charges` to get started.
 To check that your integration is working correctly, make a test SQL request. 
 
 ```arff
-$ webhookdb db sql "SELECT * from stripe_charges_v1"
+$ webhookdb db sql "SELECT * from stripe_charges_v1_d50b"
 ```
 
 To see all of the available tables, you can run `\d+` from `psql`,
@@ -176,7 +196,7 @@ or from the CLI:
 
 ```arff
 $ webhookdb db tables
-stripe_charges_v1
+stripe_charges_v1_d50b
 ```
 
 <a id="backfill-existing-data"></a>
@@ -191,13 +211,13 @@ First, list the integrations to find the one to backfill:
 ```arff
 $ webhookdb integrations list
 id               name           table
-0d675ecfeb3fb9ed stripe-charges stripe_charges_v1
+svi_0d675ecfeb3fb9ed stripe-charges stripe_charges_v1_d50b
 ```
 
 Then we can kick off a backfill. It will ask for API keys if you have not already added them:
 
 ```arff
-$ webhookdb backfill 0d675ecfeb3fb9ed
+$ webhookdb backfill svi_0d675ecfeb3fb9ed
 In order to backfill Stripe Charges, we need an API key.
 From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
 Create a key with Read access to Charges.
@@ -215,7 +235,7 @@ postgres://d6ab999a:d652560e@bd421d8d.db.webhookdb.com:5432/673a2eaf
 
 You can also run a query through the CLI:
 
-webhookdb db sql "SELECT * FROM stripe_charges_v1"
+webhookdb db sql "SELECT * FROM stripe_charges_v1_d50b"
 ```
 
 Note that for some integrations, WebhookDB is limited in what it can backfill,
@@ -231,7 +251,45 @@ you can subscribe to receive changes from WebhookDB,
 rather than having to set up webhooks in each API you use.
 This allows you to have a consistent way to configure and verify webhooks.
 
-TODO
+You can create a webhook subscription either for a single integration or for an 
+entire organization: 
+
+```arff
+$ webhookdb webhook create --integration=svi_abcdefqwerty
+Enter a random secret used to sign and verify webhooks to the given url: webhook_secret123
+Enter the URL that WebhookDB should POST webhooks to: https://example.com
+All webhooks for this stripe_charge_v1 integration will be sent to https://example.com/
+```
+
+```arff
+$ webhookdb webhook create --org=acme_corp
+Enter a random secret used to sign and verify webhooks to the given url: webhook_secret123
+Enter the URL that WebhookDB should POST webhooks to: https://example.com
+All webhooks for all integrations belonging to organization Acme Corp will be sent to https://example.com.
+```
+
+Once you have created one or more webhooks, you can use the `webhook list` command to view information about them:
+
+```arff
+$ webhookdb webhook list                     
+       ID               URL            ASSOCIATED TYPE              ASSOCIATED ID          
+  54ca14e3c55e  https://example.com   service_integration   svi_c1lih496odohq4aftvzii6l4a  
+  27a6a8921777  https://example.com   organization          acme_corp           
+```
+
+From there, you can test any webhook by using the opaque id that appears in the list:
+
+```arff
+$ webhookdb webhook test 54ca14e3c55e
+A test event has been sent to https://example.com.
+```
+
+You can also delete webhooks that are no longer needed: 
+
+```arff
+$ webhookdb webhook delete 54ca14e3c55e
+Events will no longer be sent to https://example.com.
+```
 
 <a id="monitor"></a>
 
@@ -272,7 +330,7 @@ There are two parts to integrating it: schema, and data.
 
 To get the schema of a WebhookDB table, you can run:
 
-```
+```arff
 webhookdb fixtures stripe_charge_v1
 ```
 
@@ -354,7 +412,7 @@ having to check Stripe via its API.
 
 <a id="and-more"></a>
 
-## And More!(#and-more)
+## [And More!](#and-more)
 
 There are many commands not covered here that are of somewhat less interest.
 

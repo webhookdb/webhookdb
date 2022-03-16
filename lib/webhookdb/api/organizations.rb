@@ -62,7 +62,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Generates an invitation code for a user, adds pending membership in the organization."
       params do
-        requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+        optional :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
                          prompt: "Enter the email to send the invitation to:"
         optional :role_name,
                  type: String,

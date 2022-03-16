@@ -1,7 +1,7 @@
 import "../styles/custom.scss";
 
 import { Accordion, Card, Container, Row } from "react-bootstrap";
-import { FaApple, FaDocker, FaLinux, FaWindows } from "react-icons/fa";
+import { FaApple, FaLinux, FaWindows } from "react-icons/fa";
 import useDetectOS, { LINUX, MAC, WIN } from "../hooks/useDetectOS";
 
 import CopyableCodeBlock from "../components/CopyableCodeBlock";
@@ -112,19 +112,6 @@ export default function Download() {
                 Run the unzipped <code>webhookdb.exe</code> file.
               </li>
             </ol>
-          </PlatformCard>
-          <PlatformCard Icon={FaDocker} title="Docker" eventKey="docker">
-            <p>
-              The CLI is also available as a Docker image:{" "}
-              <SafeExternalLink href="https://hub.docker.com/r/webhookdb/webhookdb-cli">
-                webhookdb/webhookdb-cli
-              </SafeExternalLink>
-            </p>
-            <CopyableCodeBlock
-              className="mx-3 mb-3"
-              language="bash"
-              code="docker run --rm -it webhookdb/webhookdb-cli version"
-            />
           </PlatformCard>
         </Accordion>
       </Container>

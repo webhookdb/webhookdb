@@ -26,14 +26,15 @@
     getCommandInput().classList.add("nocaret");
   }
 
-  function restorePrompt() {
+  function restorePrompt(options) {
+    const { skipFocus } = options || {};
     document.getElementById("input_title").innerText = prompt;
     const input = getCommandInput();
     input.classList.remove("nocaret");
-    input.focus();
+    if (!skipFocus) {
+      input.focus();
+    }
   }
-
-  restorePrompt();
 
   function newBlock() {
     const wrapper = document.getElementById("wrapper");
@@ -261,7 +262,7 @@
    * On submit, invoke the given callback, and replace the input
    * with plain text.
    */
-  window.wasmPropt = async function (text, hidden, callback) {
+  window.wasmPrompt = async function (text, hidden, callback) {
     currentBlock.innerHTML += `<div class="inline-input-root">
       <p>${text}</p>
       <input id="inline-input" class="inline-input command-input"
@@ -300,13 +301,15 @@
     } else {
       prompt = ">";
     }
+    const inputFocused = document.activeElement === getCommandInput();
     removePrompt();
-    restorePrompt();
+    restorePrompt({ skipFocus: !inputFocused });
   };
-  // Update the auth display when we start up.
-  window.webhookdbRun(env, ["webhookdb", "debug", "update-auth-display"]);
 
   if (new URL(window.location.href).searchParams.get("autofocus")) {
     getCommandInput().focus();
   }
+
+  // Update the auth display when we start up.
+  window.webhookdbRun(env, ["webhookdb", "debug", "update-auth-display"]);
 })();

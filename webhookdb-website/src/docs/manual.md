@@ -38,6 +38,7 @@ webhookdb
 ```arff
 [--debug]
 [--help|-h]
+[--quiet|-q]
 ```
 
 **Usage**:
@@ -53,6 +54,8 @@ webhookdb [GLOBAL OPTIONS] command [COMMAND OPTIONS] [ARGUMENTS...]
 **--debug**: 
 
 **--help, -h**: show help
+
+**--quiet, -q**: Do not print messages. Mostly used for collection endpoints, where you just want the returned data, not the help message.
 
 
 <a id="commands"></a>
@@ -70,6 +73,8 @@ These commands control the auth process.
 #### [whoami](#whoami)
 
 Print information about the current user.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 <a id="login,-signup,-signin,-register"></a>
 
@@ -243,9 +248,9 @@ Delete an integration and its table.
 
 #### [list](#list)
 
-list all integrations for the given organization.
+List all integrations for the given organization.
 
-**--format, -f**="": Format of the output. One of: json, csv, table (default: table)
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -265,7 +270,7 @@ Reset the webhook secret for this integration.
 
 Get statistics about webhooks for this integration.
 
-**--format, -f**="": Format of the output. One of: json, csv, table (default: table)
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
 
@@ -325,7 +330,7 @@ Invite a user to your organization.
 
 #### [join](#join)
 
-join an organization using a join code.
+Join an organization using a join code. You can also see your pending invites with `webhookdb org list`.
 
 **--code, -c**="": Invitation code sent to the new member. Has 'join-' prefix.
 
@@ -346,6 +351,8 @@ Display the name and slug of the currently active organization.
 #### [members](#members)
 
 List all members of the given organization.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -381,6 +388,10 @@ Work with available services that can be hooked up to reflect data to WebhookDB.
 
 List all available services.
 
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
 <a id="subscription"></a>
 
 ### [subscription](#subscription)
@@ -392,6 +403,8 @@ Work with your WebhookDB subscription.
 #### [info](#info)
 
 Get information about an organization's software subscription.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -411,7 +424,7 @@ Open stripe portal to edit subscription.
 
 Print information about the WebhookDB pricing plans.
 
-**--format, -f**="": Format of the output. One of: json, csv, table (default: table)
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -445,13 +458,23 @@ Create a new webhook that WebhookDB will call on every data update.
 
 **--url**="": Full URL to the endpoint that will be POSTed to whenever this organization or integration is updated.
 
+<a id="list"></a>
+
+#### [list](#list)
+
+List all created webhooks.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
 <a id="test"></a>
 
 #### [test](#test)
 
-Send a test event to all webhook subscriptions associated with this integration.
+Send a test event to webhook subscription with the given ID.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--webhook, -w**="": Webhook opaque id. Run `webhookdb webhook list` to see a list of all your webhooks.
 
 <a id="delete"></a>
 
@@ -459,7 +482,7 @@ Send a test event to all webhook subscriptions associated with this integration.
 
 Delete this webhook subscription, so no future events will be sent.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--webhook, -w**="": Webhook opaque id. Run `webhookdb webhook list` to see a list of all your webhooks.
 
 <a id="version"></a>
 

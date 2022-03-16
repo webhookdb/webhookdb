@@ -27,8 +27,8 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
     end
 
     params do
-      requires :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
       requires :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
+      requires :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
       optional :org_identifier, type: String, allow_blank: false
       optional :service_integration_opaque_id, type: String, allow_blank: false
       exactly_one_of :org_identifier, :service_integration_opaque_id
@@ -48,7 +48,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       message = if sint
                   "All webhooks for this #{sint.service_name} integration will be sent to #{params[:url]}"
       else
-        "All webhooks for all integrations belong to organization #{org.name} will be sent to #{params[:url]}."
+        "All webhooks for all integrations belonging to organization #{org.name} will be sent to #{params[:url]}."
       end
       status 200
       present webhook_sub, with: Webhookdb::API::WebhookSubscriptionEntity, message:
@@ -64,7 +64,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
 
       post :test do
         webhook_sub = lookup_sub!
-        webhook_sub.publish_immediate("test")
+        webhook_sub.publish_immediate("test", webhook_sub.id)
         message = "A test event has been sent to #{webhook_sub.deliver_to_url}."
         status 200
         present({}, with: Webhookdb::API::BaseEntity, message:)
@@ -73,7 +73,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       post :delete do
         webhook_sub = lookup_sub!
         webhook_sub.delete
-        message = "Events will not longer be sent to #{webhook_sub.deliver_to_url}."
+        message = "Events will no longer be sent to #{webhook_sub.deliver_to_url}."
         status 200
         present({}, with: Webhookdb::API::BaseEntity, message:)
       end
