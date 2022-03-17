@@ -35,45 +35,38 @@ export default function Download() {
             <Link to="/terminal">terminal in the browser</Link>. After you get started,
             download and install the CLI to keep going.
           </p>
+          <p>
+            The CLI source code is also availble{" "}
+            <SafeExternalLink href="https://github.com/lithictech/webhookdb-cli">
+              on GitHub
+            </SafeExternalLink>
+            .
+          </p>
         </Card>
         <Accordion defaultActiveKey={defaultOS} className="mb-5">
           <PlatformCard Icon={FaApple} title="MacOS" eventKey={MAC}>
-            <p>
-              <strong>Make sure you choose the right architecture</strong>. M1 Macs use
-              the ARM process, others use AMD.
-            </p>
+            <p>Easiest option is to use Homebrew:</p>
+            <CopyableCodeBlock code="brew install lithictech/webhookdb-cli/webhookdb" />
             <ol>
-              <li>
+              <li className="mb-3">
                 Download the latest MacOS <code>tar.gz</code> file from{" "}
-                <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>
+                <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>.
+                <br />
+                <strong>Make sure you choose the right architecture</strong>. M1 Macs
+                use the ARM (<code>arm64</code>) binary, others use AMD (
+                <code>x86_64</code>).
               </li>
-              <li>
+              <li className="mb-3">
                 Unzip the file:{" "}
-                <code>tar -xvf webhookdb_X.X.X_darwin_x86_64.tar.gz</code>. For ARM (M1
-                Macs) it would be:{" "}
-                <code>tar -xvf webhookdb_X.X.X_darwin_arm64.tar.gz</code>
+                <code>tar -xvf webhookdb_X.X.X_macos_x86_64.tar.gz</code>.<br />
+                For ARM (M1 Macs) it would be:{" "}
+                <code>tar -xvf webhookdb_X.X.X_macos_arm64.tar.gz</code>
               </li>
-              <li>
+              <li className="mb-3">
                 Move <code>./webhookdb</code> to your execution path, like{" "}
                 <code>/usr/local/bin</code>.
               </li>
             </ol>
-            <p>You can also do this in one step:</p>
-            <CopyableCodeBlock
-              className="mx-3 mb-3"
-              language="bash"
-              code={`curl ${latestDownloadUrl(
-                "webhookdb_darwin_x86_64.tar.gz"
-              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
-            />
-            <p>For ARM (M1 Macs):</p>
-            <CopyableCodeBlock
-              className="mx-3 mb-3"
-              language="bash"
-              code={`curl ${latestDownloadUrl(
-                "webhookdb_darwin_arm64.tar.gz"
-              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
-            />
           </PlatformCard>
           <PlatformCard Icon={FaLinux} title="Linux" eventKey={LINUX}>
             <ol>
@@ -90,19 +83,11 @@ export default function Download() {
                 <code>/usr/local/bin</code>.
               </li>
             </ol>
-            <p>You can also do this in one step:</p>
-            <CopyableCodeBlock
-              className="mx-3 mb-3"
-              language="bash"
-              code={`curl ${latestDownloadUrl(
-                "webhookdb_linux_x86_64.tar.gz"
-              )} -s -L | tar xz -C /usr/local/bin && chmod +x /usr/local/bin/webhookdb`}
-            />
           </PlatformCard>
           <PlatformCard Icon={FaWindows} title="Windows" eventKey={WIN}>
             <ol>
               <li>
-                Download the latest Windows <code>tar.gz</code> file from{" "}
+                Download the latest Windows <code>zip</code> file from{" "}
                 <SafeExternalLink href={RELEASE}>{RELEASE}</SafeExternalLink>
               </li>
               <li>
@@ -135,7 +120,3 @@ function PlatformCard({ Icon, title, eventKey, children }) {
 }
 
 const RELEASE = "https://github.com/lithictech/webhookdb-cli/releases/latest";
-
-function latestDownloadUrl(filename) {
-  return `https://github.com/lithictech/webhookdb-cli/releases/latest/download/${filename}`;
-}
