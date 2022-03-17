@@ -11,6 +11,7 @@ import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
 import Webterm from "../components/Webterm";
+import WistiaEmbed from "../components/WistiaEmbed";
 import staticData from "../components/staticData";
 import useContactUs from "../components/useContactUs";
 
@@ -124,6 +125,15 @@ export default function IndexPage() {
               .
             </li>
           </ul>
+          <div className="d-flex flex-column align-items-center pt-4 pb-3">
+            <p>
+              See it in action! And try it out{" "}
+              <Link to="/terminal">right from your browser</Link>!
+            </p>
+            <div style={{ width: "80%" }}>
+              <WistiaEmbed mediaUrl="https://fast.wistia.com/embed/medias/lrox7uw103" />
+            </div>
+          </div>
         </Centered>
       </Container>
       <Container className="px-4 mt-5" fluid>
