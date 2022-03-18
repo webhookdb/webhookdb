@@ -62,6 +62,7 @@ require "webhookdb/services/shopify_customer_v1"
 require "webhookdb/services/shopify_order_v1"
 require "webhookdb/services/stripe_charge_v1"
 require "webhookdb/services/stripe_customer_v1"
+require "webhookdb/services/stripe_refund_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
@@ -76,6 +77,7 @@ Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
 Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)

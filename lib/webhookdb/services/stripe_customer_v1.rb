@@ -36,18 +36,7 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   end
 
   def _prepare_for_insert(body, **_kwargs)
-    # When we are backfilling, we recieve information from the charge api, but when
-    # we recieve a webhook we are getting that information from the events api. Because
-    # of this, the data we get in each case will have a different shape. This conditional
-    # at the beginning of the function accomodates that difference in shape and ensures
-    # that information from a webhook will always supercede information obtained through
-    # backfilling.
-    updated = 0
-    obj_of_interest = body
-    if body.fetch("object") == "event"
-      updated = body.fetch("created")
-      obj_of_interest = body.fetch("data").fetch("object")
-    end
+    obj_of_interest, updated = self._extract_obj_and_updated(body)
     return {
       data: obj_of_interest.to_json,
       balance: obj_of_interest.fetch("balance"),

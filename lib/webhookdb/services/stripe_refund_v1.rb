@@ -3,15 +3,15 @@
 require "stripe"
 require "webhookdb/services/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
+class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::StripeV1Mixin
 
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
-      name: "stripe_charge_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeChargeV1.new(sint) },
+      name: "stripe_refund_v1",
+      ctor: ->(sint) { Webhookdb::Services::StripeRefundV1.new(sint) },
       feature_roles: [],
     )
   end
@@ -24,13 +24,13 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
     return [
       Webhookdb::Services::Column.new(:amount, "numeric"),
       Webhookdb::Services::Column.new(:balance_transaction, "text"),
-      Webhookdb::Services::Column.new(:billing_email, "text"),
+      Webhookdb::Services::Column.new(:charge, "text"),
       Webhookdb::Services::Column.new(:created, "integer"),
-      Webhookdb::Services::Column.new(:customer, "text"),
-      Webhookdb::Services::Column.new(:invoice, "text"),
-      Webhookdb::Services::Column.new(:payment_type, "text"),
-      Webhookdb::Services::Column.new(:receipt_email, "text"),
+      Webhookdb::Services::Column.new(:payment_intent, "text"),
+      Webhookdb::Services::Column.new(:receipt_number, "text"),
+      Webhookdb::Services::Column.new(:source_transfer_reversal, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
+      Webhookdb::Services::Column.new(:transfer_reversal, "text"),
       Webhookdb::Services::Column.new(:updated, "integer"),
     ]
   end
@@ -45,27 +45,27 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
       data: obj_of_interest.to_json,
       amount: obj_of_interest.fetch("amount"),
       balance_transaction: obj_of_interest.fetch("balance_transaction"),
-      billing_email: obj_of_interest.dig("billing_details", "email"),
+      charge: obj_of_interest.fetch("charge"),
       created: obj_of_interest.fetch("created"),
-      customer: obj_of_interest["customer"],
-      invoice: obj_of_interest["invoice"],
-      payment_type: obj_of_interest.dig("payment_method_details", "type"),
-      receipt_email: obj_of_interest["receipt_email"],
+      payment_intent: obj_of_interest.fetch("payment_intent"),
+      receipt_number: obj_of_interest.fetch("receipt_number"),
+      source_transfer_reversal: obj_of_interest.fetch("source_transfer_reversal"),
       status: obj_of_interest.fetch("status"),
+      transfer_reversal: obj_of_interest.fetch("transfer_reversal"),
       updated:,
       stripe_id: obj_of_interest.fetch("id"),
     }
   end
 
   def _mixin_name_singular
-    return "Stripe Charge"
+    return "Stripe Refund"
   end
 
   def _mixin_name_plural
-    return "Stripe Charges"
+    return "Stripe Refunds"
   end
 
   def _mixin_backfill_url
-    return "https://api.stripe.com/v1/charges"
+    return "https://api.stripe.com/v1/refunds"
   end
 end
