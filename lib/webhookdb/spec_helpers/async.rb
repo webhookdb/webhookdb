@@ -26,18 +26,28 @@ module Webhookdb::SpecHelpers::Async
   end
 
   module_function def snapshot_async_state(opts={})
-    old_hooks = Webhookdb.subscribers.to_a
+    old_subscribers = Webhookdb.subscribers.to_a
     old_jobs = Webhookdb::Async.jobs.to_a
     old_failure = Webhookdb.on_publish_error
 
+    new_subscribers = opts.fetch(:subscribers, [])
+    new_jobs = opts.fetch(:jobs, [])
+
+    @active_snapshots ||= 0
+    if @active_snapshots.positive?
+      new_subscribers = old_subscribers + new_subscribers
+      new_jobs = old_jobs = new_jobs
+    end
     begin
       Webhookdb.on_publish_error = opts[:on_error] if opts.key?(:on_error)
-      Webhookdb.subscribers.replace(opts[:subscribers]) if opts.key?(:subscribers)
-      Webhookdb::Async.jobs.replace(opts[:jobs]) if opts.key?(:jobs)
+      Webhookdb.subscribers.replace(new_subscribers) if opts.key?(:subscribers)
+      Webhookdb::Async.jobs.replace(new_jobs) if opts.key?(:jobs)
+      @active_snapshots += 1
       yield
     ensure
+      @active_snapshots -= 1
       Webhookdb.on_publish_error = old_failure
-      Webhookdb.subscribers.replace(old_hooks)
+      Webhookdb.subscribers.replace(old_subscribers)
       Webhookdb::Async.jobs.replace(old_jobs)
     end
   end
