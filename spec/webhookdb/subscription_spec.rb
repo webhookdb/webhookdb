@@ -5,6 +5,18 @@ require "webhookdb/subscription"
 RSpec.describe "Webhookdb::Subscription", :db do
   let(:described_class) { Webhookdb::Subscription }
 
+  it "can find its organization" do
+    sub = Webhookdb::Fixtures.subscription.create(stripe_customer_id: "sub_abc")
+    expect(sub).to have_attributes(organization: nil)
+    org = Webhookdb::Fixtures.organization.create(stripe_customer_id: "sub_xyz")
+    expect(org.subscription).to be_nil
+    expect(sub.refresh.organization).to be_nil
+
+    org.update(stripe_customer_id: "sub_abc")
+    expect(org.refresh).to have_attributes(subscription: be === sub)
+    expect(sub.refresh).to have_attributes(organization: be === org)
+  end
+
   describe "list_plans" do
     it "lists plans" do
       req = stub_request(:get, "https://api.stripe.com/v1/prices?active=true").
@@ -23,18 +35,70 @@ RSpec.describe "Webhookdb::Subscription", :db do
   end
 
   describe "create_or_update" do
-    describe "create_or_update_from_webhook" do
+    describe "create_or_update_from_stripe_hash", async: true do
+      let(:stripe_data) { load_fixture_data("stripe/subscription_get") }
+
       it "creates a subscription for a given org if one doesn't exist" do
-        Webhookdb::Subscription.create_or_update_from_webhook(load_fixture_data("stripe/subscription_webhook"))
+        org = Webhookdb::Fixtures.organization.create(stripe_customer_id: "cus_JR8V3eF6JmvjKZ")
+        Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
 
         sub = Webhookdb::Subscription[stripe_id: "sub_JigYoW2aRYfl0R"]
-        expect(sub).to_not be_nil
+        expect(sub).to have_attributes(
+          stripe_customer_id: "cus_JR8V3eF6JmvjKZ",
+          stripe_id: "sub_JigYoW2aRYfl0R",
+          stripe_json: include("status"),
+          organization: be == org,
+        )
+      end
+
+      it "updates the subscription status of an existing subscription" do
+        sub = Webhookdb::Fixtures.subscription.create(stripe_id: "sub_JigYoW2aRYfl0R")
+        Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+
+        expect(Webhookdb::Subscription.all).to contain_exactly(be === sub)
+        sub.refresh
         expect(sub.stripe_customer_id).to eq("cus_JR8V3eF6JmvjKZ")
         expect(sub.stripe_json).to have_key("status")
       end
 
-      it "updates the subscription status of an existing subscription" do
-        Webhookdb::Fixtures.subscription.create(stripe_id: "sub_JigYoW2aRYfl0R")
+      it "emits a developer alert when a subscription is created" do
+        Webhookdb::Fixtures.organization.create(stripe_customer_id: "cus_JR8V3eF6JmvjKZ")
+        expect do
+          Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+        end.to publish("webhookdb.developeralert.emitted").with_payload(
+          match_array([include("subsystem" => "Subscription Created")]),
+        )
+      end
+
+      it "emit a developer alert if there is no matching organization" do
+        expect do
+          Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+        end.to publish("webhookdb.developeralert.emitted").with_payload(
+          match_array([include("subsystem" => "Subscription Error")]),
+        )
+      end
+
+      it "emits a developer alert if the subscription status changes" do
+        Webhookdb::Fixtures.organization.create(stripe_customer_id: "cus_JR8V3eF6JmvjKZ")
+        Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+
+        stripe_data["status"] = "trialing"
+        expect do
+          Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+        end.to publish("webhookdb.developeralert.emitted").with_payload(
+          match_array([include("subsystem" => "Subscription Status Change")]),
+        )
+
+        # No alert for other field type
+        stripe_data["cancel_at_period_end"] = true
+        expect do
+          Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
+        end.to_not publish("webhookdb.developeralert.emitted")
+      end
+    end
+
+    describe "create_or_update_from_webhook" do
+      it "creates/updates a subscription for a given org" do
         Webhookdb::Subscription.create_or_update_from_webhook(load_fixture_data("stripe/subscription_webhook"))
 
         sub = Webhookdb::Subscription[stripe_id: "sub_JigYoW2aRYfl0R"]
@@ -45,22 +109,9 @@ RSpec.describe "Webhookdb::Subscription", :db do
     end
 
     describe "create_or_update_from_id" do
-      it "creates a subscription for a given org if one doesn't exist" do
+      it "creates/updates the subscription with the given id" do
         req = stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_JigYoW2aRYfl0R").
           to_return(body: load_fixture_data("stripe/subscription_get", raw: true))
-        Webhookdb::Subscription.create_or_update_from_id("sub_JigYoW2aRYfl0R")
-
-        expect(req).to have_been_made
-        sub = Webhookdb::Subscription[stripe_id: "sub_JigYoW2aRYfl0R"]
-        expect(sub).to_not be_nil
-        expect(sub.stripe_customer_id).to eq("cus_JR8V3eF6JmvjKZ")
-        expect(sub.stripe_json).to have_key("status")
-      end
-
-      it "updates the subscription status of an existing subscription" do
-        req = stub_request(:get, "https://api.stripe.com/v1/subscriptions/sub_JigYoW2aRYfl0R").
-          to_return(body: load_fixture_data("stripe/subscription_get", raw: true))
-        Webhookdb::Fixtures.subscription.create(stripe_id: "sub_JigYoW2aRYfl0R")
         Webhookdb::Subscription.create_or_update_from_id("sub_JigYoW2aRYfl0R")
 
         expect(req).to have_been_made

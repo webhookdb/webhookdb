@@ -13,6 +13,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     setting :max_query_rows, 1000
   end
 
+  one_to_one :subscription, class: "Webhookdb::Subscription", key: :stripe_customer_id, primary_key: :stripe_customer_id
   one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :verified_memberships,
               class: "Webhookdb::OrganizationMembership",

@@ -28,6 +28,8 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
     setting :max_free_integrations, 2
   end
 
+  one_to_one :organization, class: "Webhookdb::Organization", key: :stripe_customer_id, primary_key: :stripe_customer_id
+
   def self.list_plans
     prices = Stripe::Price.list(active: true)
     monthly = prices.find { |pr| pr.recurring.interval == "month" }
@@ -50,9 +52,52 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   end
 
   def self.create_or_update_from_stripe_hash(obj)
+    created = false
+    orig_status = nil
     sub = self.update_or_create(stripe_id: obj.fetch("id")) do |o|
-      o.stripe_json = obj.to_json
       o.stripe_customer_id = obj.fetch("customer")
+      if o.new?
+        created = true
+      else
+        orig_status = o.status
+      end
+      o.stripe_json = obj.to_json
+    end
+    common_fields = [
+      {title: "Subscription", value: sub.id, short: true},
+      {title: "Status", value: sub.status, short: true},
+      {title: "Stripe ID", value: sub.stripe_id, short: true},
+      {title: "Customer ID", value: sub.stripe_customer_id, short: true},
+    ]
+    if sub.organization.nil?
+      Webhookdb::DeveloperAlert.new(
+        subsystem: "Subscription Error",
+        emoji: ":hook:",
+        fallback: "Subscription with Stripe ID #{sub.stripe_id} has no organization",
+        fields: common_fields + [
+          {title: "Message", value: "Has no organization in WebhookDB", short: false},
+        ],
+      ).emit
+    elsif created
+      Webhookdb::DeveloperAlert.new(
+        subsystem: "Subscription Created",
+        emoji: ":hook:",
+        fallback: "Subscription with Stripe ID #{sub.stripe_id} created",
+        fields: common_fields + [
+          {title: "Organization", value: sub.organization.display_string, short: true},
+          {title: "Message", value: "Created", short: true},
+        ],
+      ).emit
+      elsif orig_status != sub.status
+        Webhookdb::DeveloperAlert.new(
+          subsystem: "Subscription Status Change",
+          emoji: ":hook:",
+          fallback: "Subscription with Stripe ID #{sub.stripe_id} changed status",
+          fields: common_fields + [
+            {title: "Organization", value: sub.organization.display_string, short: true},
+            {title: "Message", value: "Status updated", short: true},
+          ],
+        ).emit
     end
     return sub
   end
