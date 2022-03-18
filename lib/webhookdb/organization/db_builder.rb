@@ -44,6 +44,8 @@ class Webhookdb::Organization::DbBuilder
     end
   end
 
+  READONLY_CONN_LIMIT = 50
+
   attr_reader :admin_url, :readonly_url
 
   def initialize(org)
@@ -67,6 +69,7 @@ class Webhookdb::Organization::DbBuilder
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
+        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{READONLY_CONN_LIMIT};
         GRANT #{admin_user} TO CURRENT_USER;
       SQL
       # Cannot be in the same statement as above since that's one transaction.
