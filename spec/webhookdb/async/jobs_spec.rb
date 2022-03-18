@@ -72,6 +72,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "CustomerCreatedNotifyInternal" do
+    it "publishes a developer alert" do
+      expect do
+        Webhookdb::Fixtures.customer.create
+      end.to perform_async_job(Webhookdb::Jobs::CustomerCreatedNotifyInternal).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              match_array([include("subsystem" => "Customer Created")]),
+            ))
+    end
+  end
+
   describe "deprecated jobs" do
     it "exist as job classes, and noop" do
       expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
