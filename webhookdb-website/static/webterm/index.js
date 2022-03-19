@@ -1,4 +1,10 @@
 (function () {
+  const BREAK = "__whdb_break";
+  const isWindows = (
+    navigator?.userAgentData?.platform ||
+    navigator?.platform ||
+    "unknown"
+  ).includes("Win");
   let prompt = ">";
   const registry = new window.Map();
   const env = new window.Map();
@@ -12,6 +18,20 @@
   let historyCommandCache = null;
   let currentBlock;
   let currentInput;
+
+  function isBreak(e) {
+    if (e.key === "Break") {
+      return true;
+    }
+    if (e.ctrlKey && e.key === "d") {
+      // We'll let this exit even on windows.
+      return true;
+    }
+    if (isWindows) {
+      return;
+    }
+    return e.ctrlKey && e.key === "c";
+  }
 
   function getCommandInput() {
     return document.getElementById("input_source");
@@ -105,6 +125,8 @@
       handleDownArrow();
     } else if (e.keyCode === 13) {
       handleEnter();
+    } else if (isBreak(e)) {
+      handleBreak();
     }
   }
 
@@ -149,6 +171,13 @@
     // Use the history at the new index.
     historyIdx -= 1;
     getCommandInput().value = historyReversedStack[historyIdx];
+  }
+
+  function handleBreak() {
+    const shellStr = getCommandInput().value;
+    getCommandInput().value = "";
+    newBlock();
+    blockLogWithClass([prompt + " " + shellStr], "command");
   }
 
   function handleEnter() {
@@ -271,10 +300,7 @@
     </div>`;
     currentInput = getInlineInput();
     currentInput.focus();
-    currentInput.addEventListener("keyup", (e) => {
-      if (e.key !== "Enter") {
-        return;
-      }
+    function swapPrompt(isBreak) {
       const inputEl = getInlineInput();
       const value = inputEl.value;
       const parent = inputEl.parentElement;
@@ -284,7 +310,14 @@
       valueElement.classList.add("inline-input");
       valueElement.innerText = hidden ? "***" : value;
       parent.appendChild(valueElement);
-      callback(value);
+      callback(isBreak ? BREAK : value);
+    }
+    currentInput.addEventListener("keyup", (e) => {
+      if (isBreak(e)) {
+        swapPrompt(true);
+      } else if (e.key === "Enter") {
+        swapPrompt(false);
+      }
     });
   };
 

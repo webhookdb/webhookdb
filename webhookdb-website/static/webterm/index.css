@@ -27,7 +27,6 @@ body {
     -o-transform: rotate(180deg);
     -webkit-transform: rotateX(180deg);
     transform: rotateX(180deg);
-    margin-bottom: 1rem;
 }
 
 #wrapper {

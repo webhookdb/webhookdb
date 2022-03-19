@@ -1,9 +1,9 @@
 import { Container } from "react-bootstrap";
 import LayoutPage from "../components/LayoutPage";
+import { Link } from "gatsby";
 import React from "react";
 import Seo from "../components/Seo";
 import Webterm from "../components/Webterm";
-import { Link } from "gatsby";
 import useContactUs from "../components/useContactUs";
 
 export default function Terminal() {
