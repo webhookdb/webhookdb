@@ -212,21 +212,21 @@ RSpec.describe Webhookdb::Service, :db do
   end
 
   it "rolls back the transaction on merrors", db: :no_transaction do
-    c = Webhookdb::Fixtures.customer.create(email: "a@b.c")
+    c = Webhookdb::Fixtures.customer.create(email: "a@b.co")
 
-    get "/merror_rollback", id: c.id, email: "x@y.z", rollback: true
+    get "/merror_rollback", id: c.id, email: "x@y.zx", rollback: true
 
     expect(last_response).to have_status(403)
-    expect(c.refresh).to have_attributes(email: "a@b.c")
+    expect(c.refresh).to have_attributes(email: "a@b.co")
   end
 
   it "does not roll back transactions by default", db: :no_transaction do
-    c = Webhookdb::Fixtures.customer.create(email: "a@b.c")
+    c = Webhookdb::Fixtures.customer.create(email: "a@b.co")
 
-    get "/merror_rollback", id: c.id, email: "x@y.z", rollback: false
+    get "/merror_rollback", id: c.id, email: "x@y.zx", rollback: false
 
     expect(last_response).to have_status(403)
-    expect(c.refresh).to have_attributes(email: "x@y.z")
+    expect(c.refresh).to have_attributes(email: "x@y.zx")
   end
 
   it "uses a consistent error shape for validation errors" do

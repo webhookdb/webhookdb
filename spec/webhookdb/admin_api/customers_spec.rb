@@ -38,7 +38,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       def make_non_matching_items
         return [
           admin,
-          Webhookdb::Fixtures.customer(name: "wibble wobble", email: "qux@wux").create,
+          Webhookdb::Fixtures.customer(name: "wibble wobble", email: "qux@wux.com").create,
         ]
       end
     end

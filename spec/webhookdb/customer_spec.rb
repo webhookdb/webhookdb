@@ -247,4 +247,24 @@ Use `webhookdb org join <code>` to accept an invitation.
       )
     end
   end
+
+  describe "validations" do
+    it "rejects an obviously incorrect email" do
+      d = Webhookdb::Fixtures.customer.instance
+      d.email = "a@b.co"
+      expect(d).to be_valid
+      d.email = "a@b.c"
+      expect(d).to_not be_valid
+      d.email = "@b.c"
+      expect(d).to_not be_valid
+      d.email = "a@b"
+      expect(d).to_not be_valid
+      d.email = "a@b."
+      expect(d).to_not be_valid
+      d.email = "a@bco"
+      expect(d).to_not be_valid
+      d.email = "a+bcard@foo-bar.museum"
+      expect(d).to be_valid
+    end
+  end
 end

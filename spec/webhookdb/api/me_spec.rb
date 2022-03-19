@@ -21,7 +21,7 @@ RSpec.describe Webhookdb::API::Me, :db do
     end
 
     it "can render a full customer" do
-      customer.update(email: "a@b.c")
+      customer.update(email: "a@b.co")
       om_fac = Webhookdb::Fixtures.organization_membership(customer:)
       om_fac.org(name: "Hi").verified.default.create
       om_fac.org(name: "Bye").verified.admin.create
@@ -36,7 +36,7 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(lines).to match_array(
         [
           ["Default Org", "Hi (hi)"],
-          ["Email", "a@b.c"],
+          ["Email", "a@b.co"],
           ["Memberships", "Hi (hi): member\nBye (bye): admin"],
           ["Invitations", "Bar (bar): code1\nFoo (foo): code2"],
         ],
