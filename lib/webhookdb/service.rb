@@ -162,6 +162,10 @@ class Webhookdb::Service < Grape::API
     )
   end
 
+  rescue_from Sequel::ValidationFailed do |e|
+    invalid!(e.errors, message: e.message)
+  end
+
   rescue_from :all do |e|
     status = e.respond_to?(:status) ? e.status : 500
     error_id = SecureRandom.uuid

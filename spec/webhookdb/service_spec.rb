@@ -40,6 +40,10 @@ class Webhookdb::API::TestService < Webhookdb::Service
     raise Webhookdb::Customer::InvalidPassword, "not a bunny"
   end
 
+  get :sequel_validation do
+    Webhookdb::Fixtures.customer.create(email: "a@b.c")
+  end
+
   get :invalid_plain do
     invalid!("this is invalid")
   end
@@ -246,6 +250,19 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_response).to have_status(400)
     expect(last_response_json_body).to eq(
       error: {code: "validation_error", errors: ["not a bunny"], message: "Not a bunny", status: 400},
+    )
+  end
+
+  it "uses a consistent error shape for Sequel validation errors" do
+    get "/sequel_validation"
+    expect(last_response).to have_status(400)
+    expect(last_response_json_body).to eq(
+      error: {
+        code: "validation_error",
+        errors: [{email: ["is invalid"]}],
+        message: "Email is invalid",
+        status: 400,
+      },
     )
   end
 
