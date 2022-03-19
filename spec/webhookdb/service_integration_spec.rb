@@ -108,4 +108,47 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       )
     end
   end
+
+  describe "rename_table" do
+    before(:each) do
+      org.prepare_database_connections
+      sint.service_instance.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "renames the given table" do
+      sint.rename_table(to: "table5")
+
+      expect(org.readonly_connection { |db| db[:table5].all }).to eq([])
+      expect(sint.table_name).to eq("table5")
+    end
+
+    it "errors for an invalid name" do
+      expect do
+        sint.rename_table(to: "&&&&&")
+      end.to raise_error(described_class::TableRenameError, /need a more exotic table rename\.$/)
+    end
+
+    it "errors for a valid name that is not a valid identifier" do
+      expect do
+        sint.rename_table(to: "must have quote")
+      end.to raise_error(described_class::TableRenameError, /with double quotes around/)
+    end
+
+    it "errors with Bobby Tables for ;" do
+      expect do
+        sint.rename_table(to: ";DROP database")
+      end.to raise_error(described_class::TableRenameError, /need a more exotic table rename\. And /)
+    end
+
+    it "errors if the target table already exists" do
+      org.admin_connection { |db| db << "CREATE TABLE table5(id INTEGER);" }
+      expect do
+        sint.rename_table(to: "table5")
+      end.to raise_error(described_class::TableRenameError, /already a table named/)
+    end
+  end
 end

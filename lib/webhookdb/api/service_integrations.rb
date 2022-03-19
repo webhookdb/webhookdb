@@ -232,31 +232,51 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             present stats.as_json
           end
 
-          resource :delete do
-            params do
-              optional :confirm, type: String
+          params do
+            optional :confirm, type: String
+          end
+          post :delete do
+            ensure_plan_supports!
+            ensure_admin!
+            sint = lookup!
+            if sint.table_name != params[:confirm]&.strip
+              Webhookdb::API::Helpers.prompt_for_required_param!(
+                request,
+                :confirm,
+                "Please confirm your deletion by entering the integration's table name '#{sint.table_name}'. " \
+                "The table and all data for this integration will also be removed:",
+              )
             end
-            post do
-              ensure_plan_supports!
-              ensure_admin!
-              sint = lookup!
-              if sint.table_name != params[:confirm]&.strip
-                Webhookdb::API::Helpers.prompt_for_required_param!(
-                  request,
-                  :confirm,
-                  "Please confirm your deletion by entering the integration's table name '#{sint.table_name}'. " \
-                  "The table and all data for this integration will also be removed:",
-                )
-              end
 
+            begin
+              sint.service_instance.admin_dataset { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
+            rescue Sequel::DatabaseError => e
+              raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+            end
+            sint.destroy
+            message = "Great! We've deleted all secrets for #{sint.service_name}. " \
+                      " The table #{sint.table_name} containing its data has been dropped."
+            status 200
+            present sint, with: Webhookdb::API::ServiceIntegrationEntity, message:
+          end
+
+          params do
+            optional :new_name,
+                     type: String,
+                     prompt: "Enter the new name of the table. " \
+                             "See https://webhookdb.com/docs/manual#renametable for rules about table names:"
+          end
+          post :rename_table do
+            sint = lookup!
+            ensure_admin!
+            old_name = sint.table_name
+            sint.db.transaction do
               begin
-                sint.service_instance.admin_dataset { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
-              rescue Sequel::DatabaseError => e
-                raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+                sint.rename_table(to: params[:new_name])
+              rescue Webhookdb::ServiceIntegration::TableRenameError => e
+                merror!(400, e.to_s, code: "invalid_name")
               end
-              sint.destroy
-              message = "Great! We've deleted all secrets for #{sint.service_name}. " \
-                        " The table #{sint.table_name} containing its data has been dropped."
+              message = "The table for #{sint.service_name} has been renamed from #{old_name} to #{sint.table_name}."
               status 200
               present sint, with: Webhookdb::API::ServiceIntegrationEntity, message:
             end

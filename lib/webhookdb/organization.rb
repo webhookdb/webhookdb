@@ -65,8 +65,16 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return org
   end
 
+  def readonly_connection(&)
+    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url_raw, &)
+  end
+
+  def admin_connection(&)
+    return Webhookdb::ConnectionCache.borrow(self.admin_connection_url_raw, &)
+  end
+
   def execute_readonly_query(sql)
-    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url_raw) do |conn|
+    return self.readonly_connection do |conn|
       ds = conn.fetch(sql)
       r = QueryResult.new
       r.columns = ds.columns

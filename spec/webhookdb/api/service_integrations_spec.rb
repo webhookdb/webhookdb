@@ -497,4 +497,43 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       )
     end
   end
+
+  describe "POST /v1/organizations/:key/service_integrations/:opaque_id/rename_table" do
+    before(:each) do
+      org.prepare_database_connections
+      sint.service_instance.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "renames the given table" do
+      customer.all_memberships_dataset.first.update(membership_role: admin_role)
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/rename_table", new_name: "table5"
+
+      expect(last_response).to have_status(200)
+      expect(org.readonly_connection(&:tables)).to include(:table5)
+      expect(sint.refresh).to have_attributes(table_name: "table5")
+    end
+
+    it "errors if the user is not an admin" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/rename_table", new_name: "table5"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: /You don't have admin/),
+      )
+    end
+
+    it "propagates underlying error messages" do
+      customer.all_memberships_dataset.first.update(membership_role: admin_role)
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/rename_table", new_name: "do thing"
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(error: include(message: /with double quotes around/))
+    end
+  end
 end
