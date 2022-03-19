@@ -80,6 +80,17 @@ RSpec.describe Webhookdb::Message::EmailTransport, :db do
       expect(send_mail_req).to have_been_made
     end
 
+    it "raises UndeliverableRecipient error if it is a Postmark::InvalidEmailAddressError" do
+      send_mail_req = stub_email_post(status: 422, fixture: "postmark/mail_send_invalid_email")
+      delivery = Webhookdb::Fixtures.message_delivery.email("blah@lithic.tech").create
+
+      expect do
+        described_class.new.send!(delivery)
+      end.to raise_error(Webhookdb::Message::Transport::UndeliverableRecipient, /Error parsing/)
+
+      expect(send_mail_req).to have_been_made
+    end
+
     it "raises error if the email is not allowlisted" do
       delivery = Webhookdb::Fixtures.message_delivery.email("stone@gmail.com").create
       expect do

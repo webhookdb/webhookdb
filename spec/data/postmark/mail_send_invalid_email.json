@@ -1,0 +1,4 @@
+{
+  "ErrorCode": 300,
+  "Message": "Error parsing 'To': Illegal email address 'exit'. It must contain the '@' symbol."
+}

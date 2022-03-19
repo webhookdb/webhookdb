@@ -73,6 +73,8 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
       )
     rescue Postmark::InactiveRecipientError => e
       raise Webhookdb::Message::Transport::UndeliverableRecipient, "#{delivery.to} cannot be reached: #{e.inspect}"
+    rescue Postmark::InvalidEmailAddressError => e
+      raise Webhookdb::Message::Transport::UndeliverableRecipient, "#{delivery.to} email is invalid: #{e.inspect}"
     else
       raise Webhookdb::Message::Transport::Error, response.inspect if response[:error_code].positive?
       return response[:message_id]
