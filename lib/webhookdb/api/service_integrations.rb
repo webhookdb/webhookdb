@@ -118,15 +118,26 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 step.complete = true
                 return step
               end
-              sint = Webhookdb::ServiceIntegration[organization: org, service_name: name]
-              if sint.nil?
-                sint = Webhookdb::ServiceIntegration.create(
-                  organization: org,
-                  table_name: (name + "_#{SecureRandom.hex(2)}"),
-                  service_name: name,
-                )
-              end
+              sint = Webhookdb::ServiceIntegration.create(
+                organization: org,
+                table_name: (name + "_#{SecureRandom.hex(2)}"),
+                service_name: name,
+              )
               return sint.calculate_create_state_machine
+            end
+
+            def verify_unique_integration(org)
+              return if Webhookdb::ServiceIntegration.where(
+                organization: org,
+                service_name: params[:service_name],
+              ).all.empty?
+              return if params.key?(:guard_confirm)
+              Webhookdb::API::Helpers.prompt_for_required_param!(
+                request,
+                :guard_confirm,
+                "WARNING: #{org.name} already has an integration for service #{params[:service_name]}. "\
+                "Press Enter to create another, or Ctrl+C to quit:",
+              )
             end
           end
           desc "Create service integration on a given organization"
@@ -134,12 +145,14 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             requires :service_name, type: String, allow_blank: false,
                                     prompt: "Enter the name of the service to create an integration for. " \
                                             "Run 'webhookdb services list' to see available services:"
+            optional :guard_confirm
           end
           post do
             customer = current_customer
             org = lookup_org!
             merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
             ensure_admin!
+            verify_unique_integration(org)
             customer.db.transaction do
               state_machine = create_integration(org, params[:service_name])
               status 200

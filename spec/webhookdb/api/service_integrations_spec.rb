@@ -11,7 +11,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:customer) { Webhookdb::Fixtures.customer.create }
   let!(:membership) { Webhookdb::Fixtures.organization_membership(organization: org, customer:).verified.create }
-  let!(:sint) do
+  let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       opaque_id: "xyz",
       organization: org,
@@ -38,6 +38,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
   describe "GET v1/organizations/:org_identifier/service_integrations" do
     it "returns all service integrations associated with organization" do
+      _ = sint
       # add new integration to ensure that the endpoint can return multiple integrations
       new_integration = Webhookdb::Fixtures.service_integration.create(organization: org)
       # add extra integration to ensure that the endpoint filters out integrations from other orgs
@@ -90,7 +91,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "fails if the current user is not an admin" do
-      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "twilio_sms_v1"
 
       # expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -150,12 +151,49 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         complete: true,
       )
     end
+
+    describe "when there is already an integration for the same service" do
+      before(:each) do
+        _ = sint
+      end
+
+      it "422s and asks for confirmation before creating second integration" do
+        membership.update(membership_role: admin_role)
+        org.add_feature_role(internal_role)
+
+        post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
+
+        expect(last_response).to have_status(422)
+        expect(last_response).to have_json_body.that_includes(
+          error: include(code: "prompt_required_params"),
+        )
+      end
+
+      it "creates second integration if confirmation is recieved" do
+        membership.update(membership_role: admin_role)
+        org.add_feature_role(internal_role)
+
+        post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1", guard_confirm: true
+
+        expect(org.service_integrations(reload: true)).to have_length(2)
+      end
+
+      it "does not create second integration if confirmation is not recieved" do
+        membership.update(membership_role: admin_role)
+        org.add_feature_role(internal_role)
+
+        post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
+
+        expect(org.service_integrations(reload: true)).to have_length(1)
+      end
+    end
   end
 
   describe "POST /v1/service_integrations/:opaque_id" do
     before(:each) do
       # this endpoint should be unauthed, so we will test it unauthed
       logout
+      _ = sint
     end
 
     it "publishes an event with the data for the webhook", :async do
@@ -271,6 +309,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").success.create
       # rejected webhooks
       Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "xyz").failure.create
+      _ = sint
     end
 
     it "returns expected response" do
@@ -285,6 +324,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/reset" do
     before(:each) do
       login_as(customer)
+      _ = sint
     end
 
     it "clears the webhook setup information" do
@@ -321,6 +361,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill" do
     before(:each) do
       login_as(customer)
+      _ = sint
     end
 
     it "returns a state machine step" do
@@ -356,6 +397,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill/reset" do
     before(:each) do
       login_as(customer)
+      _ = sint
     end
 
     it "clears the backfill information" do
@@ -393,6 +435,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/transition/:field" do
     before(:each) do
       login_as(customer)
+      _ = sint
     end
 
     it "calls the state machine with the given field and value and returns the result" do
@@ -438,6 +481,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     before(:each) do
       login_as(customer)
       membership.update(membership_role: admin_role)
+      _ = sint
     end
 
     it "destroys the integration and drops the table" do
