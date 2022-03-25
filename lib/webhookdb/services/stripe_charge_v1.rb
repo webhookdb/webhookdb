@@ -22,16 +22,16 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "numeric"),
+      Webhookdb::Services::Column.new(:amount, "integer"),
       Webhookdb::Services::Column.new(:balance_transaction, "text"),
       Webhookdb::Services::Column.new(:billing_email, "text"),
-      Webhookdb::Services::Column.new(:created, "integer"),
+      Webhookdb::Services::Column.new(:created, "timestamptz"),
       Webhookdb::Services::Column.new(:customer, "text"),
       Webhookdb::Services::Column.new(:invoice, "text"),
       Webhookdb::Services::Column.new(:payment_type, "text"),
       Webhookdb::Services::Column.new(:receipt_email, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:updated, "integer"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz"),
     ]
   end
 
@@ -46,13 +46,13 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
       amount: obj_of_interest.fetch("amount"),
       balance_transaction: obj_of_interest.fetch("balance_transaction"),
       billing_email: obj_of_interest.dig("billing_details", "email"),
-      created: obj_of_interest.fetch("created"),
+      created: self.tsat(obj_of_interest.fetch("created")),
       customer: obj_of_interest["customer"],
       invoice: obj_of_interest["invoice"],
       payment_type: obj_of_interest.dig("payment_method_details", "type"),
       receipt_email: obj_of_interest["receipt_email"],
       status: obj_of_interest.fetch("status"),
-      updated:,
+      updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
   end

@@ -64,6 +64,10 @@ require "webhookdb/services/stripe_charge_v1"
 require "webhookdb/services/stripe_customer_v1"
 require "webhookdb/services/stripe_payout_v1"
 require "webhookdb/services/stripe_refund_v1"
+require "webhookdb/services/stripe_subscription_v1"
+require "webhookdb/services/stripe_subscription_item_v1"
+require "webhookdb/services/stripe_invoice_v1"
+require "webhookdb/services/stripe_invoiceitem_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
@@ -80,6 +84,10 @@ Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)
 Webhookdb::Services.register(Webhookdb::Services::StripePayoutV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionItemV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceitemV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
 Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)

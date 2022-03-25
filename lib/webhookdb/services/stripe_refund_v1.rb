@@ -22,16 +22,16 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "numeric"),
+      Webhookdb::Services::Column.new(:amount, "integer"),
       Webhookdb::Services::Column.new(:balance_transaction, "text"),
       Webhookdb::Services::Column.new(:charge, "text"),
-      Webhookdb::Services::Column.new(:created, "integer"),
+      Webhookdb::Services::Column.new(:created, "timestamptz"),
       Webhookdb::Services::Column.new(:payment_intent, "text"),
       Webhookdb::Services::Column.new(:receipt_number, "text"),
       Webhookdb::Services::Column.new(:source_transfer_reversal, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
       Webhookdb::Services::Column.new(:transfer_reversal, "text"),
-      Webhookdb::Services::Column.new(:updated, "integer"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz"),
     ]
   end
 
@@ -46,13 +46,13 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
       amount: obj_of_interest.fetch("amount"),
       balance_transaction: obj_of_interest.fetch("balance_transaction"),
       charge: obj_of_interest.fetch("charge"),
-      created: obj_of_interest.fetch("created"),
+      created: self.tsat(obj_of_interest.fetch("created")),
       payment_intent: obj_of_interest.fetch("payment_intent"),
       receipt_number: obj_of_interest.fetch("receipt_number"),
       source_transfer_reversal: obj_of_interest.fetch("source_transfer_reversal"),
       status: obj_of_interest.fetch("status"),
       transfer_reversal: obj_of_interest.fetch("transfer_reversal"),
-      updated:,
+      updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
   end

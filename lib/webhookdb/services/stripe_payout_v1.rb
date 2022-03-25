@@ -22,17 +22,17 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "numeric"),
-      Webhookdb::Services::Column.new(:arrival_date, "integer"),
+      Webhookdb::Services::Column.new(:amount, "integer"),
+      Webhookdb::Services::Column.new(:arrival_date, "timestamptz"),
       Webhookdb::Services::Column.new(:balance_transaction, "text"),
-      Webhookdb::Services::Column.new(:created, "integer"),
+      Webhookdb::Services::Column.new(:created, "timestamptz"),
       Webhookdb::Services::Column.new(:destination, "text"),
       Webhookdb::Services::Column.new(:failure_balance_transaction, "text"),
       Webhookdb::Services::Column.new(:original_payout, "text"),
       Webhookdb::Services::Column.new(:reversed_by, "text"),
       Webhookdb::Services::Column.new(:statement_descriptor, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:updated, "integer"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz"),
     ]
   end
 
@@ -45,16 +45,16 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
     return {
       data: obj_of_interest.to_json,
       amount: obj_of_interest.fetch("amount"),
-      arrival_date: obj_of_interest.fetch("arrival_date"),
+      arrival_date: self.tsat(obj_of_interest.fetch("arrival_date")),
       balance_transaction: obj_of_interest.fetch("balance_transaction"),
-      created: obj_of_interest.fetch("created"),
+      created: self.tsat(obj_of_interest.fetch("created")),
       destination: obj_of_interest.fetch("destination"),
       failure_balance_transaction: obj_of_interest.fetch("failure_balance_transaction"),
       original_payout: obj_of_interest.fetch("original_payout"),
       reversed_by: obj_of_interest.fetch("reversed_by"),
       statement_descriptor: obj_of_interest.fetch("statement_descriptor"),
       status: obj_of_interest.fetch("status"),
-      updated:,
+      updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
   end

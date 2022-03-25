@@ -19,6 +19,13 @@ class Webhookdb::Services::Base
     return self.service_integration.table_name.to_sym
   end
 
+  # Time.at(t), but nil if t is nil.
+  # Use when we have 'nullable' integer timestamps.
+  protected def tsat(t)
+    return nil if t.nil?
+    return Time.at(t)
+  end
+
   # Return a [status, headers, body] triple of the response for the webhook.
   # By default, if the webhook is not verified, we return a 401, otherwise we return success.
   # If the webhook needs extra validation or behavior (like Twilio requires special headers),
