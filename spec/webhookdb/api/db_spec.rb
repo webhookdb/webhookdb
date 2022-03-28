@@ -192,5 +192,13 @@ RSpec.describe Webhookdb::API::Db, :db do
       expect(last_response).to have_json_body.
         that_includes(message: start_with("CREATE EXTENSION").and(end_with("vw;\n")))
     end
+
+    it "also works from the legacy URL" do
+      post "/v1/organizations/#{org.key}/fdw", message_fdw: true, **params
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(message: start_with("CREATE EXTENSION").and(end_with("vw;\n")))
+    end
   end
 end

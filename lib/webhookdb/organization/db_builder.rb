@@ -211,6 +211,8 @@ class Webhookdb::Organization::DbBuilder
     local_schema:,
     view_schema:
   )
+    raise ArgumentError, "no arg can be blank" if
+      [remote_server_name, fetch_size, local_schema, view_schema].any?(&:blank?)
     conn = URI(@org.readonly_connection_url)
     fdw_sql = <<~FDW_SERVER
       CREATE EXTENSION IF NOT EXISTS postgres_fdw;

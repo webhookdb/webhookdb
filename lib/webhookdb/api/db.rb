@@ -6,6 +6,37 @@ require "webhookdb/api"
 require "webhookdb/services"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
+  helpers do
+    params :fdw do
+      optional :message_fdw, type: Boolean
+      optional :message_views, type: Boolean
+      optional :message_all, type: Boolean
+      requires :remote_server_name, type: String
+      requires :fetch_size, type: String
+      requires :local_schema, type: String
+      requires :view_schema, type: String
+    end
+
+    def run_fdw
+      org = lookup_org!
+      resp = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
+        remote_server_name: params[:remote_server_name],
+        fetch_size: params[:fetch_size],
+        local_schema: params[:local_schema],
+        view_schema: params[:view_schema],
+      )
+      resp[:message] = if params[:message_fdw]
+                         resp[:fdw_sql]
+      elsif params[:message_views]
+        resp[:views_sql]
+      else
+        resp[:compound_sql]
+      end
+      status 200
+      present resp
+    end
+  end
+
   resource :db do
     route_param :org_identifier, type: String do
       desc "Returns the connection string"
@@ -81,31 +112,20 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       end
 
       params do
-        optional :message_fdw, type: Boolean
-        optional :message_views, type: Boolean
-        optional :message_all, type: Boolean
-        requires :remote_server_name, type: String
-        requires :fetch_size, type: String
-        requires :local_schema, type: String
-        requires :view_schema, type: String
+        use :fdw
       end
       post :fdw do
-        org = lookup_org!
-        resp = Webhookdb::Organization::DbBuilder.new(org).generate_fdw_payload(
-          remote_server_name: params[:remote_server_name],
-          fetch_size: params[:fetch_size],
-          local_schema: params[:local_schema],
-          view_schema: params[:view_schema],
-        )
-        resp[:message] = if params[:message_fdw]
-                           resp[:fdw_sql]
-        elsif params[:message_views]
-          resp[:views_sql]
-        else
-          resp[:compound_sql]
-        end
-        status 200
-        present resp
+        run_fdw
+      end
+    end
+  end
+
+  resource :organizations do
+    route_param :org_identifier, type: String do
+      # See https://github.com/lithictech/webhookdb-api/issues/286
+      desc "DEPRECATED: Use /v1/db/:key/fdw instead"
+      post :fdw do
+        run_fdw
       end
     end
   end
