@@ -164,15 +164,14 @@ RSpec.describe Webhookdb::Services::Fake, :db do
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
         fake.define_singleton_method(:_denormalized_columns) do
           [
-            Webhookdb::Services::Column.new(:c2, "timestamptz"),
+            Webhookdb::Services::Column.new(:c2, "timestamptz", index: true),
             Webhookdb::Services::Column.new(:c3, "date"),
-            Webhookdb::Services::Column.new(:c4, "text"),
+            Webhookdb::Services::Column.new(:c4, "text", index: true),
           ]
         end
         expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD "c2" timestamptz ;
 CREATE INDEX IF NOT EXISTS c2_idx ON #{fake.table_sym} ("c2");
 ALTER TABLE #{fake.table_sym} ADD "c3" date ;
-CREATE INDEX IF NOT EXISTS c3_idx ON #{fake.table_sym} ("c3");
 ALTER TABLE #{fake.table_sym} ADD "c4" text ;
 CREATE INDEX IF NOT EXISTS c4_idx ON #{fake.table_sym} ("c4");})
         fake.ensure_all_columns

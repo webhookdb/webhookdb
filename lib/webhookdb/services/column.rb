@@ -5,15 +5,21 @@ class Webhookdb::Services::Column
   attr_reader :name
   # @return [String]
   attr_reader :type
-  # @return [String]
-  attr_reader :modifiers
+  # @return [Boolean]
+  attr_reader :index
+  alias index? index
 
-  def initialize(name, type, modifiers=nil)
+  def initialize(name, type, index: false)
     raise ArgumentError, "name must be a symbol" unless name.is_a?(Symbol)
     raise ArgumentError, "type must be a string" unless type.is_a?(String)
-    raise ArgumentError, "modifiers must be a string" unless modifiers.nil? || modifiers.is_a?(String)
     @name = name
     @type = type
-    @modifiers = modifiers || ""
+    @index = index
+  end
+
+  # Modifier string for a column, like 'NOT NULL', etc.
+  # @return [String]
+  def modifiers
+    return ""
   end
 end

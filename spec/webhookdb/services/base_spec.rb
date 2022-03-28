@@ -20,12 +20,14 @@ RSpec.describe Webhookdb::Services::Base, :db do
       S
     end
 
-    it "denormalizes and indexes denormalized columns" do
+    it "denormalizes and indexes denormalized columns that specify they should be indexed" do
       test_svc_cls = Class.new(svc_cls) do
         def _denormalized_columns
           return [
-            Webhookdb::Services::Column.new(:denorm1, "text"),
+            Webhookdb::Services::Column.new(:denorm1, "text", index: true),
             Webhookdb::Services::Column.new(:denorm2, "int"),
+            Webhookdb::Services::Column.new(:denorm3, "int", index: true),
+            Webhookdb::Services::Column.new(:denorm4, "int", index: false),
           ]
         end
       end
@@ -36,10 +38,12 @@ RSpec.describe Webhookdb::Services::Base, :db do
           "remotecol" text UNIQUE NOT NULL,
           "denorm1" text ,
           "denorm2" int ,
+          "denorm3" int ,
+          "denorm4" int ,
           data jsonb NOT NULL
         );
         CREATE INDEX IF NOT EXISTS denorm1_idx ON mytbl ("denorm1");
-        CREATE INDEX IF NOT EXISTS denorm2_idx ON mytbl ("denorm2");
+        CREATE INDEX IF NOT EXISTS denorm3_idx ON mytbl ("denorm3");
       S
     end
 

@@ -118,7 +118,7 @@ class Webhookdb::Services::Base
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
     lines << "  data jsonb NOT NULL"
     lines << ");"
-    denormalized_columns.each do |col|
+    denormalized_columns.filter(&:index?).each do |col|
       lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
     end
     if (enrichment_sql = self._create_enrichment_tables_sql).present?
@@ -179,7 +179,8 @@ class Webhookdb::Services::Base
         # Don't bother bulking the ADDs into a single ALTER TABLE,
         # it won't really matter.
         lines << "ALTER TABLE #{tbl} ADD \"#{col.name}\" #{col.type} #{col.modifiers};"
-        lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
+        lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");" if
+          col.index?
       end
       return lines.join("\n")
     end
