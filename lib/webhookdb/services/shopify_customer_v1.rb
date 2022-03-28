@@ -22,15 +22,15 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:email, "text"),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:email, "text", index: true),
       Webhookdb::Services::Column.new(:first_name, "text"),
       Webhookdb::Services::Column.new(:last_name, "text"),
       Webhookdb::Services::Column.new(:last_order_id, "text"),
       Webhookdb::Services::Column.new(:last_order_name, "text"),
-      Webhookdb::Services::Column.new(:phone, "text"),
+      Webhookdb::Services::Column.new(:phone, "text", index: true),
       Webhookdb::Services::Column.new(:state, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
     ]
   end
 

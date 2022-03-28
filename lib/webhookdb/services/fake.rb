@@ -75,7 +75,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:at, "timestamptz"),
+      Webhookdb::Services::Column.new(:at, "timestamptz", index: true),
     ]
   end
 

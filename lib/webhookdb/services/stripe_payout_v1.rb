@@ -22,17 +22,17 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer"),
-      Webhookdb::Services::Column.new(:arrival_date, "timestamptz"),
-      Webhookdb::Services::Column.new(:balance_transaction, "text"),
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:destination, "text"),
-      Webhookdb::Services::Column.new(:failure_balance_transaction, "text"),
-      Webhookdb::Services::Column.new(:original_payout, "text"),
-      Webhookdb::Services::Column.new(:reversed_by, "text"),
+      Webhookdb::Services::Column.new(:amount, "integer", index: true),
+      Webhookdb::Services::Column.new(:arrival_date, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:balance_transaction, "text", index: true),
+      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:destination, "text", index: true),
+      Webhookdb::Services::Column.new(:failure_balance_transaction, "text", index: true),
+      Webhookdb::Services::Column.new(:original_payout, "text", index: true),
+      Webhookdb::Services::Column.new(:reversed_by, "text", index: true),
       Webhookdb::Services::Column.new(:statement_descriptor, "text"),
       Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
     ]
   end
 

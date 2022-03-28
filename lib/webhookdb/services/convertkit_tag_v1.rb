@@ -35,8 +35,8 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:name, "text"),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:name, "text", index: true),
       Webhookdb::Services::Column.new(:total_subscriptions, "integer"),
     ]
   end

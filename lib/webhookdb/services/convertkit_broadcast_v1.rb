@@ -36,7 +36,7 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:click_rate, "numeric"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:open_rate, "numeric"),
       Webhookdb::Services::Column.new(:progress, "numeric"),
       Webhookdb::Services::Column.new(:recipients, "integer"),

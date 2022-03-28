@@ -39,17 +39,17 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:author, "text"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:duration, "integer"),
       Webhookdb::Services::Column.new(:keywords, "text"),
-      Webhookdb::Services::Column.new(:number, "integer"),
-      Webhookdb::Services::Column.new(:published_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:season, "integer"),
+      Webhookdb::Services::Column.new(:number, "integer", index: true),
+      Webhookdb::Services::Column.new(:published_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:season, "integer", index: true),
       Webhookdb::Services::Column.new(:status, "text"),
       Webhookdb::Services::Column.new(:title, "text"),
-      Webhookdb::Services::Column.new(:show_id, "text"),
+      Webhookdb::Services::Column.new(:show_id, "text", index: true),
       Webhookdb::Services::Column.new(:type, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
     ]
   end
 

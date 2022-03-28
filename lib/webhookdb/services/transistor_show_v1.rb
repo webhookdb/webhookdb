@@ -27,11 +27,11 @@ class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:author, "text"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:description, "text"),
       Webhookdb::Services::Column.new(:title, "text"),
       Webhookdb::Services::Column.new(:website, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
     ]
   end
 

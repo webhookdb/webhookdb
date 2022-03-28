@@ -22,11 +22,11 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:account_id, "text"),
-      Webhookdb::Services::Column.new(:amount, "numeric"),
-      Webhookdb::Services::Column.new(:date, "date"),
-      Webhookdb::Services::Column.new(:route_id, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:account_id, "text", index: true),
+      Webhookdb::Services::Column.new(:amount, "numeric", index: true),
+      Webhookdb::Services::Column.new(:date, "date", index: true),
+      Webhookdb::Services::Column.new(:route_id, "text", index: true),
+      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
     ]
   end
 

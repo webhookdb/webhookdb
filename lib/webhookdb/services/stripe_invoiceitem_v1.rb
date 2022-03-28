@@ -22,20 +22,20 @@ class Webhookdb::Services::StripeInvoiceitemV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer"),
-      Webhookdb::Services::Column.new(:customer, "text"),
-      Webhookdb::Services::Column.new(:date, "timestamptz"),
+      Webhookdb::Services::Column.new(:amount, "integer", index: true),
+      Webhookdb::Services::Column.new(:customer, "text", index: true),
+      Webhookdb::Services::Column.new(:date, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:description, "text"),
-      Webhookdb::Services::Column.new(:invoice, "text"),
-      Webhookdb::Services::Column.new(:period_end, "timestamptz"),
-      Webhookdb::Services::Column.new(:period_start, "timestamptz"),
-      Webhookdb::Services::Column.new(:price, "text"),
-      Webhookdb::Services::Column.new(:product, "text"),
-      Webhookdb::Services::Column.new(:subscription, "text"),
-      Webhookdb::Services::Column.new(:subscription_item, "text"),
+      Webhookdb::Services::Column.new(:invoice, "text", index: true),
+      Webhookdb::Services::Column.new(:period_end, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:period_start, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:price, "text", index: true),
+      Webhookdb::Services::Column.new(:product, "text", index: true),
+      Webhookdb::Services::Column.new(:subscription, "text", index: true),
+      Webhookdb::Services::Column.new(:subscription_item, "text", index: true),
       Webhookdb::Services::Column.new(:quantity, "integer"),
       Webhookdb::Services::Column.new(:unit_amount, "integer"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
     ]
   end
 

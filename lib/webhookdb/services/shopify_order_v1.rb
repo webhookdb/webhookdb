@@ -23,19 +23,19 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:app_id, "text"),
-      Webhookdb::Services::Column.new(:cancelled_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:cancelled_at, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:cart_token, "text"),
       Webhookdb::Services::Column.new(:checkout_token, "text"),
-      Webhookdb::Services::Column.new(:closed_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:customer_id, "text"),
-      Webhookdb::Services::Column.new(:email, "text"),
+      Webhookdb::Services::Column.new(:closed_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:customer_id, "text", index: true),
+      Webhookdb::Services::Column.new(:email, "text", index: true),
       Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:order_number, "integer"),
-      Webhookdb::Services::Column.new(:phone, "text"),
+      Webhookdb::Services::Column.new(:order_number, "integer", index: true),
+      Webhookdb::Services::Column.new(:phone, "text", index: true),
       Webhookdb::Services::Column.new(:token, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:user_id, "text"),
+      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:user_id, "text", index: true),
     ]
   end
 

@@ -22,12 +22,12 @@ class Webhookdb::Services::StripeSubscriptionItemV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:price, "text"),
-      Webhookdb::Services::Column.new(:product, "text"),
+      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:price, "text", index: true),
+      Webhookdb::Services::Column.new(:product, "text", index: true),
       Webhookdb::Services::Column.new(:quantity, "integer"),
-      Webhookdb::Services::Column.new(:subscription, "text"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:subscription, "text", index: true),
+      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
     ]
   end
 

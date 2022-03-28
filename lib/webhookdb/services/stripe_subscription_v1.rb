@@ -22,24 +22,24 @@ class Webhookdb::Services::StripeSubscriptionV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:billing_cycle_anchor, "timestamptz"),
-      Webhookdb::Services::Column.new(:cancel_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:canceled_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:current_period_end, "timestamptz"),
-      Webhookdb::Services::Column.new(:current_period_start, "timestamptz"),
-      Webhookdb::Services::Column.new(:customer, "text"),
+      Webhookdb::Services::Column.new(:billing_cycle_anchor, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:cancel_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:canceled_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:current_period_end, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:current_period_start, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:customer, "text", index: true),
       Webhookdb::Services::Column.new(:default_payment_method, "text"),
       Webhookdb::Services::Column.new(:default_source, "text"),
-      Webhookdb::Services::Column.new(:discount, "text"),
-      Webhookdb::Services::Column.new(:ended_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:latest_invoice, "text"),
-      Webhookdb::Services::Column.new(:schedule, "text"),
-      Webhookdb::Services::Column.new(:start_date, "timestamptz"),
+      Webhookdb::Services::Column.new(:discount, "text", index: true),
+      Webhookdb::Services::Column.new(:ended_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:latest_invoice, "text", index: true),
+      Webhookdb::Services::Column.new(:schedule, "text", index: true),
+      Webhookdb::Services::Column.new(:start_date, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:status, "text"),
       Webhookdb::Services::Column.new(:trial_end, "timestamptz"),
       Webhookdb::Services::Column.new(:trial_start, "timestamptz"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
     ]
   end
 
