@@ -70,4 +70,14 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/payouts"
   end
+
+  def _mixin_event_type_names
+    return [
+      "payout.canceled",
+      "payout.created",
+      "payout.failed",
+      "payout.paid",
+      "payout.updated",
+    ]
+  end
 end

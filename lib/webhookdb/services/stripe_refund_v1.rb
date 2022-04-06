@@ -68,4 +68,8 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/refunds"
   end
+
+  def _mixin_event_type_names
+    return ["charge.refund.updated"]
+  end
 end

@@ -60,4 +60,8 @@ class Webhookdb::Services::StripeSubscriptionItemV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/subscription_items"
   end
+
+  def _mixin_event_type_names
+    return []
+  end
 end

@@ -31,6 +31,12 @@ module Webhookdb::Services::StripeV1Mixin
     raise NotImplementedError
   end
 
+  # this array describes which event this webhook should subscribe to
+  # https://stripe.com/docs/api/events/types
+  def _mixin_event_type_names
+    raise NotImplementedError
+  end
+
   def webhook_response(request)
     return Webhookdb::Stripe.webhook_response(request, self.service_integration.webhook_secret)
   end
@@ -44,7 +50,8 @@ We've made an endpoint available for #{self._mixin_name_singular} webhooks:
 #{self._webhook_endpoint}
 
 From your Stripe Dashboard, go to Developers -> Webhooks -> Add Endpoint.
-Use the URL above, and choose all of the Charge events.
+Use the URL above, and choose all of the following events:
+  #{self._mixin_event_type_names.join("\n  ")}
 Then click Add Endpoint.
 
 The page for the webhook will have a 'Signing Secret' section.

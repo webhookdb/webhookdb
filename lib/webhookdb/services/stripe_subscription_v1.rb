@@ -81,4 +81,15 @@ class Webhookdb::Services::StripeSubscriptionV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/subscriptions"
   end
+
+  def _mixin_event_type_names
+    return [
+      "customer.subscription.created",
+      "customer.subscription.deleted",
+      "customer.subscription.pending_update_applied",
+      "customer.subscription.pending_update_expired",
+      "customer.subscription.trial_will_end",
+      "customer.subscription.updated",
+    ]
+  end
 end

@@ -97,4 +97,22 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/invoices"
   end
+
+  def _mixin_event_type_names
+    return [
+      "invoice.created",
+      "invoice.deleted",
+      "invoice.finalization_failed",
+      "invoice.finalized",
+      "invoice.marked_uncollectible",
+      "invoice.paid",
+      "invoice.payment_action_required",
+      "invoice.payment_failed",
+      "invoice.payment_succeeded",
+      "invoice.sent",
+      "invoice.upcoming",
+      "invoice.updated",
+      "invoice.voided",
+    ]
+  end
 end

@@ -68,4 +68,16 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
   def _mixin_backfill_url
     return "https://api.stripe.com/v1/charges"
   end
+
+  def _mixin_event_type_names
+    return [
+      "charge.captured",
+      "charge.expired",
+      "charge.failed",
+      "charge.pending",
+      "charge.refunded",
+      "charge.succeeded",
+      "charge.updated",
+    ]
+  end
 end
