@@ -50,11 +50,11 @@ class Webhookdb::Services::StripeSubscriptionItemV1 < Webhookdb::Services::Base
   end
 
   def _mixin_name_singular
-    return "Stripe Subscription_item"
+    return "Stripe Subscription Item"
   end
 
   def _mixin_name_plural
-    return "Stripe Subscription_items"
+    return "Stripe Subscription Items"
   end
 
   def _mixin_backfill_url

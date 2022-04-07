@@ -520,7 +520,7 @@ RSpec.describe Webhookdb::Services::StripeSubscriptionItemV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("We've made an endpoint available for Stripe Subscription_item webhooks:"),
+          output: match("We've made an endpoint available for Stripe Subscription Item webhooks:"),
         )
       end
 
@@ -533,7 +533,7 @@ RSpec.describe Webhookdb::Services::StripeSubscriptionItemV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! WebhookDB is now listening for Stripe Subscription_item webhooks."),
+          output: match("Great! WebhookDB is now listening for Stripe Subscription Item webhooks."),
         )
       end
     end
@@ -563,7 +563,7 @@ RSpec.describe Webhookdb::Services::StripeSubscriptionItemV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Stripe Subscription_items, we need an API key."),
+          output: match("In order to backfill Stripe Subscription Items, we need an API key."),
         )
       end
 
@@ -578,7 +578,7 @@ RSpec.describe Webhookdb::Services::StripeSubscriptionItemV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Stripe Subscription_items."),
+          output: match("Great! We are going to start backfilling your Stripe Subscription Items."),
         )
       end
     end

@@ -12,7 +12,7 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
     return Webhookdb::Services::Descriptor.new(
       name: "stripe_refund_v1",
       ctor: ->(sint) { Webhookdb::Services::StripeRefundV1.new(sint) },
-      feature_roles: [],
+      feature_roles: ["beta"],
     )
   end
 

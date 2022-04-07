@@ -61,8 +61,12 @@ require "webhookdb/services/increase_transaction_v1"
 require "webhookdb/services/shopify_customer_v1"
 require "webhookdb/services/shopify_order_v1"
 require "webhookdb/services/stripe_charge_v1"
+require "webhookdb/services/stripe_coupon_v1"
 require "webhookdb/services/stripe_customer_v1"
+require "webhookdb/services/stripe_dispute_v1"
 require "webhookdb/services/stripe_payout_v1"
+require "webhookdb/services/stripe_price_v1"
+require "webhookdb/services/stripe_product_v1"
 require "webhookdb/services/stripe_refund_v1"
 require "webhookdb/services/stripe_subscription_v1"
 require "webhookdb/services/stripe_subscription_item_v1"
@@ -81,8 +85,12 @@ Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeCouponV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeDisputeV1)
 Webhookdb::Services.register(Webhookdb::Services::StripePayoutV1)
+Webhookdb::Services.register(Webhookdb::Services::StripePriceV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeProductV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionItemV1)
