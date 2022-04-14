@@ -24,13 +24,4 @@ module Webhookdb::Platform
     values = HEADERS.map { |h| env[h] }
     return values.find(&:present?) || ""
   end
-
-  # Return the 'break program' string to present to the user.
-  # This should be Cmd+C on Mac and Ctrl+C otherwise.
-  # In the future we can differentiate.
-  def self.shortcut_ctrlc(env)
-    user_agents = HEADERS.map { |h| env[h] || "" }
-    any_mac = user_agents.map(&:downcase).any? { |s| s.include?("mac os") || s.include?("darwin") }
-    return any_mac ? "Cmd+C" : "Ctrl+C"
-  end
 end
