@@ -38,17 +38,10 @@ class Webhookdb::Services::IncreaseACHTransferV1 < Webhookdb::Services::Base
   end
 
   def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest = Webhookdb::Increase.find_desired_object_data(body)
-    return nil unless Webhookdb::Increase.contains_desired_object(obj_of_interest, "ach_transfer")
-
-    updated = if body.key?("event")
-                # i.e. if this is a webhook
-                body["created_at"]
-    else
-      obj_of_interest["created_at"]
-              end
-
+    return nil unless Webhookdb::Increase.contains_desired_object(body, "ach_transfer")
+    obj_of_interest, updated = self._extract_obj_and_updated(body)
     return {
+      data: obj_of_interest.to_json,
       account_number: obj_of_interest.fetch("account_number"),
       account_id: obj_of_interest.fetch("account_id"),
       amount: obj_of_interest.fetch("amount"),

@@ -430,6 +430,148 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
     let(:expected_new_data) { new_body["data"]["object"] }
   end
 
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_charge_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "ch_1IkvozFFYxHXGyKxDwTuyLZq",
+              "object": "charge",
+              "amount": 888,
+              "amount_captured": 888,
+              "amount_refunded": 0,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_1IkvozFFYxHXGyKxgxXkVSPw",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": null,
+                "phone": null
+              },
+              "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
+              "captured": true,
+              "created": 1619548785,
+              "currency": "usd",
+              "description": "Example charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {
+              },
+              "livemode": false,
+              "metadata": {
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "risk_score": 20,
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
+              "payment_intent": null,
+              "payment_method": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+              "payment_method_details": {
+                "card": {
+                  "brand": "visa",
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2022,
+                  "fingerprint": "t6Eo2YGsl3ZPivuR",
+                  "funding": "credit",
+                  "installments": null,
+                  "last4": "4242",
+                  "network": "visa",
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
+              "receipt_number": null,
+              "receipt_url": "https://pay.stripe.com/receipts/acct_1F6kGvFFYxHXGyKx/ch_1IkvozFFYxHXGyKxDwTuyLZq/rcpt_JNhDs8y3JGTTzdhEAsp1sZNYC0l1dNm",
+              "refunded": false,
+              "refunds": {
+                "object": "list",
+                "data": [
+                ],
+                "has_more": false,
+                "total_count": 0,
+                "url": "/v1/charges/ch_1IkvozFFYxHXGyKxDwTuyLZq/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1IkvozFFYxHXGyKxpLVmZO9x",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": null,
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2022,
+                "fingerprint": "t6Eo2YGsl3ZPivuR",
+                "funding": "credit",
+                "last4": "4242",
+                "metadata": {
+                },
+                "name": null,
+                "tokenization_method": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
+              "status": "succeeded",
+              "transfer_data": null,
+              "transfer_group": null
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
@@ -1220,6 +1362,7 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
           with(headers: {"Authorization" => "Basic YmZrZXk6"}).to_return(status: 503, body: "went wrong")
     end
   end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_charge_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }

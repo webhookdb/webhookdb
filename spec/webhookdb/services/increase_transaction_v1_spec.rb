@@ -9,20 +9,36 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         {
           "event_id": "transaction_event_123",
           "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "id": "transaction_uyrp7fld2ium70oa7oi",
             "account_id": "account_in71c4amph0vgo2qllky",
             "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
+            "currency": "USD",
+            "created_at": "2020-01-31T23:59:59Z",
+            "description": "Frederick S. Holmes",
+            "id": "transaction_uyrp7fld2ium70oa7oi",
+            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+            "route_type": "account_number",
+            "source": {
+              "category": "inbound_ach_transfer",
+              "inbound_ach_transfer": {
+                "amount": 100,
+                "originator_company_name": "BIG BANK",
+                "originator_company_descriptive_date": null,
+                "originator_company_discretionary_data": null,
+                "originator_company_entry_description": "RESERVE",
+                "originator_company_id": "0987654321",
+                "receiver_id_number": "12345678900",
+                "receiver_name": "IAN CREASE",
+                "trace_number": "021000038461022"
+              }
+            },
+            "type": "transaction"
           }
         }
       J
     end
-    let(:expected_data) { body }
+    let(:expected_data) { body["data"] }
   end
 
   it_behaves_like "a service implementation that prevents overwriting new data with old", "increase_transaction_v1" do
@@ -33,14 +49,29 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "id": "transaction_uyrp7fld2ium70oa7oi",
             "account_id": "account_in71c4amph0vgo2qllky",
             "amount": 100,
-            "date": "2020-01-10",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
+            "currency": "USD",
+            "created_at": "2020-01-31T23:59:59Z",
+            "description": "Frederick S. Holmes",
+            "id": "transaction_uyrp7fld2ium70oa7oi",
+            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+            "route_type": "account_number",
+            "source": {
+              "category": "inbound_ach_transfer",
+              "inbound_ach_transfer": {
+                "amount": 100,
+                "originator_company_name": "BIG BANK",
+                "originator_company_descriptive_date": null,
+                "originator_company_discretionary_data": null,
+                "originator_company_entry_description": "RESERVE",
+                "originator_company_id": "0987654321",
+                "receiver_id_number": "12345678900",
+                "receiver_name": "IAN CREASE",
+                "trace_number": "021000038461022"
+              }
+            },
+            "type": "transaction"
           }
         }
       J
@@ -52,14 +83,70 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "event": "updated",
           "created_at": "2020-02-20T23:59:59Z",
           "data": {
-            "id": "transaction_uyrp7fld2ium70oa7oi",
             "account_id": "account_in71c4amph0vgo2qllky",
             "amount": 100,
-            "date": "2020-01-31",
-            "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-            "source": {}
+            "currency": "USD",
+            "created_at": "2020-01-31T23:59:59Z",
+            "description": "Frederick S. Holmes",
+            "id": "transaction_uyrp7fld2ium70oa7oi",
+            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+            "route_type": "account_number",
+            "source": {
+              "category": "inbound_ach_transfer",
+              "inbound_ach_transfer": {
+                "amount": 100,
+                "originator_company_name": "BIG BANK",
+                "originator_company_descriptive_date": null,
+                "originator_company_discretionary_data": null,
+                "originator_company_entry_description": "RESERVE",
+                "originator_company_id": "0987654321",
+                "receiver_id_number": "12345678900",
+                "receiver_name": "IAN CREASE",
+                "trace_number": "021000038461022"
+              }
+            },
+            "type": "transaction"
+          }
+        }
+      J
+    end
+    let(:expected_old_data) { old_body["data"] }
+    let(:expected_new_data) { new_body["data"] }
+  end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events",
+                  "increase_transaction_v1" do |_name|
+    let(:resource_json) { resource_in_envelope_json.fetch("data") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "event_id": "transaction_event_123",
+          "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
+          "data": {
+            "account_id": "account_in71c4amph0vgo2qllky",
+            "amount": 100,
+            "currency": "USD",
+            "created_at": "2020-01-31T23:59:59Z",
+            "description": "Frederick S. Holmes",
+            "id": "transaction_uyrp7fld2ium70oa7oi",
+            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+            "route_type": "account_number",
+            "source": {
+              "category": "inbound_ach_transfer",
+              "inbound_ach_transfer": {
+                "amount": 100,
+                "originator_company_name": "BIG BANK",
+                "originator_company_descriptive_date": null,
+                "originator_company_discretionary_data": null,
+                "originator_company_entry_description": "RESERVE",
+                "originator_company_id": "0987654321",
+                "receiver_id_number": "12345678900",
+                "receiver_name": "IAN CREASE",
+                "trace_number": "021000038461022"
+              }
+            },
+            "type": "transaction"
           }
         }
       J
@@ -88,6 +175,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         }
       R
     end
+
     def stub_service_request
       return stub_request(:get, "https://api.increase.com/transactions").
           with(headers: {"Authorization" => "Bearer bfkey"}).
@@ -113,24 +201,54 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         {
           "data": [
             {
-              "id": "transaction_uyrp7fld2ium70oa7oi",
               "account_id": "account_in71c4amph0vgo2qllky",
               "amount": 100,
-              "date": "2020-01-31",
-              "description": "Rent payment",
-              "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-              "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-              "source": {}
+              "currency": "USD",
+              "created_at": "2020-01-31T23:59:59Z",
+              "description": "Frederick S. Holmes",
+              "id": "transaction_uyrp7fld2ium70oa7oi",
+              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+              "route_type": "account_number",
+              "source": {
+                "category": "inbound_ach_transfer",
+                "inbound_ach_transfer": {
+                  "amount": 100,
+                  "originator_company_name": "BIG BANK",
+                  "originator_company_descriptive_date": null,
+                  "originator_company_discretionary_data": null,
+                  "originator_company_entry_description": "RESERVE",
+                  "originator_company_id": "0987654321",
+                  "receiver_id_number": "12345678900",
+                  "receiver_name": "IAN CREASE",
+                  "trace_number": "021000038461022"
+                }
+              },
+              "type": "transaction"
             },
             {
-              "id": "transaction_uyrp7fld2ium70oasdf",
               "account_id": "account_in71c4amph0vgo2qllky",
               "amount": 100,
-              "date": "2020-01-31",
-              "description": "Rent payment",
-              "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-              "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-              "source": {}
+              "currency": "USD",
+              "created_at": "2020-01-31T23:59:59Z",
+              "description": "Frederick S. Holmes",
+              "id": "transaction_uyrp7fld2ium70oasdf",
+              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+              "route_type": "account_number",
+              "source": {
+                "category": "inbound_ach_transfer",
+                "inbound_ach_transfer": {
+                  "amount": 100,
+                  "originator_company_name": "BIG BANK",
+                  "originator_company_descriptive_date": null,
+                  "originator_company_discretionary_data": null,
+                  "originator_company_entry_description": "RESERVE",
+                  "originator_company_id": "0987654321",
+                  "receiver_id_number": "12345678900",
+                  "receiver_name": "IAN CREASE",
+                  "trace_number": "021000038461022"
+                }
+              },
+              "type": "transaction"
             }
           ],
           "response_metadata": {
@@ -144,24 +262,54 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         {
           "data": [
             {
-              "id": "transaction_uyrp7fld2ium70oqwer",
               "account_id": "account_in71c4amph0vgo2qllky",
               "amount": 100,
-              "date": "2020-01-31",
-              "description": "Rent payment",
-              "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-              "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-              "source": {}
+              "currency": "USD",
+              "created_at": "2020-01-31T23:59:59Z",
+              "description": "Frederick S. Holmes",
+              "id": "transaction_uyrp7fld2ium70oqwer",
+              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+              "route_type": "account_number",
+              "source": {
+                "category": "inbound_ach_transfer",
+                "inbound_ach_transfer": {
+                  "amount": 100,
+                  "originator_company_name": "BIG BANK",
+                  "originator_company_descriptive_date": null,
+                  "originator_company_discretionary_data": null,
+                  "originator_company_entry_description": "RESERVE",
+                  "originator_company_id": "0987654321",
+                  "receiver_id_number": "12345678900",
+                  "receiver_name": "IAN CREASE",
+                  "trace_number": "021000038461022"
+                }
+              },
+              "type": "transaction"
             },
             {
-              "id": "transaction_uyrp7fld2ium70opoiu",
               "account_id": "account_in71c4amph0vgo2qllky",
               "amount": 100,
-              "date": "2020-01-31",
-              "description": "Rent payment",
-              "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-              "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-              "source": {}
+              "currency": "USD",
+              "created_at": "2020-01-31T23:59:59Z",
+              "description": "Frederick S. Holmes",
+              "id": "transaction_uyrp7fld2ium70opoiu",
+              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
+              "route_type": "account_number",
+              "source": {
+                "category": "inbound_ach_transfer",
+                "inbound_ach_transfer": {
+                  "amount": 100,
+                  "originator_company_name": "BIG BANK",
+                  "originator_company_descriptive_date": null,
+                  "originator_company_discretionary_data": null,
+                  "originator_company_entry_description": "RESERVE",
+                  "originator_company_id": "0987654321",
+                  "receiver_id_number": "12345678900",
+                  "receiver_name": "IAN CREASE",
+                  "trace_number": "021000038461022"
+                }
+              },
+              "type": "transaction"
             }
           ],
           "response_metadata": {
@@ -181,6 +329,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       R
     end
     let(:expected_items_count) { 4 }
+
     def stub_service_requests
       return [
         stub_request(:get, "https://api.increase.com/transactions").

@@ -138,6 +138,39 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   end
 end
 
+RSpec.shared_examples "a service implementation that deals with resources and wrapped events" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:resource_json) { raise NotImplementedError }
+  let(:resource_in_envelope_json) { raise NotImplementedError }
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "puts the raw resource in the data column" do
+    svc.create_table
+    svc.upsert_webhook(body: resource_json)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(resource_json)
+    end
+  end
+
+  it "puts the enveloped resource in the data column" do
+    svc.create_table
+    svc.upsert_webhook(body: resource_in_envelope_json)
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(resource_json)
+    end
+  end
+end
+
 RSpec.shared_examples "a service implementation that verifies backfill secrets" do
   let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
   let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }

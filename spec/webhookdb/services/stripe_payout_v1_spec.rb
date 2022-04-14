@@ -140,6 +140,54 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_payout_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "po_1KePqi2eZvKYlo2CvjD177tu",
+              "object": "payout",
+              "amount": 1100,
+              "arrival_date": 1647561600,
+              "automatic": true,
+              "balance_transaction": "txn_1032HU2eZvKYlo2CEPtcnUvl",
+              "created": 1647548588,
+              "currency": "usd",
+              "description": "STRIPE PAYOUT",
+              "destination": "ba_1KePqi2eZvKYlo2CMlXyFbrC",
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "livemode": false,
+              "metadata": {},
+              "method": "standard",
+              "original_payout": null,
+              "reversed_by": null,
+              "source_type": "card",
+              "statement_descriptor": null,
+              "status": "in_transit",
+              "type": "bank_account"#{'           '}
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

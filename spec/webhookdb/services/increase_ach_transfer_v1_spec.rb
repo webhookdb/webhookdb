@@ -9,6 +9,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
         {
           "event_id": "transfer_event_123",
           "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
           "data": {
             "account_number": "987654321",
             "account_id": "account_f654119657",
@@ -35,7 +36,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
+    let(:expected_data) { body["data"] }
   end
 
   it_behaves_like "a service implementation that prevents overwriting new data with old",
@@ -104,8 +105,45 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
         }
       J
     end
-    let(:expected_old_data) { old_body }
-    let(:expected_new_data) { new_body }
+    let(:expected_old_data) { old_body["data"] }
+    let(:expected_new_data) { new_body["data"] }
+  end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events",
+                  "increase_ach_transfer_v1" do |_name|
+    let(:resource_json) { resource_in_envelope_json.fetch("data") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "event_id": "transfer_event_123",
+          "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
+          "data": {
+            "account_number": "987654321",
+            "account_id": "account_566f1f672175",
+            "amount": 100,
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z",
+              "approved_by": "user@example.com"
+            },
+            "cancellation": {},
+            "created_at": "2020-01-31T23:59:59Z",
+            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "network": "ach",
+            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "return": {},
+            "routing_number": "123456789",
+            "statement_descriptor": "Statement descriptor",
+            "status": "returned",
+            "submission": {},
+            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "addendum": null,
+            "notification_of_change": null
+          }
+        }
+      J
+    end
   end
 
   it_behaves_like "a service implementation that verifies backfill secrets" do

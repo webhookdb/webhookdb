@@ -116,6 +116,46 @@ RSpec.describe Webhookdb::Services::StripeRefundV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_refund_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "re_3Ke0Br2eZvKYlo2C1MfCYAM9",
+              "object": "refund",
+              "amount": 100,
+              "balance_transaction": null,
+              "charge": "ch_3Ke0Br2eZvKYlo2C1xhyTWTu",
+              "created": 1647449957,
+              "currency": "usd",
+              "metadata": {},
+              "payment_intent": null,
+              "reason": null,
+              "receipt_number": null,
+              "source_transfer_reversal": null,
+              "status": "succeeded",
+              "transfer_reversal": null
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

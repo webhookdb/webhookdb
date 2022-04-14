@@ -122,6 +122,48 @@ RSpec.describe Webhookdb::Services::StripeProductV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_product_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "prod_LO4MlEyQQXRsnE",
+              "object": "product",
+              "active": true,
+              "created": 1648234242,
+              "description": null,
+              "images": [],
+              "livemode": false,
+              "metadata": {},
+              "name": "T-shirt",
+              "package_dimensions": null,
+              "shippable": null,
+              "statement_descriptor": null,
+              "tax_code": null,
+              "unit_label": null,
+              "updated": 1648234242,
+              "url": null
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

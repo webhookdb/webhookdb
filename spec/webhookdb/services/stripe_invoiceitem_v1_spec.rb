@@ -203,6 +203,75 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_invoiceitem_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "ii_1Kgsrk2eZvKYlo2CiGktuBwD",
+              "object": "invoiceitem",
+              "amount": 399,
+              "currency": "usd",
+              "customer": "cus_AJ6yJU3BibDjl9",
+              "date": 1648136784,
+              "description": "My First Invoice Item (created for API docs)",
+              "discountable": true,
+              "discounts": [],
+              "invoice": null,
+              "livemode": false,
+              "metadata": {},
+              "period": {
+                "end": 1648136784,
+                "start": 1648136784
+              },
+              "price": {
+                "id": "price_1KgsXf2eZvKYlo2CRONAcNsK",
+                "object": "price",
+                "active": true,
+                "billing_scheme": "per_unit",
+                "created": 1648135539,
+                "currency": "usd",
+                "livemode": false,
+                "lookup_key": null,
+                "metadata": {},
+                "nickname": null,
+                "product": "prod_LNdpykdq5QWGY7",
+                "recurring": null,
+                "tax_behavior": "unspecified",
+                "tiers_mode": null,
+                "transform_quantity": null,
+                "type": "one_time",
+                "unit_amount": 399,
+                "unit_amount_decimal": "399"
+              },
+              "proration": false,
+              "quantity": 1,
+              "subscription": null,
+              "tax_rates": [],
+              "test_clock": null,
+              "unit_amount": 399,
+              "unit_amount_decimal": "399"
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

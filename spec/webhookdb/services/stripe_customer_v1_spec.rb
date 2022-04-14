@@ -345,6 +345,60 @@ RSpec.describe Webhookdb::Services::StripeCustomerV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_customer_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "cus_4QE4N83DfMpDkX",
+              "object": "customer",
+              "address": null,
+              "balance": 0,
+              "created": 1405637071,
+              "currency": "usd",
+              "default_source": "card_14HNc22eZvKYlo2CeBayYgyR",
+              "delinquent": true,
+              "description": "someone@example.com for Coderwall",
+              "discount": null,
+              "email": null,
+              "invoice_prefix": "1F558E3",
+              "invoice_settings": {
+                "custom_fields": null,
+                "default_payment_method": null,
+                "footer": null
+              },
+              "livemode": false,
+              "metadata": {
+                "order_id": "6735"
+              },
+              "name": null,
+              "next_invoice_sequence": 193505,
+              "phone": null,
+              "preferred_locales": [],
+              "shipping": null,
+              "tax_exempt": "none",
+              "test_clock": null
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

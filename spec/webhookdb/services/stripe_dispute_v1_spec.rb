@@ -218,6 +218,80 @@ RSpec.describe Webhookdb::Services::StripeDisputeV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_dispute_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "dp_1KhG8T2eZvKYlo2CgrTuE4k8",
+              "object": "dispute",
+              "amount": 1000,
+              "balance_transactions": [],
+              "charge": "ch_1AZtxr2eZvKYlo2CJDX8whov",
+              "created": 1648226233,
+              "currency": "usd",
+              "evidence": {
+                "access_activity_log": null,
+                "billing_address": null,
+                "cancellation_policy": null,
+                "cancellation_policy_disclosure": null,
+                "cancellation_rebuttal": null,
+                "customer_communication": null,
+                "customer_email_address": null,
+                "customer_name": null,
+                "customer_purchase_ip": null,
+                "customer_signature": null,
+                "duplicate_charge_documentation": null,
+                "duplicate_charge_explanation": null,
+                "duplicate_charge_id": null,
+                "product_description": null,
+                "receipt": null,
+                "refund_policy": null,
+                "refund_policy_disclosure": null,
+                "refund_refusal_explanation": null,
+                "service_date": null,
+                "service_documentation": null,
+                "shipping_address": null,
+                "shipping_carrier": null,
+                "shipping_date": null,
+                "shipping_documentation": null,
+                "shipping_tracking_number": null,
+                "uncategorized_file": null,
+                "uncategorized_text": null
+              },
+              "evidence_details": {
+                "due_by": 1649894399,
+                "has_evidence": false,
+                "past_due": false,
+                "submission_count": 0
+              },
+              "is_charge_refundable": true,
+              "livemode": false,
+              "metadata": {},
+              "payment_intent": null,
+              "reason": "general",
+              "status": "warning_needs_response"
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

@@ -174,6 +174,66 @@ RSpec.describe Webhookdb::Services::StripeSubscriptionItemV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events",
+                  "stripe_subscription_item_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "si_LNJcMutBIKLrkc",
+              "object": "subscription_item",
+              "billing_thresholds": null,
+              "created": 1648060399,
+              "metadata": {},
+              "price": {
+                "id": "price_1Kg8rz2eZvKYlo2CnvTeODfY",
+                "object": "price",
+                "active": true,
+                "billing_scheme": "per_unit",
+                "created": 1647959975,
+                "currency": "usd",
+                "livemode": false,
+                "lookup_key": null,
+                "metadata": {},
+                "nickname": null,
+                "product": "prod_LMsbx44Noz4iFD",
+                "recurring": {
+                  "aggregate_usage": null,
+                  "interval": "month",
+                  "interval_count": 1,
+                  "usage_type": "licensed"
+                },
+                "tax_behavior": "unspecified",
+                "tiers_mode": null,
+                "transform_quantity": null,
+                "type": "recurring",
+                "unit_amount": 32200,
+                "unit_amount_decimal": "32200"
+              },
+              "quantity": 1,
+              "subscription": "sub_1KgYzi2eZvKYlo2CCpsxYhUl",
+              "tax_rates": []
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

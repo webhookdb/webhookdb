@@ -467,6 +467,163 @@ RSpec.describe Webhookdb::Services::StripeInvoiceV1, :db do
     let(:expected_old_data) { old_body["data"]["object"] }
     let(:expected_new_data) { new_body["data"]["object"] }
   end
+
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_invoice_v1" do
+    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_in_envelope_json) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "object": "event",
+          "api_version": "2018-05-21",
+          "created": 1530291411,
+          "data": {
+            "object": {
+              "id": "in_1KeQYU2eZvKYlo2CIgl90FWy",
+              "object": "invoice",
+              "account_country": "US",
+              "account_name": "Stripe.com",
+              "account_tax_ids": null,
+              "amount_due": 10000,
+              "amount_paid": 0,
+              "amount_remaining": 10000,
+              "application_fee_amount": null,
+              "attempt_count": 0,
+              "attempted": false,
+              "auto_advance": true,
+              "automatic_tax": {
+                "enabled": false,
+                "status": null
+              },
+              "billing_reason": "manual",
+              "charge": null,
+              "collection_method": "charge_automatically",
+              "created": 1647551302,
+              "currency": "usd",
+              "custom_fields": null,
+              "customer": "cus_LL6mM3Wpihv4os",
+              "customer_address": null,
+              "customer_email": "jayne_cassin@example.com",
+              "customer_name": null,
+              "customer_phone": null,
+              "customer_shipping": null,
+              "customer_tax_exempt": "none",
+              "customer_tax_ids": [],
+              "default_payment_method": null,
+              "default_source": null,
+              "default_tax_rates": [],
+              "description": null,
+              "discount": null,
+              "discounts": [],
+              "due_date": null,
+              "ending_balance": null,
+              "footer": null,
+              "hosted_invoice_url": null,
+              "invoice_pdf": null,
+              "last_finalization_error": null,
+              "lines": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "il_1KeQYU2eZvKYlo2CJeXl4hu7",
+                    "object": "line_item",
+                    "amount": 10000,
+                    "currency": "usd",
+                    "description": "My First Invoice Item (created for API docs)",
+                    "discount_amounts": [],
+                    "discountable": true,
+                    "discounts": [],
+                    "invoice_item": "ii_1KeQYU2eZvKYlo2CPo9dZfkO",
+                    "livemode": false,
+                    "metadata": {},
+                    "period": {
+                      "end": 1647551302,
+                      "start": 1647551302
+                    },
+                    "price": {
+                      "id": "price_1KeNVd2eZvKYlo2Cw3Ur2S4q",
+                      "object": "price",
+                      "active": true,
+                      "billing_scheme": "per_unit",
+                      "created": 1647539593,
+                      "currency": "usd",
+                      "livemode": false,
+                      "lookup_key": null,
+                      "metadata": {},
+                      "nickname": null,
+                      "product": "prod_LL3chB5YcjaLlR",
+                      "recurring": null,
+                      "tax_behavior": "unspecified",
+                      "tiers_mode": null,
+                      "transform_quantity": null,
+                      "type": "one_time",
+                      "unit_amount": 10000,
+                      "unit_amount_decimal": "10000"
+                    },
+                    "proration": false,
+                    "proration_details": {
+                      "credited_items": null
+                    },
+                    "quantity": 1,
+                    "subscription": null,
+                    "tax_amounts": [],
+                    "tax_rates": [],
+                    "type": "invoiceitem"
+                  }
+                ],
+                "has_more": false,
+                "url": "/v1/invoices/in_1KeQYU2eZvKYlo2CIgl90FWy/lines"
+              },
+              "livemode": false,
+              "metadata": {},
+              "next_payment_attempt": 1647554902,
+              "number": "8EB2541-DRAFT",
+              "on_behalf_of": null,
+              "paid": false,
+              "paid_out_of_band": false,
+              "payment_intent": null,
+              "payment_settings": {
+                "payment_method_options": null,
+                "payment_method_types": null
+              },
+              "period_end": 1647551302,
+              "period_start": 1647551302,
+              "post_payment_credit_notes_amount": 0,
+              "pre_payment_credit_notes_amount": 0,
+              "quote": null,
+              "receipt_number": null,
+              "starting_balance": 0,
+              "statement_descriptor": null,
+              "status": "draft",
+              "status_transitions": {
+                "finalized_at": null,
+                "marked_uncollectible_at": null,
+                "paid_at": null,
+                "voided_at": null
+              },
+              "subscription": null,
+              "subtotal": 10000,
+              "tax": null,
+              "test_clock": null,
+              "total": 10000,
+              "total_discount_amounts": [],
+              "total_tax_amounts": [],
+              "transfer_data": null,
+              "webhooks_delivered_at": null
+            }
+          },
+          "livemode": false,
+          "pending_webhooks": 0,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "source.chargeable"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(

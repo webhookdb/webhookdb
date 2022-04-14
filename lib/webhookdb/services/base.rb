@@ -191,7 +191,10 @@ class Webhookdb::Services::Base
     enrichment = self._fetch_enrichment(body)
     prepared = self._prepare_for_insert(body, enrichment:)
     return nil if prepared.nil?
-    inserting = {data: body.to_json}
+    inserting = {}
+    # Only put the data in here if we're not replacing it,
+    # to avoid the extra to_json call.
+    inserting[:data] = body.to_json unless prepared.key?(:data)
     inserting.merge!(prepared)
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
