@@ -11,6 +11,7 @@ require "set"
 require "warden"
 
 require "webhookdb"
+require "webhookdb/platform"
 
 # Service is the base class for all endpoint/resource classes.
 class Webhookdb::Service < Grape::API
