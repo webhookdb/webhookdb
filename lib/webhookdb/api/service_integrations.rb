@@ -136,7 +136,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 request,
                 :guard_confirm,
                 "WARNING: #{org.name} already has an integration for service #{params[:service_name]}. "\
-                "Press Enter to create another, or Ctrl+C to quit:",
+                "Press Enter to create another, or #{Webhookdb::Platform.shortcut_ctrlc(env)} to quit:",
               )
             end
           end
