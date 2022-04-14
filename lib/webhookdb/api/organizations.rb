@@ -17,8 +17,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           Webhookdb::API::Helpers.prompt_for_required_param!(
             request,
             :guard_confirm,
-            "WARNING: You are modifying your own permissions. " \
-            "Enter to proceed, or #{Webhookdb::Platform.shortcut_ctrlc(env)} to quit:",
+            "WARNING: You are modifying your own permissions. Enter to proceed, or Ctrl+C to quit:",
           )
         end
 

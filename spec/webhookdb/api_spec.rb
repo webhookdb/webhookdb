@@ -32,14 +32,6 @@ class Webhookdb::API::TestV1Api < Webhookdb::API::V1
     status 200
     present({})
   end
-
-  params do
-    requires :x, prompt: "It is @CTRLC"
-  end
-  post "prompt_ctrlc" do
-    status 200
-    present({})
-  end
 end
 
 RSpec.describe Webhookdb::API, :db do
@@ -109,12 +101,6 @@ RSpec.describe Webhookdb::API, :db do
 
       post "/v1/prompt_if", {x: "1", y: "1", z: "1"}
       expect(last_response).to have_status(200)
-    end
-
-    it "replaces @CTRLC" do
-      post "/v1/prompt_ctrlc"
-      expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(prompt: "It is Ctrl+C")
     end
   end
 end

@@ -4,7 +4,6 @@ require "appydays/configurable"
 require "bcrypt"
 require "openssl"
 require "webhookdb/id"
-require "webhookdb/platform"
 require "webhookdb/postgres/model"
 
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
@@ -113,7 +112,7 @@ It contains a One Time Password used to log in.
   end
 
   # @return Tuple of <Step, Customer>. Customer is nil if token was invalid.
-  def self.finish_otp(request, me, token:)
+  def self.finish_otp(me, token:)
     if me.nil?
       step = Webhookdb::Services::StateMachineStep.new
       step.output = %(Sorry, no one with that email exists. Try running:
@@ -135,13 +134,11 @@ It contains a One Time Password used to log in.
         end
       rescue Webhookdb::Customer::ResetCode::Unusable
         step = Webhookdb::Services::StateMachineStep.new
-        # rubocop:disable Layout/LineLength
         step.output = %(Sorry, that token is invalid. Please try again.
-If you have not gotten a code, use #{Webhookdb::Platform.shortcut_ctrlc(request.env)} to close this prompt and request a new code:
+If you have not gotten a code, use Ctrl+C to close this prompt and request a new code:
 
   webhookdb auth login #{me.email}
 )
-        # rubocop:enable Layout/LineLength
         step.error_code = "invalid_otp"
         step.prompt_is_secret = true
         step.prompt = "Enter the token from your email:"

@@ -40,7 +40,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
         status 202
       else
         step, me = Webhookdb::Customer.finish_otp(
-          request, Webhookdb::Customer[email: params[:email]], token: params[:token],
+          Webhookdb::Customer[email: params[:email]], token: params[:token],
         )
         extras = finish_auth(me)
         status 200
@@ -57,7 +57,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
         post do
           guard_logged_in!
           step, me = Webhookdb::Customer.finish_otp(
-            request, Webhookdb::Customer[opaque_id: params[:opaque_id]], token: params[:value],
+            Webhookdb::Customer[opaque_id: params[:opaque_id]], token: params[:value],
           )
           extras = finish_auth(me)
           status 200

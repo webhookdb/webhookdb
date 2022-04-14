@@ -2,8 +2,6 @@
 
 require "grape"
 
-require "webhookdb/platform"
-
 module Webhookdb::API::Helpers
   extend Grape::API::Helpers
 
@@ -24,11 +22,7 @@ module Webhookdb::API::Helpers
     end
   end
 
-  # Error with a 422 prompting for a missing param.
-  # The string @CTRLC in the prompt will be replaced with a platform-specific Ctrl+C command.
-  # We need this because the prompt string often does not have the request available.
   def self.prompt_for_required_param!(request, key, prompt)
-    prompt = prompt.gsub("@CTRLC", Webhookdb::Platform.shortcut_ctrlc(request.env))
     step = Webhookdb::Services::StateMachineStep.new
     step.post_to_url = request.path
     step.post_params = request.params.to_h

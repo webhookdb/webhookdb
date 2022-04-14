@@ -49,41 +49,4 @@ RSpec.describe Webhookdb::Platform, :db do
       expect(described_class.user_agent(env)).to eq("")
     end
   end
-
-  describe "shortcut_ctrlc" do
-    it "parses the platform user agent if given (Mac)" do
-      env = {
-        "HTTP_USER_AGENT" => web_linux_ua,
-        "HTTP_WHDB_USER_AGENT" => cli_js_ua,
-        "HTTP_WHDB_PLATFORM_USER_AGENT" => web_mac_ua,
-      }
-      sc = described_class.shortcut_ctrlc(env)
-      expect(sc).to eq("Cmd+C")
-    end
-
-    it "parses the cli user agent (Mac)" do
-      env = {
-        "HTTP_USER_AGENT" => web_linux_ua,
-        "HTTP_WHDB_USER_AGENT" => cli_mac_ua,
-      }
-      sc = described_class.shortcut_ctrlc(env)
-      expect(sc).to eq("Cmd+C")
-    end
-
-    it "parses the default user agent (Mac)" do
-      env = {
-        "HTTP_USER_AGENT" => web_mac_ua,
-      }
-      sc = described_class.shortcut_ctrlc(env)
-      expect(sc).to eq("Cmd+C")
-    end
-
-    it "falls back to Ctrl if not mac" do
-      env = {
-        "HTTP_USER_AGENT" => web_linux_ua,
-      }
-      sc = described_class.shortcut_ctrlc(env)
-      expect(sc).to eq("Ctrl+C")
-    end
-  end
 end
