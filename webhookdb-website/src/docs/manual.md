@@ -84,7 +84,7 @@ Sign up or log in.
 
 **--token, -t**="": One-time-password token received in your email after running 'auth login'.
 
-**--username, -u**="": Takes an email.
+**--username, -u, --email**="": Takes an email.
 
 <a id="logout"></a>
 
@@ -178,6 +178,18 @@ Write out commands that can be used to generate a FDW against your WebhookDB dat
 
 **--views-schema**="": Create materialized views in this schema. You can use 'public' if you do not want to qualify webhookdb tables. (default: webhookdb)
 
+<a id="rename-table"></a>
+
+#### [rename-table](#rename-table)
+
+Rename the database table associated with the integration
+
+**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+
+**--new-name, -n**="": The new name of the table. Valid table names must adhere to the following rules: must begin with an ASCII letter, contain only ASCII letters, numbers, underscores, dashes, and spaces, can begin and end with double quotes, and must otherwise be a valid Postgres identifier.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
 <a id="docs"></a>
 
 ### [docs](#docs)
@@ -227,6 +239,8 @@ Make sure that you're working on the correct organization when you create an int
 #### [create](#create)
 
 Create an integration for the given organization.
+
+**--confirm, -c**: If there is already an integration for this service, you will be prompted to confirm you want to create a new integration. Pass --confirm to automatically accept this prompt and always create a new integration.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -324,7 +338,7 @@ Invite a user to your organization.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-**--username, -u**="": Takes an email.
+**--username, -u, --email**="": Takes an email.
 
 <a id="join"></a>
 
@@ -364,7 +378,7 @@ Remove a member from an organization.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-**--username, -u**="": Takes an email.
+**--username, -u, --email**="": Takes an email.
 
 <a id="rename"></a>
 
