@@ -106,13 +106,16 @@ class Webhookdb::Service < Grape::API
     admin = admin_customer?
     Sentry.configure_scope do |scope|
       sentry_tags = {
-        agent: env["HTTP_USER_AGENT"],
+        agent: Webhookdb::Platform.user_agent(env),
         host: env["HTTP_HOST"],
         method: env["REQUEST_METHOD"],
         path: env["PATH_INFO"],
         query: env["QUERY_STRING"],
         referrer: env["HTTP_REFERER"],
       }
+      if (platform_ua = Webhookdb::Platform.platform_user_agent(env))
+        sentry_tags[:platform_user_agent] = platform_ua
+      end
       sentry_user = {ip_address: request.ip}
       if customer
         sentry_user.merge!(

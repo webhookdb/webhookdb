@@ -94,7 +94,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         requires :guard_confirm,
                  prompt: [
                    "WARNING: This will invalid your existing database credentials. " \
-                   "Enter to proceed, or Ctrl+C to quit:",
+                   "Enter to proceed, or @CTRLC to quit:",
                    ->(v) { !v.nil? },
                  ]
       end
