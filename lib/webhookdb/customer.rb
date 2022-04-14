@@ -141,6 +141,12 @@ It contains a One Time Password used to log in.
         step.needs_input = false
         step.complete = true
         step.error_code = "invalid_otp"
+        step.prompt_is_secret = true
+        step.prompt = "Enter the token from your email:"
+        step.needs_input = true
+        step.post_to_url = "/v1/auth"
+        step.post_params = {email: me.email}
+        step.post_params_value_key = "token"
         return [step, nil]
       end
     end
