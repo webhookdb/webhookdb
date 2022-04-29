@@ -393,3 +393,76 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
     expect(req).to have_been_made
   end
 end
+
+RSpec.shared_examples "a service implementation with dependents" do |service_name, dependent_service_name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:body) { raise NotImplementedError }
+  let(:expected_insert) { raise NotImplementedError }
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "calls notify_dependency_webhook_upsert on dependencies with whether the row has changed" do
+    svc.create_table
+    Webhookdb::Fixtures.service_integration(service_name: dependent_service_name).
+      depending_on(svc.service_integration).
+      create
+
+    calls = []
+    Webhookdb::Services::FakeDependent.notify_dependency_webhook_upsert_callback = lambda { |payload, changed:|
+      calls << 0
+      expect(changed).to be_truthy
+      expect(payload).to eq(expected_insert)
+    }
+    svc.upsert_webhook(body:)
+    expect(calls).to have_length(1)
+
+    Webhookdb::Services::FakeDependent.notify_dependency_webhook_upsert_callback = lambda { |payload, changed:|
+      calls << 0
+      expect(changed).to be_falsey
+      expect(payload).to eq(expected_insert)
+    }
+    svc.upsert_webhook(body:)
+    expect(calls).to have_length(2)
+  end
+end
+
+RSpec.shared_examples "a service implementation dependent on another" do |service_name, dependency_service_name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+  def create_dependency(name)
+    return Webhookdb::Fixtures.service_integration(service_name: name, organization: sint.organization).create
+  end
+
+  it "can list and describe the services used as dependencies" do
+    this_descriptor = Webhookdb::Services.registered_service!(service_name)
+    dep_descriptor = Webhookdb::Services.registered_service!(dependency_service_name)
+    expect(this_descriptor.dependency_descriptor).to eq(dep_descriptor)
+    expect(sint.dependency_candidates).to be_empty
+    Webhookdb::Fixtures.service_integration(service_name: dependency_service_name).create
+    expect(sint.dependency_candidates).to be_empty
+    dep = create_dependency(dependency_service_name)
+    expect(sint.dependency_candidates).to contain_exactly(be === dep)
+  end
+
+  it "errors if there are no dependency candidates" do
+    step = sint.service_instance.calculate_create_state_machine
+    expect(step).to have_attributes(
+      output: match(no_dependencies_message),
+    )
+  end
+
+  it "asks for the dependency as the first step of its state machine" do
+    create_dependency(dependency_service_name)
+    step = sint.service_instance.calculate_create_state_machine
+    expect(step).to have_attributes(
+      output: match("Enter the number for the"),
+    )
+  end
+end

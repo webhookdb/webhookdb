@@ -132,3 +132,29 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
     self.admin_dataset(&:db) << "INSERT INTO fake_V1_enrichments(id) VALUES ('#{inserting['my_id']}')"
   end
 end
+
+class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
+  singleton_attr_accessor :notify_dependency_webhook_upsert_callback
+
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "fake_dependent_v1",
+      ctor: ->(sint) { Webhookdb::Services::FakeDependent.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "FakeDependent",
+      dependency_descriptor: Webhookdb::Services::Fake.descriptor,
+    )
+  end
+
+  def notify_dependency_webhook_upsert(payload, changed:)
+    self.class.notify_dependency_webhook_upsert_callback&.call(payload, changed:)
+  end
+
+  def calculate_create_state_machine
+    dependency_help = "This is where you would explain things like the relationship between stripe cards and customers."
+    if (step = self.calculate_dependency_state_machine_step(dependency_help:))
+      return step
+    end
+    return super
+  end
+end

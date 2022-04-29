@@ -26,25 +26,36 @@ class Webhookdb::Services
     #   @return [String]
     # @!attribute resource_name_plural
     #   @return [String]
+    # @!attribute dependency_descriptor
+    #   @return [Webhookdb::Services::Descriptor]
     attr_reader :name,
                 :ctor,
                 :resource_name_singular,
                 :resource_name_plural,
-                :feature_roles
+                :feature_roles,
+                :dependency_descriptor
 
     def initialize(
       name:,
       ctor:,
       resource_name_singular:,
-      feature_roles:, resource_name_plural: nil
+      feature_roles:,
+      resource_name_plural: nil,
+      dependency_descriptor: nil
     )
-      super(name:, resource_name_singular:, feature_roles:)
+      super(name:, resource_name_singular:, feature_roles:, dependency_descriptor:)
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
       @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
     end
 
     def inspect
       return "#{self.class.name}(name: #{self.name})"
+    end
+
+    def ==(other)
+      return self.class == other.class &&
+          self.name == other.name &&
+          self.resource_name_singular == other.resource_name_singular
     end
   end
 
@@ -114,6 +125,7 @@ Webhookdb::Services.register(Webhookdb::Services::ConvertkitBroadcastV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitSubscriberV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)
 Webhookdb::Services.register(Webhookdb::Services::Fake)
+Webhookdb::Services.register(Webhookdb::Services::FakeDependent)
 Webhookdb::Services.register(Webhookdb::Services::FakeWithEnrichments)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseACHTransferV1)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)

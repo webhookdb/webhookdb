@@ -166,6 +166,10 @@ class Webhookdb::Service < Grape::API
     )
   end
 
+  rescue_from Webhookdb::InvalidInput do |e|
+    invalid!(e.message)
+  end
+
   rescue_from Sequel::ValidationFailed do |e|
     invalid!(e.errors, message: e.message)
   end

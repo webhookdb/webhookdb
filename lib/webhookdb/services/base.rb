@@ -59,20 +59,38 @@ class Webhookdb::Services::Base
   # Subclasses can override this method and then super,
   # to change the field or value.
   #
+  # @param field [String]
+  # @param value [String]
   # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)
+    case field
+      when "webhook_secret"
+        meth = :calculate_create_state_machine
+      when "backfill_key", "backfill_secret", "api_url"
+        meth = :calculate_backfill_state_machine
+      when "dependency_choice"
+        meth = :calculate_create_state_machine
+        value = self._find_dependency_candidate(value)
+        field = "depends_on"
+      else
+        raise ArgumentError, "Field '#{field}' is not valid for a state change"
+    end
     self.service_integration.db.transaction do
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
-      case field
-        when "webhook_secret"
-          return self.calculate_create_state_machine
-        when "backfill_key", "backfill_secret", "api_url"
-          return self.calculate_backfill_state_machine
-        else
-          return
-      end
+      return self.send(meth)
     end
+  end
+
+  # @param value [String]
+  def _find_dependency_candidate(value)
+    int_val = value.strip.blank? ? 1 : value.to_i
+    idx = int_val - 1
+    dep_candidates = self.service_integration.dependency_candidates
+    raise Webhookdb::InvalidPrecondition, "no dependency candidates" if dep_candidates.empty?
+    raise Webhookdb::InvalidInput, "'#{value}' is not a valid dependency" if
+      idx.negative? || idx >= dep_candidates.length
+    return dep_candidates[idx]
   end
 
   # @return [Webhookdb::Services::StateMachineStep]
@@ -228,6 +246,9 @@ class Webhookdb::Services::Base
     end
     row_changed = upserted_rows.present?
     self._after_insert(inserting, enrichment:)
+    self.service_integration.dependents.each do |d|
+      d.service_instance.notify_dependency_webhook_upsert(inserting, changed: row_changed)
+    end
 
     return unless row_changed
 
@@ -390,6 +411,50 @@ class Webhookdb::Services::Base
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     raise NotImplementedError
+  end
+
+  def notify_dependency_webhook_upsert(_payload, changed:)
+    raise NotImplementedError, "this must be overridden for services that have dependencies"
+  end
+
+  def calculate_dependency_state_machine_step(dependency_help:)
+    raise Webhookdb::InvalidPrecondition, "#{self.descriptor.name} does not have a dependency" if
+      self.class.descriptor.dependency_descriptor.nil?
+    return nil if self.service_integration.depends_on_id
+    step = Webhookdb::Services::StateMachineStep.new
+    dep_descr = self.descriptor.dependency_descriptor
+    candidates = self.service_integration.dependency_candidates
+    if candidates.empty?
+      step.output = %(This integration requires #{dep_descr.resource_name_plural} to sync.
+
+You don't have any #{dep_descr.resource_name_singular} integrations yet. You can run:
+
+  webhookdb integrations create #{dep_descr.name}
+
+to set one up. Then once that's complete, you can re-run:
+
+  webhookdb integrations create #{self.descriptor.name}
+
+to keep going.
+)
+      step.error_code = "no_candidate_dependency"
+      return step.completed
+    end
+    choice_lines = candidates.each_with_index.
+      map { |si, idx| "#{idx + 1} - #{si.table_name}" }.
+      join("\n")
+    step.output = %(This integration requires #{dep_descr.resource_name_plural} to sync.
+
+#{dependency_help}
+
+Enter the number for the #{dep_descr.resource_name_singular} integration you want to use,
+or leave blank to choose the first option.
+
+#{choice_lines}
+)
+    step.prompting("Parent integration number")
+    step.post_to_url = self.service_integration.authed_api_path + "/transition/dependency_choice"
+    return step
   end
 
   protected def _webhook_endpoint

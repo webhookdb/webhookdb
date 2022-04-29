@@ -18,6 +18,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
               readonly: true do |ds|
     ds.or(Sequel[organization_id: :organization_id])
   end
+  many_to_one :depends_on, class: self
+  one_to_many :dependents, key: :depends_on_id, class: self
 
   # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)
@@ -64,6 +66,16 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
     # if not, the integration is not supported
     return false
+  end
+
+  # Return service integrations that can be used as the dependency
+  # for this integration.
+  # @return [Array<Webhookdb::ServiceIntegration>]
+  def dependency_candidates
+    dep_descr = self.service_instance.descriptor.dependency_descriptor
+    return [] if dep_descr.nil?
+    return self.organization.service_integrations.
+        select { |si| si.service_name == dep_descr.name }
   end
 
   class Stats

@@ -14,17 +14,19 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   one_to_one :subscription, class: "Webhookdb::Subscription", key: :stripe_customer_id, primary_key: :stripe_customer_id
-  one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
+  one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership", order: :id
   one_to_many :verified_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: true},
-              adder: (->(om) { om.update(organization_id: id, verified: true) })
+              adder: (->(om) { om.update(organization_id: id, verified: true) }),
+              order: :id
   one_to_many :invited_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: false},
-              adder: (->(om) { om.update(organization_id: id, verified: false) })
-  one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration"
-  one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
+              adder: (->(om) { om.update(organization_id: id, verified: false) }),
+              order: :id
+  one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration", order: :id
+  one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription", order: :id
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
   one_to_many :all_webhook_subscriptions,
               class: "Webhookdb::WebhookSubscription",

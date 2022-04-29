@@ -78,6 +78,25 @@ RSpec.describe "fake implementations", :db do
         }
       end
     end
+
+    it_behaves_like "a service implementation with dependents", "fake_v1", "fake_dependent_v1" do
+      let(:body) do
+        {
+          "my_id" => "abc",
+          "at" => "Thu, 30 Jul 2015 21:12:33 +0000",
+        }
+      end
+      let(:expected_insert) do
+        {data: body.to_json, my_id: "abc", at: Time.parse(body["at"])}
+      end
+      before(:each) do
+        Webhookdb::Services::FakeDependent.reset
+      end
+
+      after(:each) do
+        Webhookdb::Services::FakeDependent.reset
+      end
+    end
   end
 
   describe Webhookdb::Services::FakeWithEnrichments do
@@ -110,6 +129,20 @@ RSpec.describe "fake implementations", :db do
       def assert_enrichment_after_insert(db)
         expect(db[:fake_v1_enrichments].all).to have_length(1)
       end
+    end
+  end
+
+  describe Webhookdb::Services::FakeDependent do
+    before(:each) do
+      described_class.reset
+    end
+
+    after(:each) do
+      described_class.reset
+    end
+
+    it_behaves_like "a service implementation dependent on another", "fake_dependent_v1", "fake_v1" do
+      let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
     end
   end
 
@@ -186,6 +219,121 @@ ALTER TABLE #{fake.table_sym} ADD "c4" text ;
 CREATE INDEX IF NOT EXISTS c4_idx ON #{fake.table_sym} ("c4");})
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :c4]) }
+      end
+    end
+
+    describe "calculate_dependency_state_machine_step" do
+      let(:org) { Webhookdb::Fixtures.organization.create }
+      let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+      let(:sint) { fac.create(service_name: "fake_dependent_v1") }
+
+      it "completes with an error when the org has no candidates for a dependency" do
+        step = sint.service_instance.calculate_dependency_state_machine_step(dependency_help: "Explain the deps.")
+        expect(step).to have_attributes(
+          needs_input: false,
+          complete: true,
+          output: %(This integration requires Fakes to sync.
+
+You don't have any Fake integrations yet. You can run:
+
+  webhookdb integrations create fake_v1
+
+to set one up. Then once that's complete, you can re-run:
+
+  webhookdb integrations create fake_dependent_v1
+
+to keep going.
+),
+          error_code: "no_candidate_dependency",
+        )
+      end
+
+      it "prompts when the org has candidates for a dependency" do
+        candidates = Array.new(2) { fac.create(service_name: "fake_v1") }
+        step = sint.service_instance.calculate_dependency_state_machine_step(dependency_help: "Explain the deps.")
+        expect(step).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your Parent integration number here:",
+          prompt_is_secret: false,
+          post_to_url: end_with("/transition/dependency_choice"),
+          output: %(This integration requires Fakes to sync.
+
+Explain the deps.
+
+Enter the number for the Fake integration you want to use,
+or leave blank to choose the first option.
+
+1 - #{candidates[0].table_name}
+2 - #{candidates[1].table_name}
+),
+          post_params_value_key: "value",
+        )
+      end
+
+      it "returns nil if a dependency exists" do
+        sint.update(depends_on: fac.create(service_name: "fake_v1"))
+        expect(sint.service_instance.calculate_dependency_state_machine_step(dependency_help: "")).to be_nil
+      end
+
+      it "raises if the service does not use dependencies" do
+        sint = fac.create(service_name: "fake_v1")
+        expect do
+          sint.service_instance.calculate_dependency_state_machine_step(dependency_help: "")
+        end.to raise_error(Webhookdb::InvalidPrecondition)
+      end
+    end
+
+    describe "process_state_change" do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create }
+
+      it "sets and returns the create state machine for relevant fields" do
+        step = sint.service_instance.process_state_change("webhook_secret", "abcd")
+        expect(step).to have_attributes(output: include("The integration creation flow is working correctly"))
+        expect(sint).to have_attributes(webhook_secret: "abcd")
+      end
+
+      it "returns the backfill state machine for relevant fields" do
+        step = sint.service_instance.process_state_change("backfill_secret", "abcd")
+        expect(step).to have_attributes(output: include("The backfill flow is working correctly"))
+        expect(sint).to have_attributes(backfill_secret: "abcd")
+      end
+
+      it "raises error for unhandled fields" do
+        expect do
+          sint.service_instance.process_state_change("updated_at", Time.now)
+        end.to raise_error(ArgumentError)
+      end
+
+      describe "setting dependency_choice" do
+        let(:org) { Webhookdb::Fixtures.organization.create }
+        let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+        let!(:dependent) { fac.create(service_name: "fake_dependent_v1") }
+        let!(:dependency1) { fac.create(service_name: "fake_v1") }
+        let!(:dependency2) { fac.create(service_name: "fake_v1") }
+
+        it "sets depends_on to the specified dependency" do
+          step = dependent.service_instance.process_state_change("dependency_choice", "2")
+          expect(step).to have_attributes(output: include("You're creating a fake_v1 service integration"))
+          expect(dependent).to have_attributes(depends_on: be === dependency2)
+        end
+
+        it "uses the first dependency if blank" do
+          step = dependent.service_instance.process_state_change("dependency_choice", " ")
+          expect(step).to have_attributes(output: include("You're creating a fake_v1 service integration"))
+          expect(dependent).to have_attributes(depends_on: be === dependency1)
+        end
+
+        it "errors if the value is invalid or has no dependencies" do
+          expect do
+            sint.service_instance.process_state_change("dependency_choice", "3")
+          end.to raise_error(Webhookdb::InvalidPrecondition)
+          expect do
+            dependent.service_instance.process_state_change("dependency_choice", "3")
+          end.to raise_error(Webhookdb::InvalidInput)
+          expect do
+            dependent.service_instance.process_state_change("dependency_choice", "abc")
+          end.to raise_error(Webhookdb::InvalidInput)
+        end
       end
     end
   end

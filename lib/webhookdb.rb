@@ -33,6 +33,11 @@ module Webhookdb
   # something we expect to have changed has not changed.
   class InvalidPostcondition < RuntimeError; end
 
+  # Error raised when a customer gives us some invalid input.
+  # Allows the library to raise the error with the message,
+  # and is caught automatically by the service as a 400.
+  class InvalidInput < RuntimeError; end
+
   APPLICATION_NAME = "Webhookdb"
   RACK_ENV = ENV["RACK_ENV"] || "development"
   VERSION = ENV["HEROKU_SLUG_COMMIT"] || "unknown-version"

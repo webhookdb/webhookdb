@@ -20,4 +20,8 @@ module Webhookdb::Fixtures::ServiceIntegrations
     instance.organization ||= Webhookdb::Fixtures.organization.create
     instance
   end
+
+  decorator :depending_on do |other|
+    self.depends_on = other
+  end
 end
