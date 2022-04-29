@@ -3,14 +3,6 @@
 require "webhookdb/shopify"
 
 module Webhookdb::Services::ShopifyV1Mixin
-  def _mixin_name_singular
-    raise NotImplementedError
-  end
-
-  def _mixin_name_plural
-    raise NotImplementedError
-  end
-
   def _mixin_backfill_url
     raise NotImplementedError
   end
@@ -52,14 +44,14 @@ module Webhookdb::Services::ShopifyV1Mixin
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
       step.needs_input = true
-      step.output = %(You are about to start reflecting #{self._mixin_name_plural} into webhookdb.
-We've made an endpoint available for #{self._mixin_name_singular} webhooks:
+      step.output = %(You are about to start reflecting #{self.resource_name_plural} into webhookdb.
+We've made an endpoint available for #{self.resource_name_singular} webhooks:
 
 #{self._webhook_endpoint}
 
 From your Shopify admin dashboard, go to Settings -> Notifications.
 Scroll down to the Webhook Section.
-You will need to create a separate webhook for each #{self._mixin_name_singular} event,
+You will need to create a separate webhook for each #{self.resource_name_singular} event,
 but you can use the URL above and select JSON as the desired format for all of them.
 
 At the very bottom of the page, you should see a signing secret that will be used to verify all webhooks.
@@ -68,9 +60,9 @@ Copy that value.
       return step.secret_prompt("secret").webhook_secret(self.service_integration)
     end
 
-    step.output = %(Great! WebhookDB is now listening for #{self._mixin_name_singular} webhooks.
+    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
 #{self._query_help_output}
-In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
+In order to backfill existing #{self.resource_name_plural}, run this from a shell:
 
   #{self._backfill_command}
       )
@@ -81,12 +73,13 @@ In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.output = \
-        %(In order to backfill #{self._mixin_name_plural}, we need an API key and password (token support coming soon).
+        %(In order to backfill #{self.resource_name_plural}, we need an API key and password
+(please email webhookdb@lithic.tech if you need token support).
 
 - From your Shopify Dashboard, go to Apps and click the "Manage Private Apps" link at the bottom of the page.
 - Then click "Create Private App" and fill out the necessary information.
 - When you get to the "Admin API" section,
-  select "Read Access" for the #{self._mixin_name_singular} API and leave the rest as is.
+  select "Read Access" for the #{self.resource_name_singular} API and leave the rest as is.
 - Then hit "Save" and create the app.
 - You'll be presented with a page that has info about your app's credentials.
 
@@ -109,14 +102,13 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
     end
 
     # we check backfill credentials *after* entering the api_url because it is required to establish the auth connection
-    result = self.verify_backfill_credentials
-    unless result.fetch(:verified)
+    unless (result = self.verify_backfill_credentials).verified
       self.service_integration.service_instance.clear_backfill_information
-      step.output = result.fetch(:message)
+      step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
-    step.output = %(Great! We are going to start backfilling your #{self._mixin_name_plural}.
+    step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._mixin_backfill_warning}
 #{self._query_help_output}
       )
@@ -124,7 +116,7 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
   end
 
   def _verify_backfill_403_err_msg
-    return "It looks like that API Key does not have permission to access #{self._mixin_name_singular} Records. " \
+    return "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
            "Please check the permissions by going to your private app page and " \
            "looking at the list of active permissions. " \
            "Once you've verified or corrected the permissions for this key, " \

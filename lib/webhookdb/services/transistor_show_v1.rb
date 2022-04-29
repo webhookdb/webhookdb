@@ -13,15 +13,8 @@ class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
       name: "transistor_show_v1",
       ctor: ->(sint) { Webhookdb::Services::TransistorShowV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Transistor Show",
     )
-  end
-
-  def _mixin_name_singular
-    return "Show"
-  end
-
-  def _mixin_name_plural
-    return "Shows"
   end
 
   def _denormalized_columns

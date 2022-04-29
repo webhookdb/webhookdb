@@ -13,6 +13,7 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
       name: "increase_transaction_v1",
       ctor: ->(sint) { Webhookdb::Services::IncreaseTransactionV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Increase Transaction",
     )
   end
 
@@ -52,14 +53,6 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
       route_id: obj_of_interest.fetch("route_id"),
       updated_at: updated,
     }
-  end
-
-  def _mixin_name_singular
-    return "Increase Transaction"
-  end
-
-  def _mixin_name_plural
-    return "Increase Transactions"
   end
 
   def _mixin_backfill_url

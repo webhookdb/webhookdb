@@ -9,6 +9,7 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
       name: "twilio_sms_v1",
       ctor: ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Twilio SMS Message",
     )
   end
 
@@ -45,10 +46,9 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       return step.secret_prompt("Auth Token").backfill_secret(self.service_integration)
     end
 
-    result = self.verify_backfill_credentials
-    unless result.fetch(:verified)
+    unless (result = self.verify_backfill_credentials).verified
       self.service_integration.service_instance.clear_backfill_information
-      step.output = result.fetch(:message)
+      step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 

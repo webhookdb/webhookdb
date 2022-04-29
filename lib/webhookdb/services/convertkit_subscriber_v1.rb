@@ -14,15 +14,8 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
       name: "convertkit_subscriber_v1",
       ctor: ->(sint) { Webhookdb::Services::ConvertkitSubscriberV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "ConvertKit Subscriber",
     )
-  end
-
-  def _mixin_name_singular
-    return "Subscriber"
-  end
-
-  def _mixin_name_plural
-    return "Subscribers"
   end
 
   def process_state_change(field, value)

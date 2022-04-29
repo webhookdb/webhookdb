@@ -14,15 +14,8 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
       name: "convertkit_tag_v1",
       ctor: ->(sint) { Webhookdb::Services::ConvertkitTagV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "ConvertKit Tag",
     )
-  end
-
-  def _mixin_name_singular
-    return "Tag"
-  end
-
-  def _mixin_name_plural
-    return "Tags"
   end
 
   def calculate_create_state_machine

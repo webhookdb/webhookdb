@@ -13,15 +13,8 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
       name: "transistor_episode_v1",
       ctor: ->(sint) { Webhookdb::Services::TransistorEpisodeV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Transistor Episode",
     )
-  end
-
-  def _mixin_name_singular
-    return "Episode"
-  end
-
-  def _mixin_name_plural
-    return "Episodes"
   end
 
   def analytics_table_name

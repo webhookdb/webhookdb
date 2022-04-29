@@ -13,6 +13,7 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
       name: "stripe_customer_v1",
       ctor: ->(sint) { Webhookdb::Services::StripeCustomerV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Stripe Customer",
     )
   end
 
@@ -47,14 +48,6 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
       stripe_id: obj_of_interest.fetch("id"),
       updated: self.tsat(updated),
     }
-  end
-
-  def _mixin_name_singular
-    return "Stripe Customer"
-  end
-
-  def _mixin_name_plural
-    return "Stripe Customers"
   end
 
   def _mixin_backfill_url

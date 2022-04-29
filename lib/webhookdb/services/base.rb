@@ -2,12 +2,14 @@
 
 require "webhookdb/connection_cache"
 require "webhookdb/services/column"
+require "webhookdb/typed_struct"
 
 class Webhookdb::Services::Base
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     raise NotImplementedError, "each service must return a descriptor that is used for registration purposes"
   end
+
   # @return [Webhookdb::ServiceIntegration]
   attr_reader :service_integration
 
@@ -15,12 +17,27 @@ class Webhookdb::Services::Base
     @service_integration = service_integration
   end
 
+  # @return [Webhookdb::Services::Descriptor]
+  def descriptor
+    return @descriptor ||= self.class.descriptor
+  end
+
+  def resource_name_singular
+    return @resource_name_singular ||= self.descriptor.resource_name_singular
+  end
+
+  def resource_name_plural
+    return @resource_name_plural ||= self.descriptor.resource_name_plural
+  end
+
+  # @return [Symbol]
   def table_sym
     return self.service_integration.table_name.to_sym
   end
 
   # Time.at(t), but nil if t is nil.
   # Use when we have 'nullable' integer timestamps.
+  # @return [Time]
   protected def tsat(t)
     return nil if t.nil?
     return Time.at(t)
@@ -30,6 +47,7 @@ class Webhookdb::Services::Base
   # By default, if the webhook is not verified, we return a 401, otherwise we return success.
   # If the webhook needs extra validation or behavior (like Twilio requires special headers),
   # you can override this entirely and not bother overriding `_webhook_verified?`.
+  # @return [Array<Integer, Hash, String>]
   def webhook_response(request)
     return [202, {"Content-Type" => "text/plain"}, "ok"] if self._webhook_verified?(request)
     return [401, {"Content-Type" => "text/plain"}, ""]
@@ -96,10 +114,12 @@ class Webhookdb::Services::Base
     end
   end
 
+  # @return [String]
   def create_table_sql
     return self._create_table_sql
   end
 
+  # @return [String]
   def _create_table_sql
     tbl = self.service_integration.table_name
     remote_key_col = self._remote_key_column
@@ -127,6 +147,7 @@ class Webhookdb::Services::Base
     return lines.join("\n")
   end
 
+  # @return [String]
   def _create_enrichment_tables_sql
     return ""
   end
@@ -205,9 +226,11 @@ class Webhookdb::Services::Base
         update_where:,
       ).insert(inserting)
     end
+    row_changed = upserted_rows.present?
     self._after_insert(inserting, enrichment:)
 
-    return unless upserted_rows.present?
+    return unless row_changed
+
     self.service_integration.publish_deferred(
       "rowupsert",
       self.service_integration.id,
@@ -223,6 +246,7 @@ class Webhookdb::Services::Base
   # make an optional API call to enrich it with further data.
   # The result of this is passed to _prepare_for_insert
   # and _after_insert.
+  # @return [*]
   def _fetch_enrichment(_body)
     return nil
   end
@@ -231,6 +255,7 @@ class Webhookdb::Services::Base
   # on other tables. Useful when we have to maintain 'enrichment tables'
   # for a resource that have things that aren't useful in a single row,
   # like time-series data.
+  # @return [*]
   def _after_insert(_inserting, enrichment:)
     return nil
   end
@@ -247,6 +272,7 @@ class Webhookdb::Services::Base
   # We must always have an 'update where' because we never want to overwrite with the same data
   # as exists. If an integration does not have any way to detect if a resource changed,
   # it can compare data columns.
+  # @return [Sequel::SQL::Expression]
   def _update_where_expr
     raise NotImplementedError
   end
@@ -274,10 +300,12 @@ class Webhookdb::Services::Base
     return inserting
   end
 
+  # @return [Sequel::Dataset]
   def admin_dataset(&)
     self.with_dataset(self.service_integration.organization.admin_connection_url_raw, &)
   end
 
+  # @return [Sequel::Dataset]
   def readonly_dataset(&)
     self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, &)
   end
@@ -289,6 +317,11 @@ class Webhookdb::Services::Base
     end
   end
 
+  class CredentialVerificationResult < Webhookdb::TypedStruct
+    attr_reader :verified, :message
+  end
+
+  # @return [Webhookdb::CredentialVerificationResult]
   def verify_backfill_credentials
     begin
       # begin backfill attempt but do not return backfill result
@@ -299,14 +332,14 @@ class Webhookdb::Services::Base
       else
         self._verify_backfill_err_msg
       end
-      return {verified: false, message: msg}
+      return CredentialVerificationResult.new(verified: false, message: msg)
     rescue TypeError, NoMethodError => e
       # if we don't incur an HTTP error, but do incur an Error due to differences in the shapes of anticipated
       # response data in the `fetch_backfill_page` function, we can assume that the credentials are okay
       self.logger.info "verify_backfill_credentials_expected_failure", error: e
-      return {verified: true, message: ""}
+      return CredentialVerificationResult.new(verified: true, message: "")
     end
-    return {verified: true, message: ""}
+    return CredentialVerificationResult.new(verified: true, message: "")
   end
 
   def _verify_backfill_err_msg

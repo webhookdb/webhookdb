@@ -3,16 +3,17 @@
 require "stripe"
 require "webhookdb/services/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeInvoiceitemV1 < Webhookdb::Services::Base
+class Webhookdb::Services::StripeInvoiceItemV1 < Webhookdb::Services::Base
   include Appydays::Loggable
   include Webhookdb::Services::StripeV1Mixin
 
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
-      name: "stripe_invoiceitem_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeInvoiceitemV1.new(sint) },
+      name: "stripe_invoice_item_v1",
+      ctor: ->(sint) { Webhookdb::Services::StripeInvoiceItemV1.new(sint) },
       feature_roles: ["beta"],
+      resource_name_singular: "Stripe Invoice Item",
     )
   end
 
@@ -65,14 +66,6 @@ class Webhookdb::Services::StripeInvoiceitemV1 < Webhookdb::Services::Base
       updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
-  end
-
-  def _mixin_name_singular
-    return "Stripe Invoiceitem"
-  end
-
-  def _mixin_name_plural
-    return "Stripe Invoiceitems"
   end
 
   def _mixin_backfill_url

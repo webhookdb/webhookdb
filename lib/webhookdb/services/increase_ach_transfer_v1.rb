@@ -13,6 +13,7 @@ class Webhookdb::Services::IncreaseACHTransferV1 < Webhookdb::Services::Base
       name: "increase_ach_transfer_v1",
       ctor: ->(sint) { Webhookdb::Services::IncreaseACHTransferV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Increase ACH Transfer",
     )
   end
 
@@ -52,14 +53,6 @@ class Webhookdb::Services::IncreaseACHTransferV1 < Webhookdb::Services::Base
       transaction_id: obj_of_interest.fetch("transaction_id"),
       updated_at: updated,
     }
-  end
-
-  def _mixin_name_singular
-    return "Increase ACH Transfer"
-  end
-
-  def _mixin_name_plural
-    return "Increase ACH Transfers"
   end
 
   def _mixin_backfill_url

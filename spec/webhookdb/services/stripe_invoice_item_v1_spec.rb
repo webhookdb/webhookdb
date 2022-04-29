@@ -2,8 +2,8 @@
 
 require "support/shared_examples_for_services"
 
-RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
-  it_behaves_like "a service implementation", "stripe_invoiceitem_v1" do
+RSpec.describe Webhookdb::Services::StripeInvoiceItemV1, :db do
+  it_behaves_like "a service implementation", "stripe_invoice_item_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -70,7 +70,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
     end
     let(:expected_data) { body["data"]["object"] }
   end
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "stripe_invoiceitem_v1" do
+  it_behaves_like "a service implementation that prevents overwriting new data with old", "stripe_invoice_item_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -204,7 +204,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
     let(:expected_new_data) { new_body["data"]["object"] }
   end
 
-  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_invoiceitem_v1" do
+  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_invoice_item_v1" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
@@ -275,13 +275,13 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "stripe_invoiceitem_v1",
+        service_name: "stripe_invoice_item_v1",
         backfill_key: "bfkey",
       )
     end
     let(:incorrect_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "stripe_invoiceitem_v1",
+        service_name: "stripe_invoice_item_v1",
         backfill_key: "bfkey_wrong",
       )
     end
@@ -308,7 +308,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
           to_return(status: 403, body: "", headers: {})
     end
   end
-  it_behaves_like "a service implementation that can backfill", "stripe_invoiceitem_v1" do
+  it_behaves_like "a service implementation that can backfill", "stripe_invoice_item_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -631,7 +631,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
   end
 
   describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_invoiceitem_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_invoice_item_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
@@ -666,7 +666,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
   end
 
   describe "state machine calculation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_invoiceitem_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_invoice_item_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     describe "calculate_create_state_machine" do
@@ -678,7 +678,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("We've made an endpoint available for Stripe Invoiceitem webhooks:"),
+          output: match("We've made an endpoint available for Stripe Invoice Item webhooks:"),
         )
       end
 
@@ -691,7 +691,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! WebhookDB is now listening for Stripe Invoiceitem webhooks."),
+          output: match("Great! WebhookDB is now listening for Stripe Invoice Item webhooks."),
         )
       end
     end
@@ -721,7 +721,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Stripe Invoiceitems, we need an API key."),
+          output: match("In order to backfill Stripe Invoice Items, we need an API key."),
         )
       end
 
@@ -736,7 +736,7 @@ RSpec.describe Webhookdb::Services::StripeInvoiceitemV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Stripe Invoiceitems."),
+          output: match("Great! We are going to start backfilling your Stripe Invoice Items."),
         )
       end
     end

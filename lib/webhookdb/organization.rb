@@ -272,12 +272,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       # The org must have any of the flags required for the service. In other words,
       # the intersection of desc[:feature_roles] & org.feature_roles must
       # not be empty
-      no_restrictions = desc[:feature_roles].empty?
+      no_restrictions = desc.feature_roles.empty?
       next true if no_restrictions
-      org_has_access = (self.feature_roles.map(&:name) & desc[:feature_roles]).present?
+      org_has_access = (self.feature_roles.map(&:name) & desc.feature_roles).present?
       org_has_access
     end
-    return available.map { |desc| desc[:name] }
+    return available.map(&:name)
   end
 
   #
@@ -290,6 +290,9 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     validates_format(/^[a-z][a-z0-9_]*$/, :key, message: "is not valid as a CNAME")
     validates_max_length 63, :key, message: "is not valid as a CNAME"
   end
+
+  # @!attribute service_integrations
+  #   @return [Array<Webhookdb::ServiceIntegration>]
 end
 
 require "webhookdb/organization/db_builder"

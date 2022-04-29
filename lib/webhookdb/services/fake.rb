@@ -8,11 +8,12 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :prepare_for_insert_hook
 
   def self.descriptor
-    return {
+    return Webhookdb::Services::Descriptor.new(
       name: "fake_v1",
       ctor: ->(sint) { Webhookdb::Services::Fake.new(sint) },
       feature_roles: ["internal"],
-    }
+      resource_name_singular: "Fake",
+    )
   end
 
   def self.reset
@@ -101,11 +102,12 @@ end
 
 class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
   def self.descriptor
-    return {
+    return Webhookdb::Services::Descriptor.new(
       name: "fake_with_enrichments_v1",
       ctor: ->(sint) { Webhookdb::Services::FakeWithEnrichments.new(sint) },
       feature_roles: ["internal"],
-    }
+      resource_name_singular: "Enriched Fake",
+    )
   end
 
   def self.enrichment_tables

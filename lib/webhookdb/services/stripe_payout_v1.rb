@@ -13,6 +13,7 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
       name: "stripe_payout_v1",
       ctor: ->(sint) { Webhookdb::Services::StripePayoutV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Stripe Payout",
     )
   end
 
@@ -57,14 +58,6 @@ class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
       updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
-  end
-
-  def _mixin_name_singular
-    return "Stripe Payout"
-  end
-
-  def _mixin_name_plural
-    return "Stripe Payouts"
   end
 
   def _mixin_backfill_url

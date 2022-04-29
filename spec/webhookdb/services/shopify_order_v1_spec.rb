@@ -4377,7 +4377,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Shopify Orders, we need an API key and password."),
+          output: match("In order to backfill Shopify Orders, we need an API key and password"),
         )
       end
 

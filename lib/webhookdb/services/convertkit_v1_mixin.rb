@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
 module Webhookdb::Services::ConvertkitV1Mixin
-  def _mixin_name_plural
-    raise NotImplementedError
-  end
-
   def _webhook_verified?(_request)
     # Webhook Authentication isn't supported
     return true
@@ -17,21 +13,22 @@ module Webhookdb::Services::ConvertkitV1Mixin
   def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     if self.service_integration.backfill_secret.blank?
-      step.output = %(Great! We've created your ConvertKit #{self._mixin_name_plural} integration.
+      step.output = %(Great! We've created your #{self.resource_name_plural} integration.
 
-ConvertKit #{self._mixin_name_singular} webhooks are not designed to mirror data, so to fill your database,
+#{self.resource_name_singular} webhooks are not designed to mirror data, so to fill your database,
 we need to use the API to make requests, which requires your API Secret.
 #{Webhookdb::Convertkit::FIND_API_SECRET_HELP}
       )
       return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
-    result = self.verify_backfill_credentials
-    unless result.fetch(:verified)
+
+    unless (result = self.verify_backfill_credentials).verified
       self.service_integration.service_instance.clear_backfill_information
-      step.output = result.fetch(:message)
+      step.output = result.message
       return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
-    step.output = %(We'll start backfilling your ConvertKit #{self._mixin_name_plural} now,
+
+    step.output = %(We'll start backfilling your #{self.resource_name_plural} now,
 and they will show up in your database momentarily.
 #{self._query_help_output}
     )

@@ -48,7 +48,7 @@ RSpec.shared_examples "a service implementation" do |name|
     end.to_not publish("webhookdb.serviceintegration.rowupsert")
   end
 
-  it "handles webhooks" do
+  it "can serve a webhook response webhooks" do
     request = fake_request
     status, headers, body = svc.webhook_response(request)
     expect(status).to be_a(Integer)
@@ -188,7 +188,7 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
     svc = Webhookdb::Services.service_instance(correct_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to include(verified: true, message: "")
+    expect(result).to have_attributes(verified: true, message: "")
   end
 
   it "if backfill info is incorrect for some other reason, return the a negative result and error message" do
@@ -196,7 +196,7 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
     svc = Webhookdb::Services.service_instance(incorrect_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to include(verified: false, message: be_a(String).and(be_present))
+    expect(result).to have_attributes(verified: false, message: be_a(String).and(be_present))
   end
 
   it "returns a failed backfill message if the credentials aren't verified when building the state machine" do

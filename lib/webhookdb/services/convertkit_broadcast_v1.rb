@@ -14,15 +14,8 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
       name: "convertkit_broadcast_v1",
       ctor: ->(sint) { Webhookdb::Services::ConvertkitBroadcastV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "ConvertKit Broadcast",
     )
-  end
-
-  def _mixin_name_singular
-    return "Broadcast"
-  end
-
-  def _mixin_name_plural
-    return "Broadcasts"
   end
 
   def calculate_create_state_machine

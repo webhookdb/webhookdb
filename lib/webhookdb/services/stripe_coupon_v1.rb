@@ -13,6 +13,7 @@ class Webhookdb::Services::StripeCouponV1 < Webhookdb::Services::Base
       name: "stripe_coupon_v1",
       ctor: ->(sint) { Webhookdb::Services::StripeCouponV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Stripe Coupon",
     )
   end
 
@@ -51,14 +52,6 @@ class Webhookdb::Services::StripeCouponV1 < Webhookdb::Services::Base
       updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
-  end
-
-  def _mixin_name_singular
-    return "Stripe Coupon"
-  end
-
-  def _mixin_name_plural
-    return "Stripe Coupons"
   end
 
   def _mixin_backfill_url

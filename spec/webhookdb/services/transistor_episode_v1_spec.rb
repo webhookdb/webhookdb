@@ -483,7 +483,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
       it "returns a backfill step" do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
-          output: match("does not support Episode webhooks"),
+          output: match("does not support Transistor Episode webhooks"),
         )
       end
     end
@@ -511,7 +511,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("does not support Episode webhooks"),
+          output: match("does not support Transistor Episode webhooks"),
         )
       end
 

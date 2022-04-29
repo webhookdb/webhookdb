@@ -13,6 +13,7 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
       name: "shopify_order_v1",
       ctor: ->(sint) { Webhookdb::Services::ShopifyOrderV1.new(sint) },
       feature_roles: [],
+      resource_name_singular: "Shopify Order",
     )
   end
 
@@ -61,14 +62,6 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
       updated_at: body.fetch("updated_at"),
       user_id: body.fetch("user_id"),
     }
-  end
-
-  def _mixin_name_singular
-    return "Shopify Order"
-  end
-
-  def _mixin_name_plural
-    return "Shopify Orders"
   end
 
   def _mixin_backfill_url

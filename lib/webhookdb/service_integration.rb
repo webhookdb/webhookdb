@@ -19,14 +19,17 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     ds.or(Sequel[organization_id: :organization_id])
   end
 
+  # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)
     return Webhookdb::Services.service_instance(self).process_state_change(field, value)
   end
 
+  # @return [Webhookdb::Services::StateMachineStep]
   def calculate_create_state_machine
     return Webhookdb::Services.service_instance(self).calculate_create_state_machine
   end
 
+  # @return [Webhookdb::Services::StateMachineStep]
   def calculate_backfill_state_machine
     return Webhookdb::Services.service_instance(self).calculate_backfill_state_machine
   end
@@ -35,6 +38,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return customer.verified_member_of?(self.organization)
   end
 
+  # @return [Webhookdb::Services::Base]
   def service_instance
     return Webhookdb::Services.service_instance(self)
   end
@@ -87,6 +91,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
   end
 
+  # @return [Webhookdb::ServiceIntegration::Stats]
   def stats
     all_logged_webhooks = Webhookdb::LoggedWebhook.where(
       service_integration_opaque_id: self.opaque_id,
@@ -163,6 +168,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   def before_create
     self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("svi")
   end
+
+  # @!attribute organization
+  #   @return [Webhookdb::Organization]
 
   # @!attribute table_name
   #   @return [String] Name of the table

@@ -367,7 +367,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
       it "returns a backfill step" do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
-          output: match("Transistor does not support Show webhooks"),
+          output: match("Transistor does not support Transistor Show webhooks"),
         )
       end
     end

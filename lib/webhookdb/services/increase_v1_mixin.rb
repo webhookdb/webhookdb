@@ -3,14 +3,6 @@
 require "webhookdb/increase"
 
 module Webhookdb::Services::IncreaseV1Mixin
-  def _mixin_name_singular
-    raise NotImplementedError
-  end
-
-  def _mixin_name_plural
-    raise NotImplementedError
-  end
-
   def _mixin_backfill_url
     raise NotImplementedError
   end
@@ -29,8 +21,8 @@ module Webhookdb::Services::IncreaseV1Mixin
     step = Webhookdb::Services::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
-      step.output = %(You are about to start reflecting #{self._mixin_name_plural} info into webhookdb.
-We've made an endpoint available for #{self._mixin_name_singular} webhooks:
+      step.output = %(You are about to start reflecting #{self.resource_name_plural} info into webhookdb.
+We've made an endpoint available for #{self.resource_name_singular} webhooks:
 
 #{self._webhook_endpoint}
 
@@ -45,9 +37,9 @@ Copy that shared secret value.
       return step.secret_prompt("secret").webhook_secret(self.service_integration)
     end
 
-    step.output = %(Great! WebhookDB is now listening for #{self._mixin_name_singular} webhooks.
+    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
 #{self._query_help_output}
-In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
+In order to backfill existing #{self.resource_name_plural}, run this from a shell:
 
   #{self._backfill_command}
     )
@@ -57,22 +49,21 @@ In order to backfill existing #{self._mixin_name_plural}, run this from a shell:
   def calculate_backfill_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
-      step.output = %(In order to backfill #{self._mixin_name_plural}, we need an API key.
+      step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
 From your Increase admin dashboard, go to Team Settings -> API Keys.
 We'll need the Production key--copy that value to your clipboard.
       )
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
-    result = self.verify_backfill_credentials
-    unless result.fetch(:verified)
+    unless (result = self.verify_backfill_credentials).verified
       self.service_integration.service_instance.clear_backfill_information
-      step.output = result.fetch(:message)
+      step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
     step.needs_input = false
-    step.output = %(Great! We are going to start backfilling your #{self._mixin_name_plural}.
+    step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._query_help_output}
       )
     step.complete = true

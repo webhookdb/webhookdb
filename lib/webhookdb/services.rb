@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webhookdb/typed_struct"
+
 class Webhookdb::Services
   extend Webhookdb::MethodUtilities
 
@@ -7,45 +9,78 @@ class Webhookdb::Services
 
   class CredentialsMissing < RuntimeError; end
 
-  singleton_attr_reader :registered
-  @registered = {}
-
   # In the Descriptor struct, the value for :feature_roles is used in
   # our feature flagging functionality. It should default to [],
   # but other possible values to be included in the array are:
   #    -'internal' e.g. our fake integration
   #    -'unreleased' for works in progress
   #    -'beta' if we don't want most people to have access
-  Descriptor = Struct.new(
-    :name,
-    :ctor,
-    :feature_roles,
-    keyword_init: true,
-  )
+  class Descriptor < Webhookdb::TypedStruct
+    # @!attribute name
+    #   @return [String]
+    # @!attribute ctor
+    #   @return [Proc]
+    # @!attribute feature_roles
+    #   @return [Array<String>]
+    # @!attribute resource_name_singular
+    #   @return [String]
+    # @!attribute resource_name_plural
+    #   @return [String]
+    attr_reader :name,
+                :ctor,
+                :resource_name_singular,
+                :resource_name_plural,
+                :feature_roles
 
-  def self.register(cls)
-    desc = cls.descriptor
-    self.registered[desc[:name]] = desc
+    def initialize(
+      name:,
+      ctor:,
+      resource_name_singular:,
+      feature_roles:, resource_name_plural: nil
+    )
+      super(name:, resource_name_singular:, feature_roles:)
+      @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
+      @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
+    end
+
+    def inspect
+      return "#{self.class.name}(name: #{self.name})"
+    end
   end
 
-  # Return a new service instance for the given integration.
-  #
-  # @param service_integration [Webhookdb::ServiceIntegration]
-  # @return [Webhookdb::Services::Base]
-  def self.service_instance(service_integration)
-    name = service_integration.service_name
-    cls = self.registered_service_type!(name)
-    return cls.call(service_integration)
-  end
+  class << self
+    # @return [Hash{String => Webhookdb::Services::Descriptor}]
+    def registered
+      return @registered ||= {}
+    end
 
-  def self.registered_service_type(name)
-    return @registered[name]
-  end
+    def register(cls)
+      desc = cls.descriptor
+      raise TypeError, "descriptor must be a Descriptor, got #{desc.class.name}" unless desc.is_a?(Descriptor)
+      self.registered[desc.name] = desc
+    end
 
-  def self.registered_service_type!(name)
-    r = self.registered_service_type(name)
-    return r[:ctor] if r
-    raise InvalidService, name
+    # Return a new service instance for the given integration.
+    #
+    # @param service_integration [Webhookdb::ServiceIntegration]
+    # @return [Webhookdb::Services::Base]
+    def service_instance(service_integration)
+      name = service_integration.service_name
+      descr = self.registered_service!(name)
+      return descr.ctor.call(service_integration)
+    end
+
+    # @return [Webhookdb::Services::Descriptor]
+    def registered_service(name)
+      return @registered[name]
+    end
+
+    # @return [Webhookdb::Services::Descriptor]
+    def registered_service!(name)
+      r = self.registered_service(name)
+      return r if r
+      raise InvalidService, name
+    end
   end
 end
 
@@ -71,7 +106,7 @@ require "webhookdb/services/stripe_refund_v1"
 require "webhookdb/services/stripe_subscription_v1"
 require "webhookdb/services/stripe_subscription_item_v1"
 require "webhookdb/services/stripe_invoice_v1"
-require "webhookdb/services/stripe_invoiceitem_v1"
+require "webhookdb/services/stripe_invoice_item_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
@@ -95,7 +130,7 @@ Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionItemV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceitemV1)
+Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceItemV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
 Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)

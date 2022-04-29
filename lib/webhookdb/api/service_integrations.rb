@@ -84,7 +84,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
               available_services_list = org.available_service_names.join("\n\t")
 
               # If provided service name is invalid
-              if Webhookdb::Services.registered_service_type(name).nil?
+              if Webhookdb::Services.registered_service(name).nil?
                 step = Webhookdb::Services::StateMachineStep.new
                 step.needs_input = false
                 step.output =

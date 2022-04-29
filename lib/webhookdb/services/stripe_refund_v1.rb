@@ -13,6 +13,7 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
       name: "stripe_refund_v1",
       ctor: ->(sint) { Webhookdb::Services::StripeRefundV1.new(sint) },
       feature_roles: ["beta"],
+      resource_name_singular: "Stripe Refund",
     )
   end
 
@@ -55,14 +56,6 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
       updated: self.tsat(updated),
       stripe_id: obj_of_interest.fetch("id"),
     }
-  end
-
-  def _mixin_name_singular
-    return "Stripe Refund"
-  end
-
-  def _mixin_name_plural
-    return "Stripe Refunds"
   end
 
   def _mixin_backfill_url
