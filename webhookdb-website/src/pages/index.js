@@ -168,11 +168,12 @@ export default function IndexPage() {
             })}
           </Row>
           <p>
-            * Indicates coming soon. Please{" "}
+            Some listed integrations are still in beta, so you may not see them in
+            WebhookDB. Please{" "}
             <a href="#" onClick={openContactUs}>
               Contact Us
             </a>{" "}
-            if you need it immediately, or want any API not listed here.
+            if you need access, or want any API not listed here.
           </p>
         </Centered>
       </Container>

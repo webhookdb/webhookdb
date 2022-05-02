@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "webhookdb/backfiller"
 require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 require "webhookdb/typed_struct"
@@ -246,19 +247,25 @@ class Webhookdb::Services::Base
     end
     row_changed = upserted_rows.present?
     self._after_insert(inserting, enrichment:)
-    self.service_integration.dependents.each do |d|
-      d.service_instance.notify_dependency_webhook_upsert(inserting, changed: row_changed)
-    end
-
+    self._notify_dependents(inserting, row_changed)
     return unless row_changed
+    self._publish_rowupsert(inserting)
+  end
 
+  def _notify_dependents(inserting, changed)
+    self.service_integration.dependents.each do |d|
+      d.service_instance.on_dependency_webhook_upsert(self, inserting, changed:)
+    end
+  end
+
+  def _publish_rowupsert(row)
     self.service_integration.publish_deferred(
       "rowupsert",
       self.service_integration.id,
       {
-        row: inserting,
+        row:,
         external_id_column: self._remote_key_column.name,
-        external_id: inserting[self._remote_key_column.name],
+        external_id: row[self._remote_key_column.name],
       },
     )
   end
@@ -377,43 +384,37 @@ class Webhookdb::Services::Base
     last_backfilled = incremental ? self.service_integration.last_backfilled_at : nil
     raise Webhookdb::Services::CredentialsMissing if
       self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
-    pagination_token = nil
     new_last_backfilled = Time.now
-    loop do
-      page, next_pagination_token = self._fetch_backfill_page_with_retry(
-        pagination_token, last_backfilled:,
-      )
-      pagination_token = next_pagination_token
-      page.each do |item|
-        self.upsert_webhook(body: item)
-      end
-      break if pagination_token.blank?
-    end
+    ServiceBackfiller.new(self).backfill(last_backfilled)
     self.service_integration.update(last_backfilled_at: new_last_backfilled) if incremental
-  end
-
-  def max_backfill_retry_attempts
-    return 3
-  end
-
-  def wait_for_retry_attempt(attempt:)
-    return sleep(attempt)
-  end
-
-  def _fetch_backfill_page_with_retry(pagination_token, last_backfilled: nil, attempt: 1)
-    return self._fetch_backfill_page(pagination_token, last_backfilled:)
-  rescue RuntimeError => e
-    raise e if attempt >= self.max_backfill_retry_attempts
-    self.wait_for_retry_attempt(attempt:)
-    return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled:,
-                                                                  attempt: attempt + 1,)
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     raise NotImplementedError
   end
 
-  def notify_dependency_webhook_upsert(_payload, changed:)
+  class ServiceBackfiller < Webhookdb::Backfiller
+    # @!attribute svc
+    #   @return [Webhookdb::Services::Base]
+
+    def initialize(svc)
+      @svc = svc
+      super()
+    end
+
+    def handle_item(item)
+      return @svc.upsert_webhook(body: item)
+    end
+
+    def fetch_backfill_page(pagination_token, last_backfilled:)
+      return @svc._fetch_backfill_page(pagination_token, last_backfilled:)
+    end
+  end
+
+  # @param service_instance [Webhookdb::Services::PlaidItemV1]
+  # @param payload [Hash]
+  # @param changed [Boolean]
+  def on_dependency_webhook_upsert(service_instance, payload, changed:)
     raise NotImplementedError, "this must be overridden for services that have dependencies"
   end
 
@@ -444,9 +445,7 @@ to keep going.
       map { |si, idx| "#{idx + 1} - #{si.table_name}" }.
       join("\n")
     step.output = %(This integration requires #{dep_descr.resource_name_plural} to sync.
-
-#{dependency_help}
-
+#{dependency_help.blank? ? '' : "\n#{dependency_help}\n"}
 Enter the number for the #{dep_descr.resource_name_singular} integration you want to use,
 or leave blank to choose the first option.
 
@@ -465,9 +464,9 @@ or leave blank to choose the first option.
     return "webhookdb backfill #{self.service_integration.opaque_id}"
   end
 
-  protected def _query_help_output
+  protected def _query_help_output(prefix: "You can query the table")
     sint = self.service_integration
-    return %(You can query the table through your organization's Postgres connection string:
+    return %(#{prefix} through your organization's Postgres connection string:
 
   psql #{sint.organization.readonly_connection_url}
   > SELECT * FROM #{sint.table_name}

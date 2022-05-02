@@ -104,6 +104,8 @@ require "webhookdb/services/convertkit_tag_v1"
 require "webhookdb/services/fake"
 require "webhookdb/services/increase_ach_transfer_v1"
 require "webhookdb/services/increase_transaction_v1"
+require "webhookdb/services/plaid_item_v1"
+require "webhookdb/services/plaid_transaction_v1"
 require "webhookdb/services/shopify_customer_v1"
 require "webhookdb/services/shopify_order_v1"
 require "webhookdb/services/stripe_charge_v1"
@@ -129,6 +131,8 @@ Webhookdb::Services.register(Webhookdb::Services::FakeDependent)
 Webhookdb::Services.register(Webhookdb::Services::FakeWithEnrichments)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseACHTransferV1)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)
+Webhookdb::Services.register(Webhookdb::Services::PlaidItemV1)
+Webhookdb::Services.register(Webhookdb::Services::PlaidTransactionV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)

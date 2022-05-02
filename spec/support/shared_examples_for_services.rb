@@ -5,6 +5,7 @@ RSpec.shared_examples "a service implementation" do |name|
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
+  let(:supports_row_diff) { true }
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -41,11 +42,13 @@ RSpec.shared_examples "a service implementation" do |name|
   end
 
   it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events do
-    svc.create_table
-    svc.upsert_webhook(body:)
-    expect do
+    if supports_row_diff
+      svc.create_table
       svc.upsert_webhook(body:)
-    end.to_not publish("webhookdb.serviceintegration.rowupsert")
+      expect do
+        svc.upsert_webhook(body:)
+      end.to_not publish("webhookdb.serviceintegration.rowupsert")
+    end
   end
 
   it "can serve a webhook response webhooks" do
@@ -246,7 +249,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
 
   it "retries the page fetch" do
     svc.create_table
-    expect(svc).to receive(:wait_for_retry_attempt).twice # Mock out the sleep
+    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
     expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
     responses = stub_service_requests
@@ -264,7 +267,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   end
 
   it "errors if fetching page errors" do
-    expect(svc).to receive(:wait_for_retry_attempt).twice # Mock out the sleep
+    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     response = stub_service_request_error
     expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
     expect(response).to have_been_made.at_least_once
@@ -399,6 +402,7 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_insert) { raise NotImplementedError }
+  let(:can_track_row_changes) { true }
   before(:each) do
     sint.organization.prepare_database_connections
   end
@@ -407,26 +411,29 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
     sint.organization.remove_related_database
   end
 
-  it "calls notify_dependency_webhook_upsert on dependencies with whether the row has changed" do
+  it "calls on_dependency_webhook_upsert on dependencies with whether the row has changed" do
     svc.create_table
     Webhookdb::Fixtures.service_integration(service_name: dependent_service_name).
       depending_on(svc.service_integration).
       create
 
     calls = []
-    Webhookdb::Services::FakeDependent.notify_dependency_webhook_upsert_callback = lambda { |payload, changed:|
-      calls << 0
-      expect(changed).to be_truthy
-      expect(payload).to eq(expected_insert)
-    }
+    svc.service_integration.dependents.each do |dep|
+      dep_svc = dep.service_instance
+      expect(dep).to receive(:service_instance).at_least(:once).and_return(dep_svc)
+      expect(dep_svc).to receive(:on_dependency_webhook_upsert).twice do |inst, payload, changed:|
+        calls << 0
+        expect(inst).to eq(svc)
+        expect(payload).to eq(expected_insert)
+        if can_track_row_changes
+          expect(changed).to(calls.length == 1 ? be_truthy : be_falsey)
+        else
+          expect(changed).to be_truthy
+        end
+      end
+    end
     svc.upsert_webhook(body:)
     expect(calls).to have_length(1)
-
-    Webhookdb::Services::FakeDependent.notify_dependency_webhook_upsert_callback = lambda { |payload, changed:|
-      calls << 0
-      expect(changed).to be_falsey
-      expect(payload).to eq(expected_insert)
-    }
     svc.upsert_webhook(body:)
     expect(calls).to have_length(2)
   end

@@ -64,4 +64,10 @@ class Webhookdb::Services::StateMachineStep
     self.post_to_url = sint.authed_api_path + "/transition/webhook_secret"
     return self
   end
+
+  # @return [Webhookdb::Services::StateMachineStep]
+  def api_url(sint)
+    self.post_to_url = sint.authed_api_path + "/transition/api_url"
+    return self
+  end
 end

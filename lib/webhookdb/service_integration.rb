@@ -10,6 +10,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :column_encryption do |enc|
+    enc.column :data_encryption_secret
+  end
 
   many_to_one :organization, class: "Webhookdb::Organization"
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
@@ -190,6 +193,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # @!attribute service_name
   #   @return [String] Lookup name of the service
 
+  # @!attribute opaque_id
+  #   @return [String]
+
   # @!attribute api_url
   #   @return [String] Root Url of the api to backfill from
 
@@ -198,6 +204,17 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   # @!attribute backfill_secret
   #   @return [String] Password/secret for backfilling.
+
+  # @!attribute webhook_secret
+  #   @return [String] Secret used to sign webhooks.
+
+  # @!attribute depends_on
+  #   @return [Webhookdb::ServiceIntegration]
+
+  # @!attribute data_encryption_secret
+  #   @return [String] The encryption key used to encrypt data for this organization.
+  #                    Note that this field is itself encrypted using Sequel encryption;
+  #                    its decrypted value is meant to be used as the data encryption key.
 end
 
 # Table: service_integrations

@@ -1,6 +1,7 @@
 import ConvertKitLogo from "../images/logo-convertkit.png";
 import IncreaseLogo from "../images/logo-increase.png";
 import MailchimpLogo from "../images/logo-mailchimp.png";
+import PlaidLogo from "../images/logo-plaid.png";
 import PostmarkLogo from "../images/logo-postmark.png";
 import ShopifyLogo from "../images/logo-shopify.png";
 import StripeLogo from "../images/logo-stripe.png";
@@ -12,12 +13,28 @@ export const Integrations = [
   {
     name: "Stripe",
     logo: StripeLogo,
-    resources: ["Customers", "Charges", "Refunds", "Payouts*", "Invoices*"],
+    resources: [
+      "Charges",
+      "Coupons",
+      "Customers",
+      "Disputes",
+      "Invoices",
+      "Payouts",
+      "Prices",
+      "Products",
+      "Refunds",
+      "Subscriptions",
+    ],
+  },
+  {
+    name: "Plaid",
+    logo: PlaidLogo,
+    resources: ["Items", "Transactions", "Accounts"],
   },
   {
     name: "Twilio",
     logo: TwilioLogo,
-    resources: ["SMS", "Voice*"],
+    resources: ["SMS"],
   },
   {
     name: "Shopify",
@@ -32,7 +49,16 @@ export const Integrations = [
   {
     name: "Increase",
     logo: IncreaseLogo,
-    resources: ["Transactions", "ACH Transfers"],
+    resources: [
+      "Account Numbers",
+      "Account Transfers",
+      "Accounts",
+      "ACH Transfers",
+      "Check Transfers",
+      "Limits",
+      "Transactions",
+      "Wire Transfers",
+    ],
   },
   {
     name: "Transistor.fm",
@@ -47,11 +73,11 @@ export const Integrations = [
   {
     name: "Mailchimp",
     logo: MailchimpLogo,
-    resources: ["Subscribers*", "Email Activity*"],
+    resources: ["Campaigns", "Lists", "List Members", "Member Activity"],
   },
   {
     name: "Unit",
     logo: UnitLogo,
-    resources: ["All Resources*"],
+    resources: ["Transactions", "Payments"],
   },
 ];

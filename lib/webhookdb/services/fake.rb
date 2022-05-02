@@ -134,7 +134,7 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
 end
 
 class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
-  singleton_attr_accessor :notify_dependency_webhook_upsert_callback
+  singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -146,8 +146,8 @@ class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
     )
   end
 
-  def notify_dependency_webhook_upsert(payload, changed:)
-    self.class.notify_dependency_webhook_upsert_callback&.call(payload, changed:)
+  def on_dependency_webhook_upsert(service_instance, payload, changed:)
+    self.class.on_dependency_webhook_upsert_callback&.call(service_instance, payload, changed:)
   end
 
   def calculate_create_state_machine
