@@ -24,11 +24,11 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:item_id, "text"),
+      Webhookdb::Services::Column.new(:item_id, "text", index: true),
       Webhookdb::Services::Column.new(:account_id, "text"),
       Webhookdb::Services::Column.new(:amount, "text"),
       Webhookdb::Services::Column.new(:iso_currency_code, "text"),
-      Webhookdb::Services::Column.new(:datetime, "timestamptz"),
+      Webhookdb::Services::Column.new(:datetime, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:authorized_datetime, "timestamptz"),
       Webhookdb::Services::Column.new(:removed_at, "timestamptz"),
     ]
@@ -183,16 +183,18 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       offset = pagination_token.present? ? pagination_token : 0
       url = @api_url + "/transactions/get"
 
-      response = Webhookdb::Http.get(
+      response = Webhookdb::Http.post(
         url,
-        query: {
-          access_token: @plaid_access_token,
-          count:,
-          offset:,
+        {
           client_id: @item_svc.service_integration.backfill_key,
-          client_secret: @item_svc.service_integration.backfill_secret,
+          secret: @item_svc.service_integration.backfill_secret,
+          access_token: @plaid_access_token,
           start_date: last_backfilled.strftime("%Y-%m-%d"),
           end_date: Time.now.tomorrow.strftime("%Y-%m-%d"),
+          options: {
+            count:,
+            offset:,
+          },
         },
         logger: @transaction_svc.logger,
       )

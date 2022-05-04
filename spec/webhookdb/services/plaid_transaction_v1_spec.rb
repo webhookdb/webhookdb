@@ -274,21 +274,20 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
     end
 
     def stub_service_request(start_date, offset, body)
-      return stub_request(:get, "https://sandbox.plaid.com/transactions/get").
-          with(query: hash_including(
+      return stub_request(:post, "https://sandbox.plaid.com/transactions/get").
+          with(body: hash_including(
             "access_token" => "atok",
             "client_id" => "bfkey",
-            "client_secret" => "bfsek",
-            "count" => "1",
-            "end_date" => end_date,
-            "offset" => offset.to_s,
+            "secret" => "bfsek",
             "start_date" => start_date.strftime("%Y-%m-%d"),
+            "end_date" => end_date,
+            "options" => {"count" => 1, "offset" => offset},
           )).to_return(status: 200, body:, headers: {"Content-Type" => "application/json"})
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://sandbox.plaid.com/transactions/get").
-          with(query: hash_including({})).to_return(status: 503, body: "uhh")
+      return stub_request(:post, "https://sandbox.plaid.com/transactions/get").
+          with(body: hash_including({})).to_return(status: 503, body: "uhh")
     end
 
     it "inserts records for pages of results" do

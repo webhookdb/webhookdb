@@ -122,7 +122,10 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "request_id": "m8MDnv9okwxFNBV"
         }
       J
-      req = stub_request(:get, "http://pladtest/").
+      sint.backfill_key = "clid"
+      sint.backfill_secret = "rune"
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        with(body: {access_token: "atok", client_id: "clid", secret: "rune"}.to_json).
         to_return(status: 200, body: plaid_body, headers: {"Content-Type" => "application/json"})
 
       body = JSON.parse(<<~J)
@@ -141,6 +144,37 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           encrypted_access_token: "amIg507BPydo1vl3B3Tn9g==",
         ),
       )
+      expect(req).to have_been_made
+    end
+
+    it "marks the item as errored if removed" do
+      plaid_body = <<~J
+        {
+          "display_message": null,
+          "documentation_url": "https://plaid.com/docs/?ref=error#item-errors",
+          "error_code": "ITEM_NOT_FOUND",
+          "error_message": "The Item you requested cannot be found. This Item does not exist, has been previously removed via /item/remove, or has had access removed by the user.",
+          "error_type": "ITEM_ERROR",
+          "request_id": "cOGnMlnwqacoUpr",
+          "suggested_action": null
+        }
+      J
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        to_return(status: 400, body: plaid_body, headers: {"Content-Type" => "application/json"})
+
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "CREATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          "access_token": "atok"
+        }
+      J
+      svc.upsert_webhook(body:)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", encrypted_access_token: "amIg507BPydo1vl3B3Tn9g=="),
+      )
+      expect(svc.readonly_dataset(&:first)[:error].as_json).to(include("error_code" => "ITEM_NOT_FOUND"))
       expect(req).to have_been_made
     end
 
@@ -214,7 +248,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         )
       end
 
-      it "promps if api_url is not set" do
+      it "prompts if api_url is not set" do
         sint.webhook_secret = "abc"
         sint.api_url = ""
         sm = sint.calculate_create_state_machine
@@ -227,8 +261,38 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         )
       end
 
+      it "prompts for backfill key" do
+        sint.webhook_secret = "abc"
+        sint.api_url = "https://foo"
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your Plaid Client ID here:",
+          prompt_is_secret: false,
+          post_to_url: end_with("/transition/backfill_key"),
+          output: match("Almost there. We will need to use the Plaid API"),
+        )
+      end
+
+      it "prompts for backfill secret" do
+        sint.webhook_secret = "abc"
+        sint.api_url = "https://foo"
+        sint.backfill_key = "sek"
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: true,
+          prompt: "Paste or type your Plaid Secret here:",
+          prompt_is_secret: true,
+          post_to_url: end_with("/transition/backfill_secret"),
+          output: match("And now your API secret, too."),
+        )
+      end
+
       it "prints an existing webhook secret if it is set" do
         sint.webhook_secret = "whsec_abcasdf"
+        sint.api_url = "https://foo"
+        sint.backfill_key = "bk"
+        sint.backfill_secret = "sekrit"
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
@@ -242,15 +306,10 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
     end
 
     describe "calculate_backfill_state_machine" do
-      it "tells the user it is unsupported" do
+      it "returns the create state machine" do
         sm = sint.calculate_backfill_state_machine
         expect(sm).to have_attributes(
-          needs_input: false,
-          prompt: "",
-          prompt_is_secret: false,
-          post_to_url: "",
-          complete: true,
-          output: match("Plaid Items do not support backfilling"),
+          output: match("You are about to add support"),
         )
       end
     end

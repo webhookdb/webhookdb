@@ -74,7 +74,25 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       Webhookdb::Crypto::Boxed.from_raw(access_token),
     ).base64
 
-    resp = Webhookdb::Http.get("http://pladtest", logger: self.logger)
+    begin
+      resp = Webhookdb::Http.post(
+        "#{self.service_integration.api_url}/item/get",
+        {
+          access_token:,
+          client_id: self.service_integration.backfill_key,
+          secret: self.service_integration.backfill_secret,
+        },
+        logger: self.logger,
+      )
+    rescue Webhookdb::Http::Error => e
+      if e.response.parsed_response["error_type"] == "ITEM_ERROR"
+        return {
+          encrypted_access_token:,
+          error: e.response.body,
+        }
+      end
+      raise e
+    end
     body = resp.parsed_response
     return {
       encrypted_access_token:,
@@ -131,10 +149,23 @@ or input 'development' or 'sandbox' (or input the URL).
       )
       return step.prompting("API host").api_url(self.service_integration)
     end
+    if self.service_integration.backfill_key.blank?
+      step.output = %(Almost there. We will need to use the Plaid API to fetch data
+about Plaid Items and other resources, so we need your Client Id and Secret.)
+      return step.prompting("Plaid Client ID").backfill_key(self.service_integration)
+    end
+    if self.service_integration.backfill_secret.blank?
+      step.output = %(And now your API secret, too.)
+      return step.secret_prompt("Plaid Secret").backfill_secret(self.service_integration)
+    end
     step.output = %(Excellent. We have made a URL available
 that you must use for webhooks, both in Plaid and from your backend:
 
 #{self._webhook_endpoint}
+
+The secret to use for signing is:
+
+#{self.service_integration.webhook_secret}
 
 At this point, you are ready to follow the detailed instructions
 found here: https://webhookdb.com/docs/plaid.
@@ -144,22 +175,6 @@ found here: https://webhookdb.com/docs/plaid.
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
-    step.output = %(Plaid Items do not support backfilling.
-Instead, you must send information about new items to WebhookDB
-(we will take care of updates as long as the webhook is set up
-when you create tokens).
-
-Your webhook endpoint is:
-
-#{self._webhook_endpoint}
-
-And the secret to use for signing is:
-
-#{self.service_integration.webhook_secret}
-
-Please follow the instructions at https://webhookdb.com/docs/plaid
-to sync WebhookDB with Plaid.)
-    return step.completed
+    return self.calculate_create_state_machine
   end
 end
