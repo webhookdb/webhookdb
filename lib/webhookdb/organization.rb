@@ -232,6 +232,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         }],
         mode: "subscription",
         payment_method_types: ["card"],
+        allow_promotion_codes: true,
         success_url: Webhookdb.app_url + "/jump/checkout-success",
       },
     )
