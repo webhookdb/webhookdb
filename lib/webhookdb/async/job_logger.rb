@@ -15,8 +15,24 @@ class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
 
   Sidekiq.logger = self.logger
 
+  def self.current_log_tags
+    return Thread.current[:amigo_job_log_tags]
+  end
+
+  def self.add_log_tags(tags)
+    t = self.current_log_tags
+    return if t.nil?
+    t.merge!(tags)
+  end
+
+  def self.with_log_tags(tags, &)
+    self.add_log_tags(tags)
+    SemanticLogger.tagged(tags, &)
+  end
+
   def call(item, _queue, &)
     start = self.now
+    Thread.current[:amigo_job_log_tags] = {}
     tags = {
       job_class: item["class"],
       job_id: item["jid"],
@@ -31,11 +47,15 @@ class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
     yield
     duration = self.elapsed(start)
     log_method = duration >= Webhookdb::Async.slow_job_seconds ? :warn : :info
-    self.logger.send(log_method, "job_done", duration:)
+    self.logger.send(log_method, "job_done", duration:, **self.get_log_tags)
   rescue StandardError
     # Do not log the error since it is probably a sidekiq retry error
-    self.logger.error("job_fail", duration: self.elapsed(start))
+    self.logger.error("job_fail", duration: self.elapsed(start), **self.get_log_tags)
     raise
+  end
+
+  protected def get_log_tags
+    return Thread.current[:amigo_job_log_tags] || {}
   end
 
   protected def elapsed(start)

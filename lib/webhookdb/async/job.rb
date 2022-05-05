@@ -27,6 +27,14 @@ module Webhookdb::Async::Job
       return Webhookdb::Async::JobLogger.logger
     end
 
+    def add_log_tags(tags)
+      Webhookdb::Async::JobLogger.add_log_tags(tags)
+    end
+
+    def with_log_tags(tags, &)
+      Webhookdb::Async::JobLogger.with_log_tags(tags, &)
+    end
+
     def perform(*args)
       if args.empty?
         event = nil

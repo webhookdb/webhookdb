@@ -37,6 +37,17 @@ RSpec.describe Webhookdb::Async::JobLogger, :db do
     )
   end
 
+  it "can capture additional log tags" do
+    lines = log do
+      described_class.add_log_tags(abc: 123)
+    end
+    expect(lines).to contain_exactly(
+      include_json(
+        context: include("job_class", "abc" => 123),
+      ),
+    )
+  end
+
   it "logs at warn if the time taken is more than the slow job seconds" do
     Webhookdb::Async.slow_job_seconds = 0
     lines = log
