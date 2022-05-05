@@ -6,6 +6,7 @@ class Webhookdb::Jobs::SendTestWebhook
   extend Webhookdb::Async::Job
 
   on "webhookdb.webhooksubscription.test"
+  sidekiq_options queue: "netout"
 
   # If this job fails for a programmer error,
   # we don't want to retry and randomly send a payload later.

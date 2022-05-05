@@ -7,6 +7,7 @@ class Webhookdb::Jobs::Backfill
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.backfill"
+  sidekiq_options queue: "netout"
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)

@@ -6,6 +6,8 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent
   include Sidekiq::Worker
 
+  sidekiq_options queue: "netout"
+
   def perform(delivery_id)
     delivery = Webhookdb::WebhookSubscription::Delivery[delivery_id]
     Webhookdb::Async::JobLogger.with_log_tags(

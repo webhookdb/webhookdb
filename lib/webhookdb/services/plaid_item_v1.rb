@@ -41,6 +41,10 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     ]
   end
 
+  def upsert_has_deps?
+    return true
+  end
+
   def upsert_webhook(body:)
     if body.fetch("webhook_type") != "ITEM"
       self.service_integration.dependents.each do |d|

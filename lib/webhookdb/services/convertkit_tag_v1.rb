@@ -38,6 +38,10 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
   end
 
+  def upsert_has_deps?
+    return true
+  end
+
   def _fetch_enrichment(body)
     tag_id = body.fetch("id")
     url = "https://api.convertkit.com/v3/tags/#{tag_id}/subscriptions?api_secret=#{self.service_integration.backfill_secret}"

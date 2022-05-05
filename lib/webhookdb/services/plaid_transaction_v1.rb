@@ -34,6 +34,10 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
     ]
   end
 
+  def upsert_has_deps?
+    return true
+  end
+
   # In Plaid, webhooks are about notifications, not resources,
   # so the way we handle webhooks does not work for them.
   # Normally we'd do something like be backfill-only,

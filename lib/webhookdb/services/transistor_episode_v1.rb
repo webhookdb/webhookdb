@@ -50,6 +50,10 @@ CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
     return ["#{self.service_integration.table_name}_stats"]
   end
 
+  def upsert_has_deps?
+    return true
+  end
+
   def _fetch_enrichment(body)
     obj_of_interest = body.key?("data") ? body["data"] : body
     episode_id = obj_of_interest.fetch("id")

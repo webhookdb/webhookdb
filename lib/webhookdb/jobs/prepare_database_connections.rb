@@ -6,6 +6,7 @@ class Webhookdb::Jobs::PrepareDatabaseConnections
   extend Webhookdb::Async::Job
 
   on "webhookdb.organization.created"
+  sidekiq_options queue: "critical"
 
   def _perform(event)
     org = self.lookup_model(Webhookdb::Organization, event)

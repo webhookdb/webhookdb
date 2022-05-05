@@ -4,6 +4,8 @@ require "grape"
 
 require "webhookdb/api"
 require "webhookdb/formatting"
+require "webhookdb/async/audit_logger"
+require "webhookdb/jobs/process_webhook"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
   resource :service_integrations do
@@ -53,7 +55,16 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
                                           webhook_body: env["api.request.body"]
           header "Whdb-Rejected-Reason", whresp.reason
         else
-          sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
+          event_json = Webhookdb::Event.create(
+            "webhookdb.serviceintegration.webhook",
+            [sint.id, {headers: request.headers, body: env["api.request.body"]}],
+          ).as_json
+          # Audit Log this synchronously.
+          # It should be fast enough. We may as well log here so we can avoid
+          # serializing the (large) webhook payload multiple times, as with normal pubsub.
+          Webhookdb::Async::AuditLogger.new.perform(event_json)
+          queue = svc.upsert_has_deps? ? "netout" : "webhook"
+          Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
         end
 
         s_headers.each { |k, v| header k, v }

@@ -271,6 +271,14 @@ class Webhookdb::Services::Base
     Webhookdb::Jobs::SendWebhook.perform_async(event.as_json)
   end
 
+  # Return true if the integration requires making an API call to upsert.
+  # This puts the sync into a lower-priority queue
+  # so it is less likely to block other processing.
+  # This is usually true if enrichments are involved.
+  def upsert_has_deps?
+    return false
+  end
+
   # Given a webhook body that is going to be inserted,
   # make an optional API call to enrich it with further data.
   # The result of this is passed to _prepare_for_insert
@@ -287,13 +295,6 @@ class Webhookdb::Services::Base
   # @return [*]
   def _after_insert(_inserting, enrichment:)
     return nil
-  end
-
-  # Upsert a backfill payload into the database.
-  # By default, assume the webhook and backfill payload are the same shape
-  # and just use upsert_webhook(body: payload).
-  def upsert_backfill_payload(payload)
-    self.upsert_webhook(body: payload)
   end
 
   # The argument for insert_conflict update_where clause.
