@@ -10,6 +10,27 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   TRUNCATE_SUCCESSES = 7.days
   DELETE_FAILURES = 90.days
   TRUNCATE_FAILURES = 30.days
+  # When we retry a request, these headers
+  # must come from the Ruby client, NOT the original request.
+  NONOVERRIDABLE_HEADERS = [
+    "Accept-Encoding",
+    "Accept",
+    "Host",
+    "Version",
+  ].to_set
+  # These headers have been added by Heroku/our web host,
+  # so should not be part of the retry.
+  WEBHOST_HEADERS = [
+    "Connection",
+    "Connect-Time",
+    "X-Request-Id",
+    "X-Forwarded-For",
+    "X-Request-Start",
+    "Total-Route-Time",
+    "X-Forwarded-Port",
+    "X-Forwarded-Proto",
+    "Via",
+  ].to_set
 
   # Trim logged webhooks to keep this table to a reasonable size.
   # The current trim algorithm and rationale is:
@@ -52,14 +73,20 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   def self.retry_logs(instances, truncate_successful: false)
     successes, failures = instances.partition do |lw|
       uri = URI(Webhookdb.api_url + "/v1/service_integrations/#{lw.service_integration_opaque_id}")
-      req = Net::HTTP::Post.new(uri.path)
+      req = Net::HTTP::Post.new(uri.path, {"Content-Type" => "application/json"})
       req.body = lw.request_body
-      req.each_key.to_a.each { |k| req.delete(k) }
-      lw.request_headers.each { |k, v| req[k] = v }
-      # Delete the version key as it gets re-added automatically when we run this for real.
-      # I am not sure why or if this is the right solution though.
-      req.delete("Version")
-      resp = Net::HTTP.start(uri.hostname, uri.port) do |http|
+      # This is going to have these headers:
+      # ["content-type", "accept-encoding", "accept", "user-agent", "host"]
+      # We want to keep all of these, except if user-agent or content-type were set
+      # in the original request; then we want to use those.
+      # Additionally, there are a whole set of headers we'll find on our webserver
+      # that are added by our web platform, which we do NOT want to include.
+      lw.request_headers.each do |k, v|
+        next if WEBHOST_HEADERS.include?(k)
+        next if NONOVERRIDABLE_HEADERS.include?(k)
+        req[k] = v
+      end
+      resp = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
         http.request(req)
       end
       resp.code.to_i < 400
