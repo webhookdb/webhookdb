@@ -33,22 +33,33 @@ RSpec.shared_examples "a service implementation" do |name|
   end
 
   it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events do
+    Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
     svc.create_table
-    expect do
-      svc.upsert_webhook(body:)
-    end.to publish("webhookdb.serviceintegration.rowupsert").with_payload(
-      match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
-    )
+    expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).
+      with(include(
+             "payload" => match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
+           ))
+    svc.upsert_webhook(body:)
   end
 
   it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events do
     if supports_row_diff
+      Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
+      expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).once
       svc.create_table
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook(body:) # Upsert and make sure the next does not run
       expect do
         svc.upsert_webhook(body:)
       end.to_not publish("webhookdb.serviceintegration.rowupsert")
     end
+  end
+
+  it "does not emit the rowupsert event if there are no subscriptions", :async, :do_not_defer_events do
+    # No subscription is created so should not publish
+    svc.create_table
+    expect do
+      svc.upsert_webhook(body:)
+    end.to_not publish("webhookdb.serviceintegration.rowupsert")
   end
 
   it "can serve a webhook response webhooks" do

@@ -40,6 +40,10 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
     def active
       return self.where(deactivated_at: nil)
     end
+
+    def to_notify
+      return self.active
+    end
   end
 
   def active?

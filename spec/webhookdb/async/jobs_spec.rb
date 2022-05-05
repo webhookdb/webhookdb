@@ -239,19 +239,19 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     describe "SendWebhook" do
-      it "sends request to correct endpoint (via async delivery behavior)" do
+      it "sends request to correct endpoint" do
         req = stub_request(:post, webhook_sub.deliver_to_url).to_return(status: 200, body: "", headers: {})
-        expect do
-          Webhookdb.publish(
-            "webhookdb.serviceintegration.rowupsert",
+        Webhookdb::Jobs::SendWebhook.new.perform(Webhookdb::Event.create(
+          "",
+          [
             sint.id,
             {
               row: {},
               external_id_column: "external id column",
               external_id: "external id",
             },
-          )
-        end.to perform_async_job(Webhookdb::Jobs::SendWebhook)
+          ],
+        ).as_json)
         expect(req).to have_been_made
       end
 

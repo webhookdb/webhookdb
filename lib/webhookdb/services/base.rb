@@ -5,6 +5,8 @@ require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 require "webhookdb/typed_struct"
 
+require "webhookdb/jobs/send_webhook"
+
 class Webhookdb::Services::Base
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
@@ -254,15 +256,19 @@ class Webhookdb::Services::Base
   end
 
   def _publish_rowupsert(row)
-    self.service_integration.publish_deferred(
-      "rowupsert",
-      self.service_integration.id,
-      {
-        row:,
-        external_id_column: self._remote_key_column.name,
-        external_id: row[self._remote_key_column.name],
-      },
+    return if self.service_integration.all_webhook_subscriptions_dataset.to_notify.empty?
+    # We AVOID pubsub here because we do NOT want to go through the router
+    # and audit logger for this.
+    event = Webhookdb::Event.create(
+      "webhookdb.serviceintegration.rowupsert",
+      [self.service_integration.id,
+       {
+         row:,
+         external_id_column: self._remote_key_column.name,
+         external_id: row[self._remote_key_column.name],
+       },],
     )
+    Webhookdb::Jobs::SendWebhook.perform_async(event.as_json)
   end
 
   # Given a webhook body that is going to be inserted,
