@@ -5,6 +5,8 @@ require "webhookdb/async/job"
 class Webhookdb::Async::Router
   include Sidekiq::Worker
 
+  sidekiq_options queue: "critical"
+
   def perform(event_json)
     event_name = event_json["name"]
     matches = Webhookdb::Async.event_jobs.select { |job| File.fnmatch(job.pattern, event_name, File::FNM_EXTGLOB) }

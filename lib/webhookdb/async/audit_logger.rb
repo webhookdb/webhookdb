@@ -8,6 +8,8 @@ class Webhookdb::Async::AuditLogger
   include Appydays::Loggable
   include Sidekiq::Worker
 
+  sidekiq_options queue: "critical"
+
   MAX_STR_LEN = 64
   STR_PREFIX_LEN = 12
 

@@ -6,6 +6,7 @@ class Webhookdb::Jobs::ProcessWebhook
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.webhook"
+  sidekiq_options queue: "webhook" # This is usually overridden.
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)

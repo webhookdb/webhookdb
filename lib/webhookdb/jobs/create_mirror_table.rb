@@ -6,6 +6,7 @@ class Webhookdb::Jobs::CreateMirrorTable
   extend Webhookdb::Async::Job
 
   on "webhookdb.serviceintegration.created"
+  sidekiq_options queue: "critical"
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)

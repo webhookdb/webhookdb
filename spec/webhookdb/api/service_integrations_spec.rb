@@ -196,25 +196,48 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       _ = sint
     end
 
-    it "publishes an event with the data for the webhook", :async do
+    it "runs the ProcessWebhook job with the data for the webhook", :async do
       header "X-My-Test", "abc"
-      expect do
-        post "/v1/service_integrations/xyz", foo: 1
-        expect(last_response).to have_status(202)
-      end.to publish("webhookdb.serviceintegration.webhook").with_payload(
-        match_array(
-          [
-            sint.id,
-            hash_including(
-              "headers" => hash_including("X-My-Test" => "abc"),
-              "body" => {"foo" => 1},
-            ),
-          ],
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
+        include(
+          "args" => match_array(
+            [
+              include(
+                "name" => "webhookdb.serviceintegration.webhook",
+                "payload" => match_array(
+                  [
+                    sint.id,
+                    hash_including(
+                      "headers" => hash_including("X-My-Test" => "abc"),
+                      "body" => {"foo" => 1},
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          queue: "webhook",
         ),
       )
+
+      post "/v1/service_integrations/xyz", foo: 1
+
+      expect(last_response).to have_status(202)
+    end
+
+    it "uses netout queue for ProcessWebhook job if integration has deps", :async do
+      Webhookdb::Services::Fake.upsert_has_deps = true
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).
+        with(include(queue: "netout"))
+
+      post "/v1/service_integrations/xyz", foo: 1
+
+      expect(last_response).to have_status(202)
     end
 
     it "handles default response behavior" do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
+
       post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(202)
@@ -226,6 +249,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
         status: 203, headers: {"Content-Type" => "text/xml"}, body: "<x></x>",
       )
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
 
       post "/v1/service_integrations/xyz"
 
@@ -236,6 +260,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "returns the response from the configured service (json)" do
       Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.ok(status: 203)
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
 
       post "/v1/service_integrations/xyz"
 
@@ -282,6 +307,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on success" do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
       post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(

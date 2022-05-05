@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 require "webhookdb/async/job"
+require "webhookdb/jobs"
 
 class Webhookdb::Jobs::SendWebhook
   extend Webhookdb::Async::Job
-
-  on "webhookdb.serviceintegration.rowupsert"
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
@@ -14,7 +13,7 @@ class Webhookdb::Jobs::SendWebhook
       service_integration_name: sint.service_name,
       service_integration_table: sint.table_name,
     )
-    sint.all_webhook_subscriptions_dataset.active.each do |sub|
+    sint.all_webhook_subscriptions_dataset.to_notify.each do |sub|
       payload = {service_name: sint.service_name, table_name: sint.table_name, **event.payload[1]}
       sub.enqueue_delivery(payload)
     end

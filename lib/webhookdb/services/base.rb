@@ -5,6 +5,8 @@ require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 require "webhookdb/typed_struct"
 
+require "webhookdb/jobs/send_webhook"
+
 class Webhookdb::Services::Base
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
@@ -254,15 +256,27 @@ class Webhookdb::Services::Base
   end
 
   def _publish_rowupsert(row)
-    self.service_integration.publish_deferred(
-      "rowupsert",
-      self.service_integration.id,
-      {
-        row:,
-        external_id_column: self._remote_key_column.name,
-        external_id: row[self._remote_key_column.name],
-      },
+    return if self.service_integration.all_webhook_subscriptions_dataset.to_notify.empty?
+    # We AVOID pubsub here because we do NOT want to go through the router
+    # and audit logger for this.
+    event = Webhookdb::Event.create(
+      "webhookdb.serviceintegration.rowupsert",
+      [self.service_integration.id,
+       {
+         row:,
+         external_id_column: self._remote_key_column.name,
+         external_id: row[self._remote_key_column.name],
+       },],
     )
+    Webhookdb::Jobs::SendWebhook.perform_async(event.as_json)
+  end
+
+  # Return true if the integration requires making an API call to upsert.
+  # This puts the sync into a lower-priority queue
+  # so it is less likely to block other processing.
+  # This is usually true if enrichments are involved.
+  def upsert_has_deps?
+    return false
   end
 
   # Given a webhook body that is going to be inserted,
@@ -281,13 +295,6 @@ class Webhookdb::Services::Base
   # @return [*]
   def _after_insert(_inserting, enrichment:)
     return nil
-  end
-
-  # Upsert a backfill payload into the database.
-  # By default, assume the webhook and backfill payload are the same shape
-  # and just use upsert_webhook(body: payload).
-  def upsert_backfill_payload(payload)
-    self.upsert_webhook(body: payload)
   end
 
   # The argument for insert_conflict update_where clause.

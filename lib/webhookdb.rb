@@ -135,6 +135,14 @@ module Webhookdb
   #
 
   class Event
+    # @param topic [String]
+    # @param payload [Array]
+    # @return [Webhookdb::Event]
+    def self.create(topic, payload)
+      return self.new(SecureRandom.uuid, topic, payload)
+    end
+
+    # @return [Webhookdb::Event]
     def self.from_json(o)
       return self.new(o["id"], o["name"], o["payload"])
     end
@@ -181,7 +189,7 @@ module Webhookdb
   # Publish an event with the specified +eventname+ and +payload+
   # to any configured publishers.
   def self.publish(eventname, *payload)
-    ev = Event.new(SecureRandom.uuid, eventname, payload)
+    ev = Event.create(eventname, payload)
 
     self.subscribers.to_a.each do |hook|
       hook.call(ev)

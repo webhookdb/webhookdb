@@ -4,6 +4,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   extend Webhookdb::MethodUtilities
 
   singleton_attr_accessor :webhook_response
+  singleton_attr_accessor :upsert_has_deps
   singleton_attr_accessor :prepare_for_insert_hook
 
   def self.descriptor
@@ -17,6 +18,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def self.reset
     self.webhook_response = Webhookdb::WebhookResponse.ok
+    self.upsert_has_deps = false
     self.prepare_for_insert_hook = nil
   end
 
@@ -91,6 +93,10 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     r = Webhookdb::Http.get("https://fake-integration?token=#{pagination_token}", logger: nil)
     raise "Expected 2-item array" unless r.parsed_response.is_a?(Array) && r.parsed_response.length == 2
     return r.parsed_response
+  end
+
+  def upsert_has_deps?
+    return self.class.upsert_has_deps
   end
 end
 
