@@ -53,7 +53,9 @@ RSpec.shared_examples "a service implementation" do |name|
 
   it "can serve a webhook response webhooks" do
     request = fake_request
-    status, headers, body = svc.webhook_response(request)
+    whresp = svc.webhook_response(request)
+    expect(whresp).to be_a(Webhookdb::WebhookResponse)
+    status, headers, body = whresp.to_rack
     expect(status).to be_a(Integer)
     expect(headers).to be_a(Hash)
     expect(headers).to include("Content-Type")

@@ -241,7 +241,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
     it "uses Plaid webhook responder" do
       req = fake_request
       expect(Webhookdb::Plaid).to receive(:webhook_response).and_call_original
-      status, _headers, _body = svc.webhook_response(req)
+      status, _headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
     end
   end

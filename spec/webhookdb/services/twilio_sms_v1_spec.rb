@@ -453,7 +453,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
 
     it "returns a 401 as per spec if there is no Authorization header" do
       req = Rack::Request.new({})
-      status, headers, _body = svc.webhook_response(req)
+      status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
       expect(headers).to include("WWW-Authenticate" => 'Basic realm="Webhookdb"')
     end
@@ -462,16 +462,16 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
       sint.update(webhook_secret: "secureuser:pass")
       req = Rack::Request.new({})
       req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
-      status, headers, _body = svc.webhook_response(req)
+      status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
       expect(headers).to_not include("WWW-Authenticate")
     end
 
-    it "returns a 200 with a valid Authorization header" do
+    it "returns a 202 with a valid Authorization header" do
       sint.update(webhook_secret: "user:pass")
       req = Rack::Request.new({})
       req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
-      status, _headers, _body = svc.webhook_response(req)
+      status, _headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(202)
     end
   end

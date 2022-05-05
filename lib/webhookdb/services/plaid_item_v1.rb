@@ -115,7 +115,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     }
   end
 
-  def webhook_response(request)
+  def _webhook_response(request)
     return Webhookdb::Plaid.webhook_response(request, self.service_integration.webhook_secret)
   end
 

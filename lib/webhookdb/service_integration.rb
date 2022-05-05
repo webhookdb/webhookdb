@@ -215,6 +215,10 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   #   @return [String] The encryption key used to encrypt data for this organization.
   #                    Note that this field is itself encrypted using Sequel encryption;
   #                    its decrypted value is meant to be used as the data encryption key.
+
+  # @!attribute skip_webhook_verification
+  #   @return [Boolean] Set this to disable webhook verification on this integration.
+  #                     Useful when replaying logged webhooks.
 end
 
 # Table: service_integrations

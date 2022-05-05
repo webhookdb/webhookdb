@@ -7,7 +7,7 @@ class Webhookdb::Increase
   def self.webhook_response(request, webhook_secret)
     http_signature = request.env["HTTP_X_BANK_WEBHOOK_SIGNATURE"]
 
-    return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if http_signature.nil?
+    return Webhookdb::WebhookResponse.error("missing hmac") if http_signature.nil?
 
     request.body.rewind
     request_data = request.body.read
@@ -17,10 +17,10 @@ class Webhookdb::Increase
     if http_signature != "sha256=" + computed_signature
       # Invalid signature
       self.logger.warn "increase signature verification error"
-      return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
+      return Webhookdb::WebhookResponse.error("invalid hmac")
     end
 
-    return [200, {"Content-Type" => "application/json"}, '{"o":"k"}']
+    return Webhookdb::WebhookResponse.ok
   end
 
   # this helper function finds the relevant object data and helps us avoid repeated code

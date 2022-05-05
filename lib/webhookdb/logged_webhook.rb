@@ -87,8 +87,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
       # Additionally, there are a whole set of headers we'll find on our webserver
       # that are added by our web platform, which we do NOT want to include.
       lw.request_headers.each do |k, v|
-        next if WEBHOST_HEADERS.include?(k)
-        next if NONOVERRIDABLE_HEADERS.include?(k)
+        next if Webhookdb::LoggedWebhook::WEBHOST_HEADERS.include?(k)
+        next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
       end
       resp = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|

@@ -7,7 +7,8 @@ class Webhookdb::API::Stripe < Webhookdb::API::V1
   resource :stripe do
     resource :webhook do
       post do
-        s_status, s_headers, s_body = Webhookdb::Stripe.webhook_response(request, Webhookdb::Stripe.webhook_secret)
+        whresp = Webhookdb::Stripe.webhook_response(request, Webhookdb::Stripe.webhook_secret)
+        s_status, s_headers, s_body = whresp.to_rack
         if s_status < 400 && request.params["data"]["object"]["object"] == "subscription"
           Webhookdb::Subscription.create_or_update_from_webhook(request.params)
         end

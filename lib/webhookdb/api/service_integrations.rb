@@ -45,18 +45,24 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       post do
         sint = lookup_unauthed!
         svc = Webhookdb::Services.service_instance(sint)
-        s_status, s_headers, s_body = svc.webhook_response(request)
+        whresp = svc.webhook_response(request)
+        s_status, s_headers, s_body = whresp.to_rack
 
         if s_status >= 400
           logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
                                           webhook_body: env["api.request.body"]
+          header "Whdb-Rejected-Reason", whresp.reason
         else
           sint.publish_immediate("webhook", sint.id, {headers: request.headers, body: env["api.request.body"]})
         end
 
-        env["api.format"] = :binary
         s_headers.each { |k, v| header k, v }
-        body s_body
+        if s_headers["Content-Type"] == "application/json"
+          body JSON.parse(s_body)
+        else
+          env["api.format"] = :binary
+          body s_body
+        end
         status s_status
       ensure
         log_webhook(sint, s_status)

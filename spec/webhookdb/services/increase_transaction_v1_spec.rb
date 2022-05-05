@@ -354,7 +354,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
 
     it "returns a 401 as per spec if there is no Authorization header" do
       req = fake_request
-      status, _headers, _body = svc.webhook_response(req)
+      status, _headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
     end
 
@@ -364,19 +364,19 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       data = req.body
       computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "user:pass", '{"data": "foobar"}')
       req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
-      status, _headers, body = svc.webhook_response(req)
+      status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
       expect(body).to include("invalid hmac")
     end
 
-    it "returns a 200 with a valid Authorization header" do
+    it "returns a 202 with a valid Authorization header" do
       sint.update(webhook_secret: "user:pass")
       req = fake_request(input: '{"data": "asdfghujkl"}')
       data = req.body
       computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "user:pass", data)
       req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
-      status, _headers, _body = svc.webhook_response(req)
-      expect(status).to eq(200)
+      status, _headers, _body = svc.webhook_response(req).to_rack
+      expect(status).to eq(202)
     end
   end
 
