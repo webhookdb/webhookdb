@@ -3,6 +3,16 @@
 RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
   let(:described_class) { Webhookdb::LoggedWebhook }
 
+  describe "associations" do
+    it "can look up the service integration" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      lw = Webhookdb::Fixtures.logged_webhook.create(service_integration_opaque_id: "abc")
+      expect(lw).to have_attributes(service_integration: nil)
+      lw.refresh.service_integration_opaque_id = sint.opaque_id
+      expect(lw).to have_attributes(service_integration: be === sint)
+    end
+  end
+
   describe "truncate_logs" do
     it "truncates instances" do
       lw = Webhookdb::Fixtures.logged_webhook.create

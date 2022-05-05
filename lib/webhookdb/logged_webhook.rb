@@ -5,6 +5,11 @@ require "webhookdb/postgres/model"
 class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   many_to_one :organization, class: "Webhookdb::Organization"
 
+  many_to_one :service_integration,
+              class: "Webhookdb::ServiceIntegration",
+              key: :service_integration_opaque_id,
+              primary_key: :opaque_id
+
   DELETE_UNOWNED = 14.days
   DELETE_SUCCESSES = 90.days
   TRUNCATE_SUCCESSES = 7.days
