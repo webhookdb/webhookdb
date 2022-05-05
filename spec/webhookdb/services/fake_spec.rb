@@ -336,5 +336,19 @@ or leave blank to choose the first option.
         end
       end
     end
+
+    describe "webhook_response" do
+      it "defers to the protected method" do
+        Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("hi")
+        expect(fake.webhook_response(nil)).to have_attributes(status: 401, reason: "hi")
+      end
+
+      it "can override verification" do
+        Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("hi")
+        expect(fake.webhook_response(nil)).to have_attributes(status: 401, reason: "hi")
+        sint.skip_webhook_verification = true
+        expect(fake.webhook_response(nil)).to have_attributes(status: 201)
+      end
+    end
   end
 end

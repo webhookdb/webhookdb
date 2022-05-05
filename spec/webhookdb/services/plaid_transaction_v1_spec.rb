@@ -378,9 +378,9 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       end
 
       it "will use the most recent transaction datetime as its start date" do
-        start = 30.days.ago
+        start = Time.parse("2022-02-20T12:00:00Z")
         insert_transaction_row("abc", datetime: start)
-        insert_transaction_row("xyz", datetime: 90.days.ago)
+        insert_transaction_row("xyz", datetime: start - 60.days)
         responses = [
           stub_service_request(start, 0, page1_response),
           stub_service_request(start, 1, page2_response),

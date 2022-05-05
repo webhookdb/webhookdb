@@ -44,14 +44,19 @@ class Webhookdb::Services::Base
     return Time.at(t)
   end
 
-  # Return a [status, headers, body] triple of the response for the webhook.
-  # By default, if the webhook is not verified, we return a 401, otherwise we return success.
-  # If the webhook needs extra validation or behavior (like Twilio requires special headers),
-  # you can override this entirely and not bother overriding `_webhook_verified?`.
-  # @return [Array<Integer, Hash, String>]
+  # @return [Webhookdb::WebhookResponse]
   def webhook_response(request)
-    return [202, {"Content-Type" => "text/plain"}, "ok"] if self._webhook_verified?(request)
-    return [401, {"Content-Type" => "text/plain"}, ""]
+    return Webhookdb::WebhookResponse.ok(status: 201) if self.service_integration.skip_webhook_verification
+    return self._webhook_response(request)
+  end
+
+  # Return a the response for the webhook.
+  # We must do this immediately in the endpoint itself,
+  # since verification may include info specific to the request content
+  # (like, it can be whitespace sensitive).
+  # @return [Webhookdb::WebhookResponse]
+  def _webhook_response(request)
+    raise NotImplementedError
   end
 
   # Set the new service integration field and
@@ -114,16 +119,6 @@ class Webhookdb::Services::Base
   # Remove all the information needed for backfilling from the integration so that it can be re-entered
   def clear_backfill_information
     self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
-  end
-
-  # Check if the webhook is verified using the http request.
-  # We must do this immediately in the endpoint itself,
-  # since verification may include info specific to the request content
-  # (like, it can be whitespace sensitive).
-  #
-  # @return [Boolean] if the webhook is verified.
-  def _webhook_verified?(request)
-    raise NotImplementedError
   end
 
   def create_table

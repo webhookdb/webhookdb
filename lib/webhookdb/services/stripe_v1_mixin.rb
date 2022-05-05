@@ -29,7 +29,7 @@ module Webhookdb::Services::StripeV1Mixin
     raise NotImplementedError
   end
 
-  def webhook_response(request)
+  def _webhook_response(request)
     return Webhookdb::Stripe.webhook_response(request, self.service_integration.webhook_secret)
   end
 

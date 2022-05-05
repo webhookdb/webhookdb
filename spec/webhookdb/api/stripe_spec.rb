@@ -161,7 +161,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
 
     it "receives a webhook from stripe, validates it, and acknowledges it" do
       post "/v1/stripe/webhook", webhook_body
-      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(202)
     end
 
     it "errors if the webhook can't be validated" do
@@ -173,7 +173,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
 
     it "inserts the subscription object from the received webhook" do
       post "/v1/stripe/webhook", webhook_body
-      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(202)
 
       expect(Webhookdb::Subscription.all).to have_length(1)
       sub = Webhookdb::Subscription.first
@@ -184,7 +184,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
     it "updates the subscription object from the received webhook" do
       Webhookdb::Fixtures.subscription.canceled.create(stripe_id: "sub_JigYoW2aRYfl0R")
       post "/v1/stripe/webhook", webhook_body
-      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(202)
 
       expect(Webhookdb::Subscription.all).to have_length(1)
       expect(Webhookdb::Subscription.first.stripe_json["status"]).to eq("active")

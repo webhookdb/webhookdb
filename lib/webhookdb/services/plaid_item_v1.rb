@@ -5,6 +5,14 @@ require "webhookdb/plaid"
 class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
+  # If the Plaid request fails for one of these errors,
+  # rather than error, we store the response as in the 'error' field
+  # since the issue is not on our end.
+  STORABLE_ERROR_TYPES = [
+    "INVALID_INPUT",
+    "ITEM_ERROR",
+  ].to_set
+
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -85,7 +93,8 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
         logger: self.logger,
       )
     rescue Webhookdb::Http::Error => e
-      if e.response.parsed_response["error_type"] == "ITEM_ERROR"
+      errtype = e.response.parsed_response["error_type"]
+      if STORABLE_ERROR_TYPES.include?(errtype)
         return {
           encrypted_access_token:,
           error: e.response.body,
@@ -106,7 +115,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     }
   end
 
-  def webhook_response(request)
+  def _webhook_response(request)
     return Webhookdb::Plaid.webhook_response(request, self.service_integration.webhook_secret)
   end
 

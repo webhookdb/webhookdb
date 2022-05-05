@@ -218,18 +218,52 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(202)
-      expect(last_response.body).to eq("ok")
-      expect(last_response.headers).to include("Content-Type" => "text/plain")
+      expect(last_response.body).to eq('{"o":"k"}')
+      expect(last_response.headers).to include("Content-Type" => "application/json")
     end
 
-    it "returns the response from the configured service" do
-      Webhookdb::Services::Fake.webhook_response = [203, {"Content-Type" => "text/xml"}, "<x></x>"]
+    it "returns the response from the configured service (not json)" do
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+        status: 203, headers: {"Content-Type" => "text/xml"}, body: "<x></x>",
+      )
 
       post "/v1/service_integrations/xyz"
 
       expect(last_response).to have_status(203)
       expect(last_response.body).to eq("<x></x>")
       expect(last_response.headers).to include("Content-Type" => "text/xml")
+    end
+
+    it "returns the response from the configured service (json)" do
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.ok(status: 203)
+
+      post "/v1/service_integrations/xyz"
+
+      expect(last_response).to have_status(203)
+      expect(last_response.body).to eq('{"o":"k"}')
+      expect(last_response.headers).to include("Content-Type" => "application/json")
+    end
+
+    it "adds a rejected reason on error (json)" do
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("nope", status: 402)
+
+      post "/v1/service_integrations/xyz"
+
+      expect(last_response).to have_status(402)
+      expect(last_response.body).to eq('{"message":"nope"}')
+      expect(last_response.headers).to include("Whdb-Rejected-Reason" => "nope")
+    end
+
+    it "adds a rejected reason on error (not json)" do
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+        status: 402, reason: "erm", body: "<></>", headers: {"Content-Type" => "text/plain"},
+      )
+
+      post "/v1/service_integrations/xyz"
+
+      expect(last_response).to have_status(402)
+      expect(last_response.body).to eq("<></>")
+      expect(last_response.headers).to include("Whdb-Rejected-Reason" => "erm")
     end
 
     it "400s if there is no active service integration" do
@@ -239,7 +273,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "does not publish if the webhook fails verification", :async do
-      Webhookdb::Services::Fake.webhook_verified = false
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
 
       expect do
         post "/v1/service_integrations/xyz"
@@ -275,7 +309,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on failed validation" do
-      Webhookdb::Services::Fake.webhook_verified = false
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
       post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(401)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
@@ -288,7 +322,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on exception" do
-      Webhookdb::Services::Fake.webhook_verified = RuntimeError.new("foo")
+      Webhookdb::Services::Fake.webhook_response = RuntimeError.new("foo")
       post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(500)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(

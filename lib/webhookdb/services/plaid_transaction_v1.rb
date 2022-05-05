@@ -79,12 +79,8 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
     end
   end
 
-  def webhook_response(_request)
-    # We don't deal with this right now because it's crazy:
-    # https://plaid.com/docs/api/webhooks/webhook-verification/
-    # The webhook doesn't even contain any info, we need to go to the API anyway,
-    # so it seems very low-value.
-    return [200, {"Content-Type" => "application/json"}, '{"o":"k"}']
+  def _webhook_response(_request)
+    raise NotImplementedError, "this integration does not verify webhooks (it should come through plaid items)"
   end
 
   def calculate_create_state_machine

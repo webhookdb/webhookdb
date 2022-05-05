@@ -15,18 +15,18 @@ module Webhookdb::Services::ShopifyV1Mixin
     raise NotImplementedError
   end
 
-  def webhook_response(request)
+  def _webhook_response(request)
     # info for debugging
     shopify_auth = request.env["HTTP_X_SHOPIFY_HMAC_SHA256"]
     log_params = {shopify_auth:, shopify_body: request.params}
     self.logger.debug "webhook hit shopify endpoint", log_params
 
-    return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if shopify_auth.nil?
+    return Webhookdb::WebhookResponse.error("missing hmac") if shopify_auth.nil?
     request.body.rewind
     request_data = request.body.read
     verified = Webhookdb::Shopify.verify_webhook(request_data, shopify_auth, self.service_integration.webhook_secret)
-    return [200, {"Content-Type" => "application/json"}, '{"o":"k"}'] if verified
-    return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
+    return Webhookdb::WebhookResponse.ok if verified
+    return Webhookdb::WebhookResponse.error("invalid hmac")
   end
 
   def process_state_change(field, value)

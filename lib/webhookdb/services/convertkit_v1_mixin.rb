@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Webhookdb::Services::ConvertkitV1Mixin
-  def _webhook_verified?(_request)
+  def _webhook_response(_request)
     # Webhook Authentication isn't supported
-    return true
+    return Webhookdb::WebhookResponse.ok
   end
 
   def _remote_key_column

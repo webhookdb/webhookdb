@@ -13,14 +13,30 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
     )
   end
 
-  def webhook_response(request)
+  def _webhook_response(request)
     auth = request.get_header("Authorization")
     if auth.nil? || !auth.match(/^Basic /)
-      return [401, {"Content-Type" => "text/plain", "WWW-Authenticate" => 'Basic realm="Webhookdb"'}, ""]
+      return Webhookdb::WebhookResponse.new(
+        status: 401,
+        body: "",
+        reason: "challenge",
+        headers: {"Content-Type" => "text/plain", "WWW-Authenticate" => 'Basic realm="Webhookdb"'},
+      )
     end
     user_and_pass = Base64.decode64(auth.gsub(/^Basic /, ""))
-    return [401, {"Content-Type" => "text/plain"}, ""] if user_and_pass != self.service_integration.webhook_secret
-    return [202, {"Content-Type" => "text/xml"}, "<Response></Response>"]
+    if user_and_pass != self.service_integration.webhook_secret
+      return Webhookdb::WebhookResponse.new(
+        status: 401,
+        body: "",
+        reason: "invalid",
+        headers: {"Content-Type" => "text/plain"},
+      )
+    end
+    return Webhookdb::WebhookResponse.new(
+      status: 202,
+      headers: {"Content-Type" => "text/xml"},
+      body: "<Response></Response>",
+    )
   end
 
   def calculate_create_state_machine

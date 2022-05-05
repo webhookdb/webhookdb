@@ -3,6 +3,16 @@
 RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
   let(:described_class) { Webhookdb::LoggedWebhook }
 
+  describe "associations" do
+    it "can look up the service integration" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      lw = Webhookdb::Fixtures.logged_webhook.create(service_integration_opaque_id: "abc")
+      expect(lw).to have_attributes(service_integration: nil)
+      lw.refresh.service_integration_opaque_id = sint.opaque_id
+      expect(lw).to have_attributes(service_integration: be === sint)
+    end
+  end
+
   describe "truncate_logs" do
     it "truncates instances" do
       lw = Webhookdb::Fixtures.logged_webhook.create
@@ -48,25 +58,26 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
       expect(lw2.refresh).to_not be_truncated
     end
 
-    it "does not add default Ruby headers" do
+    it "does not add non-overridable or webserver headers" do
       lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").
         body('{"a": 1}').
         headers(
+          "Connection" => "explode",
           "Foo" => "bar",
           "Host" => "webhookdb.com",
           "Accept" => "custom stuff",
-          "Version" => "HTTP/1.1",
+          "Version" => "HTTP/99",
           "User-Agent" => "curl/7.64.1",
         ).create
       req = stub_request(:post, "http://localhost:18001/v1/service_integrations/a").
         with(
           body: "{\"a\": 1}",
           headers: {
-            "Accept" => "custom stuff",
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
+            "Content-Type" => "application/json",
             "Foo" => "bar",
-            "Host" => "webhookdb.com",
             "User-Agent" => "curl/7.64.1",
-            # "Version" => "HTTP/1.1", # Removed as per comment in code
           },
         ).
         to_return(status: 200, body: "", headers: {})

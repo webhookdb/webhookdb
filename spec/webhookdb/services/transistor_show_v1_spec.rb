@@ -354,7 +354,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
 
     it "returns a 202 no matter what" do
       req = fake_request
-      status, _headers, _body = svc.webhook_response(req)
+      status, _headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(202)
     end
   end

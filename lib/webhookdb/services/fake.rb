@@ -4,7 +4,6 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   extend Webhookdb::MethodUtilities
 
   singleton_attr_accessor :webhook_response
-  singleton_attr_accessor :webhook_verified
   singleton_attr_accessor :prepare_for_insert_hook
 
   def self.descriptor
@@ -17,18 +16,13 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def self.reset
-    self.webhook_response = nil
-    self.webhook_verified = true
+    self.webhook_response = Webhookdb::WebhookResponse.ok
     self.prepare_for_insert_hook = nil
   end
 
   def self.stub_backfill_request(items, status: 200)
     return WebMock::API.stub_request(:get, "https://fake-integration/?token=").
         to_return(status:, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
-  end
-
-  def webhook_response(request)
-    return self.class.webhook_response || super
   end
 
   def calculate_create_state_machine
@@ -64,10 +58,10 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return step
   end
 
-  def _webhook_verified?(_request)
-    v = self.class.webhook_verified
-    raise v if v.is_a?(Exception)
-    return v
+  def _webhook_response(_request)
+    r = self.class.webhook_response
+    raise r if r.is_a?(Exception)
+    return r
   end
 
   def _remote_key_column

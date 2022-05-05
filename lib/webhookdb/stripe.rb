@@ -17,7 +17,7 @@ class Webhookdb::Stripe
   def self.webhook_response(request, webhook_secret)
     auth = request.env["HTTP_STRIPE_SIGNATURE"]
 
-    return [401, {"Content-Type" => "application/json"}, '{"message": "missing hmac"}'] if auth.nil?
+    return Webhookdb::WebhookResponse.error("missing hmac") if auth.nil?
 
     request.body.rewind
     request_data = request.body.read
@@ -27,11 +27,10 @@ class Webhookdb::Stripe
         request_data, auth, webhook_secret,
       )
     rescue Stripe::SignatureVerificationError => e
-      # Invalid signature
-      self.logger.debug "stripe signature verification error: ", e
-      return [401, {"Content-Type" => "application/json"}, '{"message": "invalid hmac"}']
+      self.logger.error "stripe signature verification error: ", e
+      return Webhookdb::WebhookResponse.error("invalid hmac")
     end
 
-    return [200, {"Content-Type" => "application/json"}, '{"o":"k"}']
+    return Webhookdb::WebhookResponse.ok
   end
 end

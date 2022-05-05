@@ -4286,7 +4286,7 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
-      status, headers, body = svc.webhook_response(fake_request)
+      status, headers, body = svc.webhook_response(fake_request).to_rack
       expect(status).to eq(401)
       expect(body).to include("missing hmac")
     end
@@ -4297,19 +4297,19 @@ RSpec.describe Webhookdb::Services::ShopifyOrderV1, :db do
       data = req.body
       calculated_hmac = Base64.strict_encode64(OpenSSL::HMAC.digest("sha256", "bad", data))
       req.add_header("HTTP_X_SHOPIFY_HMAC_SHA256", calculated_hmac)
-      status, _headers, body = svc.webhook_response(req)
+      status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
       expect(body).to include("invalid hmac")
     end
 
-    it "returns a 200 with a valid Authorization header" do
+    it "returns a 202 with a valid Authorization header" do
       sint.update(webhook_secret: "user:pass")
       req = fake_request(input: "webhook body")
       data = req.body.read
       calculated_hmac = Base64.strict_encode64(OpenSSL::HMAC.digest("sha256", sint.webhook_secret, data))
       req.add_header("HTTP_X_SHOPIFY_HMAC_SHA256", calculated_hmac)
-      status, _headers, _body = svc.webhook_response(req)
-      expect(status).to eq(200)
+      status, _headers, _body = svc.webhook_response(req).to_rack
+      expect(status).to eq(202)
     end
   end
 
