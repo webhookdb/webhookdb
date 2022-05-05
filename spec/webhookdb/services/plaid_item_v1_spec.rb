@@ -147,7 +147,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       expect(req).to have_been_made
     end
 
-    it "marks the item as errored if removed" do
+    it "marks the item as errored if there is an ITEM_ERROR while fetching" do
       plaid_body = <<~J
         {
           "display_message": null,
@@ -175,6 +175,37 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         include(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", encrypted_access_token: "amIg507BPydo1vl3B3Tn9g=="),
       )
       expect(svc.readonly_dataset(&:first)[:error].as_json).to(include("error_code" => "ITEM_NOT_FOUND"))
+      expect(req).to have_been_made
+    end
+
+    it "marks the item as errored if there is an INVALID_INPUT while fetching" do
+      plaid_body = <<~J
+        {
+          "display_message": null,
+          "documentation_url": "https://plaid.com/docs/?ref=error#invalid-input-errors",
+          "error_code": "INVALID_ACCESS_TOKEN",
+          "error_message": "provided access token is for the wrong Plaid environment. expected 'production', got 'development'",
+          "error_type": "INVALID_INPUT",
+          "request_id": "66qKecOiYooZBTv",
+          "suggested_action": null
+        }
+      J
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        to_return(status: 400, body: plaid_body, headers: {"Content-Type" => "application/json"})
+
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "CREATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          "access_token": "atok"
+        }
+      J
+      svc.upsert_webhook(body:)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", encrypted_access_token: "amIg507BPydo1vl3B3Tn9g=="),
+      )
+      expect(svc.readonly_dataset(&:first)[:error].as_json).to(include("error_code" => "INVALID_ACCESS_TOKEN"))
       expect(req).to have_been_made
     end
 
