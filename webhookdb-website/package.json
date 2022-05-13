@@ -51,6 +51,7 @@
     "react-icons": "^4.2.0",
     "reactstrap": "^8.9.0",
     "sass": "1.32.13",
+    "sharp": "^0.30.4",
     "smooth-scroll": "14.0.0"
   },
   "devDependencies": {

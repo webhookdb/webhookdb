@@ -23,6 +23,11 @@
 		throw new Error("cannot export Go (neither global, window nor self is defined)");
 	}
 
+	if (!global.webhookdbWasmSupported) {
+		console.log('wasm_exec short circuited since WASM is not supported.');
+		return;
+	}
+
 	if (!global.require && typeof require !== "undefined") {
 		global.require = require;
 	}

@@ -21,14 +21,16 @@
   </div>
 </div>
 <script src="/webterm/vendor/shell-quote.js"></script>
+<script src="/webterm/vendor/wasm_check.js"></script>
 <script src="/webterm/vendor/wasm_exec.js"></script>
 <script>
   window.webhookdbRunGo = () => '{}';
   window.webhookdbRun = (env, args) => {
     window.webhookdbRun._attempts ||= 0;
     window.webhookdbRun._attempts += 1;
-    if (window.webhookdbRun._attempts > 150) {
+    if (window.webhookdbRun._attempts > 150 || !window.webhookdbWasmSupported) {
       console.warn('webhookdb.wasm was not loaded, giving up.')
+      window.wasmLog('Sorry, our Web Assembly terminal could not be loaded in this browser. Try a different browser.')
       return;
     }
     window.setTimeout(() => {
@@ -39,7 +41,11 @@
     }
   };
   (async function loadAndRunGoWasm() {
-    const go = new Go();
+    if (!window.Go) {
+      console.log("wasm_exec did not succeed, Go not loaded.")
+      return;
+    }
+    const go = new window.Go();
     let wasmPath;
     if (window.location.hostname === "localhost") {
       wasmPath = "http://localhost:18008/compile" // See webhookdb-cli/bin/wasm-server

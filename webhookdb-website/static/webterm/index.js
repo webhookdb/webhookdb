@@ -287,6 +287,12 @@
     blockLog(text);
   };
   /**
+   * Can be called form anywhere. Just prints some text to terminal.
+   */
+  window.wasmLog = function (text) {
+    log(text);
+  };
+  /**
    * Called from Go. Create a new element prompting for inline input.
    * On submit, invoke the given callback, and replace the input
    * with plain text.
