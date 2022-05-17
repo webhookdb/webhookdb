@@ -102,8 +102,14 @@ require "webhookdb/services/convertkit_broadcast_v1"
 require "webhookdb/services/convertkit_subscriber_v1"
 require "webhookdb/services/convertkit_tag_v1"
 require "webhookdb/services/fake"
+require "webhookdb/services/increase_account_v1"
+require "webhookdb/services/increase_account_transfer_v1"
+require "webhookdb/services/increase_account_number_v1"
 require "webhookdb/services/increase_ach_transfer_v1"
+require "webhookdb/services/increase_check_transfer_v1"
+require "webhookdb/services/increase_limit_v1"
 require "webhookdb/services/increase_transaction_v1"
+require "webhookdb/services/increase_wire_transfer_v1"
 require "webhookdb/services/plaid_item_v1"
 require "webhookdb/services/plaid_transaction_v1"
 require "webhookdb/services/shopify_customer_v1"
@@ -129,8 +135,14 @@ Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)
 Webhookdb::Services.register(Webhookdb::Services::Fake)
 Webhookdb::Services.register(Webhookdb::Services::FakeDependent)
 Webhookdb::Services.register(Webhookdb::Services::FakeWithEnrichments)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountTransferV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountNumberV1)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseACHTransferV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseCheckTransferV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseLimitV1)
 Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)
+Webhookdb::Services.register(Webhookdb::Services::IncreaseWireTransferV1)
 Webhookdb::Services.register(Webhookdb::Services::PlaidItemV1)
 Webhookdb::Services.register(Webhookdb::Services::PlaidTransactionV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)

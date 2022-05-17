@@ -24,7 +24,7 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:account_id, "text", index: true),
-      Webhookdb::Services::Column.new(:amount, "numeric", index: true),
+      Webhookdb::Services::Column.new(:amount, "integer", index: true),
       Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
       Webhookdb::Services::Column.new(:date, "date", index: true),
       Webhookdb::Services::Column.new(:route_id, "text", index: true),
@@ -56,6 +56,6 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
   end
 
   def _mixin_backfill_url
-    return "https://api.increase.com/transactions"
+    return "#{self.service_integration.api_url}/transactions"
   end
 end

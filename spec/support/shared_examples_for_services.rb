@@ -225,12 +225,13 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
 end
 
 RSpec.shared_examples "a service implementation that can backfill" do |name|
+  let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name: name,
       backfill_key: "bfkey",
       backfill_secret: "bfsek",
-      api_url: "https://fake-url.com",
+      api_url:,
     )
   end
   let(:svc) { Webhookdb::Services.service_instance(sint) }

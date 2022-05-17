@@ -11,10 +11,16 @@ module Webhookdb::Services::IncreaseV1Mixin
     return Webhookdb::Increase.webhook_response(request, self.service_integration.webhook_secret)
   end
 
-  def _extract_obj_and_updated(body)
+  def _extract_obj_and_updated(body, default: nil, body_key: "created_at")
     return body.fetch("data"), body.fetch("created_at") if
       body.key?("event") && body.key?("event_id")
-    return body, body.fetch("created_at")
+    return body, default ? body.fetch(body_key, default) : body.fetch(body_key)
+  end
+
+  def process_state_change(field, value)
+    # special handling for having a default value for api url
+    value = "https://api.increase.com" if field == "api_url" && value == ""
+    return super(field, value)
   end
 
   def calculate_create_state_machine
@@ -26,7 +32,7 @@ We've made an endpoint available for #{self.resource_name_singular} webhooks:
 
 #{self._webhook_endpoint}
 
-From your Increase admin dashboard, go to Team Settings -> Webhooks.
+From your Increase admin dashboard, go to Applications -> Create Webhook.
 In the "Webhook endpoint URL" field you can enter the URL above.
 For the shared secret, you'll have to generate a strong password
 (you can use '#{Webhookdb::Id.rand_enc(16)}')
@@ -50,10 +56,26 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
-From your Increase admin dashboard, go to Team Settings -> API Keys.
+From your Increase admin dashboard, go to Settings -> Development -> API Keys.
 We'll need the Production key--copy that value to your clipboard.
       )
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
+    end
+
+    unless self.service_integration.api_url.present?
+      step.output = %(Great. Now we want to make sure we're sending API requests to the right place.
+For Increase, the API url is different when you are in Sandbox mode and when you are in Production mode.
+For Sandbox mode, the API root url is:
+
+https://sandbox.increase.com
+
+For Production mode, which is our default, it is:
+
+https://api.increase.com
+
+Leave blank to use the default or paste the answer into this prompt.
+      )
+      return step.prompting("API url").api_url(self.service_integration)
     end
 
     unless (result = self.verify_backfill_credentials).verified

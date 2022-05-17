@@ -2,8 +2,8 @@
 
 require "support/shared_examples_for_services"
 
-RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
-  it_behaves_like "a service implementation", "increase_ach_transfer_v1" do
+RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
+  it_behaves_like "a service implementation", "increase_account_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -11,27 +11,16 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_number": "987654321",
-            "account_id": "account_f654119657",
-            "amount": 100,
-            "approval": {
-              "approved_at": "2020-01-31T23:59:59Z",
-              "approved_by": "user@example.com"
-            },
-            "cancellation": {},
+            "id": "account_in71c4amph0vgo2qllky",
+            "balance": 100,
             "created_at": "2020-01-31T23:59:59Z",
-            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "network": "ach",
-            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "return": {},
-            "routing_number": "123456789",
-            "statement_descriptor": "Statement descriptor",
-            "status": "returned",
-            "submission": {},
-            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
-            "addendum": null,
-            "notification_of_change": null
+            "currency": "USD",
+            "entity_id": "entity_n8y8tnk2p9339ti393yi",
+            "interest_accrued": "0.01",
+            "interest_accrued_at": "2020-01-31",
+            "name": "My first account!",
+            "status": "open",
+            "type": "account"
           }
         }
       J
@@ -40,7 +29,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
   end
 
   it_behaves_like "a service implementation that prevents overwriting new data with old",
-                  "increase_ach_transfer_v1" do
+                  "increase_account_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -48,27 +37,16 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_number": "987654321",
-            "account_id": "account_566f1f672175",
-            "amount": 100,
-            "approval": {
-              "approved_at": "2020-01-31T23:59:59Z",
-              "approved_by": "user@example.com"
-            },
-            "cancellation": {},
+            "id": "account_in71c4amph0vgo2qllky",
+            "balance": 100,
             "created_at": "2020-01-31T23:59:59Z",
-            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "network": "ach",
-            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "return": {},
-            "routing_number": "123456789",
-            "statement_descriptor": "Statement descriptor",
-            "status": "returned",
-            "submission": {},
-            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
-            "addendum": null,
-            "notification_of_change": null
+            "currency": "USD",
+            "entity_id": "entity_n8y8tnk2p9339ti393yi",
+            "interest_accrued": "0.01",
+            "interest_accrued_at": "2020-01-31",
+            "name": "My first account!",
+            "status": "open",
+            "type": "account"
           }
         }
       J
@@ -80,27 +58,16 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           "event": "updated",
           "created_at": "2020-02-20T23:59:59Z",
           "data": {
-            "account_number": "987654321",
-            "account_id": "account_6d9543f8492d",
-            "amount": 100,
-            "approval": {
-              "approved_at": "2020-01-31T23:59:59Z",
-              "approved_by": "user@example.com"
-            },
-            "cancellation": {},
-            "created_at": "2020-01-10T23:59:59Z",
-            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "network": "ach",
-            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "return": {},
-            "routing_number": "123456789",
-            "statement_descriptor": "Statement descriptor",
-            "status": "returned",
-            "submission": {},
-            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
-            "addendum": null,
-            "notification_of_change": null
+            "id": "account_in71c4amph0vgo2qllky",
+            "balance": 100,
+            "created_at": "2020-01-31T23:59:59Z",
+            "currency": "USD",
+            "entity_id": "entity_n8y8tnk2p9339ti393yi",
+            "interest_accrued": "0.01",
+            "interest_accrued_at": "2020-01-31",
+            "name": "My first account!",
+            "status": "open",
+            "type": "account"
           }
         }
       J
@@ -110,7 +77,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
   end
 
   it_behaves_like "a service implementation that deals with resources and wrapped events",
-                  "increase_ach_transfer_v1" do |_name|
+                  "increase_account_v1" do |_name|
     let(:resource_json) { resource_in_envelope_json.fetch("data") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
@@ -119,27 +86,16 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_number": "987654321",
-            "account_id": "account_566f1f672175",
-            "amount": 100,
-            "approval": {
-              "approved_at": "2020-01-31T23:59:59Z",
-              "approved_by": "user@example.com"
-            },
-            "cancellation": {},
+            "id": "account_in71c4amph0vgo2qllky",
+            "balance": 100,
             "created_at": "2020-01-31T23:59:59Z",
-            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "network": "ach",
-            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "return": {},
-            "routing_number": "123456789",
-            "statement_descriptor": "Statement descriptor",
-            "status": "returned",
-            "submission": {},
-            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
-            "addendum": null,
-            "notification_of_change": null
+            "currency": "USD",
+            "entity_id": "entity_n8y8tnk2p9339ti393yi",
+            "interest_accrued": "0.01",
+            "interest_accrued_at": "2020-01-31",
+            "name": "My first account!",
+            "status": "open",
+            "type": "account"
           }
         }
       J
@@ -149,14 +105,14 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_ach_transfer_v1",
+        service_name: "increase_account_v1",
         backfill_key: "bfkey",
         api_url: "https://api.increase.com",
       )
     end
     let(:incorrect_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_ach_transfer_v1",
+        service_name: "increase_account_v1",
         backfill_key: "bfkey_wrong",
         api_url: "https://api.increase.com",
       )
@@ -171,19 +127,19 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
       R
     end
     def stub_service_request
-      return stub_request(:get, "https://api.increase.com/transfers/achs").
+      return stub_request(:get, "https://api.increase.com/accounts").
           with(headers: {"Authorization" => "Bearer bfkey"}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transfers/achs").
+      return stub_request(:get, "https://api.increase.com/accounts").
           with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "increase_ach_transfer_v1" do
+  it_behaves_like "a service implementation that can backfill", "increase_account_v1" do
     # We are specifying the :api_url value because it gets used in the backfill process
     let(:api_url) { "https://api.increase.com" }
     let(:page1_response) do
@@ -191,19 +147,23 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
         {
           "data": [
             {
-              "id": "ach_transfer_svhkxlygh3pqwuiwxr4p",
-              "statement_descriptor": "Lithic Tech",
-              "account_id": "account_0ccdf68f2929",
-              "amount": -25000,
-              "account_number": "283589779",
-              "routing_number": "123456789",
+              "id": "account_in71c4amph0vgo2qllky",
+              "balance": 100,
+              "created_at": "2020-01-31T23:59:59Z",
+              "currency": "USD",
+              "entity_id": "entity_n8y8tnk2p9339ti393yi",
+              "interest_accrued": "0.01",
+              "interest_accrued_at": "2020-01-31",
+              "name": "My first account!",
+              "status": "open",
+              "type": "account",
               "return": {
                 "created_at": "2021-08-19T19:25:05Z",
                 "return_reason_code": "insufficient_fund"
               },
               "created_at": "2021-08-17T19:05:15Z",
               "network": "ach",
-              "path": "/transfers/achs/ach_transfer_svhkxlygh3pqwuiwxr4p",
+              "path": "/account/account_in71c4amph0vgo2qllky",
               "status": "returned",
               "submission": {
                 "trace_number": "053112920088161"
@@ -211,15 +171,19 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
               "transaction_id": "transaction_qrejyflufbtax3zaejbp"
             },
             {
-              "id": "ach_transfer_tblriydrv5eyaane8kf7",
-              "statement_descriptor": "Refund for Boom Fees #576",
-              "account_id": "account_d432c40f506c",
-              "amount": 2000,
-              "account_number": "80007991278",
-              "routing_number": "123456789",
+              "id": "account_in72c4amph0vgo2qllky",
+              "balance": 100,
+              "created_at": "2020-01-31T23:59:59Z",
+              "currency": "USD",
+              "entity_id": "entity_n8y8tnk2p9339ti393yi",
+              "interest_accrued": "0.01",
+              "interest_accrued_at": "2020-01-31",
+              "name": "My first account!",
+              "status": "open",
+              "type": "account",
               "created_at": "2021-08-17T07:49:07Z",
               "network": "ach",
-              "path": "/transfers/achs/ach_transfer_tblriydrv5eyaane8kf7",
+              "path": "/account/account_in72c4amph0vgo2qllky",
               "status": "submitted",
               "submission": {
                 "trace_number": "053112920088162"
@@ -238,15 +202,19 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
         {
           "data": [
             {
-              "id": "ach_transfer_9gpkg2iab2mvqolj3m6v",
-              "statement_descriptor": "Lithic Tech",
-              "account_id": "account_55eb04b7f613",
-              "amount": -89194,
-              "account_number": "28599037",
-              "routing_number": "123456789",
+              "id": "account_in73c4amph0vgo2qllky",
+              "balance": 100,
+              "created_at": "2020-01-31T23:59:59Z",
+              "currency": "USD",
+              "entity_id": "entity_n8y8tnk2p9339ti393yi",
+              "interest_accrued": "0.01",
+              "interest_accrued_at": "2020-01-31",
+              "name": "My first account!",
+              "status": "open",
+              "type": "account",
               "created_at": "2021-08-16T06:05:17Z",
               "network": "ach",
-              "path": "/transfers/achs/ach_transfer_9gpkg2iab2mvqolj3m6v",
+              "path": "/account/account_in73c4amph0vgo2qllky",
               "status": "submitted",
               "submission": {
                 "trace_number": "053112920021490"
@@ -254,19 +222,23 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
               "transaction_id": "transaction_dp1nktbjmocrl4doinbs"
             },
             {
-              "id": "ach_transfer_tsqnxiny4lb5ppg0ercb",
-              "statement_descriptor": "Lithic Tech",
-              "account_id": "account_e387048222e1",
-              "amount": -88402,
-              "account_number": "1466572",
-              "routing_number": "123456789",
+              "id": "account_in74c4amph0vgo2qllky",
+              "balance": 100,
+              "created_at": "2020-01-31T23:59:59Z",
+              "currency": "USD",
+              "entity_id": "entity_n8y8tnk2p9339ti393yi",
+              "interest_accrued": "0.01",
+              "interest_accrued_at": "2020-01-31",
+              "name": "My first account!",
+              "status": "open",
+              "type": "account",
               "return": {
                 "created_at": "2021-08-17T15:11:08Z",
                 "return_reason_code": "insufficient_fund"
               },
               "created_at": "2021-08-16T05:05:38Z",
               "network": "ach",
-              "path": "/transfers/achs/ach_transfer_tsqnxiny4lb5ppg0ercb",
+              "path": "/account/account_in74c4amph0vgo2qllky",
               "status": "returned",
               "submission": {
                 "trace_number": "053112920021492"
@@ -293,24 +265,24 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
     let(:expected_items_count) { 4 }
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.increase.com/transfers/achs").
+        stub_request(:get, "https://api.increase.com/accounts").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transfers/achs?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
+        stub_request(:get, "https://api.increase.com/accounts?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transfers/achs?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
+        stub_request(:get, "https://api.increase.com/accounts?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transfers/achs").
+      return stub_request(:get, "https://api.increase.com/accounts").
           to_return(status: 500, body: "gah")
     end
   end
 
   describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_ach_transfer_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
@@ -344,7 +316,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
   describe "state machine calculation" do
     let(:sint) do
       # Set api url to empty string so that backfill flow works correctly for testing purposes
-      Webhookdb::Fixtures.service_integration.create(service_name: "increase_ach_transfer_v1", api_url: "")
+      Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_v1", api_url: "")
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
@@ -364,7 +336,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("We've made an endpoint available for Increase ACH Transfer webhooks:"),
+          output: match("We've made an endpoint available for Increase Account webhooks:"),
         )
       end
 
@@ -377,7 +349,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! WebhookDB is now listening for Increase ACH Transfer webhooks."),
+          output: match("Great! WebhookDB is now listening for Increase Account webhooks."),
         )
       end
     end
@@ -393,7 +365,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.increase.com/transfers/achs").
+        return stub_request(:get, "https://api.increase.com/accounts").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
@@ -406,7 +378,7 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Increase ACH Transfers, we need an API key."),
+          output: match("In order to backfill Increase Accounts, we need an API key."),
         )
       end
 
@@ -435,14 +407,14 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Increase ACH Transfers."),
+          output: match("Great! We are going to start backfilling your Increase Accounts."),
         )
       end
     end
   end
 
   it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
-                  "increase_ach_transfer_v1" do
+                  "increase_account_v1" do
     let(:incorrect_webhook) do
       JSON.parse(<<~J)
         {
@@ -455,8 +427,8 @@ RSpec.describe Webhookdb::Services::IncreaseACHTransferV1, :db do
             "amount": 100,
             "date": "2020-01-10",
             "description": "Rent payment",
-            "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-            "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
+            "route_id": "account_route_yy0yirrxa4pblzl0k4op",
+            "path": "/accounts/account_in71c4amph0vgo2qllky",
             "source": {}
           }
         }

@@ -2,8 +2,8 @@
 
 require "support/shared_examples_for_services"
 
-RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
-  it_behaves_like "a service implementation", "increase_transaction_v1" do
+RSpec.describe Webhookdb::Services::IncreaseCheckTransferV1, :db do
+  it_behaves_like "a service implementation", "increase_check_transfer_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -12,28 +12,24 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
             "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "currency": "USD",
+            "address_line1": "33 Liberty Street",
+            "address_line2": null,
+            "address_city": "New York",
+            "address_state": "NY",
+            "address_zip": "10045",
+            "amount": 1000,
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
-            },
-            "type": "transaction"
+            "currency": "USD",
+            "id": "check_transfer_30b43acfu9vw8fyc4f5",
+            "mailed_at": "2020-01-31T23:59:59Z",
+            "message": "Invoice 29582",
+            "network": "check",
+            "recipient_name": "Ian Crease",
+            "status": "mailed",
+            "submitted_at": "2020-01-31T23:59:59Z",
+            "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "type": "check_transfer"
           }
         }
       J
@@ -41,7 +37,8 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "increase_transaction_v1" do
+  it_behaves_like "a service implementation that prevents overwriting new data with old",
+                  "increase_check_transfer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -50,28 +47,24 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
             "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "currency": "USD",
+            "address_line1": "33 Liberty Street",
+            "address_line2": null,
+            "address_city": "New York",
+            "address_state": "NY",
+            "address_zip": "10045",
+            "amount": 1000,
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
-            },
-            "type": "transaction"
+            "currency": "USD",
+            "id": "check_transfer_30b43acfu9vw8fyc4f5",
+            "mailed_at": "2020-01-31T23:59:59Z",
+            "message": "Invoice 29582",
+            "network": "check",
+            "recipient_name": "Ian Crease",
+            "status": "mailed",
+            "submitted_at": "2020-01-31T23:59:59Z",
+            "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "type": "check_transfer"
           }
         }
       J
@@ -84,28 +77,24 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "created_at": "2020-02-20T23:59:59Z",
           "data": {
             "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "currency": "USD",
+            "address_line1": "33 Liberty Street",
+            "address_line2": null,
+            "address_city": "New York",
+            "address_state": "NY",
+            "address_zip": "10045",
+            "amount": 1000,
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
-            },
-            "type": "transaction"
+            "currency": "USD",
+            "id": "check_transfer_30b43acfu9vw8fyc4f5",
+            "mailed_at": "2020-01-31T23:59:59Z",
+            "message": "Invoice 29582",
+            "network": "check",
+            "recipient_name": "Ian Crease",
+            "status": "mailed",
+            "submitted_at": "2020-01-31T23:59:59Z",
+            "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "type": "check_transfer"
           }
         }
       J
@@ -115,38 +104,34 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   end
 
   it_behaves_like "a service implementation that deals with resources and wrapped events",
-                  "increase_transaction_v1" do |_name|
+                  "increase_check_transfer_v1" do |_name|
     let(:resource_json) { resource_in_envelope_json.fetch("data") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
         {
-          "event_id": "transaction_event_123",
+          "event_id": "transfer_event_123",
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
             "account_id": "account_in71c4amph0vgo2qllky",
-            "amount": 100,
-            "currency": "USD",
+            "address_line1": "33 Liberty Street",
+            "address_line2": null,
+            "address_city": "New York",
+            "address_state": "NY",
+            "address_zip": "10045",
+            "amount": 1000,
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
-            },
-            "type": "transaction"
+            "currency": "USD",
+            "id": "check_transfer_30b43acfu9vw8fyc4f5",
+            "mailed_at": "2020-01-31T23:59:59Z",
+            "message": "Invoice 29582",
+            "network": "check",
+            "recipient_name": "Ian Crease",
+            "status": "mailed",
+            "submitted_at": "2020-01-31T23:59:59Z",
+            "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "type": "check_transfer"
           }
         }
       J
@@ -156,14 +141,14 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_transaction_v1",
+        service_name: "increase_check_transfer_v1",
         backfill_key: "bfkey",
         api_url: "https://api.increase.com",
       )
     end
     let(:incorrect_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_transaction_v1",
+        service_name: "increase_check_transfer_v1",
         backfill_key: "bfkey_wrong",
         api_url: "https://api.increase.com",
       )
@@ -177,27 +162,26 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         }
       R
     end
-
     def stub_service_request
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/check_transfers").
           with(headers: {"Authorization" => "Bearer bfkey"}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_401_error
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/check_transfers").
           with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/check_transfers").
           with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "increase_transaction_v1" do
+  it_behaves_like "a service implementation that can backfill", "increase_check_transfer_v1" do
     # We are specifying the :api_url value because it gets used in the backfill process
     let(:api_url) { "https://api.increase.com" }
     let(:page1_response) do
@@ -206,53 +190,49 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "data": [
             {
               "account_id": "account_in71c4amph0vgo2qllky",
-              "amount": 100,
-              "currency": "USD",
+              "address_line1": "33 Liberty Street",
+              "address_line2": null,
+              "address_city": "New York",
+              "address_state": "NY",
+              "address_zip": "10045",
+              "amount": 1000,
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oa7oi",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
-              },
-              "type": "transaction"
+              "currency": "USD",
+              "id": "check_transfer_30b43acfu9vw8fyc4f5",
+              "mailed_at": "2020-01-31T23:59:59Z",
+              "message": "Invoice 29582",
+              "network": "check",
+              "recipient_name": "Ian Crease",
+              "status": "mailed",
+              "submitted_at": "2020-01-31T23:59:59Z",
+              "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "type": "check_transfer",
+              "path": "/check_transfer/check_transfer_31b43acfu9vw8fyc4f5",
+              "source": {}
             },
             {
-              "account_id": "account_in71c4amph0vgo2qllky",
-              "amount": 100,
-              "currency": "USD",
+              "account_id": "account_in712c4amph0vgo2qllky",
+              "address_line1": "33 Liberty Street",
+              "address_line2": null,
+              "address_city": "New York",
+              "address_state": "NY",
+              "address_zip": "10045",
+              "amount": 1000,
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oasdf",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
-              },
-              "type": "transaction"
+              "currency": "USD",
+              "id": "check_transfer_31b43acfu9vw8fyc4f5",
+              "mailed_at": "2020-01-31T23:59:59Z",
+              "message": "Invoice 29582",
+              "network": "check",
+              "recipient_name": "Ian Crease",
+              "status": "mailed",
+              "submitted_at": "2020-01-31T23:59:59Z",
+              "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "type": "check_transfer",
+              "path": "/check_transfer/check_transfer_32b43acfu9vw8fyc4f5",
+              "source": {}
             }
           ],
           "response_metadata": {
@@ -267,53 +247,49 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           "data": [
             {
               "account_id": "account_in71c4amph0vgo2qllky",
-              "amount": 100,
-              "currency": "USD",
+              "address_line1": "33 Liberty Street",
+              "address_line2": null,
+              "address_city": "New York",
+              "address_state": "NY",
+              "address_zip": "10045",
+              "amount": 1000,
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oqwer",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
-              },
-              "type": "transaction"
+              "currency": "USD",
+              "id": "check_transfer_32b43acfu9vw8fyc4f5",
+              "mailed_at": "2020-01-31T23:59:59Z",
+              "message": "Invoice 29582",
+              "network": "check",
+              "recipient_name": "Ian Crease",
+              "status": "mailed",
+              "submitted_at": "2020-01-31T23:59:59Z",
+              "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "type": "check_transfer",
+              "path": "/check_transfer/check_transfer_33b43acfu9vw8fyc4f5",
+              "source": {}
             },
             {
               "account_id": "account_in71c4amph0vgo2qllky",
-              "amount": 100,
-              "currency": "USD",
+              "address_line1": "33 Liberty Street",
+              "address_line2": null,
+              "address_city": "New York",
+              "address_state": "NY",
+              "address_zip": "10045",
+              "amount": 1000,
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70opoiu",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
-              },
-              "type": "transaction"
+              "currency": "USD",
+              "id": "check_transfer_33b43acfu9vw8fyc4f5",
+              "mailed_at": "2020-01-31T23:59:59Z",
+              "message": "Invoice 29582",
+              "network": "check",
+              "recipient_name": "Ian Crease",
+              "status": "mailed",
+              "submitted_at": "2020-01-31T23:59:59Z",
+              "template_id": "check_transfer_template_tr96ajellz6awlki022o",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "type": "check_transfer",
+              "path": "/check_transfer/check_transfer_34b43acfu9vw8fyc4f5",
+              "source": {}
             }
           ],
           "response_metadata": {
@@ -333,27 +309,26 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       R
     end
     let(:expected_items_count) { 4 }
-
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.increase.com/transactions").
+        stub_request(:get, "https://api.increase.com/check_transfers").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transactions?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
+        stub_request(:get, "https://api.increase.com/check_transfers?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transactions?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
+        stub_request(:get, "https://api.increase.com/check_transfers?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/check_transfers").
           to_return(status: 500, body: "gah")
     end
   end
 
   describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_transaction_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_check_transfer_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
@@ -387,9 +362,16 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   describe "state machine calculation" do
     let(:sint) do
       # Set api url to empty string so that backfill flow works correctly for testing purposes
-      Webhookdb::Fixtures.service_integration.create(service_name: "increase_transaction_v1", api_url: "")
+      Webhookdb::Fixtures.service_integration.create(service_name: "increase_check_transfer_v1", api_url: "")
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+    describe "process_state_change" do
+      it "uses a default api url if value is blank" do
+        sint.process_state_change("api_url", "")
+        expect(sint.api_url).to eq("https://api.increase.com")
+      end
+    end
 
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do
@@ -400,7 +382,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("We've made an endpoint available for Increase Transaction webhooks:"),
+          output: match("We've made an endpoint available for Increase Check Transfer webhooks:"),
         )
       end
 
@@ -413,7 +395,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! WebhookDB is now listening for Increase Transaction webhooks."),
+          output: match("Great! WebhookDB is now listening for Increase Check Transfer webhooks."),
         )
       end
     end
@@ -429,7 +411,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.increase.com/transactions").
+        return stub_request(:get, "https://api.increase.com/check_transfers").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
@@ -442,7 +424,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Increase Transactions, we need an API key."),
+          output: match("In order to backfill Increase Check Transfers, we need an API key."),
         )
       end
 
@@ -471,14 +453,14 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Increase Transactions."),
+          output: match("Great! We are going to start backfilling your Increase Check Transfers."),
         )
       end
     end
   end
 
   it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
-                  "increase_transaction_v1" do
+                  "increase_check_transfer_v1" do
     let(:incorrect_webhook) do
       JSON.parse(<<~J)
         {
@@ -504,7 +486,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
             "status": "returned",
             "submission": {},
             "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "check_transfer_id": "check_transfer_30b43acfu9vw8fyc4f5",
             "addendum": null,
             "notification_of_change": null
           }

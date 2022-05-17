@@ -2,38 +2,32 @@
 
 require "support/shared_examples_for_services"
 
-RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
-  it_behaves_like "a service implementation", "increase_transaction_v1" do
+RSpec.describe Webhookdb::Services::IncreaseAccountTransferV1, :db do
+  it_behaves_like "a service implementation", "increase_account_transfer_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
-          "event_id": "transaction_event_123",
+          "event_id": "transfer_event_123",
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_id": "account_in71c4amph0vgo2qllky",
+            "id": "account_transfer_7k9qe1ysdgqztnt63l7n",
             "amount": 100,
+            "account_id": "account_in71c4amph0vgo2qllky",
             "currency": "USD",
+            "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+            "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
+            "description": "Move money into savings",
+            "network": "account",
+            "status": "complete",
+            "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z"
             },
-            "type": "transaction"
+            "cancellation": null,
+            "type": "account_transfer"
           }
         }
       J
@@ -41,37 +35,32 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "increase_transaction_v1" do
+  it_behaves_like "a service implementation that prevents overwriting new data with old",
+                  "increase_account_transfer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
-          "event_id": "transaction_event_123",
+          "event_id": "transfer_event_123",
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_id": "account_in71c4amph0vgo2qllky",
+            "id": "account_transfer_8k9qe1ysdgqztnt63l7n",
             "amount": 100,
+            "account_id": "account_in71c4amph0vgo2qllky",
             "currency": "USD",
+            "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+            "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
+            "description": "Move money into savings",
+            "network": "account",
+            "status": "complete",
+            "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z"
             },
-            "type": "transaction"
+            "cancellation": null,
+            "type": "account_transfer"
           }
         }
       J
@@ -79,33 +68,27 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
     let(:new_body) do
       JSON.parse(<<~J)
         {
-          "event_id": "transaction_event_456",
+          "event_id": "transfer_event_456",
           "event": "updated",
           "created_at": "2020-02-20T23:59:59Z",
           "data": {
-            "account_id": "account_in71c4amph0vgo2qllky",
+            "id": "account_transfer_8k9qe1ysdgqztnt63l7n",
             "amount": 100,
+            "account_id": "account_in71c4amph0vgo2qllky",
             "currency": "USD",
+            "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+            "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
+            "description": "Move money into savings",
+            "network": "account",
+            "status": "complete",
+            "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z"
             },
-            "type": "transaction"
+            "cancellation": null,
+            "type": "account_transfer"
           }
         }
       J
@@ -115,38 +98,32 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   end
 
   it_behaves_like "a service implementation that deals with resources and wrapped events",
-                  "increase_transaction_v1" do |_name|
+                  "increase_account_transfer_v1" do |_name|
     let(:resource_json) { resource_in_envelope_json.fetch("data") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
         {
-          "event_id": "transaction_event_123",
+          "event_id": "transfer_event_123",
           "event": "created",
           "created_at": "2020-01-31T23:59:59Z",
           "data": {
-            "account_id": "account_in71c4amph0vgo2qllky",
+            "id": "account_transfer_7k9qe1ysdgqztnt63l7n",
             "amount": 100,
+            "account_id": "account_in71c4amph0vgo2qllky",
             "currency": "USD",
+            "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+            "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
             "created_at": "2020-01-31T23:59:59Z",
-            "description": "Frederick S. Holmes",
-            "id": "transaction_uyrp7fld2ium70oa7oi",
-            "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-            "route_type": "account_number",
-            "source": {
-              "category": "inbound_ach_transfer",
-              "inbound_ach_transfer": {
-                "amount": 100,
-                "originator_company_name": "BIG BANK",
-                "originator_company_descriptive_date": null,
-                "originator_company_discretionary_data": null,
-                "originator_company_entry_description": "RESERVE",
-                "originator_company_id": "0987654321",
-                "receiver_id_number": "12345678900",
-                "receiver_name": "IAN CREASE",
-                "trace_number": "021000038461022"
-              }
+            "description": "Move money into savings",
+            "network": "account",
+            "status": "complete",
+            "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z"
             },
-            "type": "transaction"
+            "cancellation": null,
+            "type": "account_transfer"
           }
         }
       J
@@ -156,14 +133,14 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   it_behaves_like "a service implementation that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_transaction_v1",
+        service_name: "increase_account_transfer_v1",
         backfill_key: "bfkey",
         api_url: "https://api.increase.com",
       )
     end
     let(:incorrect_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "increase_transaction_v1",
+        service_name: "increase_account_transfer_v1",
         backfill_key: "bfkey_wrong",
         api_url: "https://api.increase.com",
       )
@@ -177,27 +154,20 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         }
       R
     end
-
     def stub_service_request
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/account_transfers").
           with(headers: {"Authorization" => "Bearer bfkey"}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
-    def stub_service_request_401_error
-      return stub_request(:get, "https://api.increase.com/transactions").
-          with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
-          to_return(status: 401, body: "", headers: {})
-    end
-
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/account_transfers").
           with(headers: {"Authorization" => "Bearer bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "increase_transaction_v1" do
+  it_behaves_like "a service implementation that can backfill", "increase_account_transfer_v1" do
     # We are specifying the :api_url value because it gets used in the backfill process
     let(:api_url) { "https://api.increase.com" }
     let(:page1_response) do
@@ -205,54 +175,46 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         {
           "data": [
             {
-              "account_id": "account_in71c4amph0vgo2qllky",
+              "id": "account_transfer_7k0qe1ysdgqztnt63l7n",
               "amount": 100,
+              "account_id": "account_in71c4amph0vgo2qllky",
               "currency": "USD",
+              "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+              "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oa7oi",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
+              "description": "Move money into savings",
+              "network": "account",
+              "status": "complete",
+              "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "approval": {
+                "approved_at": "2020-01-31T23:59:59Z"
               },
-              "type": "transaction"
+              "cancellation": null,
+              "type": "account_transfer",
+              "path": "/account_transfer/account_transfer_7k0qe1ysdgqztnt63l7n",
+              "source": {}
             },
             {
-              "account_id": "account_in71c4amph0vgo2qllky",
+              "id": "account_transfer_7k2qe1ysdgqztnt63l7n",
               "amount": 100,
+              "account_id": "account_in71c4amph0vgo2qllky",
               "currency": "USD",
+              "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+              "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oasdf",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
+              "description": "Move money into savings",
+              "network": "account",
+              "status": "complete",
+              "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "approval": {
+                "approved_at": "2020-01-31T23:59:59Z"
               },
-              "type": "transaction"
+              "cancellation": null,
+              "type": "account_transfer",
+              "path": "/account_transfer/account_transfer_7k2qe1ysdgqztnt63l7n",
+              "source": {}
             }
           ],
           "response_metadata": {
@@ -266,54 +228,46 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
         {
           "data": [
             {
-              "account_id": "account_in71c4amph0vgo2qllky",
+              "id": "account_transfer_7k3qe1ysdgqztnt63l7n",
               "amount": 100,
+              "account_id": "account_in71c4amph0vgo2qllky",
               "currency": "USD",
+              "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+              "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70oqwer",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
+              "description": "Move money into savings",
+              "network": "account",
+              "status": "complete",
+              "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "approval": {
+                "approved_at": "2020-01-31T23:59:59Z"
               },
-              "type": "transaction"
+              "cancellation": null,
+              "type": "account_transfer",
+              "path": "/account_transfer/account_transfer_7k3qe1ysdgqztnt63l7n",
+              "source": {}
             },
             {
-              "account_id": "account_in71c4amph0vgo2qllky",
+              "id": "account_transfer_7k4qe1ysdgqztnt63l7n",
               "amount": 100,
+              "account_id": "account_in71c4amph0vgo2qllky",
               "currency": "USD",
+              "destination_account_id": "account_uf16sut2ct5bevmq3eh",
+              "destination_transaction_id": "transaction_j3itv8dtk5o8pw3p1xj4",
               "created_at": "2020-01-31T23:59:59Z",
-              "description": "Frederick S. Holmes",
-              "id": "transaction_uyrp7fld2ium70opoiu",
-              "route_id": "account_number_v18nkfqm6afpsrvy82b2",
-              "route_type": "account_number",
-              "source": {
-                "category": "inbound_ach_transfer",
-                "inbound_ach_transfer": {
-                  "amount": 100,
-                  "originator_company_name": "BIG BANK",
-                  "originator_company_descriptive_date": null,
-                  "originator_company_discretionary_data": null,
-                  "originator_company_entry_description": "RESERVE",
-                  "originator_company_id": "0987654321",
-                  "receiver_id_number": "12345678900",
-                  "receiver_name": "IAN CREASE",
-                  "trace_number": "021000038461022"
-                }
+              "description": "Move money into savings",
+              "network": "account",
+              "status": "complete",
+              "template_id": "account_transfer_template_5nloco84eijzw0wcfhnn",
+              "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+              "approval": {
+                "approved_at": "2020-01-31T23:59:59Z"
               },
-              "type": "transaction"
+              "cancellation": null,
+              "type": "account_transfer",
+              "path": "/account_transfer/account_transfer_7k4qe1ysdgqztnt63l7n",
+              "source": {}
             }
           ],
           "response_metadata": {
@@ -333,27 +287,26 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       R
     end
     let(:expected_items_count) { 4 }
-
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.increase.com/transactions").
+        stub_request(:get, "https://api.increase.com/account_transfers").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transactions?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
+        stub_request(:get, "https://api.increase.com/account_transfers?cursor=aW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6NH19").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.increase.com/transactions?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
+        stub_request(:get, "https://api.increase.com/account_transfers?cursor=lpYUWlPako5ZlEiLCJsaW1pdCI6Mn0sInBvc2l0aW9uIjp7Im9mZnNldCI6Nn19").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.increase.com/transactions").
+      return stub_request(:get, "https://api.increase.com/account_transfers").
           to_return(status: 500, body: "gah")
     end
   end
 
   describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_transaction_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_transfer_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
@@ -387,9 +340,16 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
   describe "state machine calculation" do
     let(:sint) do
       # Set api url to empty string so that backfill flow works correctly for testing purposes
-      Webhookdb::Fixtures.service_integration.create(service_name: "increase_transaction_v1", api_url: "")
+      Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_transfer_v1", api_url: "")
     end
     let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+    describe "process_state_change" do
+      it "uses a default api url if value is blank" do
+        sint.process_state_change("api_url", "")
+        expect(sint.api_url).to eq("https://api.increase.com")
+      end
+    end
 
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do
@@ -400,7 +360,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("We've made an endpoint available for Increase Transaction webhooks:"),
+          output: match("We've made an endpoint available for Increase Account Transfer webhooks:"),
         )
       end
 
@@ -413,7 +373,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! WebhookDB is now listening for Increase Transaction webhooks."),
+          output: match("Great! WebhookDB is now listening for Increase Account Transfer webhooks."),
         )
       end
     end
@@ -429,7 +389,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.increase.com/transactions").
+        return stub_request(:get, "https://api.increase.com/account_transfers").
             with(headers: {"Authorization" => "Bearer bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
@@ -442,7 +402,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/backfill_key"),
           complete: false,
-          output: match("In order to backfill Increase Transactions, we need an API key."),
+          output: match("In order to backfill Increase Account Transfers, we need an API key."),
         )
       end
 
@@ -471,14 +431,14 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Increase Transactions."),
+          output: match("Great! We are going to start backfilling your Increase Account Transfers."),
         )
       end
     end
   end
 
   it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
-                  "increase_transaction_v1" do
+                  "increase_account_transfer_v1" do
     let(:incorrect_webhook) do
       JSON.parse(<<~J)
         {
@@ -504,7 +464,7 @@ RSpec.describe Webhookdb::Services::IncreaseTransactionV1, :db do
             "status": "returned",
             "submission": {},
             "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "account_transfer_id": "account_transfer_7k9qe1ysdgqztnt63l7n",
             "addendum": null,
             "notification_of_change": null
           }
