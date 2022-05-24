@@ -3,6 +3,9 @@ on: pull_request
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_RUN_TESTS: true
+      SNOWFLAKE_TEST_URL: ${{ secrets.SNOWFLAKE_TEST_URL }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v2
@@ -15,6 +18,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get -yqq install libpq-dev
+      - name: Install SnowSQL
+        run: |
+          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.21-linux_x86_64.bash
+          SNOWSQL_DEST=$HOME/snowflake SNOWSQL_LOGIN_SHELL=$HOME/.profile bash snowsql-1.2.21-linux_x86_64.bash
+          $HOME/snowflake/snowsql -v
+          echo "$HOME/snowflake" >> $GITHUB_PATH
       - name: Start backing services
         run: docker-compose up -d
       - name: Wait for services to come up
