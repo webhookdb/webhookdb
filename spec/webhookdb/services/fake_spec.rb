@@ -207,18 +207,18 @@ RSpec.describe "fake implementations", :db do
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
         fake.define_singleton_method(:_denormalized_columns) do
           [
-            Webhookdb::Services::Column.new(:c2, "timestamptz", index: true),
-            Webhookdb::Services::Column.new(:c3, "date"),
-            Webhookdb::Services::Column.new(:c4, "text", index: true),
+            Webhookdb::Services::Column.new(:c2, Webhookdb::DBAdapter::ColumnTypes::TIMESTAMP, index: true),
+            Webhookdb::Services::Column.new(:c3, Webhookdb::DBAdapter::ColumnTypes::DATE),
+            Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
           ]
         end
-        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD "c2" timestamptz ;
-CREATE INDEX IF NOT EXISTS c2_idx ON #{fake.table_sym} ("c2");
-ALTER TABLE #{fake.table_sym} ADD "c3" date ;
-ALTER TABLE #{fake.table_sym} ADD "c4" text ;
-CREATE INDEX IF NOT EXISTS c4_idx ON #{fake.table_sym} ("c4");})
+        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD c2 timestamptz;
+CREATE INDEX IF NOT EXISTS c2_idx ON #{fake.table_sym} (c2);
+ALTER TABLE #{fake.table_sym} ADD c3 date;
+ALTER TABLE #{fake.table_sym} ADD "from" text;
+CREATE INDEX IF NOT EXISTS from_idx ON #{fake.table_sym} ("from");})
         fake.ensure_all_columns
-        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :c4]) }
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
       end
     end
 

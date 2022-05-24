@@ -21,28 +21,45 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
     return "#{self.service_integration.table_name}_stats"
   end
 
-  def _create_enrichment_tables_sql
-    tbl = self.analytics_table_name
-    return %(
-CREATE TABLE #{tbl} (pk bigserial PRIMARY KEY, date DATE, downloads INTEGER, episode_id TEXT);
-CREATE UNIQUE INDEX date_episode_id_idx ON #{tbl} (date, episode_id);
-      )
+  def _enrichment_tables_descriptors
+    table = Webhookdb::DBAdapter::Table.new(name: self.analytics_table_name)
+    episodeidcol = Webhookdb::DBAdapter::Column.new(name: :episode_id, type: TEXT)
+    datecol = Webhookdb::DBAdapter::Column.new(name: :date, type: DATE)
+    return [
+      Webhookdb::DBAdapter::TableDescriptor.new(
+        table:,
+        columns: [
+          Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY),
+          datecol,
+          Webhookdb::DBAdapter::Column.new(name: :downloads, type: INTEGER),
+          episodeidcol,
+        ],
+        indices: [
+          Webhookdb::DBAdapter::Index.new(
+            name: :date_episode_id_idx,
+            table:,
+            targets: [datecol, episodeidcol],
+            unique: true,
+          ),
+        ],
+      ),
+    ]
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:author, "text"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:duration, "integer"),
-      Webhookdb::Services::Column.new(:keywords, "text"),
-      Webhookdb::Services::Column.new(:number, "integer", index: true),
-      Webhookdb::Services::Column.new(:published_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:season, "integer", index: true),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:title, "text"),
-      Webhookdb::Services::Column.new(:show_id, "text", index: true),
-      Webhookdb::Services::Column.new(:type, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:author, TEXT),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:duration, INTEGER),
+      Webhookdb::Services::Column.new(:keywords, TEXT),
+      Webhookdb::Services::Column.new(:number, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:published_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:season, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:title, TEXT),
+      Webhookdb::Services::Column.new(:show_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:type, TEXT),
+      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
     ]
   end
 

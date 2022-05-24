@@ -22,15 +22,11 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return self.calculate_backfill_state_machine
   end
 
-  def _create_enrichment_tables_sql
-    return nil
-  end
-
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:name, "text", index: true),
-      Webhookdb::Services::Column.new(:total_subscriptions, "integer"),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:name, TEXT, index: true),
+      Webhookdb::Services::Column.new(:total_subscriptions, INTEGER),
     ]
   end
 

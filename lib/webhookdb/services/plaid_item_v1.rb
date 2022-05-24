@@ -24,20 +24,20 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:plaid_id, "text")
+    return Webhookdb::Services::Column.new(:plaid_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:institution_id, "text", index: true),
-      Webhookdb::Services::Column.new(:encrypted_access_token, "text"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:consent_expiration_time, "timestamptz"),
-      Webhookdb::Services::Column.new(:update_type, "text"),
-      Webhookdb::Services::Column.new(:error, "jsonb"),
-      Webhookdb::Services::Column.new(:available_products, "jsonb"),
-      Webhookdb::Services::Column.new(:billed_products, "jsonb"),
-      Webhookdb::Services::Column.new(:status, "jsonb"),
+      Webhookdb::Services::Column.new(:institution_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:encrypted_access_token, TEXT),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:consent_expiration_time, TIMESTAMP),
+      Webhookdb::Services::Column.new(:update_type, TEXT),
+      Webhookdb::Services::Column.new(:error, OBJECT),
+      Webhookdb::Services::Column.new(:available_products, OBJECT),
+      Webhookdb::Services::Column.new(:billed_products, OBJECT),
+      Webhookdb::Services::Column.new(:status, OBJECT),
     ]
   end
 

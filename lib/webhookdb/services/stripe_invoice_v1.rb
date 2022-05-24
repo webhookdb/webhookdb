@@ -18,35 +18,35 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount_due, "integer"),
-      Webhookdb::Services::Column.new(:amount_paid, "integer"),
-      Webhookdb::Services::Column.new(:amount_remaining, "integer"),
-      Webhookdb::Services::Column.new(:charge, "text", index: true),
-      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:customer, "text", index: true),
-      Webhookdb::Services::Column.new(:customer_address, "text"),
-      Webhookdb::Services::Column.new(:customer_email, "text", index: true),
-      Webhookdb::Services::Column.new(:customer_name, "text"),
-      Webhookdb::Services::Column.new(:customer_phone, "text", index: true),
-      Webhookdb::Services::Column.new(:customer_shipping, "text"),
-      Webhookdb::Services::Column.new(:number, "text", index: true),
-      Webhookdb::Services::Column.new(:period_start, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:period_end, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:statement_descriptor, "text"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:status_transitions_finalized_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:status_transitions_marked_uncollectible_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:status_transitions_marked_paid_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:status_transitions_voided_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:subtotal, "integer", index: true),
-      Webhookdb::Services::Column.new(:tax, "integer", index: true),
-      Webhookdb::Services::Column.new(:total, "integer", index: true),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:amount_due, INTEGER),
+      Webhookdb::Services::Column.new(:amount_paid, INTEGER),
+      Webhookdb::Services::Column.new(:amount_remaining, INTEGER),
+      Webhookdb::Services::Column.new(:charge, TEXT, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:customer, TEXT, index: true),
+      Webhookdb::Services::Column.new(:customer_address, TEXT),
+      Webhookdb::Services::Column.new(:customer_email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:customer_name, TEXT),
+      Webhookdb::Services::Column.new(:customer_phone, TEXT, index: true),
+      Webhookdb::Services::Column.new(:customer_shipping, TEXT),
+      Webhookdb::Services::Column.new(:number, TEXT, index: true),
+      Webhookdb::Services::Column.new(:period_start, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:period_end, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:statement_descriptor, TEXT),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:status_transitions_finalized_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:status_transitions_marked_uncollectible_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:status_transitions_marked_paid_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:status_transitions_voided_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:subtotal, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:tax, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:total, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

@@ -19,18 +19,18 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:plaid_id, "text")
+    return Webhookdb::Services::Column.new(:plaid_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:item_id, "text", index: true),
-      Webhookdb::Services::Column.new(:account_id, "text"),
-      Webhookdb::Services::Column.new(:amount, "text"),
-      Webhookdb::Services::Column.new(:iso_currency_code, "text"),
-      Webhookdb::Services::Column.new(:datetime, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:authorized_datetime, "timestamptz"),
-      Webhookdb::Services::Column.new(:removed_at, "timestamptz"),
+      Webhookdb::Services::Column.new(:item_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:account_id, TEXT),
+      Webhookdb::Services::Column.new(:amount, TEXT),
+      Webhookdb::Services::Column.new(:iso_currency_code, TEXT),
+      Webhookdb::Services::Column.new(:datetime, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:authorized_datetime, TIMESTAMP),
+      Webhookdb::Services::Column.new(:removed_at, TIMESTAMP),
     ]
   end
 

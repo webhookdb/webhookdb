@@ -83,18 +83,18 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:twilio_id, "text")
+    return Webhookdb::Services::Column.new(:twilio_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:date_created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:date_sent, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:date_updated, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:direction, "text"),
-      Webhookdb::Services::Column.new(:from, "text", index: true),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:to, "text", index: true),
+      Webhookdb::Services::Column.new(:date_created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:date_sent, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:date_updated, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:direction, TEXT),
+      Webhookdb::Services::Column.new(:from, TEXT, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:to, TEXT, index: true),
     ]
   end
 

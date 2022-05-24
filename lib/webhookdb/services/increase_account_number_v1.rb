@@ -18,18 +18,18 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, "text")
+    return Webhookdb::Services::Column.new(:increase_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:account_id, "text", index: true),
-      Webhookdb::Services::Column.new(:account_number, "text", index: true),
-      Webhookdb::Services::Column.new(:routing_number, "text", index: true),
-      Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:row_created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:row_updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:account_number, TEXT, index: true),
+      Webhookdb::Services::Column.new(:routing_number, TEXT, index: true),
+      Webhookdb::Services::Column.new(:name, TEXT),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
     ]
   end
 

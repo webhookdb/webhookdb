@@ -18,20 +18,20 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:shopify_id, "text")
+    return Webhookdb::Services::Column.new(:shopify_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:email, "text", index: true),
-      Webhookdb::Services::Column.new(:first_name, "text"),
-      Webhookdb::Services::Column.new(:last_name, "text"),
-      Webhookdb::Services::Column.new(:last_order_id, "text"),
-      Webhookdb::Services::Column.new(:last_order_name, "text"),
-      Webhookdb::Services::Column.new(:phone, "text", index: true),
-      Webhookdb::Services::Column.new(:state, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:first_name, TEXT),
+      Webhookdb::Services::Column.new(:last_name, TEXT),
+      Webhookdb::Services::Column.new(:last_order_id, TEXT),
+      Webhookdb::Services::Column.new(:last_order_name, TEXT),
+      Webhookdb::Services::Column.new(:phone, TEXT, index: true),
+      Webhookdb::Services::Column.new(:state, TEXT),
+      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
     ]
   end
 

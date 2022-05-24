@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/backfiller"
+require "webhookdb/db_adapter"
 require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 require "webhookdb/typed_struct"
@@ -8,6 +9,8 @@ require "webhookdb/typed_struct"
 require "webhookdb/jobs/send_webhook"
 
 class Webhookdb::Services::Base
+  include Webhookdb::DBAdapter::ColumnTypes
+
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     raise NotImplementedError, "each service must return a descriptor that is used for registration purposes"
@@ -137,35 +140,31 @@ class Webhookdb::Services::Base
 
   # @return [String]
   def _create_table_sql
-    tbl = self.service_integration.table_name
+    table = Webhookdb::DBAdapter::Table.new(name: self.service_integration.table_name)
     remote_key_col = self._remote_key_column
-    denormalized_columns = self._denormalized_columns
-    lines = [
-      "CREATE TABLE #{tbl} (",
-      "  pk bigserial PRIMARY KEY,",
-      +"  \"#{remote_key_col.name}\" #{remote_key_col.type} UNIQUE NOT NULL",
+    columns = [
+      Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY),
+      remote_key_col.to_dbadapter(unique: true, nullable: false),
     ]
-    denormalized_columns.each do |col|
-      lines.last << ","
-      lines << +"  \"#{col.name}\" #{col.type} #{col.modifiers}"
-    end
-    # noinspection RubyModifiedFrozenObject
-    lines.last << ","
+    columns.concat(self._denormalized_columns.map(&:to_dbadapter))
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
-    lines << "  data jsonb NOT NULL"
-    lines << ");"
-    denormalized_columns.filter(&:index?).each do |col|
-      lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");"
+    columns << Webhookdb::DBAdapter::Column.new(name: :data, type: OBJECT, nullable: false)
+    adapter = Webhookdb::DBAdapter::PG.new
+    lines = [adapter.create_table_sql(table, columns)]
+    columns.filter(&:index?).each do |col|
+      dbindex = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
+      lines << adapter.create_index_sql(dbindex)
     end
-    if (enrichment_sql = self._create_enrichment_tables_sql).present?
-      lines << enrichment_sql
+    self._enrichment_tables_descriptors.each do |tdesc|
+      lines << adapter.create_table_sql(tdesc.table, tdesc.columns)
+      tdesc.indices.each { |ind| lines << adapter.create_index_sql(ind) }
     end
-    return lines.join("\n")
+    return lines.join(";\n") + ";"
   end
 
-  # @return [String]
-  def _create_enrichment_tables_sql
-    return ""
+  # @return [Array<Webhookdb::DBAdapter::TableDescriptor>]
+  def _enrichment_tables_descriptors
+    return []
   end
 
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
@@ -208,18 +207,21 @@ class Webhookdb::Services::Base
       return self._create_table_sql unless ds.db.table_exists?(self.table_sym)
       existing_cols = ds.columns
       missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
-      tbl = self.table_sym
+      adapter = Webhookdb::DBAdapter::PG.new
+      table = Webhookdb::DBAdapter::Table.new(name: self.table_sym)
       lines = []
-      missing_columns.each do |col|
-        # There's some duplication here with the create SQL,
-        # but it's so minimal and rote as not to matter.
+      missing_columns.each do |whcol|
         # Don't bother bulking the ADDs into a single ALTER TABLE,
         # it won't really matter.
-        lines << "ALTER TABLE #{tbl} ADD \"#{col.name}\" #{col.type} #{col.modifiers};"
-        lines << "CREATE INDEX IF NOT EXISTS #{col.name}_idx ON #{tbl} (\"#{col.name}\");" if
-          col.index?
+        col = whcol.to_dbadapter
+        lines << adapter.add_column_sql(table, col)
+        if col.index?
+          index = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
+          lines << adapter.create_index_sql(index)
+        end
       end
-      return lines.join("\n")
+      result = lines.join(";\n")
+      return result.empty? ? "" : result + ";"
     end
   end
 

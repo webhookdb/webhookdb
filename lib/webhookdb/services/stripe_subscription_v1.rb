@@ -18,29 +18,29 @@ class Webhookdb::Services::StripeSubscriptionV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:billing_cycle_anchor, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:cancel_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:canceled_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:current_period_end, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:current_period_start, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:customer, "text", index: true),
-      Webhookdb::Services::Column.new(:default_payment_method, "text"),
-      Webhookdb::Services::Column.new(:default_source, "text"),
-      Webhookdb::Services::Column.new(:discount, "text", index: true),
-      Webhookdb::Services::Column.new(:ended_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:latest_invoice, "text", index: true),
-      Webhookdb::Services::Column.new(:schedule, "text", index: true),
-      Webhookdb::Services::Column.new(:start_date, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:trial_end, "timestamptz"),
-      Webhookdb::Services::Column.new(:trial_start, "timestamptz"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:billing_cycle_anchor, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:cancel_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:canceled_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:current_period_end, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:current_period_start, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:customer, TEXT, index: true),
+      Webhookdb::Services::Column.new(:default_payment_method, TEXT),
+      Webhookdb::Services::Column.new(:default_source, TEXT),
+      Webhookdb::Services::Column.new(:discount, TEXT, index: true),
+      Webhookdb::Services::Column.new(:ended_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:latest_invoice, TEXT, index: true),
+      Webhookdb::Services::Column.new(:schedule, TEXT, index: true),
+      Webhookdb::Services::Column.new(:start_date, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:trial_end, TIMESTAMP),
+      Webhookdb::Services::Column.new(:trial_start, TIMESTAMP),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

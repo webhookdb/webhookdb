@@ -18,17 +18,17 @@ class Webhookdb::Services::StripePriceV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:product, "text"),
-      Webhookdb::Services::Column.new(:interval, "text"),
-      Webhookdb::Services::Column.new(:type, "text"),
-      Webhookdb::Services::Column.new(:unit_amount, "text"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP),
+      Webhookdb::Services::Column.new(:product, TEXT),
+      Webhookdb::Services::Column.new(:interval, TEXT),
+      Webhookdb::Services::Column.new(:type, TEXT),
+      Webhookdb::Services::Column.new(:unit_amount, TEXT),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
     ]
   end
 

@@ -18,22 +18,22 @@ class Webhookdb::Services::StripeDisputeV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer"),
-      Webhookdb::Services::Column.new(:charge, "text"),
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:cancellation_policy, "text"),
-      Webhookdb::Services::Column.new(:receipt, "text"),
-      Webhookdb::Services::Column.new(:refund_policy, "text"),
-      Webhookdb::Services::Column.new(:service_date, "timestamptz"),
-      Webhookdb::Services::Column.new(:due_by, "timestamptz"),
-      Webhookdb::Services::Column.new(:is_charge_refundable, "text"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:amount, INTEGER),
+      Webhookdb::Services::Column.new(:charge, TEXT),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP),
+      Webhookdb::Services::Column.new(:cancellation_policy, TEXT),
+      Webhookdb::Services::Column.new(:receipt, TEXT),
+      Webhookdb::Services::Column.new(:refund_policy, TEXT),
+      Webhookdb::Services::Column.new(:service_date, TIMESTAMP),
+      Webhookdb::Services::Column.new(:due_by, TIMESTAMP),
+      Webhookdb::Services::Column.new(:is_charge_refundable, TEXT),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
     ]
   end
 

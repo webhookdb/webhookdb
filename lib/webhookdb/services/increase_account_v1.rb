@@ -18,18 +18,18 @@ class Webhookdb::Services::IncreaseAccountV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, "text")
+    return Webhookdb::Services::Column.new(:increase_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:balance, "integer", index: true),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:entity_id, "text", index: true),
-      Webhookdb::Services::Column.new(:interest_accrued, "numeric"),
-      Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:balance, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:entity_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:interest_accrued, DECIMAL),
+      Webhookdb::Services::Column.new(:name, TEXT),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
     ]
   end
 

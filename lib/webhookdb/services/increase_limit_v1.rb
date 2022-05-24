@@ -18,19 +18,19 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, "text")
+    return Webhookdb::Services::Column.new(:increase_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:interval, "text"),
-      Webhookdb::Services::Column.new(:metric, "text"),
-      Webhookdb::Services::Column.new(:model_id, "text", index: true),
-      Webhookdb::Services::Column.new(:model_type, "text"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:value, "integer"),
-      Webhookdb::Services::Column.new(:row_created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:row_updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:interval, TEXT),
+      Webhookdb::Services::Column.new(:metric, TEXT),
+      Webhookdb::Services::Column.new(:model_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:model_type, TEXT),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:value, INTEGER),
+      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
     ]
   end
 

@@ -18,19 +18,19 @@ class Webhookdb::Services::StripeCouponV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount_off, "text"),
-      Webhookdb::Services::Column.new(:created, "timestamptz"),
-      Webhookdb::Services::Column.new(:duration, "text"),
-      Webhookdb::Services::Column.new(:max_redemptions, "integer"),
-      Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:percent_off, "numeric"),
-      Webhookdb::Services::Column.new(:times_redeemed, "numeric"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz"),
+      Webhookdb::Services::Column.new(:amount_off, TEXT),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP),
+      Webhookdb::Services::Column.new(:duration, TEXT),
+      Webhookdb::Services::Column.new(:max_redemptions, INTEGER),
+      Webhookdb::Services::Column.new(:name, TEXT),
+      Webhookdb::Services::Column.new(:percent_off, DECIMAL),
+      Webhookdb::Services::Column.new(:times_redeemed, DECIMAL),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
     ]
   end
 

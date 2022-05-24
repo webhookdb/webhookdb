@@ -18,17 +18,17 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:balance, "integer", index: true),
-      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:email, "text", index: true),
-      Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:phone, "text", index: true),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:balance, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:name, TEXT),
+      Webhookdb::Services::Column.new(:phone, TEXT, index: true),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

@@ -18,25 +18,25 @@ class Webhookdb::Services::StripeInvoiceItemV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer", index: true),
-      Webhookdb::Services::Column.new(:customer, "text", index: true),
-      Webhookdb::Services::Column.new(:date, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:description, "text"),
-      Webhookdb::Services::Column.new(:invoice, "text", index: true),
-      Webhookdb::Services::Column.new(:period_end, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:period_start, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:price, "text", index: true),
-      Webhookdb::Services::Column.new(:product, "text", index: true),
-      Webhookdb::Services::Column.new(:subscription, "text", index: true),
-      Webhookdb::Services::Column.new(:subscription_item, "text", index: true),
-      Webhookdb::Services::Column.new(:quantity, "integer"),
-      Webhookdb::Services::Column.new(:unit_amount, "integer"),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:customer, TEXT, index: true),
+      Webhookdb::Services::Column.new(:date, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:description, TEXT),
+      Webhookdb::Services::Column.new(:invoice, TEXT, index: true),
+      Webhookdb::Services::Column.new(:period_end, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:period_start, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:price, TEXT, index: true),
+      Webhookdb::Services::Column.new(:product, TEXT, index: true),
+      Webhookdb::Services::Column.new(:subscription, TEXT, index: true),
+      Webhookdb::Services::Column.new(:subscription_item, TEXT, index: true),
+      Webhookdb::Services::Column.new(:quantity, INTEGER),
+      Webhookdb::Services::Column.new(:unit_amount, INTEGER),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

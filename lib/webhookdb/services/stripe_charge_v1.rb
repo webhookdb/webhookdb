@@ -18,21 +18,21 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer", index: true),
-      Webhookdb::Services::Column.new(:balance_transaction, "text", index: true),
-      Webhookdb::Services::Column.new(:billing_email, "text", index: true),
-      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:customer, "text", index: true),
-      Webhookdb::Services::Column.new(:invoice, "text", index: true),
-      Webhookdb::Services::Column.new(:payment_type, "text"),
-      Webhookdb::Services::Column.new(:receipt_email, "text", index: true),
-      Webhookdb::Services::Column.new(:status, "text", index: true),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:balance_transaction, TEXT, index: true),
+      Webhookdb::Services::Column.new(:billing_email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:customer, TEXT, index: true),
+      Webhookdb::Services::Column.new(:invoice, TEXT, index: true),
+      Webhookdb::Services::Column.new(:payment_type, TEXT),
+      Webhookdb::Services::Column.new(:receipt_email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT, index: true),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

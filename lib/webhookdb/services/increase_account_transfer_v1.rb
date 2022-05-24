@@ -18,21 +18,21 @@ class Webhookdb::Services::IncreaseAccountTransferV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, "text")
+    return Webhookdb::Services::Column.new(:increase_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer", index: true),
-      Webhookdb::Services::Column.new(:account_id, "text", index: true),
-      Webhookdb::Services::Column.new(:destination_account_id, "text", index: true),
-      Webhookdb::Services::Column.new(:destination_transaction_id, "text", index: true),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:template_id, "text"),
-      Webhookdb::Services::Column.new(:transaction_id, "text", index: true),
-      Webhookdb::Services::Column.new(:canceled_at, "timestamptz"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:destination_account_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:destination_transaction_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:template_id, TEXT),
+      Webhookdb::Services::Column.new(:transaction_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:canceled_at, TIMESTAMP),
+      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
     ]
   end
 

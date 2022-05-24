@@ -18,21 +18,21 @@ class Webhookdb::Services::StripeRefundV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, "text")
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, "integer", index: true),
-      Webhookdb::Services::Column.new(:balance_transaction, "text", index: true),
-      Webhookdb::Services::Column.new(:charge, "text", index: true),
-      Webhookdb::Services::Column.new(:created, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:payment_intent, "text", index: true),
-      Webhookdb::Services::Column.new(:receipt_number, "text", index: true),
-      Webhookdb::Services::Column.new(:source_transfer_reversal, "text", index: true),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:transfer_reversal, "text", index: true),
-      Webhookdb::Services::Column.new(:updated, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:balance_transaction, TEXT, index: true),
+      Webhookdb::Services::Column.new(:charge, TEXT, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:payment_intent, TEXT, index: true),
+      Webhookdb::Services::Column.new(:receipt_number, TEXT, index: true),
+      Webhookdb::Services::Column.new(:source_transfer_reversal, TEXT, index: true),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:transfer_reversal, TEXT, index: true),
+      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
     ]
   end
 

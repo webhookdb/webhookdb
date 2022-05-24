@@ -18,25 +18,25 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:shopify_id, "text")
+    return Webhookdb::Services::Column.new(:shopify_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:app_id, "text"),
-      Webhookdb::Services::Column.new(:cancelled_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:cart_token, "text"),
-      Webhookdb::Services::Column.new(:checkout_token, "text"),
-      Webhookdb::Services::Column.new(:closed_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:customer_id, "text", index: true),
-      Webhookdb::Services::Column.new(:email, "text", index: true),
-      Webhookdb::Services::Column.new(:name, "text"),
-      Webhookdb::Services::Column.new(:order_number, "integer", index: true),
-      Webhookdb::Services::Column.new(:phone, "text", index: true),
-      Webhookdb::Services::Column.new(:token, "text"),
-      Webhookdb::Services::Column.new(:updated_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:user_id, "text", index: true),
+      Webhookdb::Services::Column.new(:app_id, TEXT),
+      Webhookdb::Services::Column.new(:cancelled_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:cart_token, TEXT),
+      Webhookdb::Services::Column.new(:checkout_token, TEXT),
+      Webhookdb::Services::Column.new(:closed_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:customer_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:email, TEXT, index: true),
+      Webhookdb::Services::Column.new(:name, TEXT),
+      Webhookdb::Services::Column.new(:order_number, INTEGER, index: true),
+      Webhookdb::Services::Column.new(:phone, TEXT, index: true),
+      Webhookdb::Services::Column.new(:token, TEXT),
+      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:user_id, TEXT, index: true),
     ]
   end
 

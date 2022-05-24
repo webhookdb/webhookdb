@@ -22,22 +22,18 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
     return self.calculate_backfill_state_machine
   end
 
-  def _create_enrichment_tables_sql
-    return nil
-  end
-
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:click_rate, "numeric"),
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:open_rate, "numeric"),
-      Webhookdb::Services::Column.new(:progress, "numeric"),
-      Webhookdb::Services::Column.new(:recipients, "integer"),
-      Webhookdb::Services::Column.new(:show_total_clicks, "boolean"),
-      Webhookdb::Services::Column.new(:status, "text"),
-      Webhookdb::Services::Column.new(:subject, "text"),
-      Webhookdb::Services::Column.new(:total_clicks, "integer"),
-      Webhookdb::Services::Column.new(:unsubscribes, "integer"),
+      Webhookdb::Services::Column.new(:click_rate, DECIMAL),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:open_rate, DECIMAL),
+      Webhookdb::Services::Column.new(:progress, DECIMAL),
+      Webhookdb::Services::Column.new(:recipients, INTEGER),
+      Webhookdb::Services::Column.new(:show_total_clicks, BOOLEAN),
+      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:subject, TEXT),
+      Webhookdb::Services::Column.new(:total_clicks, INTEGER),
+      Webhookdb::Services::Column.new(:unsubscribes, INTEGER),
     ]
   end
 

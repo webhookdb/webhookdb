@@ -110,12 +110,12 @@ your database will be populated.
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:canceled_at, "timestamptz", index: true),
-      Webhookdb::Services::Column.new(:email_address, "text", index: true),
-      Webhookdb::Services::Column.new(:first_name, "text"),
-      Webhookdb::Services::Column.new(:last_name, "text"),
-      Webhookdb::Services::Column.new(:state, "text"),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:canceled_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:email_address, TEXT, index: true),
+      Webhookdb::Services::Column.new(:first_name, TEXT),
+      Webhookdb::Services::Column.new(:last_name, TEXT),
+      Webhookdb::Services::Column.new(:state, TEXT),
     ]
   end
 

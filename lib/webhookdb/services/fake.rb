@@ -67,12 +67,12 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:my_id, "text")
+    return Webhookdb::Services::Column.new(:my_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:at, "timestamptz", index: true),
+      Webhookdb::Services::Column.new(:at, TIMESTAMP, index: true),
     ]
   end
 
@@ -114,8 +114,13 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
     return ["fake_v1_enrichments"]
   end
 
-  def _create_enrichment_tables_sql
-    return "CREATE TABLE fake_v1_enrichments(id TEXT);"
+  def _enrichment_tables_descriptors
+    return [
+      Webhookdb::DBAdapter::TableDescriptor.new(
+        table: Webhookdb::DBAdapter::Table.new(name: :fake_v1_enrichments),
+        columns: [Webhookdb::DBAdapter::Column.new(name: :id, type: TEXT)],
+      ),
+    ]
   end
 
   def _prepare_for_insert(body, enrichment: nil)

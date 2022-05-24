@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 module Webhookdb::Services::TransistorV1Mixin
+  include Webhookdb::DBAdapter::ColumnTypes
+
   def _webhook_response(_request)
     # As of 9/15/21 there is no way to verify authenticity of these webhooks
     return Webhookdb::WebhookResponse.ok
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:transistor_id, "text")
+    return Webhookdb::Services::Column.new(:transistor_id, TEXT)
   end
 
   def _update_where_expr
