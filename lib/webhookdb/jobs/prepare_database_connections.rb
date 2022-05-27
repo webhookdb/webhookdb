@@ -9,6 +9,7 @@ class Webhookdb::Jobs::PrepareDatabaseConnections
   sidekiq_options queue: "critical"
 
   def _perform(event)
+    return if Webhookdb.single_organization_deployment == true
     org = self.lookup_model(Webhookdb::Organization, event)
     org.db.transaction do
       # If creating the public host fails, we end up with an orphaned database,

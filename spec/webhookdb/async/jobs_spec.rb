@@ -129,6 +129,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     after(:each) do
       org.remove_related_database
+      Webhookdb.reset_configuration
       Webhookdb::Organization::DbBuilder.reset_configuration
     end
 
@@ -163,6 +164,21 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         admin_connection_url: start_with("postgres://"),
         readonly_connection_url: start_with("postgres://"),
         public_host: eq("myorg2.db.testing.dev"),
+      )
+    end
+
+    it "noops if single org deployment is enabled" do
+      Webhookdb.single_organization_deployment = true
+
+      expect do
+        org.publish_immediate("create", org.id, org.values)
+      end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
+
+      org.refresh
+      expect(org).to have_attributes(
+        admin_connection_url: be_blank,
+        readonly_connection_url: be_blank,
+        public_host: be_blank,
       )
     end
   end

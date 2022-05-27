@@ -58,6 +58,7 @@ module Webhookdb
     setting :bust_idempotency, false
     setting :http_user_agent, ""
     setting :marketing_site, "https://webhookdb.com/"
+    setting :single_organization_deployment, false
     setting :support_email, "webhookdb@lithic.tech"
     setting :use_globals_cache, false
   end
