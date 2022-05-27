@@ -1,38 +1,25 @@
 # frozen_string_literal: true
 
 class Webhookdb::DBAdapter
-  module ColumnTypes
-    BIGINT = :bigint
-    BOOLEAN = :bool
-    DATE = :date
-    DECIMAL = :decimal
-    DOUBLE = :double
-    FLOAT = :float
-    INTEGER = :int
-    OBJECT = :object
-    PKEY = :pk
-    TEXT = :text
-    TIMESTAMP = :timestamp
+  require "webhookdb/db_adapter/column_types"
 
-    COLUMN_TYPES = Set.new(
-      [
-        BIGINT,
-        BOOLEAN,
-        DATE,
-        DECIMAL,
-        DOUBLE,
-        FLOAT,
-        INTEGER,
-        OBJECT,
-        PKEY,
-        TEXT,
-        TIMESTAMP,
-      ],
-    )
+  class Schema < Webhookdb::TypedStruct
+    attr_reader :name
+
+    def initialize(**kwargs)
+      super
+      self.typecheck!(:name, Symbol)
+    end
   end
 
   class Table < Webhookdb::TypedStruct
-    attr_reader :name
+    attr_reader :name, :schema
+
+    def initialize(**kwargs)
+      super
+      self.typecheck!(:name, Symbol)
+      self.typecheck!(:schema, Schema, nullable: true)
+    end
   end
 
   class Column < Webhookdb::TypedStruct
@@ -44,7 +31,11 @@ class Webhookdb::DBAdapter
 
     def initialize(**kwargs)
       super
-      raise ArgumentError, "name must be a symbol" unless self.name.is_a?(Symbol)
+      self.typecheck!(:name, Symbol)
+      self.typecheck!(:type, Symbol)
+      self.typecheck!(:nullable, :boolean)
+      self.typecheck!(:unique, :boolean)
+      self.typecheck!(:index, :boolean)
       raise ArgumentError, "type #{self.type.inspect} is not known" unless COLUMN_TYPES.include?(self.type)
     end
 
@@ -55,6 +46,19 @@ class Webhookdb::DBAdapter
 
   class Index < Webhookdb::TypedStruct
     attr_reader :name, :table, :targets, :unique
+
+    def initialize(**kwargs)
+      super
+      self.typecheck!(:name, Symbol)
+      self.typecheck!(:table, Table)
+      self.typecheck!(:targets, Array)
+      self.typecheck!(:unique, :boolean)
+    end
+
+    def _defaults
+      return {unique: false}
+    end
+
     # @!attribute name
     #   @return [Symbol]
     # @!attribute table
@@ -68,6 +72,13 @@ class Webhookdb::DBAdapter
   class TableDescriptor < Webhookdb::TypedStruct
     attr_reader :table, :columns, :indices
 
+    def initialize(**kwargs)
+      super
+      self.typecheck!(:table, Table)
+      self.typecheck!(:columns, Array)
+      self.typecheck!(:indices, Array)
+    end
+
     # @!attribute table
     #   @return [Table]
     # @!attribute columns
@@ -76,14 +87,25 @@ class Webhookdb::DBAdapter
     #   @return [Array<Index>]
 
     def _defaults
-      return {indices: [], columns: []}
+      return {indices: []}
     end
+  end
+
+  # @param [Schema] schema
+  # @param [Boolean] if_not_exists
+  # @return [String]
+  def create_schema_sql(schema, if_not_exists: false)
+    raise NotImplementedError
   end
 
   # @param [Table] table
   # @param [Array<Column>] columns
+  # @param [Schema] schema
+  # @param [Boolean] if_not_exists
   # @return [String]
-  def create_table_sql(table, columns); end
+  def create_table_sql(table, columns, schema: nil, if_not_exists: false)
+    raise NotImplementedError
+  end
 
   # @param [Index] index
   # @return [String]
@@ -93,11 +115,13 @@ class Webhookdb::DBAdapter
 
   # @param [Table] table
   # @param [Column] column
+  # @param [Boolean] if_not_exists
   # @return [String]
-  def add_column_sql(table, column)
+  def add_column_sql(table, column, if_not_exists: false)
     raise NotImplementedError
   end
 
+  # @param [String] url
   # @return [Webhookdb::DBAdapter]
   def self.adapter(url)
     case url

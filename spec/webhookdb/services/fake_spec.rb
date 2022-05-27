@@ -212,10 +212,10 @@ RSpec.describe "fake implementations", :db do
             Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
           ]
         end
-        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD c2 timestamptz;
+        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{fake.table_sym} ADD COLUMN c2 timestamptz;
 CREATE INDEX IF NOT EXISTS c2_idx ON #{fake.table_sym} (c2);
-ALTER TABLE #{fake.table_sym} ADD c3 date;
-ALTER TABLE #{fake.table_sym} ADD "from" text;
+ALTER TABLE #{fake.table_sym} ADD COLUMN c3 date;
+ALTER TABLE #{fake.table_sym} ADD COLUMN "from" text;
 CREATE INDEX IF NOT EXISTS from_idx ON #{fake.table_sym} ("from");})
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }

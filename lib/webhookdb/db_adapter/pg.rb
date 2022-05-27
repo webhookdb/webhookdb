@@ -5,10 +5,18 @@ require "pg"
 class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   include Webhookdb::DBAdapter::ColumnTypes
 
-  def create_table_sql(table, columns)
-    lines = [
-      "CREATE TABLE #{self._escape_identifier(table.name)} (",
-    ]
+  def create_schema_sql(schema, if_not_exists: false)
+    s = +"CREATE SCHEMA "
+    s << "IF NOT EXISTS " if if_not_exists
+    s << self._escape_identifier(schema.name)
+    return s
+  end
+
+  def create_table_sql(table, columns, if_not_exists: false)
+    createtable = +"CREATE TABLE "
+    createtable << "IF NOT EXISTS " if if_not_exists
+    createtable << self._qualify_table(table)
+    lines = ["#{createtable} ("]
     columns[0...-1]&.each { |c| lines << "  #{self.column_create_sql(c)}," }
     lines << "  #{self.column_create_sql(columns.last)}"
     lines << ")"
@@ -19,7 +27,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     tgts = index.targets.map { |c| self._escape_identifier(c.name) }.join(", ")
     uniq = index.unique ? " UNIQUE" : ""
     idxname = self._escape_identifier(index.name)
-    tblname = self._escape_identifier(index.table.name)
+    tblname = self._qualify_table(index.table)
     return "CREATE#{uniq} INDEX IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})"
   end
 
@@ -37,10 +45,30 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return "#{colname} #{coltype}#{modifiers}"
   end
 
-  def add_column_sql(table, column)
+  def add_column_sql(table, column, if_not_exists: false)
     c = self.column_create_sql(column)
-    tblname = self._escape_identifier(table.name)
-    return "ALTER TABLE #{tblname} ADD #{c}"
+    ifne = if_not_exists ? " IF NOT EXISTS" : ""
+    return "ALTER TABLE #{self._qualify_table(table)} ADD COLUMN#{ifne} #{c}"
+  end
+
+  def merge_from_csv(db, table, file)
+    qtable = self._qualify_table(table)
+    temptable = "#{self._escape_identifier(table.name)}_staging_#{SecureRandom.hex(4)}"
+    db << "CREATE TEMP TABLE #{temptable} (LIKE #{self._qualify_table(table)})"
+    db.copy_into(temptable.to_sym, format: :csv, data: file)
+    db << "INSERT INTO #{qtable} SELECT * FROM #{temptable} WHERE pk NOT IN (SELECT pk FROM #{qtable})"
+    db << "UPDATE #{qtable} AS tgt SET at = src.at FROM " \
+          "(SELECT * FROM #{temptable} WHERE pk IN (SELECT pk FROM #{qtable})) src"
+  end
+
+  def _qualify_table(table)
+    s = +""
+    if table.schema
+      s << self._escape_identifier(table.schema.name)
+      s << "."
+    end
+    s << self._escape_identifier(table.name)
+    return s
   end
 
   # We write our own escaper because we want to only escape what's needed;
@@ -48,7 +76,8 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   def _escape_identifier(s)
     s = s.to_s
     return "\"#{s}\"" if RESERVED_KEYWORDS.include?(s.upcase)
-    raise ArgumentError, "identifier #{s.inspect} cannot contain spaces" if /\s/.match?(s)
+    raise ArgumentError, "identifier #{s.inspect} cannot contain spaces or semicolons" if
+      /\s/.match?(s) || s.include?(";")
     return s
   end
 

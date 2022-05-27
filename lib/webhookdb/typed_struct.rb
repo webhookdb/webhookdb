@@ -15,4 +15,15 @@ class Webhookdb::TypedStruct
   def [](k)
     return self.send(k)
   end
+
+  protected def typecheck!(field, type, nullable: false)
+    value = self.send(field)
+    return if nullable && value.nil?
+    if type == :boolean
+      return if [true, false].include?(value)
+    elsif value.is_a?(type)
+      return
+end
+    raise ArgumentError, "#{field} #{value.inspect} must be a #{type.name}"
+  end
 end

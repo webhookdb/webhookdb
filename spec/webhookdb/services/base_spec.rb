@@ -11,7 +11,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
 
     it "generates the correct sql" do
       s = svc_cls.new(sint)
-      expect(s._create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -32,7 +32,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         end
       end
       s = test_svc_cls.new(sint)
-      expect(s._create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -59,7 +59,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         end
       end
       s = test_svc_cls.new(sint)
-      expect(s._create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,

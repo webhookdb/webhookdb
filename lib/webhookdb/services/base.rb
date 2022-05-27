@@ -127,7 +127,7 @@ class Webhookdb::Services::Base
   end
 
   def create_table
-    cmd = self._create_table_sql
+    cmd = self.create_table_sql
     self.admin_dataset do |ds|
       ds.db << cmd
     end
@@ -135,20 +135,11 @@ class Webhookdb::Services::Base
 
   # @return [String]
   def create_table_sql
-    return self._create_table_sql
-  end
-
-  # @return [String]
-  def _create_table_sql
-    table = Webhookdb::DBAdapter::Table.new(name: self.service_integration.table_name)
-    remote_key_col = self._remote_key_column
-    columns = [
-      Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY),
-      remote_key_col.to_dbadapter(unique: true, nullable: false),
-    ]
-    columns.concat(self._denormalized_columns.map(&:to_dbadapter))
+    table = Webhookdb::DBAdapter::Table.new(name: self.table_sym)
+    columns = [self.primary_key_column, self.remote_key_column]
+    columns.concat(self.denormalized_columns)
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
-    columns << Webhookdb::DBAdapter::Column.new(name: :data, type: OBJECT, nullable: false)
+    columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
     lines = [adapter.create_table_sql(table, columns)]
     columns.filter(&:index?).each do |col|
@@ -160,6 +151,26 @@ class Webhookdb::Services::Base
       tdesc.indices.each { |ind| lines << adapter.create_index_sql(ind) }
     end
     return lines.join(";\n") + ";"
+  end
+
+  # @return [Webhookdb::DBAdapter::Column]
+  def primary_key_column
+    return Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY)
+  end
+
+  # @return [Webhookdb::DBAdapter::Column]
+  def remote_key_column
+    return self._remote_key_column.to_dbadapter(unique: true, nullable: false)
+  end
+
+  # @return [Webhookdb::DBAdapter::Column]
+  def data_column
+    return Webhookdb::DBAdapter::Column.new(name: :data, type: OBJECT, nullable: false)
+  end
+
+  # @return [Array<Webhookdb::DBAdapter::Column>]
+  def denormalized_columns
+    return self._denormalized_columns.map(&:to_dbadapter)
   end
 
   # @return [Array<Webhookdb::DBAdapter::TableDescriptor>]
@@ -204,7 +215,7 @@ class Webhookdb::Services::Base
 
   def ensure_all_columns_sql
     self.admin_dataset do |ds|
-      return self._create_table_sql unless ds.db.table_exists?(self.table_sym)
+      return self.create_table_sql unless ds.db.table_exists?(self.table_sym)
       existing_cols = ds.columns
       missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
       adapter = Webhookdb::DBAdapter::PG.new
