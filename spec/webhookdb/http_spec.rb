@@ -42,6 +42,13 @@ RSpec.describe Webhookdb::Http do
 
       expect { described_class.get("https://a.b", logger: nil) }.to raise_error(described_class::Error)
     end
+
+    it "does not error for 300s if not following redirects" do
+      req = stub_request(:get, "https://a.b").to_return(status: 307, headers: {location: "https://x.y"})
+      resp = described_class.get("https://a.b", logger: nil, follow_redirects: false)
+      expect(req).to have_been_made
+      expect(resp).to have_attributes(code: 307)
+    end
   end
 
   describe "post" do
@@ -106,6 +113,13 @@ RSpec.describe Webhookdb::Http do
         to_return(status: 500, body: "meh")
 
       expect { described_class.post("https://a.b", logger: nil) }.to raise_error(described_class::Error)
+    end
+
+    it "does not error for 300s if not following redirects" do
+      req = stub_request(:post, "https://a.b").to_return(status: 307, headers: {location: "https://x.y"})
+      resp = described_class.post("https://a.b", logger: nil, follow_redirects: false)
+      expect(req).to have_been_made
+      expect(resp).to have_attributes(code: 307)
     end
   end
 

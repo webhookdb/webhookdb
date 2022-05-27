@@ -34,8 +34,12 @@ module Webhookdb::Http
     return "WebhookDB/#{Webhookdb::RELEASE} https://webhookdb.com #{Webhookdb::RELEASE_CREATED_AT}"
   end
 
-  def self.check!(response)
-    return if response.ok?
+  def self.check!(response, **options)
+    # All oks are ok
+    return if response.code < 300
+    # We expect 300s if we aren't following redirects
+    return if response.code < 400 && !options[:follow_redirects]
+    # Raise for 400s, or 300s if we were meant to follow redirects
     raise Error, response
   end
 
@@ -44,7 +48,7 @@ module Webhookdb::Http
     opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
     r = HTTParty.get(url, **opts)
-    self.check!(r)
+    self.check!(r, **opts)
     return r
   end
 
@@ -55,7 +59,7 @@ module Webhookdb::Http
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
     opts = {body:, headers:}.merge(**options)
     r = HTTParty.post(url, **opts)
-    self.check!(r)
+    self.check!(r, **options)
     return r
   end
 end
