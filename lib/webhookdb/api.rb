@@ -28,13 +28,19 @@ module Webhookdb::API
             return c
           end
 
-          def lookup_org!
+          def lookup_org!(identifier=params[:org_identifier])
             customer = current_customer
-            org = Webhookdb::Organization.lookup_by_identifier(params[:org_identifier])
+            org = Webhookdb::Organization.lookup_by_identifier(identifier)
             merror!(403, "There is no organization with that identifier.") if org.nil?
             membership = customer.verified_memberships_dataset[organization: org]
             merror!(403, "You don't have permissions with that organization.") if membership.nil?
             return membership.organization
+          end
+
+          def lookup_service_integration!(org, opaque_id)
+            sint = org.service_integrations_dataset[opaque_id:]
+            merror!(403, "There is no service integration with that identifier.") if sint.nil? || sint.soft_deleted?
+            return sint
           end
 
           def ensure_admin!

@@ -189,4 +189,12 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
     return self.service_integration.opaque_id unless self.service_integration_id.nil?
     return ""
   end
+
+  #
+  # :Sequel Hooks:
+  #
+
+  def before_create
+    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("wsb")
+  end
 end

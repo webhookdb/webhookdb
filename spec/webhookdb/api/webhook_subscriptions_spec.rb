@@ -43,21 +43,20 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     end
   end
 
-  describe "POST /v1/webhook_subscriptions/create" do
-    it "400s if service integration with given identifier doesn't exist" do
-      post "/v1/webhook_subscriptions/create",
+  describe "POST /v1/organizations/:identifier/webhook_subscriptions/create" do
+    it "403s if service integration with given identifier doesn't exist" do
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
            service_integration_opaque_id: "fakesint", webhook_secret: "wh_secret", url: "https://example.com"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "There is no integration with that id."),
+        error: include(message: "There is no service integration with that identifier."),
       )
     end
 
     it "creates webhook subscription for service integration" do
-      post "/v1/webhook_subscriptions/create",
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
            service_integration_opaque_id: sint.opaque_id,
-           org_identifier: "",
            webhook_secret: "wh_secret",
            url: "https://example.com"
 
@@ -70,7 +69,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     end
 
     it "returns a webhook subscription entity for service integration" do
-      post "/v1/webhook_subscriptions/create",
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
            service_integration_opaque_id: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
@@ -86,7 +85,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     it "403s if user doesn't have permissions for organization assocatied with service integration" do
       membership.destroy
 
-      post "/v1/webhook_subscriptions/create",
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
            service_integration_opaque_id: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
@@ -95,9 +94,9 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
       )
     end
 
-    it "400s if organization with given identifier doesn't exist" do
-      post "/v1/webhook_subscriptions/create",
-           org_identifier: "fakeorg", webhook_secret: "wh_secret", url: "https://example.com"
+    it "403s if organization with given identifier doesn't exist" do
+      post "/v1/organizations/fakeorg/webhook_subscriptions/create",
+           webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -106,8 +105,8 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     end
 
     it "creates webhook subscription for organization" do
-      post "/v1/webhook_subscriptions/create",
-           org_identifier: org.key, webhook_secret: "wh_secret", url: "https://example.com"
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+           webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
@@ -118,8 +117,8 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     end
 
     it "returns a webhook subscription entity for organization" do
-      post "/v1/webhook_subscriptions/create",
-           org_identifier: org.key, service_integration_opaque_id: "", webhook_secret: "wh_secret", url: "https://example.com"
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+           service_integration_opaque_id: "", webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
@@ -134,8 +133,8 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     it "403s if user doesn't have permissions for organization" do
       membership.destroy
 
-      post "/v1/webhook_subscriptions/create",
-           org_identifier: org.key, webhook_secret: "wh_secret", url: "https://example.com"
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+           webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -144,24 +143,59 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
     end
   end
 
-  describe "POST /v1/webhook_subscriptions/:opaque_id/test" do
+  describe "POST /v1/organizations/:identifier/webhook_subscriptions/:opaque_id/test" do
     it "emits test webhook event", :async do
       webhook_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
       expect do
-        post "/v1/webhook_subscriptions/#{webhook_sub.opaque_id}/test"
+        post "/v1/organizations/#{org.key}/webhook_subscriptions/#{webhook_sub.opaque_id}/test"
         expect(last_response).to have_status(200)
       end.to publish("webhookdb.webhooksubscription.test")
     end
+
+    it "403s if the subscription does not belong to an org the user has access to" do
+      webhook_sub = Webhookdb::Fixtures.webhook_subscription.create
+
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/#{webhook_sub.opaque_id}/test"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "No webhook subscription with that ID exists in that organization."),
+      )
+    end
+
+    it "403s if user doesn't have permissions for organization" do
+      membership.destroy
+
+      webhook_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/#{webhook_sub.opaque_id}/test"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "You don't have permissions with that organization."),
+      )
+    end
   end
 
-  describe "POST /v1/webhook_subscriptions/:opaque_id/delete" do
+  describe "POST /v1/organizations/:identifier/webhook_subscriptions/:opaque_id/delete" do
     it "deletes webhook subscription" do
       webhook_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
 
-      post "/v1/webhook_subscriptions/#{webhook_sub.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/#{webhook_sub.opaque_id}/delete"
 
       expect(last_response).to have_status(200)
       expect(Webhookdb::WebhookSubscription[id: webhook_sub.id]).to be_nil
+    end
+
+    it "403s if user doesn't have permissions for organization" do
+      membership.destroy
+      webhook_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: sint)
+
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/#{webhook_sub.opaque_id}/delete"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "You don't have permissions with that organization."),
+      )
     end
   end
 end
