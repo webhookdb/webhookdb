@@ -30,6 +30,7 @@ module Webhookdb::Http
   end
 
   def self.user_agent
+    return Webhookdb.http_user_agent unless Webhookdb.http_user_agent.blank?
     return "WebhookDB/#{Webhookdb::RELEASE} https://webhookdb.com #{Webhookdb::RELEASE_CREATED_AT}"
   end
 

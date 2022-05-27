@@ -56,6 +56,7 @@ module Webhookdb
     setting :app_url, "http://localhost:18002"
     setting :api_url, "http://localhost:#{ENV['PORT'] || 18_001}"
     setting :bust_idempotency, false
+    setting :http_user_agent, ""
     setting :marketing_site, "https://webhookdb.com/"
     setting :support_email, "webhookdb@lithic.tech"
     setting :use_globals_cache, false

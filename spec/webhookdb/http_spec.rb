@@ -136,4 +136,16 @@ RSpec.describe Webhookdb::Http do
       )
     end
   end
+
+  describe "user_agent" do
+    it "uses algorithm to calculate user agent if one isn't provided" do
+      Webhookdb.http_user_agent = ""
+      expect(described_class.user_agent).to eq("WebhookDB/unknown-release https://webhookdb.com 1970-01-01T00:00:00Z")
+    end
+
+    it "uses custom user agent if one is provided" do
+      Webhookdb.http_user_agent = "User Agent"
+      expect(described_class.user_agent).to eq("User Agent")
+    end
+  end
 end
