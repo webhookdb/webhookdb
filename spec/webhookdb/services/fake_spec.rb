@@ -97,6 +97,34 @@ RSpec.describe "fake implementations", :db do
         Webhookdb::Services::FakeDependent.reset
       end
     end
+
+    it "emits the backfill event for dependents when cascade is true", :async, :do_not_defer_events do
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "fake_v1", backfill_key: "abc123")
+      svc = Webhookdb::Services.service_instance(sint)
+      dependent_sint = Webhookdb::Fixtures.service_integration.depending_on(sint).create(
+        service_name: "fake_dependent_v1",
+        organization: sint.organization,
+      )
+      dependent_svc = Webhookdb::Services.service_instance(dependent_sint)
+      sint.organization.prepare_database_connections
+      svc.create_table
+      dependent_svc.create_table
+
+      page_items = [
+        {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+        {"my_id" => "def", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+      ]
+      _backfill_req = stub_request(:get, "https://fake-integration/?token=").
+        to_return(
+          status: 200,
+          body: [page_items, nil].to_json,
+          headers: {"Content-Type" => "application/json"},
+        )
+
+      expect do
+        svc.backfill(cascade: true)
+      end.to publish("webhookdb.serviceintegration.backfill").with_payload([dependent_sint.id])
+    end
   end
 
   describe Webhookdb::Services::FakeWithEnrichments do

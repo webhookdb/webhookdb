@@ -395,13 +395,19 @@ class Webhookdb::Services::Base
   # The caveats/complexities are:
   # - The backfill method should take care of retrying fetches for failed pages.
   # - That means it needs to keep track of some pagination token.
-  def backfill(incremental: false)
+  def backfill(incremental: false, cascade: false)
     last_backfilled = incremental ? self.service_integration.last_backfilled_at : nil
     raise Webhookdb::Services::CredentialsMissing if
       self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
     new_last_backfilled = Time.now
     ServiceBackfiller.new(self).backfill(last_backfilled)
     self.service_integration.update(last_backfilled_at: new_last_backfilled) if incremental
+    return unless cascade
+    self.service_integration.dependents.each do |dep|
+      Webhookdb.publish(
+        "webhookdb.serviceintegration.backfill", dep.id,
+      )
+    end
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
@@ -426,7 +432,7 @@ class Webhookdb::Services::Base
     end
   end
 
-  # @param service_instance [Webhookdb::Services::PlaidItemV1]
+  # @param service_instance [Webhookdb::Services::Base]
   # @param payload [Hash]
   # @param changed [Boolean]
   def on_dependency_webhook_upsert(service_instance, payload, changed:)
