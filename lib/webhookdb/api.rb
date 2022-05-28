@@ -28,8 +28,8 @@ module Webhookdb::API
             return c
           end
 
-          def lookup_org!(identifier=params[:org_identifier])
-            customer = current_customer
+          def lookup_org!(identifier=params[:org_identifier], customer: nil)
+            customer ||= current_customer
             org = Webhookdb::Organization.lookup_by_identifier(identifier)
             merror!(403, "There is no organization with that identifier.") if org.nil?
             membership = customer.verified_memberships_dataset[organization: org]
@@ -43,16 +43,13 @@ module Webhookdb::API
             return sint
           end
 
-          def ensure_admin!
-            customer = current_customer
-            org = lookup_org!
-            admin_membership = org.verified_memberships_dataset[customer:, membership_role: Webhookdb::Role.admin_role]
-            # rubocop:disable Style/GuardClause
-            if admin_membership.nil?
-              merror!(400,
-                      "Permission denied: You don't have admin privileges with #{org.name}.",)
-            end
-            # rubocop:enable Style/GuardClause
+          def ensure_admin!(org=nil, customer: nil)
+            customer ||= current_customer
+            org ||= lookup_org!
+            has_no_admin = org.verified_memberships_dataset.
+              where(customer:, membership_role: Webhookdb::Role.admin_role).
+              empty?
+            merror!(403, "You don't have admin privileges with #{org.name}.") if has_no_admin
           end
         end
 

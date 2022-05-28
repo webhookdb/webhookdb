@@ -83,9 +83,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       post "/v1/organizations/#{org.key}/invite", email: "granny@aol.com"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
 
@@ -160,9 +160,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       post "/v1/organizations/#{org.key}/remove_member", email: "yosemitesam@gmail.com"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
 
@@ -226,9 +226,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if request customer doesn't have admin privileges" do
       post "/v1/organizations/#{org.key}/update", field: 'name="Acme Corp"'
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
 
@@ -283,9 +283,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
       post "/v1/organizations/#{org.key}/close"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
   end
@@ -332,9 +332,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       post "/v1/organizations/#{org.key}/change_roles",
            emails: "foghornleghorn@gmail.com", role_name: "member", guard_confirm: true
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
 
@@ -442,9 +442,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if request customer doesn't have admin privileges" do
       post "/v1/organizations/#{org.key}/rename", name: "Acme Corp"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: /admin privileges/),
       )
     end
 

@@ -140,7 +140,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     it "requires admin" do
       post "/v1/db/#{org.key}/roll_credentials", guard_confirm: false
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
     end
 
     it "errors if guard_confirm is not given" do

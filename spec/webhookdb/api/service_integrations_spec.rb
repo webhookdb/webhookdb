@@ -93,9 +93,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "fails if the current user is not an admin" do
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "twilio_sms_v1"
 
-      # expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Permission denied: You don't have admin privileges with #{org.name}."),
+        error: include(message: "You don't have admin privileges with #{org.name}."),
       )
     end
 
@@ -590,12 +590,12 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       )
     end
 
-    it "400s if the current user cannot modify the integration due to org permissions" do
+    it "403s if the current user cannot modify the integration due to org permissions" do
       membership.update(membership_role: Webhookdb::Role.non_admin_role)
 
       post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /admin privileges/),
       )
@@ -625,7 +625,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "errors if the user is not an admin" do
       post "/v1/organizations/#{org.key}/service_integrations/xyz/rename_table", new_name: "table5"
 
-      expect(last_response).to have_status(400)
+      expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /You don't have admin/),
       )
