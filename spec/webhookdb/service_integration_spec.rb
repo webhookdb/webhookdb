@@ -128,20 +128,8 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
 
     it "errors for an invalid name" do
       expect do
-        sint.rename_table(to: "&&&&&")
-      end.to raise_error(described_class::TableRenameError, /need a more exotic table rename\.$/)
-    end
-
-    it "errors for a valid name that is not a valid identifier" do
-      expect do
-        sint.rename_table(to: "must have quote")
-      end.to raise_error(described_class::TableRenameError, /with double quotes around/)
-    end
-
-    it "errors with Bobby Tables for ;" do
-      expect do
-        sint.rename_table(to: ";DROP database")
-      end.to raise_error(described_class::TableRenameError, /need a more exotic table rename\. And /)
+        sint.rename_table(to: "foo-bar")
+      end.to raise_error(described_class::TableRenameError, /must start with a letter/)
     end
 
     it "errors if the target table already exists" do

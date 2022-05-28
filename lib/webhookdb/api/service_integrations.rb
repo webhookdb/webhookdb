@@ -293,8 +293,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           params do
             optional :new_name,
                      type: String,
-                     prompt: "Enter the new name of the table. " \
-                             "See https://webhookdb.com/docs/manual#renametable for rules about table names:"
+                     db_identifier: true,
+                     prompt: "Enter the new name of the table. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
           end
           post :rename_table do
             sint = lookup!

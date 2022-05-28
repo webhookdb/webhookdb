@@ -17,11 +17,11 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                      prompt: "How many seconds between syncs (#{valid_period.begin} to #{valid_period.end}):"
             optional :schema,
                      type: String,
-                     regexp: /^\w+$/,
+                     db_identifier: true,
                      desc: "Schema (or namespace) to write the table into. Default to no schema/namespace."
             optional :table,
                      type: String,
-                     regexp: /^\w+$/,
+                     db_identifier: true,
                      desc: "Table to create and update. Default to match the table name of the service integration."
           end
         end
@@ -130,51 +130,5 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
         end
       end
     end
-  end
-  resource :sync_targets do
-    #
-    #   route_param :opaque_id, type: String do
-    #     helpers do
-    #       def lookup_sub!
-    #         (webhook_sub = Webhookdb::WebhookSubscription[opaque_id: params[:opaque_id]]) or forbidden!
-    #         webhook_sub
-    #       end
-    #     end
-    #
-    #     post :test do
-    #       webhook_sub = lookup_sub!
-    #       webhook_sub.publish_immediate("test", webhook_sub.id)
-    #       message = "A test event has been sent to #{webhook_sub.deliver_to_url}."
-    #       status 200
-    #       present({}, with: Webhookdb::API::BaseEntity, message:)
-    #     end
-    #
-    #     post :delete do
-    #       webhook_sub = lookup_sub!
-    #       webhook_sub.delete
-    #       message = "Events will no longer be sent to #{webhook_sub.deliver_to_url}."
-    #       status 200
-    #       present({}, with: Webhookdb::API::BaseEntity, message:)
-    #     end
-    #   end
-    # end
-    #
-    # resource :organizations do
-    #   route_param :org_identifier, type: String do
-    #     resource :webhook_subscriptions do
-    #       desc "Return all webhook subscriptions for the given org, and all integrations."
-    #       get do
-    #         org = lookup_org!
-    #         subs = org.all_webhook_subscriptions
-    #         message = ""
-    #         if subs.empty?
-    #           message = "Organization #{org.name} has no webhook subscriptions set up.\n" \
-    #                     "Use `webhookdb webhooks create` to set one up."
-    #         end
-    #         status 200
-    #         present_collection subs, with: Webhookdb::API::WebhookSubscriptionEntity, message:
-    #       end
-    #     end
-    #   end
   end
 end

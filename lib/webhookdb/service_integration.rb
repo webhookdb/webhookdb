@@ -150,11 +150,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   end
 
   def rename_table(to:)
-    unless /^"?[a-zA-Z][a-zA-Z0-9_ -]+"?$/.match?(to)
-      msg = "Sorry, this is not a valid table name. " \
-            "See See https://webhookdb.com/docs/manual#renametable for rules about table names. " \
-            "We do this for our sanity and yours :) Please email webhookdb@lithic.tech if you need " \
-            "a more exotic table rename."
+    unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(to)
+      msg = "Sorry, this is not a valid table name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
       msg += " And we see you what you did there ;)" if to.include?(";") && to.downcase.include?("drop")
       raise TableRenameError, msg
     end

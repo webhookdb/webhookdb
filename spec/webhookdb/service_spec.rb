@@ -70,6 +70,13 @@ class Webhookdb::API::TestService < Webhookdb::Service
     present({email: params[:email], phone: params[:phone], arr: params[:arr]})
   end
 
+  params do
+    optional :phone, us_phone: true
+    optional :ident, db_identifier: true
+  end
+  get :custom_validators do
+  end
+
   get :lock_failed do
     raise Webhookdb::LockFailed
   end
@@ -625,6 +632,31 @@ RSpec.describe Webhookdb::Service, :db do
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+      )
+    end
+  end
+
+  describe "custom validators" do
+    it "can validate a phone" do
+      get "/custom_validators?phone=555-111-2222"
+      expect(last_response).to have_status(200)
+
+      get "/custom_validators?phone=555-111-22"
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.
+        that_includes(error: include(message: "Phone must be a 10-digit US phone"))
+    end
+
+    it "can validate a db identifier" do
+      get "/custom_validators?ident=hello"
+      expect(last_response).to have_status(200)
+
+      get "/custom_validators?ident=1"
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(
+          message: /Ident is not a valid database identifier/,
+        ),
       )
     end
   end

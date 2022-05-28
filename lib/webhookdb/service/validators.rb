@@ -15,4 +15,18 @@ module Webhookdb::Service::Validators
       )
     end
   end
+
+  class DbIdentifier < ::Grape::Validations::Validators::Base
+    def validate_param!(attr_name, params)
+      val = params[attr_name]
+      return if val.blank? && @allow_blank
+      re = Webhookdb::DBAdapter::VALID_IDENTIFIER
+      return if re.match?(val)
+      raise Grape::Exceptions::Validation.new(
+        params: [@scope.full_name(attr_name)],
+        message: "is not a valid database identifier for WebhookDB. " +
+          Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE,
+      )
+    end
+  end
 end
