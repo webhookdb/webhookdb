@@ -19,6 +19,12 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
   end
 
   it_behaves_like "a service implementation with dependents", "plaid_item_v1", "plaid_transaction_v1" do
+    around(:each) do |example|
+      Timecop.freeze("2022-05-28 22:14:06 -0200") do
+        example.run
+      end
+    end
+
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -34,6 +40,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         consent_expiration_time: "2020-01-15T13:25:17.766Z",
         data: {item_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb"}.to_json,
         plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+        row_updated_at: Time.parse("2022-05-28 22:14:06 -0200"),
       }
     end
     let(:can_track_row_changes) { false }
@@ -231,6 +238,19 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       expect(dep_svc).to receive(:handle_incremental_update)
 
       svc.upsert_webhook(body:)
+    end
+
+    it "records the time of the upsert" do
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "USER_PERMISSION_REVOKED",
+          "error": {},
+          "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
+        }
+      J
+      svc.upsert_webhook(body:)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(include(row_updated_at: match_time(Time.now).within(5)))
     end
   end
 

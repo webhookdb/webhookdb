@@ -30,6 +30,10 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     ]
   end
 
+  def _timestamp_column_name
+    return :created_at
+  end
+
   def _update_where_expr
     return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
   end

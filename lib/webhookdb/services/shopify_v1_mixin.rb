@@ -15,6 +15,10 @@ module Webhookdb::Services::ShopifyV1Mixin
     raise NotImplementedError
   end
 
+  def _timestamp_column_name
+    return :updated_at
+  end
+
   def _webhook_response(request)
     # info for debugging
     shopify_auth = request.env["HTTP_X_SHOPIFY_HMAC_SHA256"]

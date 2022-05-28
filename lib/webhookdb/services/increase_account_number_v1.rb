@@ -33,6 +33,10 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
     ]
   end
 
+  def _timestamp_column_name
+    return :row_updated_at
+  end
+
   def _update_where_expr
     Sequel[self.table_sym][:row_updated_at] < Sequel[:excluded][:row_updated_at]
   end

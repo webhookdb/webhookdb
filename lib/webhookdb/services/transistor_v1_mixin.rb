@@ -12,6 +12,10 @@ module Webhookdb::Services::TransistorV1Mixin
     return Webhookdb::Services::Column.new(:transistor_id, TEXT)
   end
 
+  def _timestamp_column_name
+    return :updated_at
+  end
+
   def _update_where_expr
     return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
   end

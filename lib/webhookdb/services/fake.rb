@@ -76,6 +76,10 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     ]
   end
 
+  def _timestamp_column_name
+    return :at
+  end
+
   def _update_where_expr
     return Sequel[self.table_sym][:at] < Sequel[:excluded][:at]
   end

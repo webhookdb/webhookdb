@@ -173,6 +173,20 @@ class Webhookdb::Services::Base
     return self._denormalized_columns.map(&:to_dbadapter)
   end
 
+  # Column to use as the 'timestamp' for the row.
+  # This is usually some created or updated at timestamp.
+  # @return [Webhookdb::DBAdapter::Column]
+  def timestamp_column
+    got = self._denormalized_columns.find { |c| c.name == self._timestamp_column_name }
+    raise NotImplementedError, "#{self.descriptor.name} has no timestamp column #{self._timestamp_column_name}" if
+      got.nil?
+    return got.to_dbadapter
+  end
+
+  def _timestamp_column_name
+    raise NotImplementedError
+  end
+
   # @return [Array<Webhookdb::DBAdapter::TableDescriptor>]
   def _enrichment_tables_descriptors
     return []

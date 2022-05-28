@@ -38,7 +38,12 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:available_products, OBJECT),
       Webhookdb::Services::Column.new(:billed_products, OBJECT),
       Webhookdb::Services::Column.new(:status, OBJECT),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
     ]
+  end
+
+  def _timestamp_column_name
+    return :row_updated_at
   end
 
   def upsert_has_deps?
@@ -52,9 +57,11 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       end
       return
     end
+    now = Time.now
     # Webhooks are going to be from plaid, or from the client,
     # so the 'codes' here cover more than just Plaid.
     payload = {
+      row_updated_at: now,
       data: {"item_id" => body.fetch("item_id")}.to_json,
       plaid_id: body.fetch("item_id"),
     }

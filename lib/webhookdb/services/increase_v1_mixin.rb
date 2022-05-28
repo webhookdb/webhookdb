@@ -11,6 +11,10 @@ module Webhookdb::Services::IncreaseV1Mixin
     return Webhookdb::Increase.webhook_response(request, self.service_integration.webhook_secret)
   end
 
+  def _timestamp_column_name
+    return :updated_at
+  end
+
   def _extract_obj_and_updated(body, default: nil, body_key: "created_at")
     return body.fetch("data"), body.fetch("created_at") if
       body.key?("event") && body.key?("event_id")

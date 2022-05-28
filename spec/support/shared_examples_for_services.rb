@@ -15,6 +15,10 @@ RSpec.shared_examples "a service implementation" do |name|
     sint.organization.remove_related_database
   end
 
+  it "has a timestamp column" do
+    expect(svc.timestamp_column).to be_a(Webhookdb::DBAdapter::Column)
+  end
+
   it "can create its table in its org db" do
     svc.create_table
     svc.readonly_dataset do |ds|

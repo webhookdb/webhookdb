@@ -91,6 +91,18 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         with(be_a(Webhookdb::Services::PlaidItemV1), include(plaid_id: item_id))
       svc.upsert_webhook(body: create_body(item_id, "DEFAULT_UPDATE"))
     end
+
+    it "records the time of the update" do
+      dep_svc.create_table
+      svc.create_table
+      insert_item_row
+      insert_transaction_row("x1")
+      svc.upsert_webhook(body: create_body(item_id, "TRANSACTIONS_REMOVED", removed_transactions: ["x1"]))
+      rows = svc.readonly_dataset(&:all)
+      expect(rows).to contain_exactly(
+        include(row_updated_at: match_time(Time.now).within(5)),
+      )
+    end
   end
 
   it_behaves_like "a service implementation dependent on another", "plaid_transaction_v1", "plaid_item_v1" do

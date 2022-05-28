@@ -119,6 +119,10 @@ your database will be populated.
     ]
   end
 
+  def _timestamp_column_name
+    return :created_at
+  end
+
   def _prepare_for_insert(body, **_kwargs)
     object_of_interest = body["subscriber"].present? ? body["subscriber"] : body
     state = object_of_interest["state"]

@@ -29,7 +29,7 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
       Webhookdb::DBAdapter::TableDescriptor.new(
         table:,
         columns: [
-          Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY),
+          Webhookdb::DBAdapter::Column.new(name: :pk, type: BIGINT, pk: true),
           datecol,
           Webhookdb::DBAdapter::Column.new(name: :downloads, type: INTEGER),
           episodeidcol,

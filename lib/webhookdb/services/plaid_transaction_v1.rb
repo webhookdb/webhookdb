@@ -31,7 +31,12 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:datetime, TIMESTAMP, index: true),
       Webhookdb::Services::Column.new(:authorized_datetime, TIMESTAMP),
       Webhookdb::Services::Column.new(:removed_at, TIMESTAMP),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP),
     ]
+  end
+
+  def _timestamp_column_name
+    return :datetime
   end
 
   def upsert_has_deps?
@@ -76,7 +81,8 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
 
   def _mark_transactions_removed(removed_ids)
     self.admin_dataset do |ds|
-      ds.where(plaid_id: removed_ids).update(removed_at: Time.now)
+      now = Time.now
+      ds.where(plaid_id: removed_ids).update(removed_at: now, row_updated_at: now)
       ds.where(plaid_id: removed_ids).each do |row|
         self._publish_rowupsert(row)
       end
@@ -167,6 +173,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         iso_currency_code: body.fetch("iso_currency_code"),
         datetime: body.fetch("datetime"),
         authorized_datetime: body.fetch("authorized_datetime"),
+        row_updated_at: Time.now,
       }
       upserted_rows = @transaction_svc.admin_dataset do |ds|
         ds.insert_conflict(

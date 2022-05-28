@@ -98,6 +98,10 @@ Both of these values should be visible from the homepage of your Twilio admin Da
     ]
   end
 
+  def _timestamp_column_name
+    return :date_updated
+  end
+
   def _update_where_expr
     return Sequel[self.table_sym][:date_updated] < Sequel[:excluded][:date_updated]
   end

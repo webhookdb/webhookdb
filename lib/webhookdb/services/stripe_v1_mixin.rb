@@ -33,6 +33,10 @@ module Webhookdb::Services::StripeV1Mixin
     return Webhookdb::Stripe.webhook_response(request, self.service_integration.webhook_secret)
   end
 
+  def _timestamp_column_name
+    return :updated
+  end
+
   def calculate_create_state_machine
     step = Webhookdb::Services::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
