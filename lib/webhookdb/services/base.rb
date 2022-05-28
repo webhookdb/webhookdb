@@ -155,7 +155,7 @@ class Webhookdb::Services::Base
 
   # @return [Webhookdb::DBAdapter::Column]
   def primary_key_column
-    return Webhookdb::DBAdapter::Column.new(name: :pk, type: PKEY)
+    return Webhookdb::DBAdapter::Column.new(name: :pk, type: BIGINT, pk: true)
   end
 
   # @return [Webhookdb::DBAdapter::Column]

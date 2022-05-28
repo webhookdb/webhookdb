@@ -33,14 +33,16 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
 
   def column_create_sql(column)
     modifiers = +""
-    if column.type == PKEY
+    coltype = COLTYPE_MAP.fetch(column.type)
+    if column.pk?
+      coltype = "bigserial" if column.type == BIGINT
+      coltype = "serial" if column.type == INTEGER
       modifiers << " PRIMARY KEY"
     elsif column.unique?
       modifiers << " UNIQUE NOT NULL"
     elsif !column.nullable?
       modifiers << " NOT NULL"
     end
-    coltype = COLTYPE_MAP.fetch(column.type)
     colname = self._escape_identifier(column.name)
     return "#{colname} #{coltype}#{modifiers}"
   end
@@ -90,7 +92,6 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     FLOAT => "float",
     INTEGER => "integer",
     OBJECT => "jsonb",
-    PKEY => "bigserial",
     TEXT => "text",
     TIMESTAMP => "timestamptz",
   }.freeze

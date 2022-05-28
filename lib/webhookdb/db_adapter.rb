@@ -32,10 +32,11 @@ class Webhookdb::DBAdapter
 
   class Column < Webhookdb::TypedStruct
     include ColumnTypes
-    attr_reader :name, :type, :nullable, :unique, :index
+    attr_reader :name, :type, :nullable, :unique, :index, :pk
     alias nullable? nullable
     alias unique? unique
     alias index? index
+    alias pk? pk
 
     def initialize(**kwargs)
       super
@@ -44,11 +45,12 @@ class Webhookdb::DBAdapter
       self.typecheck!(:nullable, :boolean)
       self.typecheck!(:unique, :boolean)
       self.typecheck!(:index, :boolean)
+      self.typecheck!(:pk, :boolean)
       raise ArgumentError, "type #{self.type.inspect} is not known" unless COLUMN_TYPES.include?(self.type)
     end
 
     def _defaults
-      return {nullable: true, unique: false, index: false}
+      return {nullable: true, unique: false, index: false, pk: false}
     end
   end
 

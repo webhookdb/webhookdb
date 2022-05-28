@@ -9,7 +9,6 @@ module Webhookdb::DBAdapter::ColumnTypes
   FLOAT = :float
   INTEGER = :int
   OBJECT = :object
-  PKEY = :pk
   TEXT = :text
   TIMESTAMP = :timestamp
 
@@ -23,7 +22,6 @@ module Webhookdb::DBAdapter::ColumnTypes
       FLOAT,
       INTEGER,
       OBJECT,
-      PKEY,
       TEXT,
       TIMESTAMP,
     ],

@@ -82,8 +82,12 @@ RSpec.describe Webhookdb::DBAdapter do
       end
 
       it "works for primary keys" do
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::PKEY))
+        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::BIGINT, pk: true))
         expect(sql).to eq("c1 bigserial PRIMARY KEY")
+        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::INTEGER, pk: true))
+        expect(sql).to eq("c1 serial PRIMARY KEY")
+        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::TEXT, pk: true))
+        expect(sql).to eq("c1 text PRIMARY KEY")
       end
 
       it "works for unique" do
