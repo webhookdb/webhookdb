@@ -32,12 +32,19 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
               class: "Webhookdb::WebhookSubscription",
               readonly: true,
               dataset: (lambda do |r|
-                          org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
-                          r.associated_dataset.where(
-                            Sequel[organization_id: id] |
-                              Sequel[service_integration_id: org_sints.select(:id)],
-                          )
-                        end)
+                org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
+                r.associated_dataset.where(
+                  Sequel[organization_id: id] |
+                    Sequel[service_integration_id: org_sints.select(:id)],
+                )
+              end)
+  one_to_many :all_sync_targets,
+              class: "Webhookdb::SyncTarget",
+              readonly: true,
+              dataset: (lambda do |r|
+                org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
+                r.associated_dataset.where(Sequel[service_integration_id: org_sints.select(:id)])
+              end)
 
   def before_validation
     self.key ||= Webhookdb.to_slug(self.name)

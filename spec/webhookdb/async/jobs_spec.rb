@@ -248,6 +248,46 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "SyncTargetEnqueueScheduled" do
+    it "runs sync targets that are due" do
+      never_run = Webhookdb::Fixtures.sync_target.create
+      run_recently = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now)
+      expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_async).with(never_run.id)
+      Webhookdb::Jobs::SyncTargetEnqueueScheduled.new.perform
+    end
+  end
+
+  describe "SyncTargetRunSync" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.service_instance.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "runs the sync" do
+      stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create
+      Webhookdb::Jobs::SyncTargetRunSync.new.perform(stgt.id)
+      expect(stgt.refresh).to have_attributes(last_synced_at: be_within(5).of(Time.now))
+    end
+
+    it "noops if a sync is in progress", db: :no_transaction do
+      orig_sync = 3.hours.ago
+      stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create(last_synced_at: orig_sync)
+      Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
+        otherconn.transaction(rollback: :always) do
+          otherconn[:sync_targets].where(id: stgt.id).lock_style("FOR UPDATE").first
+          Webhookdb::Jobs::SyncTargetRunSync.new.perform(stgt.id)
+        end
+      end
+      expect(stgt.refresh).to have_attributes(last_synced_at: match_time(orig_sync))
+    end
+  end
+
   describe "Webhook Subscription jobs" do
     let!(:sint) { Webhookdb::Fixtures.service_integration.create }
     let!(:webhook_sub) do

@@ -132,6 +132,8 @@ module Webhookdb::Async
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/send_webhook",
     "webhookdb/jobs/send_test_webhook",
+    "webhookdb/jobs/sync_target_enqueue_scheduled",
+    "webhookdb/jobs/sync_target_run_sync",
     "webhookdb/jobs/reset_code_create_dispatch",
     "webhookdb/jobs/transistor_episode_backfill",
     "webhookdb/jobs/trim_logged_webhooks",

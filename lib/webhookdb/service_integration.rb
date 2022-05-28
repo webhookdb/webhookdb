@@ -23,6 +23,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   end
   many_to_one :depends_on, class: self
   one_to_many :dependents, key: :depends_on_id, class: self
+  one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
   # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)

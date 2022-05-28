@@ -56,6 +56,7 @@ module Webhookdb::Postgres
     "webhookdb/role",
     "webhookdb/service_integration",
     "webhookdb/subscription",
+    "webhookdb/sync_target",
     "webhookdb/webhook_subscription",
     "webhookdb/webhook_subscription/delivery",
   ].freeze
