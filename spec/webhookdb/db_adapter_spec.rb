@@ -11,7 +11,7 @@ RSpec.describe Webhookdb::DBAdapter do
     it "errors for an unknown connection string" do
       expect do
         described_class.adapter("randodb://")
-      end.to raise_error(ArgumentError)
+      end.to raise_error(described_class::UnsupportedAdapter)
     end
   end
 

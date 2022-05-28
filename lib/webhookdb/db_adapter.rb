@@ -3,6 +3,8 @@
 class Webhookdb::DBAdapter
   require "webhookdb/db_adapter/column_types"
 
+  class UnsupportedAdapter < RuntimeError; end
+
   class Schema < Webhookdb::TypedStruct
     attr_reader :name
 
@@ -128,8 +130,12 @@ class Webhookdb::DBAdapter
       when /^postgres/
         return Webhookdb::DBAdapter::PG.new
       else
-        raise ArgumentError, "no adapter available for #{url}"
+        raise UnsupportedAdapter, "no adapter available for #{url}"
     end
+  end
+
+  def self.supported_adapters_message
+    return "Postgres (postgres://)"
   end
 end
 
