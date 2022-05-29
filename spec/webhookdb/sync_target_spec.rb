@@ -94,9 +94,14 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       sint.service_instance.upsert_webhook(body: {"my_id" => "ghi", "at" => "Thu, 30 Jul 2018 21:12:33 +0000"})
     end
 
+    before(:all) do
+      @default_schema = Webhookdb::SyncTarget.default_schema.to_sym
+      raise "Custom test schema must have been set!" if @default_schema == :public
+      @custom_schema = :synctgttestschema
+    end
+
     after(:each) do
       sint.organization.remove_related_database
-      Webhookdb::ServiceIntegration.drop_schema!(:whdbsynctest)
     end
 
     it "aborts if the row is already locked", db: :no_transaction do
@@ -114,25 +119,88 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     describe "with a postgres target" do
       let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create }
 
+      before(:each) do
+        drop_schemas
+      end
+
+      after(:each) do
+        drop_schemas
+      end
+
+      def drop_schemas
+        Sequel.connect(Webhookdb::Postgres::Model.uri) do |db|
+          [@default_schema, @custom_schema].each do |sch|
+            db.drop_schema(sch, if_exists: true, cascade: true)
+          end
+        end
+      end
+
       it "incrementally syncs to PG and sets last synced" do
         t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
         sync_tgt.run_sync(at: t1)
-        expect(sync_tgt.connect_target_db[Sequel[:whdbsynctest][sint.table_name.to_sym]].all).to have_length(2)
+        sync_tgt.adapter_connection.using do |db|
+          expect(db[Sequel[@default_schema][sint.table_name.to_sym]].all).to have_length(2)
+        end
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
 
         t2 = Time.parse("Thu, 30 Aug 2020 21:12:33 +0000")
         sync_tgt.run_sync(at: t2)
-        expect(sync_tgt.connect_target_db[Sequel[:whdbsynctest][sint.table_name.to_sym]].all).to have_length(3)
+        sync_tgt.adapter_connection.using do |db|
+          expect(db[Sequel[@default_schema][sint.table_name.to_sym]].all).to have_length(3)
+        end
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
       end
 
       it "can use an explicit schema and table" do
-        Webhookdb::ServiceIntegration.drop_schema!(:whdbsynctest)
+        sync_tgt.update(schema: @custom_schema.to_s, table: "synctgttesttable")
+        sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
+        sync_tgt.adapter_connection.using do |db|
+          expect(db[Sequel[@custom_schema][:synctgttesttable]].all).to have_length(3)
+        end
+      end
+    end
+
+    describe "with a snowflake target" do
+      break unless Webhookdb::Snowflake.run_tests
+
+      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).snowflake.create }
+
+      before(:all) do
+        drop_schemas
+      end
+
+      after(:all) do
+        drop_schemas
+      end
+
+      def drop_schemas
+        run_cli("DROP SCHEMA IF EXISTS #{@default_schema} CASCADE; " \
+                "DROP SCHEMA IF EXISTS #{@custom_schema} CASCADE;")
+      end
+
+      def run_cli(cmd)
+        return Webhookdb::Snowflake.run_cli(Webhookdb::Snowflake.test_url, cmd, parse: true)
+      end
+
+      it "incrementally syncs to Snowflake and sets last synced" do
+        t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
+        sync_tgt.run_sync(at: t1)
+        values = run_cli("SELECT pk, my_id, at, data FROM #{@default_schema}.#{sint.table_name}")
+        expect(values.flatten).to have_length(2)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
+
+        t2 = Time.parse("Thu, 30 Aug 2020 21:12:33 +0000")
+        sync_tgt.run_sync(at: t2)
+        values = run_cli("SELECT pk, my_id, at, data FROM #{@default_schema}.#{sint.table_name}")
+        expect(values.flatten).to have_length(3)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
+      end
+
+      it "can use an explicit schema and table" do
         sync_tgt.update(schema: "synctgttestschema", table: "synctgttesttable")
         sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
-        expect(sync_tgt.db[Sequel[:synctgttestschema][:synctgttesttable]].all).to have_length(3)
-      ensure
-        Webhookdb::ServiceIntegration.drop_schema!(:whdbsynctest)
+        values = run_cli("SELECT pk, my_id, at, data FROM #{@custom_schema}.synctgttesttable")
+        expect(values.flatten).to have_length(3)
       end
     end
   end

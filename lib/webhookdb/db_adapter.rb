@@ -101,6 +101,41 @@ class Webhookdb::DBAdapter
     end
   end
 
+  # Abstract class representing a DB connection.
+  # Ususually this is a Sequel connection,
+  # but in could just be a stored URL (like for Snowflake
+  # we have to call snowsql each time).
+  class Connection
+    def execute(sql)
+      raise NotImplementedError
+    end
+  end
+
+  class SequelConnection < Connection
+    def initialize(url)
+      super()
+      @url = url
+    end
+
+    def using(&)
+      Sequel.connect(@url, &)
+    end
+
+    def execute(sql)
+      Sequel.connect(@url) do |db|
+        db << sql
+      end
+    end
+  end
+
+  # Return a new Connection for the adapter.
+  # By default, return a SequelConnection,
+  # but adapters not using Sequel will need their own type.
+  # @return [Connection]
+  def connection(url)
+    return SequelConnection.new(url)
+  end
+
   # @param [Schema] schema
   # @param [Boolean] if_not_exists
   # @return [String]
@@ -131,20 +166,37 @@ class Webhookdb::DBAdapter
     raise NotImplementedError
   end
 
+  # Given a table and a (temporary) file with CSV data,
+  # import it into the table. Usually this is a COPY INTO command.
+  # For PG it would read from stdin,
+  # for Snowflake it would have to stage the file.
+  # @param [Connection] connection
+  # @param [File] file
+  # @param [Table] table
+  # @param [Column] pk_col Use this to identifier the same row between source and destination.
+  # @param [Array<Column>] copy_columns All columns to copy.
+  #   NOTE: This includes the pk column, since it should be copied, as we depend on it persisting.
+  def merge_from_csv(connection, file, table, pk_col, copy_columns)
+    raise NotImplementedError
+  end
+
   # @param [String] url
   # @return [Webhookdb::DBAdapter]
   def self.adapter(url)
     case url
       when /^postgres/
         return Webhookdb::DBAdapter::PG.new
+      when /^snowflake/
+        return Webhookdb::DBAdapter::Snowflake.new
       else
         raise UnsupportedAdapter, "no adapter available for #{url}"
     end
   end
 
   def self.supported_adapters_message
-    return "Postgres (postgres://)"
+    return "Postgres (postgres://), SnowflakeDB (snowflake://)"
   end
 end
 
 require "webhookdb/db_adapter/pg"
+require "webhookdb/db_adapter/snowflake"

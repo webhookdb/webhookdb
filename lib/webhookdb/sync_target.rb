@@ -29,6 +29,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # since it's convenient, but for tests, it could cause conflicts
     # so something else is set instead.
     setting :default_schema, "public"
+
+    after_configured do
+      if Webhookdb::RACK_ENV == "test"
+        safename = ENV["USER"].gsub(/[^A-Za-z]/, "")
+        self.default_schema = "synctest_#{safename}"
+      end
+    end
   end
 
   def self.valid_period
@@ -89,7 +96,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   #   - Otherwise the logic is the same as PG: create a temp table and COPY INTO from the CSV.
   #   - Purge the staged file.
   def run_sync(at:)
-    target_db, tempfile = nil
+    tempfile = nil
     self.db.transaction do
       available = self.class.dataset.where(id: self.id).lock_style("FOR UPDATE SKIP LOCKED").first
       raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" if available.nil?
@@ -97,7 +104,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       svc = self.service_integration.service_instance
       schema_name = self.schema.present? ? self.schema : self.class.default_schema
       table_name = self.table.present? ? self.table : svc.table_sym
-      adapter = Webhookdb::DBAdapter.adapter(self.connection_url)
+      adapter = self.adapter
       schema = Webhookdb::DBAdapter::Schema.new(name: schema_name.to_sym)
       table = Webhookdb::DBAdapter::Table.new(name: table_name.to_sym, schema:)
 
@@ -111,26 +118,38 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       (svc.denormalized_columns + [svc.data_column]).each do |col|
         schema_lines << adapter.add_column_sql(table, col, if_not_exists: true)
       end
-      target_db = self.connect_target_db
-      target_db << (schema_lines.join(";\n") + ";")
+      adapter_conn = adapter.connection(self.connection_url)
+      adapter_conn.execute(schema_lines.join(";\n") + ";")
       tempfile = Tempfile.new("whdbsyncout-#{self.id}")
+      tscol = Sequel[svc.timestamp_column.name]
       svc.readonly_dataset do |ds|
-        ds = ds.where(Sequel[:at] < at)
-        ds.db.copy_table(ds, format: :csv) do |row|
+        tscond = (tscol <= at)
+        self.last_synced_at && (tscond &= (tscol >= self.last_synced_at))
+        ds = ds.where(tscond)
+        ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
           tempfile.write(row)
         end
       end
       tempfile.rewind
-      adapter.merge_from_csv(target_db, table, tempfile)
+      adapter.merge_from_csv(
+        adapter_conn,
+        tempfile,
+        table,
+        svc.primary_key_column,
+        [svc.primary_key_column, svc.remote_key_column] + svc.denormalized_columns + [svc.data_column],
+      )
       self.update(last_synced_at: at)
     ensure
-      target_db&.disconnect
       tempfile&.unlink
     end
   end
 
-  def connect_target_db
-    return Sequel.connect(self.connection_url)
+  def adapter
+    return Webhookdb::DBAdapter.adapter(self.connection_url)
+  end
+
+  def adapter_connection
+    return self.adapter.connection(self.connection_url)
   end
 
   def displaysafe_connection_url

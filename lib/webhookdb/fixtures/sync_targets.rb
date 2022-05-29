@@ -21,4 +21,8 @@ module Webhookdb::Fixtures::SyncTargets
   decorator :postgres do
     self.connection_url = Webhookdb::Postgres::Model.uri
   end
+
+  decorator :snowflake do
+    self.connection_url = Webhookdb::Snowflake.test_url
+  end
 end
