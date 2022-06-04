@@ -198,4 +198,24 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
       )
     end
   end
+
+  describe "obsolete endpoints" do
+    it "403s for POST /v1/webhook_subscriptions/create" do
+      post "/v1/webhook_subscriptions/create"
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(error: include(code: "endpoint_removed"))
+    end
+
+    it "403s for POST /v1/webhook_subscriptions/:opaque_id/test" do
+      post "/v1/webhook_subscriptions/1/test"
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(error: include(code: "endpoint_removed"))
+    end
+
+    it "403s for POST /v1/webhook_subscriptions/:opaque_id/delete" do
+      post "/v1/webhook_subscriptions/1/delete"
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(error: include(code: "endpoint_removed"))
+    end
+  end
 end

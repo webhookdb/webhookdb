@@ -77,4 +77,18 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
       end
     end
   end
+
+  resource :webhook_subscriptions do
+    post :create do
+      endpoint_removed!
+    end
+    route_param :arg do
+      post :test do
+        endpoint_removed!
+      end
+      post :delete do
+        endpoint_removed!
+      end
+    end
+  end
 end

@@ -139,6 +139,15 @@ module Webhookdb::Service::Helpers
     merror!(400, message, code: "validation_error", more: {errors:})
   end
 
+  def endpoint_removed!
+    merror!(
+      403,
+      "Sorry, this endpoint has been removed. Run `webhookdb update` to upgrade your CLI, " \
+      "or email webhookdb@lithic.tech for help.",
+      code: "endpoint_removed",
+    )
+  end
+
   def search_param_to_sql(params, column, param: :search)
     search = params[param]&.strip
     return nil if search.blank? || search == "*"
