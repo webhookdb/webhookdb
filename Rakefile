@@ -22,3 +22,5 @@ require "webhookdb/tasks/sidekiq"
 Webhookdb::Tasks::Sidekiq.new
 require "webhookdb/tasks/specs"
 Webhookdb::Tasks::Specs.new
+require "webhookdb/tasks/theranest"
+Webhookdb::Tasks::Theranest.new

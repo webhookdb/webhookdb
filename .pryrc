@@ -26,8 +26,7 @@ def connect
   require "webhookdb"
   Webhookdb.load_app
 
-  return unless require "webhookdb/async"
-  Webhookdb::Async.register_subscriber
+  Webhookdb::Async.register_subscriber if Webhookdb.subscribers.empty?
   return
 end
 

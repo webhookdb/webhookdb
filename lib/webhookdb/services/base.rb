@@ -126,22 +126,22 @@ class Webhookdb::Services::Base
     self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
   end
 
-  def create_table
-    cmd = self.create_table_sql
+  def create_table(if_not_exists: false)
+    cmd = self.create_table_sql(if_not_exists:)
     self.admin_dataset do |ds|
       ds.db << cmd
     end
   end
 
   # @return [String]
-  def create_table_sql
+  def create_table_sql(if_not_exists: false)
     table = Webhookdb::DBAdapter::Table.new(name: self.table_sym)
     columns = [self.primary_key_column, self.remote_key_column]
     columns.concat(self.denormalized_columns)
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
-    lines = [adapter.create_table_sql(table, columns)]
+    lines = [adapter.create_table_sql(table, columns, if_not_exists:)]
     columns.filter(&:index?).each do |col|
       dbindex = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
       lines << adapter.create_index_sql(dbindex)
@@ -410,16 +410,17 @@ class Webhookdb::Services::Base
   # - The backfill method should take care of retrying fetches for failed pages.
   # - That means it needs to keep track of some pagination token.
   def backfill(incremental: false, cascade: false)
-    last_backfilled = incremental ? self.service_integration.last_backfilled_at : nil
+    sint = self.service_integration
+    last_backfilled = incremental ? sint.last_backfilled_at : nil
     raise Webhookdb::Services::CredentialsMissing if
-      self.service_integration.backfill_key.blank? && self.service_integration.backfill_secret.blank?
+      sint.backfill_key.blank? && sint.backfill_secret.blank? && sint.depends_on.blank?
     new_last_backfilled = Time.now
     ServiceBackfiller.new(self).backfill(last_backfilled)
-    self.service_integration.update(last_backfilled_at: new_last_backfilled) if incremental
+    sint.update(last_backfilled_at: new_last_backfilled) if incremental
     return unless cascade
-    self.service_integration.dependents.each do |dep|
+    sint.dependents.each do |dep|
       Webhookdb.publish(
-        "webhookdb.serviceintegration.backfill", dep.id,
+        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true},
       )
     end
   end

@@ -10,7 +10,7 @@ class Webhookdb::Jobs::Backfill
   sidekiq_options queue: "netout"
 
   def _perform(event)
-    sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
+    sint = self.lookup_model(Webhookdb::ServiceIntegration, event.payload[0])
     svc = Webhookdb::Services.service_instance(sint)
     svc.ensure_all_columns
     backfill_kwargs = event.payload[1] || {}
