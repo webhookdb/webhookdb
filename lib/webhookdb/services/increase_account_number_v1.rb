@@ -38,7 +38,7 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
   end
 
   def _update_where_expr
-    Sequel[self.table_sym][:row_updated_at] < Sequel[:excluded][:row_updated_at]
+    return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
   end
 
   def _prepare_for_insert(body, **_kwargs)
@@ -61,7 +61,7 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
     # Only set created_at if it's not set so the initial insert isn't modified.
     update = inserting.dup
     update[:row_created_at] = Sequel.function(
-      :coalesce, Sequel[self.table_sym][:row_created_at], Sequel[:excluded][:row_created_at],
+      :coalesce, self.qualified_table_sequel_identifier[:row_created_at], Sequel[:excluded][:row_created_at],
     )
     return update
   end

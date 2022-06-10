@@ -19,7 +19,7 @@ RSpec.describe Webhookdb::API::Services, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        schema_sql: include("CREATE TABLE fake_v1_fixture"),
+        schema_sql: include("CREATE TABLE public.fake_v1_fixture"),
       )
     end
 

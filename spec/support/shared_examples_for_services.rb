@@ -22,9 +22,9 @@ RSpec.shared_examples "a service implementation" do |name|
   it "can create its table in its org db" do
     svc.create_table
     svc.readonly_dataset do |ds|
-      expect(ds.db).to be_table_exists(svc.table_sym)
+      expect(ds.db).to be_table_exists(svc.qualified_table_sequel_identifier)
     end
-    expect(sint.db).to_not be_table_exists(svc.table_sym)
+    expect(sint.db).to_not be_table_exists(svc.qualified_table_sequel_identifier)
   end
 
   it "can insert into its table" do
@@ -33,6 +33,22 @@ RSpec.shared_examples "a service implementation" do |name|
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_data)
+    end
+  end
+
+  it "can insert into a custom table when the org has a replication schema set" do
+    svc.service_integration.organization.migrate_replication_schema("xyz")
+    svc.create_table
+    svc.upsert_webhook(body:)
+    svc.admin_dataset do |ds|
+      expect(ds.all).to have_length(1)
+      expect(ds.first[:data]).to eq(expected_data)
+      # this is how a fully qualified table is represented (schema->table, table->column)
+      expect(ds.opts[:from].first).to have_attributes(table: "xyz", column: svc.service_integration.table_name.to_sym)
+    end
+    svc.readonly_dataset do |ds|
+      # Need to make sure readonly user has schema privs
+      expect(ds.all).to have_length(1)
     end
   end
 

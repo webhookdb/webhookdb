@@ -83,26 +83,30 @@ class Webhookdb::Organization::DbBuilder
     # the public schema (which we need to revoke on) belongs to the superuser,
     # NOT the DB owner: https://pgsql-general.postgresql.narkive.com/X9VKOPIW
     superuser_in_db_str = self._create_conn_url(superuser_url.user, superuser_url.password, superuser_url, dbname)
+    schema = self._org_schema
     Sequel.connect(superuser_in_db_str) do |conn|
       conn << <<~SQL
         -- Revoke all rights from readonly user, and public role, which all users have.
         REVOKE ALL ON DATABASE #{dbname} FROM PUBLIC, #{ro_user};
         REVOKE ALL ON SCHEMA public FROM PUBLIC, #{ro_user};
         REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, #{ro_user};
+        -- Create the schema if needed. In most cases this is 'public' so it isn't.
+        CREATE SCHEMA IF NOT EXISTS #{schema};
         -- Allow the readonly user to select stuff
         GRANT CONNECT ON DATABASE #{dbname} TO #{ro_user};
-        GRANT USAGE ON SCHEMA public TO #{ro_user};
-        GRANT SELECT ON ALL TABLES IN SCHEMA public TO #{ro_user};
-        -- Now that we have modified public schema as superuser,
+        GRANT USAGE ON SCHEMA #{schema} TO #{ro_user};
+        GRANT SELECT ON ALL TABLES IN SCHEMA #{schema} TO #{ro_user};
+        -- Now that we have modified public/replication schema as superuser,
         -- we can grant ownership to the admin user, so they can do modification in the future.
         ALTER SCHEMA public OWNER TO #{admin_user};
+        ALTER SCHEMA #{schema} OWNER TO #{admin_user};
       SQL
     end
     @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_url, dbname)
     # We MUST modify the default privs AFTER changing ownership.
     # Changing ownership seems to reset default piv grants (and it cannot be done after transferring ownership)
     Sequel.connect(@admin_url) do |conn|
-      conn << "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO #{ro_user};"
+      conn << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT SELECT ON TABLES TO #{ro_user};"
     end
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_url, dbname)
     return self
@@ -114,6 +118,10 @@ class Webhookdb::Organization::DbBuilder
   protected def _choose_superuser_url
     superuser_str = self.class.available_server_urls.sample
     return superuser_str
+  end
+
+  protected def _org_schema
+    return Webhookdb::DBAdapter::PG.new.escape_identifier(@org.replication_schema)
   end
 
   # prefix with <id>a to avoid ever conflicting database names
@@ -226,7 +234,7 @@ class Webhookdb::Organization::DbBuilder
         OPTIONS (user '#{conn.user}', password '#{conn.password}');
 
       CREATE SCHEMA IF NOT EXISTS #{local_schema};
-      IMPORT FOREIGN SCHEMA public
+      IMPORT FOREIGN SCHEMA #{self._org_schema}
         FROM SERVER #{remote_server_name}
         INTO #{local_schema};
 

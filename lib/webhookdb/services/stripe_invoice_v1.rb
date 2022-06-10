@@ -51,7 +51,7 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:updated] < Sequel[:excluded][:updated]
+    return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
   end
 
   def _prepare_for_insert(body, **_kwargs)

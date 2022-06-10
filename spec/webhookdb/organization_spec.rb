@@ -383,4 +383,94 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       # rubocop:enable Layout/LineLength
     end
   end
+
+  describe "migrate_replication_schema" do
+    let(:org) { Webhookdb::Fixtures.organization.create(replication_schema: "abc") }
+
+    before(:each) do
+      org.prepare_database_connections
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "creates the schema if needed, moves all tables, grants and revokes SELECT on the readonly user" do
+      sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint2 = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint3_notable = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint1.service_instance.create_table
+      sint2.service_instance.create_table
+      org.admin_connection { |db| db << "CREATE TABLE abc.sometable();" }
+      org.readonly_connection do |db|
+        db << "SELECT 1 FROM abc.sometable"
+      end
+
+      org.migrate_replication_schema("xyz")
+      # Assert the schema field was updated
+      expect(org).to have_attributes(replication_schema: "xyz")
+      # Assert admin and readonly can hit the new schema
+      expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
+      expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+      # Also assert that new service integrations go into the correct place and are readable by admin and readonly
+      sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint4.service_instance.create_table
+      expect(sint4.service_instance.admin_dataset(&:all)).to be_empty
+      expect(sint4.service_instance.readonly_dataset(&:all)).to be_empty
+      # And that readonly can't modify the new schema
+      expect do
+        sint4.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
+      end.to raise_error(/permission denied for table fake_v1_/)
+    end
+
+    it "ensures readonly still cannot access the public schema when migrating from it" do
+      org.update(replication_schema: "public")
+      sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint1.service_instance.create_table
+
+      org.migrate_replication_schema("xyz")
+      # Assert admin and readonly can hit the new schema
+      expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
+      expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+      # Assert readonly cannot hit the public schema
+      org.admin_connection { |db| db << "CREATE TABLE public.foo();" }
+      org.readonly_connection do |db|
+        expect { db << "SELECT 1 FROM public.foo" }.to raise_error(/permission denied for schema public/)
+      end
+    end
+
+    it "can migrate to the public schema" do
+      sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
+      sint1.service_instance.create_table
+
+      org.migrate_replication_schema("public")
+      # Assert the schema field was updated
+      expect(org).to have_attributes(replication_schema: "public")
+      # Assert admin and readonly can hit the new schema
+      expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
+      expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+      # Readonly can't modify the new schema
+      expect do
+        sint1.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
+      end.to raise_error(/permission denied for table fake_v1_/)
+    end
+
+    it "errors for an invalid name" do
+      expect do
+        org.migrate_replication_schema("; drop table")
+      end.to raise_error(described_class::SchemaMigrationError, /this is not a valid schema name/)
+    end
+
+    it "qualifies the argument" do
+      expect do
+        org.migrate_replication_schema("drop schema public cascade")
+      end.to_not raise_error
+    end
+
+    it "noops if the new schema is the same as the old" do
+      expect do
+        org.migrate_replication_schema("abc")
+      end.to raise_error(described_class::SchemaMigrationError, /destination and target schema are the same/)
+    end
+  end
 end

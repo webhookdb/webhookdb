@@ -36,9 +36,27 @@ class Webhookdb::Services::Base
     return @resource_name_plural ||= self.descriptor.resource_name_plural
   end
 
-  # @return [Symbol]
-  def table_sym
-    return self.service_integration.table_name.to_sym
+  # @return [Array<Symbol>]
+  def schema_and_table_symbols
+    sch = self.service_integration.organization&.replication_schema&.to_sym || :public
+    tbl = self.service_integration.table_name.to_sym
+    return [sch, tbl]
+  end
+
+  # Return a Sequel identifier using +schema_and_table_symbols+,
+  # or +schema+ or +table+ as overrides if given.
+  # @return [Sequel::SQL::QualifiedIdentifier]
+  def qualified_table_sequel_identifier(schema: nil, table: nil)
+    sch, tbl = self.schema_and_table_symbols
+    return Sequel[schema || sch][table || tbl]
+  end
+
+  # @return [Webhookdb::DBAdapter::Table]
+  def dbadapter_table
+    sch, tbl = self.schema_and_table_symbols
+    schema = Webhookdb::DBAdapter::Schema.new(name: sch)
+    table = Webhookdb::DBAdapter::Table.new(name: tbl, schema:)
+    return table
   end
 
   # Time.at(t), but nil if t is nil.
@@ -135,7 +153,7 @@ class Webhookdb::Services::Base
 
   # @return [String]
   def create_table_sql(if_not_exists: false)
-    table = Webhookdb::DBAdapter::Table.new(name: self.table_sym)
+    table = self.dbadapter_table
     columns = [self.primary_key_column, self.remote_key_column]
     columns.concat(self.denormalized_columns)
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
@@ -147,8 +165,10 @@ class Webhookdb::Services::Base
       lines << adapter.create_index_sql(dbindex)
     end
     self._enrichment_tables_descriptors.each do |tdesc|
-      lines << adapter.create_table_sql(tdesc.table, tdesc.columns)
-      tdesc.indices.each { |ind| lines << adapter.create_index_sql(ind) }
+      lines << adapter.create_table_sql(tdesc.table.change(schema: table.schema), tdesc.columns)
+      tdesc.indices.each do |ind|
+        lines << adapter.create_index_sql(ind.change(table: ind.table.change(schema: table.schema)))
+      end
     end
     return lines.join(";\n") + ";"
   end
@@ -229,11 +249,11 @@ class Webhookdb::Services::Base
 
   def ensure_all_columns_sql
     self.admin_dataset do |ds|
-      return self.create_table_sql unless ds.db.table_exists?(self.table_sym)
+      return self.create_table_sql unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns
       missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
       adapter = Webhookdb::DBAdapter::PG.new
-      table = Webhookdb::DBAdapter::Table.new(name: self.table_sym)
+      table = self.dbadapter_table
       lines = []
       missing_columns.each do |whcol|
         # Don't bother bulking the ADDs into a single ALTER TABLE,
@@ -370,7 +390,7 @@ class Webhookdb::Services::Base
   protected def with_dataset(url, &block)
     raise LocalJumpError if block.nil?
     Webhookdb::ConnectionCache.borrow(url) do |conn|
-      yield(conn[self.table_sym])
+      yield(conn[self.qualified_table_sequel_identifier])
     end
   end
 

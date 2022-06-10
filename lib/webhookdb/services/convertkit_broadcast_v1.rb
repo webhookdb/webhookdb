@@ -42,7 +42,7 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
+    return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
   def _fetch_enrichment(body)

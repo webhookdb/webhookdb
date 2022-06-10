@@ -103,7 +103,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       self.lock!
       svc = self.service_integration.service_instance
       schema_name = self.schema.present? ? self.schema : self.class.default_schema
-      table_name = self.table.present? ? self.table : svc.table_sym
+      table_name = self.table.present? ? self.table : self.service_integration.table_name
       adapter = self.adapter
       schema = Webhookdb::DBAdapter::Schema.new(name: schema_name.to_sym)
       table = Webhookdb::DBAdapter::Table.new(name: table_name.to_sym, schema:)

@@ -36,7 +36,7 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
+    return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
   def _prepare_for_insert(body, **_kwargs)

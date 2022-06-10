@@ -31,7 +31,10 @@ module Webhookdb::DBAdapter::DefaultSql
       Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(s)
 
     quo = self.identifier_quote_char
-    return "#{quo}#{s}#{quo}" if RESERVED_KEYWORDS.include?(s.upcase)
+    return "#{quo}#{s}#{quo}" if RESERVED_KEYWORDS.include?(s.upcase) ||
+      s.include?(" ") ||
+      s.include?("-") ||
+      s.start_with?(/\d/)
     return s
   end
 

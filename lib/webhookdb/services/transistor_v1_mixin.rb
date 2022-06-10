@@ -17,7 +17,7 @@ module Webhookdb::Services::TransistorV1Mixin
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:updated_at] < Sequel[:excluded][:updated_at]
+    return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
   def calculate_create_state_machine

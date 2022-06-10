@@ -143,7 +143,7 @@ your database will be populated.
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:data] !~ Sequel[:excluded][:data]
+    return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
   def _upsert_update_expr(inserting, **_kwargs)
@@ -154,7 +154,7 @@ your database will be populated.
     # (coalesce the existing row's canceled_at with the 'time.now' we are passing in).
     update = inserting.dup
     update[:canceled_at] = Sequel.function(
-      :coalesce, Sequel[self.table_sym][:canceled_at], Sequel[:excluded][:canceled_at],
+      :coalesce, self.qualified_table_sequel_identifier[:canceled_at], Sequel[:excluded][:canceled_at],
     )
     return update
   end

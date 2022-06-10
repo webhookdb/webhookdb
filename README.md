@@ -40,3 +40,16 @@ Otherwise, there are just two response forms we care about:
 
 Note most every response has a 'message' at its top level.
 Usually this is displayed to the user.
+
+## Custom Schemas
+
+When a customer wants to change the schemas for their tables,
+we do the following (see `Organization.migrate_replication_schema`):
+
+- Use the admin connection to create the schema if it doesn't exist.
+- Move the tables for all integrations into the new schema.
+- Grant SELECT access on the schema to the readonly user.
+
+Note that we do not check if a schema exists on each upsert,
+since it's extra work we should not have to redo each upsert
+(while we do need to ensure the table exists before we upsert a webhook).

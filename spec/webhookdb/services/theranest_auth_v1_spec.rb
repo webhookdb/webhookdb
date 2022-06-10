@@ -13,9 +13,9 @@ RSpec.describe Webhookdb::Services::TheranestAuthV1, :db do
     sint.organization.prepare_database_connections
     svc.create_table
     svc.readonly_dataset do |ds|
-      expect(ds.db).to be_table_exists(svc.table_sym)
+      expect(ds.db).to be_table_exists(svc.qualified_table_sequel_identifier)
     end
-    expect(sint.db).to_not be_table_exists(svc.table_sym)
+    expect(sint.db).to_not be_table_exists(svc.qualified_table_sequel_identifier)
     sint.organization.remove_related_database
   end
 

@@ -81,7 +81,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:at] < Sequel[:excluded][:at]
+    return Sequel[self.qualified_table_sequel_identifier][:at] < Sequel[:excluded][:at]
   end
 
   def _prepare_for_insert(body, *)

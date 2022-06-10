@@ -103,7 +103,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _update_where_expr
-    return Sequel[self.table_sym][:date_updated] < Sequel[:excluded][:date_updated]
+    return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
   end
 
   def _prepare_for_insert(body, **_kwargs)

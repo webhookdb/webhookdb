@@ -80,9 +80,9 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
     it "can create its table in its org db" do
       svc.create_table
       svc.readonly_dataset do |ds|
-        expect(ds.db).to be_table_exists(svc.table_sym)
+        expect(ds.db).to be_table_exists(svc.qualified_table_sequel_identifier)
       end
-      expect(sint.db).to_not be_table_exists(svc.table_sym)
+      expect(sint.db).to_not be_table_exists(svc.qualified_table_sequel_identifier)
     end
 
     it "clears setup information" do
