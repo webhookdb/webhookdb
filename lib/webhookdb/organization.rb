@@ -155,6 +155,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return "#{self.name} (#{self.key})"
   end
 
+  def prepare_database_connections?
+    self.prepare_database_connections unless self.admin_connection_url.present?
+  end
+
   # Build the org-specific users, database, and set our connection URLs to it.
   def prepare_database_connections
     self.db.transaction do

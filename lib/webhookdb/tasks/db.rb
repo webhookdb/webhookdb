@@ -54,6 +54,16 @@ module Webhookdb::Tasks
         task drop_tables_and_replication_databases: ["db:drop_tables", "db:drop_replication_databases"]
 
         task wipe_tables_and_drop_replication_databases: ["db:wipe", "db:drop_replication_databases"]
+
+        task :lookup_org_admin_url, [:org_id] do |_, args|
+          (orgid = args[:org_id]) or raise "Must provide org id as first argument"
+          require "webhookdb"
+          Webhookdb.load_app
+          (org = Webhookdb::Organization[orgid.to_i]) or raise "Org #{orgid} does not exist"
+          u = org.admin_connection_url
+          raise "Org #{orgid} has no connection url yet" if u.blank?
+          print(u)
+        end
       end
     end
 

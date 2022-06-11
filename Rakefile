@@ -12,6 +12,8 @@ require "webhookdb/tasks/annotate"
 Webhookdb::Tasks::Annotate.new
 require "webhookdb/tasks/db"
 Webhookdb::Tasks::DB.new
+require "webhookdb/tasks/fixture"
+Webhookdb::Tasks::Fixture.new
 require "webhookdb/tasks/heroku"
 Webhookdb::Tasks::Heroku.new
 require "webhookdb/tasks/release"
