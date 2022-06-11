@@ -167,7 +167,11 @@ class Webhookdb::Service < Grape::API
   end
 
   rescue_from Webhookdb::InvalidInput do |e|
-    invalid!(e.message)
+    merror!(400, e.message, code: "invalid_input")
+  end
+
+  rescue_from Webhookdb::DatabaseLocked do |e|
+    merror!(409, e.message, code: "database_locked")
   end
 
   rescue_from Sequel::ValidationFailed do |e|

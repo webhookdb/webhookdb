@@ -53,3 +53,38 @@ we do the following (see `Organization.migrate_replication_schema`):
 Note that we do not check if a schema exists on each upsert,
 since it's extra work we should not have to redo each upsert
 (while we do need to ensure the table exists before we upsert a webhook).
+
+## Migrating Organization Databases
+
+To migrate databases, we need to use a zero-downtime approach,
+because 1) we cannot realistically stop receiving events and have them pile up,
+and 2) figuring out when it is 'safe' to cut over is very complex
+(need to look at all running backfill and webhook processing jobs).
+
+So to support migrating an organization between databases,
+we take the following steps:
+
+- Create an `Organization::DatabaseMigration`,
+  storing the original and target admin URLs,
+  the org schema, and the table names of all integrations.
+  We need to snapshot this in case they change as we process it.
+- Update the organization with the new admin and readonly urls.
+- Kick off the organization database migration job.
+
+At this point, existing jobs will write into the 'old' database, and new jobs will
+start writing into the new database.
+
+The database migration job first emails org admins about the job that is starting.
+Then it iterates over all the stored tables, and all rows in those tables
+and upserts them into the new database using the 'update if newer' conditional expression.
+This is slower than a bulk CSV insert, but it's the only
+realistic way to do the 'online' update.
+
+The migration job processes integrations in order,
+and rows in sequential order, and keeps track of its progress,
+so if it fails, it can pick up where it left off
+(Sidekiq will automatically retry if it errors).
+
+Once the job finishes, we mark it as complete,
+empty out the connection info,
+and send an email to the organization admins.

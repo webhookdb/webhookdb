@@ -153,10 +153,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   def displaysafe_connection_url
-    u = URI(self.connection_url)
-    u.user = "***"
-    u.password = "***"
-    return u.to_s
+    return Webhookdb.displaysafe_url(self.connection_url)
   end
 
   def associated_type

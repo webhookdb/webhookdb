@@ -36,7 +36,10 @@ module Webhookdb
   # Error raised when a customer gives us some invalid input.
   # Allows the library to raise the error with the message,
   # and is caught automatically by the service as a 400.
-  class InvalidInput < RuntimeError; end
+  class InvalidInput < StandardError; end
+
+  # Raised when an organization's database cannot be modified.
+  class DatabaseLocked < StandardError; end
 
   APPLICATION_NAME = "Webhookdb"
   RACK_ENV = ENV["RACK_ENV"] || "development"
@@ -227,6 +230,13 @@ module Webhookdb
     slug = s.downcase.strip.gsub(/[^a-z0-9]/, "_").squeeze("_")
     slug = NUMBERS_TO_WORDS[slug.first] + slug[1..] if slug.first.match?(/[0-9]/)
     return slug
+  end
+
+  def self.displaysafe_url(url)
+    u = URI(url)
+    u.user = "***"
+    u.password = "***"
+    return u.to_s
   end
 
   NUMBERS_TO_WORDS = {

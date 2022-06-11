@@ -138,5 +138,12 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
         sint.rename_table(to: "table5")
       end.to raise_error(described_class::TableRenameError, /already a table named/)
     end
+
+    it "errors if the org is being migrated" do
+      Webhookdb::Fixtures.organization_database_migration(organization: org).started.create
+      expect do
+        sint.rename_table(to: "foo-bar")
+      end.to raise_error(Webhookdb::Organization::DatabaseMigration::MigrationInProgress)
+    end
   end
 end

@@ -6,7 +6,7 @@ require "webhookdb/postgres/model"
 require "sequel/plugins/soft_deletes"
 
 class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integrations)
-  class TableRenameError < StandardError; end
+  class TableRenameError < Webhookdb::InvalidInput; end
 
   plugin :timestamps
   plugin :soft_deletes
@@ -150,6 +150,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   end
 
   def rename_table(to:)
+    Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self.organization)
     unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(to)
       msg = "Sorry, this is not a valid table name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
       msg += " And we see you what you did there ;)" if to.include?(";") && to.downcase.include?("drop")

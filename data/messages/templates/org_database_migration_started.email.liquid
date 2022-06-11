@@ -1,0 +1,9 @@
+{% expose subject %}WebhookDB database migration started{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>The WebhookDB database for {{ org_name }} hosted at {{ source_host }} is being migrated to {{ destination_host }}.</p>
+<p>While your migration is in progress, certain actions, like renaming your schema or tables, will not work.</p>
+<p>We&rsquo;ll let you know as soon as it is complete.</p>
+
+{% partial 'signoff' %}

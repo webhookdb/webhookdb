@@ -13,6 +13,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   configurable(:organization) do
     setting :max_query_rows, 1000
+    setting :database_migration_page_size, 1000
   end
 
   one_to_one :subscription, class: "Webhookdb::Subscription", key: :stripe_customer_id, primary_key: :stripe_customer_id
@@ -59,6 +60,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   rescue Sequel::UniqueConstraintViolation
     return nil
+  end
+
+  def admin_customers
+    return self.verified_memberships.filter(&:admin?).map(&:customer)
   end
 
   def cli_editable_fields
@@ -150,6 +155,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return "#{self.name} (#{self.key})"
   end
 
+  def prepare_database_connections?
+    self.prepare_database_connections unless self.admin_connection_url.present?
+  end
+
   # Build the org-specific users, database, and set our connection URLs to it.
   def prepare_database_connections
     self.db.transaction do
@@ -207,6 +216,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       msg = "Sorry, this is not a valid schema name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
       raise SchemaMigrationError, msg
     end
+    Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
     sql = self.migration_replication_schema_sql(self.replication_schema, schema)
     self.admin_connection do |db|
