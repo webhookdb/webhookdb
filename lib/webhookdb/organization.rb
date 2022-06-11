@@ -13,6 +13,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   configurable(:organization) do
     setting :max_query_rows, 1000
+    setting :database_migration_page_size, 1000
   end
 
   one_to_one :subscription, class: "Webhookdb::Subscription", key: :stripe_customer_id, primary_key: :stripe_customer_id

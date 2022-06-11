@@ -52,6 +52,7 @@ module Webhookdb::Postgres
     "webhookdb/message/body",
     "webhookdb/message/delivery",
     "webhookdb/organization",
+    "webhookdb/organization/database_migration",
     "webhookdb/organization_membership",
     "webhookdb/role",
     "webhookdb/service_integration",
