@@ -40,6 +40,20 @@ module Webhookdb::Tasks
 
         desc "Re-create the database tables. Drop tables and migrate."
         task reset: ["db:drop_tables", "db:migrate"]
+
+        task :drop_replication_databases do
+          require "webhookdb/postgres"
+          Webhookdb::Postgres.load_superclasses
+          Webhookdb::Postgres.each_model_superclass do |c|
+            c.db[:pg_database].grep(:datname, "adb%").select(:datname).all.each do |row|
+              c.db << "DROP DATABASE #{row[:datname]}"
+            end
+          end
+        end
+
+        task drop_tables_and_replication_databases: ["db:drop_tables", "db:drop_replication_databases"]
+
+        task wipe_tables_and_drop_replication_databases: ["db:wipe", "db:drop_replication_databases"]
       end
     end
 
