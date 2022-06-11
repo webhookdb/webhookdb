@@ -301,11 +301,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             ensure_admin!
             old_name = sint.table_name
             sint.db.transaction do
-              begin
-                sint.rename_table(to: params[:new_name])
-              rescue Webhookdb::ServiceIntegration::TableRenameError => e
-                merror!(400, e.to_s, code: "invalid_name")
-              end
+              sint.rename_table(to: params[:new_name])
               message = "The table for #{sint.service_name} has been renamed from #{old_name} to #{sint.table_name}."
               status 200
               present sint, with: Webhookdb::API::ServiceIntegrationEntity, message:

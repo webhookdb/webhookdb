@@ -461,6 +461,13 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       end.to raise_error(described_class::SchemaMigrationError, /this is not a valid schema name/)
     end
 
+    it "errors if there is an ongoing migration" do
+      Webhookdb::Fixtures.organization_database_migration(organization: org).started.create
+      expect do
+        org.migrate_replication_schema("hello")
+      end.to raise_error(Webhookdb::Organization::DatabaseMigration::MigrationInProgress)
+    end
+
     it "qualifies the argument" do
       expect do
         org.migrate_replication_schema("drop schema public cascade")

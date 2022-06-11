@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:organization_database_migrations)
-  class MigrationInProgress < RuntimeError; end
+  class MigrationInProgress < Webhookdb::DatabaseLocked; end
   class MigrationAlreadyFinished < RuntimeError; end
 
   plugin :timestamps
@@ -22,7 +22,8 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   def self.guard_ongoing!(org)
     dbm = self.where(organization: org).ongoing.first
     return if dbm.nil?
-    raise MigrationInProgress, "Organization[#{org.id}] already Organization::DatabaseMigration[#{dbm.id}] ongoing"
+    raise MigrationInProgress, "Organization #{org.name} has an ongoing database host migration so " \
+                               "cannot be modified. We'll let admins know when it's done. Try again soon."
   end
 
   def self.enqueue(admin_connection_url_raw:, readonly_connection_url_raw:, public_host:, started_by:, organization:)

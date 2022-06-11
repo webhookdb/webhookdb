@@ -212,6 +212,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       msg = "Sorry, this is not a valid schema name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
       raise SchemaMigrationError, msg
     end
+    Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
     sql = self.migration_replication_schema_sql(self.replication_schema, schema)
     self.admin_connection do |db|
