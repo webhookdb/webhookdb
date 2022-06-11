@@ -62,6 +62,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return nil
   end
 
+  def admin_customers
+    return self.verified_memberships.filter(&:admin?).map(&:customer)
+  end
+
   def cli_editable_fields
     return ["name", "billing_email"]
   end

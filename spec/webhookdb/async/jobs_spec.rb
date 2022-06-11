@@ -206,6 +206,72 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "OrganizationDatabaseMigrationRun" do
+    it "starts running the migration on creation" do
+      org = Webhookdb::Fixtures.organization.create
+      org.prepare_database_connections
+      dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
+      expect do
+        Webhookdb::Organization::DatabaseMigration.enqueue(
+          admin_connection_url_raw: dbinfo.admin_url,
+          readonly_connection_url_raw: dbinfo.readonly_url,
+          public_host: "",
+          started_by: nil,
+          organization: org,
+        )
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationRun)
+      expect(Webhookdb::Organization::DatabaseMigration.first).to have_attributes(
+        started_at: match_time(Time.now).within(5),
+      )
+    end
+  end
+
+  describe "OrganizationDatabaseMigrationNotifyStarted" do
+    it "sends an email when the migration has started" do
+      org = Webhookdb::Fixtures.organization.create
+      admin1 = Webhookdb::Fixtures.customer.admin_in_org(org).create
+      admin2 = Webhookdb::Fixtures.customer.admin_in_org(org).create
+      Webhookdb::Fixtures.customer.verified_in_org(org).create
+      dbm = Webhookdb::Fixtures.organization_database_migration(organization: org).with_urls.create
+      expect do
+        dbm.update(started_at: Time.now)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotifyStarted)
+      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+        have_attributes(
+          template: "org_database_migration_started",
+          to: admin1.email,
+        ),
+        have_attributes(
+          template: "org_database_migration_started",
+          to: admin2.email,
+        ),
+      )
+    end
+  end
+
+  describe "OrganizationDatabaseMigrationFinished" do
+    it "sends an email when the migration has finished" do
+      org = Webhookdb::Fixtures.organization.create
+      admin1 = Webhookdb::Fixtures.customer.admin_in_org(org).create
+      admin2 = Webhookdb::Fixtures.customer.admin_in_org(org).create
+      Webhookdb::Fixtures.customer.verified_in_org(org).create
+      dbm = Webhookdb::Fixtures.organization_database_migration(organization: org).with_urls.create
+      expect do
+        dbm.update(finished_at: Time.now)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotifyFinished)
+      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+        have_attributes(
+          template: "org_database_migration_finished",
+          to: admin1.email,
+        ),
+        have_attributes(
+          template: "org_database_migration_finished",
+          to: admin2.email,
+        ),
+      )
+    end
+  end
+
   describe "ResetCodeCreateDispatch" do
     it "sends an email for an email reset code" do
       customer = Webhookdb::Fixtures.customer(email: "maryjane@lithic.tech").create

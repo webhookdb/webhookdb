@@ -29,6 +29,10 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
     return "invited" unless self.verified
     self.membership_role.name
   end
+
+  def admin?
+    return self.membership_role.name == "admin"
+  end
 end
 
 # Table: organization_memberships
