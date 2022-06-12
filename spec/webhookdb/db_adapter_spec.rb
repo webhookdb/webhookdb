@@ -106,4 +106,31 @@ RSpec.describe Webhookdb::DBAdapter do
       end
     end
   end
+
+  describe "default sql helpers" do
+    cls = Class.new do
+      include Webhookdb::DBAdapter::DefaultSql
+
+      def identifier_quote_char
+        return '"'
+      end
+    end
+    inst = cls.new
+
+    describe "escape_identifier" do
+      it "raises for invalid identifiers" do
+        expect { inst.escape_identifier("hi ; there") }.to raise_error(ArgumentError, /invalid identifier/)
+        expect { inst.escape_identifier("hi-there") }.to raise_error(ArgumentError, /invalid identifier/)
+        expect { inst.escape_identifier("2hi") }.to raise_error(ArgumentError, /invalid identifier/)
+        expect { inst.escape_identifier("") }.to raise_error(ArgumentError, /invalid identifier/)
+      end
+
+      it "escapes what needs escaping" do
+        expect(inst.escape_identifier("hi")).to eq("hi")
+        expect(inst.escape_identifier("hi there")).to eq('"hi there"')
+        expect(inst.escape_identifier("select")).to eq('"select"')
+        expect(inst.escape_identifier("a")).to eq("a")
+      end
+    end
+  end
 end
