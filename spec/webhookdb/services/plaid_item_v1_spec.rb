@@ -6,7 +6,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
   it_behaves_like "a service implementation", "plaid_item_v1" do
     let(:body) do
       JSON.parse(<<~J)
-                {
+        {
           "webhook_type": "ITEM",
           "webhook_code": "PENDING_EXPIRATION",
           "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
@@ -40,6 +40,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         consent_expiration_time: "2020-01-15T13:25:17.766Z",
         data: {item_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb"}.to_json,
         plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+        row_created_at: Time.parse("2022-05-28 22:14:06 -0200"),
         row_updated_at: Time.parse("2022-05-28 22:14:06 -0200"),
       }
     end

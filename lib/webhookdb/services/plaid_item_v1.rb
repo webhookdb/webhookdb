@@ -31,7 +31,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     return [
       Webhookdb::Services::Column.new(:institution_id, TEXT, index: true),
       Webhookdb::Services::Column.new(:encrypted_access_token, TEXT),
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
       Webhookdb::Services::Column.new(:consent_expiration_time, TIMESTAMP),
       Webhookdb::Services::Column.new(:update_type, TEXT),
       Webhookdb::Services::Column.new(:error, OBJECT),
@@ -61,6 +61,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     # Webhooks are going to be from plaid, or from the client,
     # so the 'codes' here cover more than just Plaid.
     payload = {
+      row_created_at: now,
       row_updated_at: now,
       data: {"item_id" => body.fetch("item_id")}.to_json,
       plaid_id: body.fetch("item_id"),

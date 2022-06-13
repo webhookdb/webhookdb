@@ -108,6 +108,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
   it_behaves_like "a service implementation dependent on another", "plaid_transaction_v1", "plaid_item_v1" do
     let(:no_dependencies_message) { "This integration requires Plaid Items to sync" }
   end
+
   describe "backfill process" do
     let(:item_sint) do
       dependency.update(
@@ -361,10 +362,27 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       expect(response).to have_been_made.times(3)
     end
 
+    it "returns if a storable error occurs" do
+      expect(Webhookdb::Backfiller).to_not receive(:do_retry_wait)
+      plaid_body = <<~J
+        {
+          "error_type": "ITEM_ERROR",
+          "error_code": "PRODUCT_NOT_READY",
+          "error_message": "the requested product is not yet ready. please provide a webhook or try the request again later",
+          "display_message": null,
+          "request_id": "HNTDNrA8F1shFEW"
+        }
+      J
+      response = stub_request(:post, "https://sandbox.plaid.com/transactions/get").
+        to_return(status: 400, body: plaid_body, headers: {"Content-Type" => "application/json"})
+      transaction_svc.backfill_plaid_item(item_svc, item_row, Time.now)
+      expect(response).to have_been_made
+    end
+
     describe "historical backfill" do
       it "always uses 2 years ago as its start date" do
         start = 2.years.ago
-        insert_transaction_row("abc", datetime: 30.days.ago)
+        insert_transaction_row("abc", row_created_at: 30.days.ago)
         responses = [
           stub_service_request(start, 0, page1_response),
           stub_service_request(start, 1, page2_response),
@@ -389,10 +407,10 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         expect(transaction_svc.readonly_dataset(&:all)).to have_length(2)
       end
 
-      it "will use the most recent transaction datetime as its start date" do
+      it "will use the most recent transaction date as its start date" do
         start = Time.parse("2022-02-20T12:00:00Z")
-        insert_transaction_row("abc", datetime: start)
-        insert_transaction_row("xyz", datetime: start - 60.days)
+        insert_transaction_row("abc", date: start)
+        insert_transaction_row("xyz", date: start - 60.days)
         responses = [
           stub_service_request(start, 0, page1_response),
           stub_service_request(start, 1, page2_response),

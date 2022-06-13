@@ -28,15 +28,15 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:account_id, TEXT),
       Webhookdb::Services::Column.new(:amount, TEXT),
       Webhookdb::Services::Column.new(:iso_currency_code, TEXT),
-      Webhookdb::Services::Column.new(:datetime, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:authorized_datetime, TIMESTAMP),
+      Webhookdb::Services::Column.new(:date, DATE, index: true),
       Webhookdb::Services::Column.new(:removed_at, TIMESTAMP),
-      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP),
+      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
     ]
   end
 
   def _timestamp_column_name
-    return :datetime
+    return :row_updated_at
   end
 
   def upsert_has_deps?
@@ -74,7 +74,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
 
   def handle_incremental_update(plaid_item_service, plaid_item_row)
     pagination_start_date = self.readonly_dataset do |ds|
-      ds.where(item_id: plaid_item_row.fetch(:plaid_id)).max(:datetime)
+      ds.where(item_id: plaid_item_row.fetch(:plaid_id)).max(:date)
     end
     self.backfill_plaid_item(plaid_item_service, plaid_item_row, pagination_start_date || 2.years.ago)
   end
@@ -164,6 +164,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
     end
 
     def handle_item(body)
+      now = Time.now
       inserting = {
         plaid_id: body.fetch("transaction_id"),
         item_id: @plaid_item_id,
@@ -171,9 +172,9 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         account_id: body.fetch("account_id"),
         amount: body.fetch("amount"),
         iso_currency_code: body.fetch("iso_currency_code"),
-        datetime: body.fetch("datetime"),
-        authorized_datetime: body.fetch("authorized_datetime"),
-        row_updated_at: Time.now,
+        date: body.fetch("date"),
+        row_created_at: now,
+        row_updated_at: now,
       }
       upserted_rows = @transaction_svc.admin_dataset do |ds|
         ds.insert_conflict(
@@ -190,21 +191,28 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       offset = pagination_token.present? ? pagination_token : 0
       url = @api_url + "/transactions/get"
 
-      response = Webhookdb::Http.post(
-        url,
-        {
-          client_id: @item_svc.service_integration.backfill_key,
-          secret: @item_svc.service_integration.backfill_secret,
-          access_token: @plaid_access_token,
-          start_date: last_backfilled.strftime("%Y-%m-%d"),
-          end_date: Time.now.tomorrow.strftime("%Y-%m-%d"),
-          options: {
-            count:,
-            offset:,
+      begin
+        response = Webhookdb::Http.post(
+          url,
+          {
+            client_id: @item_svc.service_integration.backfill_key,
+            secret: @item_svc.service_integration.backfill_secret,
+            access_token: @plaid_access_token,
+            start_date: last_backfilled.strftime("%Y-%m-%d"),
+            end_date: Time.now.tomorrow.strftime("%Y-%m-%d"),
+            options: {
+              count:,
+              offset:,
+            },
           },
-        },
-        logger: @transaction_svc.logger,
-      )
+          logger: @transaction_svc.logger,
+        )
+      rescue Webhookdb::Http::Error => e
+        errtype = e.response.parsed_response["error_type"]
+        return [], nil if Webhookdb::Services::PlaidItemV1::STORABLE_ERROR_TYPES.include?(errtype)
+        raise e
+      end
+
       data = response.parsed_response["transactions"]
       return data, nil if data.size < count
       return data, offset + count
