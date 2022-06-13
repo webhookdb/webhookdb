@@ -62,5 +62,7 @@ RSpec.configure do |config|
     config.include(Webhookdb::SpecHelpers::Postgres)
     require "webhookdb/spec_helpers/service"
     config.include(Webhookdb::SpecHelpers::Service)
+    require "webhookdb/spec_helpers/whdb"
+    config.include(Webhookdb::SpecHelpers::Whdb)
   end
 end

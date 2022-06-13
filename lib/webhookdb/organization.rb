@@ -51,6 +51,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def before_validation
     self.key ||= Webhookdb.to_slug(self.name)
+    self.replication_schema ||= Webhookdb::Organization::DbBuilder.new(self).default_replication_schema
     super
   end
 

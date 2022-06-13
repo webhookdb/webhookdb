@@ -88,3 +88,67 @@ so if it fails, it can pick up where it left off
 Once the job finishes, we mark it as complete,
 empty out the connection info,
 and send an email to the organization admins.
+
+## Organization Data Isolation
+
+Organization data (replicated webhook/API data) can be isolated in various ways:
+
+- **database** isolation creates a separate database per-organization.
+- **schema** isolation creates a separate schema per-organization.
+- **user** isolation creates a separate user per organization
+  which can only be used to access that organization's data.
+- **none** isolation puts every org into the public schema.
+
+These modules and possible combinations are available as the following values:
+
+- `database+user`
+- `database+schema+user`
+- `schema+user`
+- `schema`
+- `none`
+
+The default isolation is `database+user`.
+
+To set the isolation mode, set `DB_BUILDER_ISOLATION_MODE`
+like `DB_BUILDER_ISOLATION_MODE=database+user`.
+
+Which techniques can be used depends on the infrastructure WebhookDB is running on,
+but the following setups are common:
+
+- `database+user` isolation is the default isolation,
+  since it is the most secure. It requires the available database connections
+  in `DB_BUILDER_SERVER_URLS` (and the related `DB_BUILDER_SERVER_ENV_VARS`)
+  have access to create databases and users, which is available for hosted
+  DB servers like Amazon RDS, but it usually not available for hosted _databases_
+  like Heroku Postgres.
+- `schema` isolation provides the least isolation and is only used
+  for self-hosted deployments. It allows hosting WebhookDB with a shared
+  database, like in Heroku Postgres, which does not allow creation of
+  databases or users via PG SQL. The connection information for every
+  organization will be the same (one of the server urls).
+  However, organizations can be migrated over to another database server;
+  for example, some company may want to have their "production organization"
+  write data directly to a primary application database,
+  while the per-user and other scratch/testing orgs stay on the application database.
+  - **NOTE**: WebhookDB will NOT modify default privileges for the `PUBLIC` role,
+    which by default has access to the `public` schema.
+    So if you want to revoke read/write access to the readonly organization user,
+    which you probably do, you must run `REVOKE ALL ON SCHEMA public FROM public`
+    in the relevant database.
+    WebhookDB will not modify `public` access since it could break your application,
+    since it would effect other users.
+- `schema+user` isolation is a slight improvement over schema-only isolation.
+  A user is created per-organization, so there is isolation by the read-only user
+  for each organization. However, each organization's admin user will be the same
+  (more precisely, one of the available server urls). This should only be used in
+  self-hosted environments, and all the caveats and suggestions regarding
+  schema-only isolation apply.
+- `database+schema+user` isolation does not provide any meaningful
+  isolation improvement over database/user isolation. It can be used if,
+  you don't want organization replication tables to go into
+  the `public` schema by default (note you can always move orgs from the `public` schema
+  at any time using `webhookdb org migrate-schema <new-schema>`).
+- `none` isolation uses the `public` schema and available server URLs verbatim,
+  providing zero isolation, but is sufficient for controlled single-application use.
+  Because there are no urls or schemas to worry about,
+  it provides the most convenient access to your data.

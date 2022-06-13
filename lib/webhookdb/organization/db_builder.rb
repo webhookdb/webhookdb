@@ -21,6 +21,21 @@ class Webhookdb::Organization::DbBuilder
   include Appydays::Loggable
   extend Webhookdb::MethodUtilities
 
+  class IsolatedOperationError < StandardError; end
+
+  DATABASE = "database"
+  SCHEMA = "schema"
+  USER = "user"
+  NONE = "none"
+
+  VALID_ISOLATION_MODES = [
+    "#{DATABASE}+#{USER}",
+    "#{DATABASE}+#{SCHEMA}+#{USER}",
+    SCHEMA,
+    "#{SCHEMA}+#{USER}",
+    NONE,
+  ].freeze
+
   singleton_attr_accessor :available_server_urls
 
   configurable(:db_builder) do
@@ -37,8 +52,15 @@ class Webhookdb::Organization::DbBuilder
     # The Cloudflare zone ID that DNS records will be created in.
     # NOTE: It is required that the Cloudflare API token has access to this zone.
     setting :cloudflare_dns_zone_id, "testdnszoneid"
+    # See README for more details.
+    setting :isolation_mode, "database+user"
 
     after_configured do
+      unless VALID_ISOLATION_MODES.include?(self.isolation_mode)
+        msg = "Invalid DB_BUILDER_ISOLATION_MODE '#{self.isolation_mode}', " \
+              "valid modes are: #{VALID_ISOLATION_MODES.join(', ')}"
+        raise KeyError, msg
+      end
       self.available_server_urls = self.server_urls.dup
       self.available_server_urls.concat(self.server_env_vars.map { |e| ENV[e] })
     end
@@ -46,17 +68,45 @@ class Webhookdb::Organization::DbBuilder
 
   READONLY_CONN_LIMIT = 50
 
+  def self.isolate?(type)
+    return self.isolation_mode.include?(type)
+  end
+
   attr_reader :admin_url, :readonly_url
 
   def initialize(org)
     @org = org
   end
 
+  def default_replication_schema
+    raise Webhookdb::InvalidPrecondition, "Org must have a key to calculate the replication schema" if @org.key.blank?
+    return "public" unless self.class.isolate?(SCHEMA)
+    return "whdb_#{@org.key}"
+  end
+
   def prepare_database_connections
     # Grab a random server url. This will give us a 'superuser'-like url
     # that can create roles and whatever else.
     superuser_str = self._choose_superuser_url
-    superuser_url = URI.parse(superuser_str)
+    case self.class.isolation_mode
+      when "database+user"
+        self._prepare_database_connections_database_user(superuser_str)
+      when "database+schema+user"
+        self._prepare_database_connections_database_schema_user(superuser_str)
+      when "schema"
+        self._prepare_database_connections_schema(superuser_str)
+      when "schema+user"
+        self._prepare_database_connections_schema_user(superuser_str)
+      when "none"
+        self._prepare_database_connections_none(superuser_str)
+      else
+        raise "Did not expect mode #{self.class.isolation_mode}"
+    end
+    return self
+  end
+
+  def _prepare_database_connections_database_user(superuser_url_str)
+    superuser_url = URI.parse(superuser_url_str)
     # Use this superuser connection to create the admin role,
     # which will be responsible for the database.
     # While connected as the superuser, we can go ahead and create both roles.
@@ -65,7 +115,7 @@ class Webhookdb::Organization::DbBuilder
     ro_user = self.randident("ro")
     ro_pwd = self.randident
     dbname = self.randident("db")
-    Sequel.connect(superuser_str) do |conn|
+    Sequel.connect(superuser_url_str) do |conn|
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
@@ -109,7 +159,53 @@ class Webhookdb::Organization::DbBuilder
       conn << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT SELECT ON TABLES TO #{ro_user};"
     end
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_url, dbname)
-    return self
+  end
+
+  def _prepare_database_connections_database_schema_user(superuser_url_str)
+    self._prepare_database_connections_database_user(superuser_url_str)
+    # Revoke everything on public schema, so our readonly user cannot access it.
+    Sequel.connect(@admin_url) do |conn|
+      conn << "REVOKE ALL ON SCHEMA public FROM public"
+    end
+  end
+
+  def _prepare_database_connections_schema(superuser_url_str)
+    Sequel.connect(superuser_url_str) do |conn|
+      conn << "CREATE SCHEMA IF NOT EXISTS #{self._org_schema};"
+    end
+    @admin_url = superuser_url_str
+    @readonly_url = superuser_url_str
+  end
+
+  def _prepare_database_connections_schema_user(superuser_url_str)
+    ro_user = self.randident("ro")
+    ro_pwd = self.randident
+    schema = self._org_schema
+    Sequel.connect(superuser_url_str) do |conn|
+      conn << <<~SQL
+        -- Create readonly role and make sure it cannot access public stuff
+        CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
+        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{READONLY_CONN_LIMIT};
+        REVOKE ALL ON SCHEMA public FROM #{ro_user};
+        REVOKE CREATE ON SCHEMA public FROM #{ro_user};
+        REVOKE ALL ON ALL TABLES IN SCHEMA public FROM #{ro_user};
+        -- Create the schema and ensure readonly user can access it
+        -- Also remove public role access so other readonly users cannot access it.
+        CREATE SCHEMA IF NOT EXISTS #{schema};
+        REVOKE ALL ON SCHEMA #{schema} FROM PUBLIC, #{ro_user};
+        REVOKE ALL ON ALL TABLES IN SCHEMA #{schema} FROM PUBLIC, #{ro_user};
+        GRANT USAGE ON SCHEMA #{schema} TO #{ro_user};
+        GRANT SELECT ON ALL TABLES IN SCHEMA #{schema} TO #{ro_user};
+        ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT SELECT ON TABLES TO #{ro_user};
+      SQL
+    end
+    @admin_url = superuser_url_str
+    @readonly_url = self._replace_url_auth(superuser_url_str, ro_user, ro_pwd)
+  end
+
+  def _prepare_database_connections_none(superuser_url_str)
+    @admin_url = superuser_url_str
+    @readonly_url = superuser_url_str
   end
 
   # Return the superuser url for the org to use when creating its DB connections.
@@ -131,6 +227,13 @@ class Webhookdb::Organization::DbBuilder
 
   def _create_conn_url(username, password, uri, dbname)
     return "postgres://#{username}:#{password}@#{uri.host}:#{uri.port}/#{dbname}"
+  end
+
+  def _replace_url_auth(url, user, pass)
+    uri = URI(url)
+    uri.user = user
+    uri.password = pass
+    return uri.to_s
   end
 
   # Create the CNAME record specific to this org,
@@ -168,13 +271,31 @@ class Webhookdb::Organization::DbBuilder
   # (and we probably don't want the admin role trying to delete itself).
   def remove_related_database
     return if @org.admin_connection_url_raw.blank?
-    Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
-    Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
     superuser_str = self._find_superuser_url_str
     Sequel.connect(superuser_str) do |conn|
-      conn << "DROP DATABASE #{@org.dbname}"
-      conn << "DROP USER #{@org.readonly_user}"
-      conn << "DROP USER #{@org.admin_user}"
+      case self.class.isolation_mode
+        when "database+user", "database+schema+user"
+          Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
+          Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
+          conn << "DROP DATABASE #{@org.dbname};"
+          conn << <<~SQL
+            DROP USER #{@org.readonly_user};
+            DROP USER #{@org.admin_user};
+          SQL
+        when "schema+user"
+          Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
+          conn << <<~SQL
+            DROP SCHEMA IF EXISTS #{self._org_schema} CASCADE;
+            DROP OWNED BY #{@org.readonly_user};
+            DROP USER #{@org.readonly_user};
+          SQL
+        when "schema"
+          conn << "DROP SCHEMA IF EXISTS #{self._org_schema} CASCADE"
+        when "none"
+          nil
+        else
+          raise "not supported yet"
+      end
     end
   end
 
@@ -192,25 +313,38 @@ class Webhookdb::Organization::DbBuilder
   end
 
   def roll_connection_credentials
+    raise IsolatedOperationError, "cannot roll credentials without a user isolation mode" unless
+      self.class.isolate?(USER)
     superuser_uri = URI(self._find_superuser_url_str)
     orig_readonly_user = URI(@org.readonly_connection_url_raw).user
-    orig_admin_user = URI(@org.admin_connection_url_raw).user
-    admin_user = self.randident("ad")
-    admin_pwd = self.randident
     ro_user = self.randident("ro")
     ro_pwd = self.randident
-    Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
     Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
-    Sequel.connect(superuser_uri.to_s) do |conn|
-      conn << <<~SQL
-        ALTER ROLE #{orig_readonly_user} RENAME TO #{ro_user};
-        ALTER ROLE #{ro_user} WITH PASSWORD '#{ro_pwd}';
-        ALTER ROLE #{orig_admin_user} RENAME TO #{admin_user};
-        ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';
-      SQL
-    end
-    @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_uri, @org.dbname)
+    lines = [
+      "ALTER ROLE #{orig_readonly_user} RENAME TO #{ro_user};",
+      "ALTER ROLE #{ro_user} WITH PASSWORD '#{ro_pwd}';",
+    ]
+    if self.class.isolate?(DATABASE)
+      # Roll admin credentials for a separate database.
+      # For schema isolation, we assume admin is the superuser so cannot roll creds.
+      orig_admin_user = URI(@org.admin_connection_url_raw).user
+      admin_user = self.randident("ad")
+      admin_pwd = self.randident
+      lines.concat(
+        [
+          "ALTER ROLE #{orig_admin_user} RENAME TO #{admin_user};",
+          "ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';",
+        ],
+      )
+      Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
+      @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
+    else
+      @admin_url = @org.admin_connection_url_raw
+    end
+    Sequel.connect(superuser_uri.to_s) do |conn|
+      conn << lines.join("\n")
+    end
   end
 
   def generate_fdw_payload(
@@ -258,6 +392,11 @@ class Webhookdb::Organization::DbBuilder
   end
 
   def migration_replication_schema_sql(old_schema, new_schema)
+    can_migrate_to_public = self.class.isolate?(DATABASE)
+    if new_schema == "public" && !can_migrate_to_public
+      raise IsolatedOperationError,
+            "cannot migrate to public schema when using '#{self.class.isolation_mode}' isolation"
+    end
     ad = Webhookdb::DBAdapter::PG.new
     qold_schema = ad.escape_identifier(old_schema)
     qnew_schema = ad.escape_identifier(new_schema)
@@ -270,12 +409,14 @@ class Webhookdb::Organization::DbBuilder
       lines << ("ALTER TABLE IF EXISTS %s.%s SET SCHEMA %s;" % [qold_schema, ad.escape_identifier(sint.table_name),
                                                                 qnew_schema,])
     end
-    ro_user = @org.readonly_user
-    lines << "GRANT USAGE ON SCHEMA #{qnew_schema} TO #{ro_user};"
-    lines << "GRANT SELECT ON ALL TABLES IN SCHEMA #{qnew_schema} TO #{ro_user};"
-    lines << "REVOKE ALL ON SCHEMA #{qold_schema} FROM #{ro_user};"
-    lines << "REVOKE ALL ON ALL TABLES IN SCHEMA #{qold_schema} FROM #{ro_user};"
-    lines << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{qnew_schema} GRANT SELECT ON TABLES TO #{ro_user};"
+    if self.class.isolate?(USER)
+      ro_user = @org.readonly_user
+      lines << "GRANT USAGE ON SCHEMA #{qnew_schema} TO #{ro_user};"
+      lines << "GRANT SELECT ON ALL TABLES IN SCHEMA #{qnew_schema} TO #{ro_user};"
+      lines << "REVOKE ALL ON SCHEMA #{qold_schema} FROM #{ro_user};"
+      lines << "REVOKE ALL ON ALL TABLES IN SCHEMA #{qold_schema} FROM #{ro_user};"
+      lines << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{qnew_schema} GRANT SELECT ON TABLES TO #{ro_user};"
+    end
     # lines << "DROP SCHEMA #{qold_schema} CASCADE;"
     lines << "COMMIT;"
     return lines.join("\n")
