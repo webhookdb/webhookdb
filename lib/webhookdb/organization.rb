@@ -51,6 +51,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def before_validation
     self.key ||= Webhookdb.to_slug(self.name)
+    self.replication_schema ||= Webhookdb::Organization::DbBuilder.new(self).default_replication_schema
     super
   end
 
@@ -218,35 +219,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
-    sql = self.migration_replication_schema_sql(self.replication_schema, schema)
+    builder = Webhookdb::Organization::DbBuilder.new(self)
+    sql = builder.migration_replication_schema_sql(self.replication_schema, schema)
     self.admin_connection do |db|
       db << sql
     end
     self.update(replication_schema: schema)
-  end
-
-  def migration_replication_schema_sql(old_schema, new_schema)
-    ad = Webhookdb::DBAdapter::PG.new
-    qold_schema = ad.escape_identifier(old_schema)
-    qnew_schema = ad.escape_identifier(new_schema)
-    lines = []
-    lines << "BEGIN;"
-    # lines << "ALTER SCHEMA #{qold_schema} RENAME TO #{qnew_schema};"
-    # lines << "CREATE SCHEMA IF NOT EXISTS public;"
-    lines << "CREATE SCHEMA IF NOT EXISTS #{qnew_schema};"
-    self.service_integrations.each do |sint|
-      lines << ("ALTER TABLE IF EXISTS %s.%s SET SCHEMA %s;" % [qold_schema, ad.escape_identifier(sint.table_name),
-                                                                qnew_schema,])
-    end
-    ro_user = self.readonly_user
-    lines << "GRANT USAGE ON SCHEMA #{qnew_schema} TO #{ro_user};"
-    lines << "GRANT SELECT ON ALL TABLES IN SCHEMA #{qnew_schema} TO #{ro_user};"
-    lines << "REVOKE ALL ON SCHEMA #{qold_schema} FROM #{ro_user};"
-    lines << "REVOKE ALL ON ALL TABLES IN SCHEMA #{qold_schema} FROM #{ro_user};"
-    lines << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{qnew_schema} GRANT SELECT ON TABLES TO #{ro_user};"
-    # lines << "DROP SCHEMA #{qold_schema} CASCADE;"
-    lines << "COMMIT;"
-    return lines.join("\n")
   end
 
   def register_in_stripe
