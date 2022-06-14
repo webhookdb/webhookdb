@@ -133,6 +133,7 @@ require "webhookdb/services/theranest_progress_note_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
+require "webhookdb/services/webhookdb_customer_v1"
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitBroadcastV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitSubscriberV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)
@@ -170,3 +171,4 @@ Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
 Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)
+Webhookdb::Services.register(Webhookdb::Services::WebhookdbCustomerV1)

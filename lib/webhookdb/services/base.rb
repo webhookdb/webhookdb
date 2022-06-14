@@ -512,6 +512,10 @@ or leave blank to choose the first option.
     return step
   end
 
+  def webhook_endpoint
+    return self._webhook_endpoint
+  end
+
   protected def _webhook_endpoint
     return "#{Webhookdb.api_url}#{self.service_integration.unauthed_webhook_path}"
   end
