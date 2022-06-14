@@ -30,6 +30,7 @@ require "webhookdb/api/uploads"
 require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
+require "webhookdb/admin_api/database_documents"
 require "webhookdb/admin_api/message_deliveries"
 require "webhookdb/admin_api/roles"
 require "webhookdb/admin_api/customers"
@@ -50,6 +51,7 @@ module Webhookdb::App
     mount Webhookdb::API::WebhookSubscriptions
 
     mount Webhookdb::AdminAPI::Auth
+    mount Webhookdb::AdminAPI::DatabaseDocuments
     mount Webhookdb::AdminAPI::MessageDeliveries
     mount Webhookdb::AdminAPI::Roles
     mount Webhookdb::AdminAPI::Customers

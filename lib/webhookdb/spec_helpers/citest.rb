@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "webhookdb/aws"
 require "webhookdb/slack"
 require "webhookdb/spec_helpers"
 
@@ -45,17 +44,14 @@ module Webhookdb::SpecHelpers::Citest
   end
 
   def self.put_results(folder, html)
-    return "https://unconfigured-url.s3" if Webhookdb::AWS.access_key_id.include?("default")
     now = Time.now
-    bucket = "webhookdb-test-artifacts"
     key = "test-results/#{folder}/#{now.year}/#{now.month}/#{now.in_time_zone('UTC').iso8601}.html"
-    Webhookdb::AWS.s3.put(
-      bucket:,
+    doc = Webhookdb::DatabaseDocument.create(
       key:,
-      body: html,
+      content: html,
       content_type: "text/html",
     )
-    url = Webhookdb::AWS.s3.presigned_get_url(bucket, key, expires_in: 1.week.to_i)
+    url = doc.presigned_view_url(expire_at: 1.week.from_now)
     return url
   end
 
