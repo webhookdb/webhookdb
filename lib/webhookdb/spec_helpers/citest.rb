@@ -10,7 +10,7 @@ module Webhookdb::SpecHelpers::Citest
     RSpec::Core::Runner.run([folder + "/", "--format", "html"], err, out)
 
     notifier = Webhookdb::Slack.new_notifier(
-      channel: "#webhookdb-notifications",
+      force_channel: "#webhookdb-notifications",
       username: "CI Tests",
       icon_emoji: ":female-detective:",
     )

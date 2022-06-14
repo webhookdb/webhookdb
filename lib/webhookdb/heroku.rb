@@ -2,17 +2,15 @@
 
 require "platform-api"
 
-require "webhookdb" unless defined?(Webhookdb)
+require "webhookdb"
 
 class Webhookdb::Heroku
   include Appydays::Configurable
 
   configurable(:heroku) do
-    setting :oauth_id, "", key: "webhookdb_HEROKU_OAUTH_ID"
-    setting :oauth_token, "", key: "webhookdb_HEROKU_OAUTH_TOKEN"
+    setting :oauth_id, "", key: "WEBHOOKDB_HEROKU_OAUTH_ID"
+    setting :oauth_token, "", key: "WEBHOOKDB_HEROKU_OAUTH_TOKEN"
     setting :app_name, "", key: "HEROKU_APP_NAME"
-    setting :target_web_dynos, 1
-    setting :target_worker_dynos, 1
   end
 
   def self.client

@@ -16,6 +16,29 @@ We use a somewhat novel approach to auth to create a smooth CLI flow.
 - Customer is authed and verified
 - Token (cookie) is stored on their machine
 
+## Integration Tests
+
+We have integration tests set up that give the entire stack a pretty decent exercise.
+
+The tests can be run locally:
+
+- Run `make run` in one window, `make run-workers` in another, and then `make integration-tests` in another.
+  This uses the `database+user` isolation by default, so is a good test of how things work
+  in RDS or similar.
+
+Tests are also run automatically in Heroku on staging,
+using the `schema` isolation since it uses a shared Heroku database.
+
+- `RUN_INTEGRATION_TESTS_ON_RELEASE=true` is set on staging.
+  This causes the `release` command to run a Rake task, `specs:integration_step1`.
+  This task start a new one off dyno that runs that `specs:integration_step2`.
+- `specs:integration_step2` sleeps 20 seconds and kicks off `specs:integration_step3`.
+  We need this sleep to make sure that the integration test gets the newest release;
+  the step2 dyno may still be using the old release.
+- `specs:integration_step3` runs the integration tests in `specs:integration`.
+- When the test run finishes, it will upload the test results to the database
+  and notify about the results in Slack.
+
 ## Response Shapes
 
 We try to avoid as much rendering logic on the client as possible.

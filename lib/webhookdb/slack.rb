@@ -14,17 +14,20 @@ class Webhookdb::Slack
   @http_client = nil
 
   configurable(:slack) do
-    setting :webhook_url, "slack-webhook"
+    setting :webhook_url, "http://unconfigured-slack-webhook"
     setting :channel_override, nil
     setting :suppress_all, false
   end
 
   def self.new_notifier(opts={})
     opts[:channel] ||= "#eng-naboo"
-    opts[:username] ||= "Unknown Webhook"
+    opts[:username] ||= "Unknown"
     opts[:icon_emoji] ||= ":question:"
     opts[:channel] = self.channel_override if self.channel_override
-    return ::Slack::Notifier.new self.webhook_url do
+    if (force_chan = opts.delete(:force_channel))
+      opts[:channel] = force_chan
+    end
+    return ::Slack::Notifier.new(self.webhook_url) do
       defaults opts
       if Webhookdb::Slack.suppress_all
         http_client NoOpHttpClient.new
