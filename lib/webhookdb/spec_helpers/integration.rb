@@ -57,18 +57,18 @@ module Webhookdb::IntegrationSpecHelpers
   end
 
   module_function def auth_customer(customer=nil)
-    pw = Webhookdb::Fixtures::Customers::PASSWORD
     if customer.nil?
-      customer = Webhookdb::Fixtures.customer.password(pw).create
-    else
-      customer.password = pw
-      customer.save_changes
+      customer = Webhookdb::Fixtures.customer.instance
+      resp = post("/v1/auth", body: {email: customer.email})
+      expect(resp).to party_status(202)
+      customer = Webhookdb::Customer[email: customer.email]
     end
 
-    resp = post("/v1/auth", body: {phone: customer.us_phone, password: pw})
+    code = Webhookdb::Fixtures.reset_code(customer:).create
+    resp = post("/v1/auth", body: {email: customer.email, token: code.token})
     expect(resp).to party_status(200)
 
-    return customer
+    return customer.refresh
   end
 
   [:get, :post, :put, :patch, :delete].each do |method|

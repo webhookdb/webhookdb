@@ -141,6 +141,7 @@ module Webhookdb::Async
     "webhookdb/jobs/transistor_episode_backfill",
     "webhookdb/jobs/trim_logged_webhooks",
     "webhookdb/jobs/twilio_scheduled_backfill",
+    "webhookdb/jobs/webhook_resource_notify_integrations",
   ].freeze
 
   require "webhookdb/async/job_logger"

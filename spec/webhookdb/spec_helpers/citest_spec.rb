@@ -381,21 +381,10 @@ RSpec.describe Webhookdb::SpecHelpers::Citest do
   end
 
   describe "put_results" do
-    it "uploads the results and returns a signed url" do
-      Webhookdb::AWS.access_key_id = "real-key"
-
-      stub_request(:put, %r{https://.*\.amazonaws\.com/test-results/fld/.*\.html}).
-        to_return(status: 200)
-
+    it "saves the results and returns a signed url" do
       expect(described_class.put_results("fld", "<html />")).to match(
-        %r{https://.*\.amazonaws.com/test-results/fld.*X-Amz-Algorithm=.*},
+        %r{http://localhost:18001/admin/v1/database_documents/\d+/view\?expire_at=\d+&sig=.*},
       )
-    end
-
-    it "returns unconfigured if no AWS key is configured" do
-      Webhookdb::AWS.access_key_id = "default-access"
-
-      expect(described_class.put_results("fld", "<html />")).to eq("https://unconfigured-url.s3")
     end
   end
 end

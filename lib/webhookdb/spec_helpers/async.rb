@@ -13,13 +13,19 @@ module Webhookdb::SpecHelpers::Async
     context.before(:each) do |example|
       Webhookdb::Async.synchronous_mode = true if example.metadata[:async]
       Webhookdb::Postgres.do_not_defer_events = true if example.metadata[:do_not_defer_events]
-      Webhookdb::Slack.http_client = Webhookdb::Slack::NoOpHttpClient.new if example.metadata[:slack]
+      if example.metadata[:slack]
+        Webhookdb::Slack.http_client = Webhookdb::Slack::NoOpHttpClient.new
+        Webhookdb::Slack.suppress_all = false
+      end
     end
 
     context.after(:each) do |example|
       Webhookdb::Async.synchronous_mode = false if example.metadata[:async]
       Webhookdb::Postgres.do_not_defer_events = false if example.metadata[:do_not_defer_events]
-      Webhookdb::Slack.http_client = nil if example.metadata[:slack]
+      if example.metadata[:slack]
+        Webhookdb::Slack.http_client = nil
+        Webhookdb::Slack.reset_configuration
+      end
     end
 
     super

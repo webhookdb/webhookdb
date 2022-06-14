@@ -19,6 +19,34 @@ module Webhookdb::Tasks
           Webhookdb::SpecHelpers::Citest.run_tests("integration")
         end
 
+        desc "See README."
+        task :integration_step1 do
+          require "webhookdb/heroku"
+          Webhookdb::Heroku.client.dyno.create(
+            Webhookdb::Heroku.app_name,
+            command: "bundle exec rake specs:integration_step2",
+            attach: false,
+            time_to_live: 1.minute.to_i,
+            type: "run",
+          )
+        end
+        task :integration_step2 do
+          sleep(20)
+          require "webhookdb/heroku"
+          Webhookdb::Heroku.client.dyno.create(
+            Webhookdb::Heroku.app_name,
+            command: "bundle exec rake specs:integration_step3",
+            env: {"INTEGRATION_TESTS" => "true"},
+            attach: false,
+            time_to_live: 10.minute.to_i,
+            type: "run",
+          )
+        end
+        task :integration_step3 do
+          require "webhookdb/heroku"
+          Rake::Task["specs:integration"].invoke
+        end
+
         desc "Do a thing through Rake so it's easy to run under the debugger"
         task :debugtask do
           puts "Put the code that you want to run here"

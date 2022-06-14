@@ -47,6 +47,7 @@ module Webhookdb::Postgres
   MODELS = [
     "webhookdb/customer",
     "webhookdb/customer/reset_code",
+    "webhookdb/database_document",
     "webhookdb/idempotency",
     "webhookdb/logged_webhook",
     "webhookdb/message/body",

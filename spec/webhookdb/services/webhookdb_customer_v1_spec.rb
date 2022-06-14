@@ -1,0 +1,90 @@
+# frozen_string_literal: true
+
+require "support/shared_examples_for_services"
+
+RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
+  it_behaves_like "a service implementation", "webhookdb_customer_v1" do
+    let(:body) do
+      JSON.parse(<<~J)
+        {
+          "id": "cu_abc123",
+          "created_at": "2022-06-13T14:21:04.123Z",
+          "updated_at": null,
+          "email": "test@webhookdb.com"
+        }
+      J
+    end
+  end
+
+  it_behaves_like "a service implementation that prevents overwriting new data with old", "webhookdb_customer_v1" do
+    let(:old_body) do
+      JSON.parse(<<~J)
+        {
+          "id": "cu_abc123",
+          "created_at": "2022-06-13T14:21:04.123Z",
+          "updated_at": "2022-06-13T14:21:04.123Z",
+          "email": "test@webhookdb.com"
+        }
+      J
+    end
+    let(:new_body) do
+      JSON.parse(<<~J)
+        {
+          "id": "cu_abc123",
+          "created_at": "2022-06-13T14:21:04.123Z",
+          "updated_at": "2022-06-14T14:21:04.123Z",
+          "email": "test@webhookdb.com"
+        }
+      J
+    end
+  end
+
+  describe "webhook validation" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
+    let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+    it "returns a 401 for a missing header" do
+      sint.update(webhook_secret: "abc")
+      req = fake_request
+      status, _headers, body = svc.webhook_response(req).to_rack
+      expect(status).to eq(401)
+      expect(body).to include("header is missing")
+    end
+
+    it "returns a 401 for an invalid header" do
+      sint.update(webhook_secret: "abc")
+      req = fake_request
+      req.add_header("HTTP_WHDB_SECRET", "xyz")
+      status, _headers, body = svc.webhook_response(req).to_rack
+      expect(status).to eq(401)
+      expect(body).to include("not match configured")
+    end
+
+    it "returns a 202 with a valid header header" do
+      sint.update(webhook_secret: "abc")
+      req = fake_request
+      req.add_header("HTTP_WHDB_SECRET", "abc")
+      status, _headers, body = svc.webhook_response(req).to_rack
+      expect(status).to eq(202)
+    end
+  end
+
+  describe "state machine calculation" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
+    let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+    describe "calculate_create_state_machine" do
+      it "sets the secret and confirms the result" do
+        sm = sint.calculate_create_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          prompt: "",
+          complete: true,
+          output: match("WebhookDB is now listening for changes"),
+        )
+        expect(sint).to have_attributes(webhook_secret: be_present)
+        expect(sint.refresh).to have_attributes(webhook_secret: be_present)
+      end
+    end
+  end
+end

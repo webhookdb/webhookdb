@@ -411,4 +411,20 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id, {"incremental" => true}])
     end
   end
+
+  describe "WebhookdbResourceNotifyIntegrations" do
+    it "POSTs to webhookdb service integrations on change" do
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1")
+
+      req = stub_request(:post, "http://localhost:18001/v1/service_integrations/#{sint.opaque_id}").
+        with(body: hash_including("id", "created_at")).
+        to_return(status: 202, body: "ok")
+
+      expect do
+        Webhookdb::Fixtures.customer.create
+      end.to perform_async_job(Webhookdb::Jobs::WebhookdbResourceNotifyIntegrations)
+
+      expect(req).to have_been_made
+    end
+  end
 end

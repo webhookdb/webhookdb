@@ -100,6 +100,7 @@ class Webhookdb::Service < Grape::API
   end
 
   Grape::Middleware::Auth::Strategies.add(:admin, Webhookdb::Service::Auth::Admin)
+  Grape::Middleware::Auth::Strategies.add(:skip, Webhookdb::Service::Auth::Skip)
 
   # Add some context to Sentry on each request.
   before do

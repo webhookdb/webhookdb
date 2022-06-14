@@ -54,12 +54,14 @@ class Webhookdb::Service::Auth
 
   # Middleware to use for Grape admin auth.
   # See https://github.com/ruby-grape/grape#register-custom-middleware-for-authentication
+  # NOTE: Callers can use auth(nil) to disable auth for specific endpoints.
   class Admin
     def initialize(app, *_args)
       @app = app
     end
 
     def call(env)
+      return @app.call(env) if Skip.skip?(@app)
       warden = env["warden"]
       customer = warden.authenticate!(scope: :admin)
 
@@ -67,6 +69,22 @@ class Webhookdb::Service::Auth
         body = Webhookdb::Service.error_body(401, "Unauthorized")
         return 401, {"Content-Type" => "application/json"}, [body.to_json]
       end
+      return @app.call(env)
+    end
+  end
+
+  # Custom auth strategies can check if their child app is a :skip auth,
+  # and if so, skip auth. Allows unauthed endpoints under authed endpoints.
+  class Skip
+    def self.skip?(app)
+      return app.options[:type] == :skip
+    end
+
+    def initialize(app, *_args)
+      @app = app
+    end
+
+    def call(env)
       return @app.call(env)
     end
   end
