@@ -53,7 +53,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       stgt = sint.sync_targets.first
       expect(stgt).to have_attributes(
         connection_url: "postgres://a.b",
-        period_seconds: 42_900, # Midpoint between 10 minutes and 24 hours
+        period_seconds: 43_500, # Midpoint between 10 minutes and 24 hours
         table: "",
         schema: "",
       )
@@ -195,15 +195,31 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     end
 
     it "deletes the sync target" do
-      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete", confirm: " #{sync_tgt.table} \n"
 
       expect(last_response).to have_status(200)
       expect(Webhookdb::SyncTarget.all).to be_empty
     end
 
+    it "422s if the table name is not given as the confirmation value" do
+      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(code: "prompt_required_params"),
+      )
+
+      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete", confirm: sync_tgt.table + "x"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(code: "prompt_required_params"),
+      )
+    end
+
     it "403s if the sync target does not exist for that org" do
       st = Webhookdb::Fixtures.sync_target.create
-      post "/v1/organizations/#{org.key}/sync_targets/#{st.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/sync_targets/#{st.opaque_id}/delete", confirm: " #{sync_tgt.table} \n"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -214,7 +230,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     it "403s if user doesn't have permissions for organization assocatied with service integration" do
       membership.destroy
 
-      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/sync_targets/#{sync_tgt.opaque_id}/delete", confirm: " #{sync_tgt.table} \n"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(

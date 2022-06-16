@@ -12,16 +12,18 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
           params :sync_target_params do
             optional :period_seconds,
                      type: Integer,
-                     default: (valid_period.end - valid_period.begin) / 2,
+                     default: (valid_period.end + valid_period.begin) / 2,
                      values: valid_period,
                      prompt: "How many seconds between syncs (#{valid_period.begin} to #{valid_period.end}):"
             optional :schema,
                      type: String,
                      db_identifier: true,
+                     allow_blank: true,
                      desc: "Schema (or namespace) to write the table into. Default to no schema/namespace."
             optional :table,
                      type: String,
                      db_identifier: true,
+                     allow_blank: true,
                      desc: "Table to create and update. Default to match the table name of the service integration."
           end
         end
@@ -110,8 +112,19 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             present stgt, with: Webhookdb::API::SyncTargetEntity, message: "Sync target has been updated."
           end
 
+          params do
+            optional :confirm, type: String
+          end
           post :delete do
             stgt = lookup!
+            if stgt.table != params[:confirm]&.strip
+              Webhookdb::API::Helpers.prompt_for_required_param!(
+                request,
+                :confirm,
+                "Please confirm your deletion by entering the sync target's table name '#{stgt.table}'. ",
+              )
+            end
+
             stgt.logger.warn("destroying_sync_target", customer_id: current_customer.id)
             stgt.destroy
             status 200
