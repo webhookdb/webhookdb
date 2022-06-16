@@ -105,7 +105,6 @@ you are all set.
               end
       # TODO: Add rest of columns, even the ones whose info can't be retrieved from the API,
       # for the sake of fully matching the existing DB schema?
-      puts body.fetch("Date")
       inserting = {
         data: body.to_json,
         external_id: body.fetch("CaseId"),

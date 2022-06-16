@@ -388,11 +388,14 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   # noinspection RubyUnusedLocalVariable
   def stub_service_request
-    raise NotImplementedError, "return the stub_request for an enrichment"
+    raise NotImplementedError,
+          "return the stub_request for an enrichment if _fetch_enrichment requires HTTP request, else return nil"
   end
 
   def stub_service_request_error
-    raise NotImplementedError, "return an erroring stub_request for an enrichment"
+    raise NotImplementedError,
+          "return an erroring stub_request for an enrichment "\
+          "if _fetch_enrichment requires HTTP request, else return nil"
   end
 
   def assert_is_enriched(_row)
@@ -412,7 +415,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   it "can use enriched data when inserting" do
     req = stub_service_request
     svc.upsert_webhook(body:)
-    expect(req).to have_been_made
+    expect(req).to have_been_made unless req.nil?
     row = svc.readonly_dataset(&:first)
     assert_is_enriched(row)
   end
@@ -420,14 +423,16 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   it "calls the after insert hook with the enrichment" do
     req = stub_service_request
     svc.upsert_webhook(body:)
-    expect(req).to have_been_made
+    expect(req).to have_been_made unless req.nil?
     assert_enrichment_after_insert(svc.readonly_dataset(&:db))
   end
 
   it "errors if fetching enrichment errors" do
     req = stub_service_request_error
-    expect { svc.upsert_webhook(body:) }.to raise_error(Webhookdb::Http::Error)
-    expect(req).to have_been_made
+    unless req.nil?
+      expect { svc.upsert_webhook(body:) }.to raise_error(Webhookdb::Http::Error)
+      expect(req).to have_been_made
+    end
   end
 end
 

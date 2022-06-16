@@ -126,10 +126,13 @@ require "webhookdb/services/stripe_product_v1"
 require "webhookdb/services/stripe_refund_v1"
 require "webhookdb/services/stripe_subscription_v1"
 require "webhookdb/services/stripe_subscription_item_v1"
+require "webhookdb/services/theranest_appointment_v1"
 require "webhookdb/services/theranest_auth_v1"
 require "webhookdb/services/theranest_case_v1"
 require "webhookdb/services/theranest_client_v1"
 require "webhookdb/services/theranest_progress_note_v1"
+require "webhookdb/services/theranest_service_type_v1"
+require "webhookdb/services/theranest_staff_v1"
 require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
@@ -164,10 +167,13 @@ Webhookdb::Services.register(Webhookdb::Services::StripeProductV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionItemV1)
+Webhookdb::Services.register(Webhookdb::Services::TheranestAppointmentV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestAuthV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestCaseV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestClientV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteV1)
+Webhookdb::Services.register(Webhookdb::Services::TheranestServiceTypeV1)
+Webhookdb::Services.register(Webhookdb::Services::TheranestStaffV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
 Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
 Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)

@@ -73,7 +73,6 @@ dependents requires access to the API.
     if sint.last_backfilled_at.present? && sint.last_backfilled_at > 15.minutes.ago && sint.webhook_secret.present?
       return sint.webhook_secret
     end
-    puts "posting to auth"
     response = Webhookdb::Http.post(
       "#{sint.api_url}/home/signin",
       URI.encode_www_form({"Email" => sint.backfill_key, "Password" => sint.backfill_secret}),
@@ -81,7 +80,6 @@ dependents requires access to the API.
       follow_redirects: false,
       logger: self.logger,
     )
-    puts "posted to auth"
     sint.update(webhook_secret: response.headers["set-cookie"], last_backfilled_at: DateTime.now)
     return sint.webhook_secret
   end
