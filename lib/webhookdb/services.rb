@@ -130,6 +130,7 @@ require "webhookdb/services/theranest_appointment_v1"
 require "webhookdb/services/theranest_auth_v1"
 require "webhookdb/services/theranest_case_v1"
 require "webhookdb/services/theranest_client_v1"
+require "webhookdb/services/theranest_progress_note_document_v1"
 require "webhookdb/services/theranest_progress_note_v1"
 require "webhookdb/services/theranest_service_type_v1"
 require "webhookdb/services/theranest_staff_v1"
@@ -171,6 +172,7 @@ Webhookdb::Services.register(Webhookdb::Services::TheranestAppointmentV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestAuthV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestCaseV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestClientV1)
+Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteDocumentV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestServiceTypeV1)
 Webhookdb::Services.register(Webhookdb::Services::TheranestStaffV1)

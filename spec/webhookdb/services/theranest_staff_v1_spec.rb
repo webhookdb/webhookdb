@@ -28,16 +28,15 @@ RSpec.describe Webhookdb::Services::TheranestStaffV1, :db do
     let(:body) do
       JSON.parse(<<~J)
         {
-          "locationId": "1",
-          "allowMultiAppointmentsInSingleTimeSlot": true,
-          "isAvailableTeletherapy": false,
-          "dailyAvailabilities": [],
-          "staffPositionIds": "9",
-          "key": "615f70cf4f3e800f44d3d83d",
-          "label": "Bopsy Development",
-          "selected": true,
-          "color": "#1796b0",
-          "textColor": "#ffffff"
+          "FullName": "Diane Seuss",
+          "Position": "Therapist",
+          "Id": "abc123",
+          "Style": null,
+          "FontColor": "#ffffff",
+          "BackgroundColor": "#1796b0",
+          "CanNotBeDeactivated": false,
+          "IsPermissionsDeniedToChange": false,#{' '}
+          "IsActive": true
         }
       J
     end
@@ -52,36 +51,60 @@ RSpec.describe Webhookdb::Services::TheranestStaffV1, :db do
   describe "backfill process" do
     let(:page1_response) do
       <<~R
-        {
-          "ServiceTypes": [],
-          "Staff": [
+                {
+          "Members": [
             {
-              "locationId": "1",
-              "allowMultiAppointmentsInSingleTimeSlot": true,
-              "isAvailableTeletherapy": false,
-              "dailyAvailabilities": [],
-              "staffPositionIds": "9",
-              "key": "abc123",
-              "label": "Kilo Lima",
-              "selected": true,
-              "color": "#1796b0",
-              "textColor": "#ffffff"
+              "FullName": "Active Staff Lady",
+              "Position": "Therapist",
+              "Id": "abc123",
+              "Style": null,
+              "FontColor": "#ffffff",
+              "BackgroundColor": "#1796b0",
+              "CanNotBeDeactivated": true,
+              "IsPermissionsDeniedToChange": true
             },
             {
-              "locationId": "1",
-              "allowMultiAppointmentsInSingleTimeSlot": true,
-              "isAvailableTeletherapy": false,
-              "dailyAvailabilities": [],
-              "staffPositionIds": "9",
-              "key": "def456",
-              "label": "Mike November",
-              "selected": true,
-              "color": "#1796b0",
-              "textColor": "#ffffff"
+              "FullName": "Active Staff Lady II",
+              "Position": "Therapist",
+              "Id": "def456",
+              "Style": null,
+              "FontColor": "#ffffff",
+              "BackgroundColor": "#1796b0",
+              "CanNotBeDeactivated": false,
+              "IsPermissionsDeniedToChange": false
             }
           ],
-          "Locations": [],
-          "Clients": []
+          "IsActive": true,
+          "IsAbaModuleEnabled": false,
+          "ShowActiveTherapists": false,
+          "ActiveTherapistsCount": 6,
+          "ActiveTherapistsAllowed": 30,
+          "IsUsersLimitReached": false
+        }
+      R
+    end
+
+    let(:page2_response) do
+      <<~R
+                {
+          "Members": [
+            {
+              "FullName": "Inactive Staff Guy",
+              "Position": "Therapist",
+              "Id": "ghi789",
+              "Style": null,
+              "FontColor": "#ffffff",
+              "BackgroundColor": "#1796b0",
+              "CanNotBeDeactivated": true,
+              "IsPermissionsDeniedToChange": true
+            }
+          ],
+          "IsActive": false,
+          "IsAbaModuleEnabled": false,
+          "ShowActiveTherapists": false,
+          "ActiveTherapistsCount": 6,
+          "ActiveTherapistsAllowed": 30,
+          "IsUsersLimitReached": false
         }
       R
     end
@@ -104,13 +127,15 @@ RSpec.describe Webhookdb::Services::TheranestStaffV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://auth-api-url.com/api/appointments/GetFilterValues").
+        stub_request(:get, "https://auth-api-url.com/api/staff/getAll/active").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+        stub_request(:get, "https://auth-api-url.com/api/staff/getAll/inactive").
+            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://auth-api-url.com/api/appointments/GetFilterValues").
+      return stub_request(:get, "https://auth-api-url.com/api/staff/getAll/active").
           to_return(status: 503, body: "uhh")
     end
 
@@ -119,10 +144,11 @@ RSpec.describe Webhookdb::Services::TheranestStaffV1, :db do
       svc.backfill
       expect(responses).to all(have_been_made)
       rows = svc.readonly_dataset(&:all)
-      expect(rows).to have_length(2)
+      expect(rows).to have_length(3)
       expect(rows).to contain_exactly(
-        include(external_id: "abc123"),
-        include(external_id: "def456"),
+        include(external_id: "abc123", active_in_theranest: true),
+        include(external_id: "def456", active_in_theranest: true),
+        include(external_id: "ghi789", active_in_theranest: false),
       )
     end
 
@@ -135,7 +161,7 @@ RSpec.describe Webhookdb::Services::TheranestStaffV1, :db do
 
       svc.backfill
       expect(responses).to all(have_been_made)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(2) }
+      svc.readonly_dataset { |ds| expect(ds.all).to have_length(3) }
     end
 
     it "errors if fetching page errors" do

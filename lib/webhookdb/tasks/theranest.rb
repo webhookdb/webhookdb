@@ -14,12 +14,21 @@ module Webhookdb::Tasks
           Webhookdb.load_app
           # We must create this here, not via the CLI, because we cannot use the normal DB routine.
           org = Webhookdb::Organization.find_or_create(name: args[:org_name])
-          unless org.admin_connection_url.present?
-            org.admin_connection_url_raw = ENV["DATABASE_URL"]
-            org.readonly_connection_url_raw = ENV["DATABASE_URL"]
-            org.save_changes
-          end
+          org.prepare_database_connections
 
+          # Now create an admin user for the org
+          daybreak_admin = Webhookdb::Customer.find_or_create(
+            email: "webhookdb@lithic.tech",
+            password_digest: Webhookdb::Customer::PLACEHOLDER_PASSWORD_DIGEST,
+          )
+          Webhookdb::OrganizationMembership.find_or_create(
+            customer: daybreak_admin,
+            organization: org,
+            verified: true,
+            membership_role: Webhookdb::Role.admin_role,
+          )
+
+          # Then all of the Theranest integrations
           auth = self.find_or_create_service_integration(org, "theranest_auth_v1")
           auth.update(
             api_url: args[:theranest_api] || "https://theraneststaging.theranest.com",
@@ -29,11 +38,18 @@ module Webhookdb::Tasks
 
           client = self.find_or_create_service_integration(org, "theranest_client_v1", depends_on: auth)
           case_int = self.find_or_create_service_integration(org, "theranest_case_v1", depends_on: client)
-          _progress_note = self.find_or_create_service_integration(
+          progress_note = self.find_or_create_service_integration(
             org,
             "theranest_progress_note_v1",
             depends_on: case_int,
           )
+          _progress_note_document = self.find_or_create_service_integration(
+            org,
+            "theranest_progress_note_document_v1",
+            depends_on: progress_note,
+          )
+
+          _staff = self.find_or_create_service_integration(org, "theranest_staff_v1", depends_on: auth)
         end
       end
     end

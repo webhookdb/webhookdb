@@ -54,6 +54,7 @@ class Webhookdb::Services::TheranestStaffV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
+      Webhookdb::Services::Column.new(:active_in_theranest, BOOLEAN),
       Webhookdb::Services::Column.new(:full_name, TEXT),
       Webhookdb::Services::Column.new(:updated_at, TIMESTAMP),
     ]
@@ -67,10 +68,11 @@ class Webhookdb::Services::TheranestStaffV1 < Webhookdb::Services::Base
     return :updated_at
   end
 
-  def _prepare_for_insert(obj, **_kwargs)
+  def _prepare_for_insert(body, **_kwargs)
     return {
-      external_id: obj.fetch("key"),
-      full_name: obj.fetch("label"),
+      external_id: body.fetch("Id"),
+      active_in_theranest: body.fetch("IsActive"),
+      full_name: body.fetch("FullName"),
       updated_at: DateTime.now,
     }
   end
@@ -79,16 +81,26 @@ class Webhookdb::Services::TheranestStaffV1 < Webhookdb::Services::Base
     return "Looks like your auth cookie has expired."
   end
 
-  def _fetch_backfill_page(_pagination_token, **_kwargs)
+  def _fetch_backfill_page(pagination_token, **_kwargs)
     auth = self.find_auth_integration.service_instance
-    url = self.find_auth_integration.api_url + "/api/appointments/GetFilterValues"
+
+    # need to first backfill active staff, then backfill inactive staff
+    backfilling_active = pagination_token.nil?
+    pagination_token ||= "/api/staff/getAll/active"
+    url = self.find_auth_integration.api_url + pagination_token
 
     response = Webhookdb::Http.get(
       url,
       headers: auth.get_auth_headers,
       logger: self.logger,
     )
-    data = response.parsed_response["Staff"]
+    data = response.parsed_response["Members"]
+    # we enrich each of these staff dicts with "IsActive" info
+    data.map do |entry|
+      entry.merge!({"IsActive" => backfilling_active})
+    end
+
+    return data, "/api/staff/getAll/inactive" if backfilling_active
     return data, nil
   end
 
