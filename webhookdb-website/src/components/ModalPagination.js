@@ -4,24 +4,6 @@ import Documentation from "../pages/documentation";
 import { FaSearch } from "react-icons/fa";
 import React from "react";
 import TableOfContents from "./TableOfContents";
-import { graphql } from "gatsby";
-
-export const query = graphql`
-  query ($path: String!) {
-    markdownRemark(frontmatter: { path: { eq: $path } }) {
-      html
-      tableOfContents
-      frontmatter {
-        title
-        order
-        path
-      }
-    }
-    mdx(frontmatter: { path: { eq: $path } }) {
-      tableOfContents
-    }
-  }
-`;
 
 export default function ModalPagination({ mdx }) {
   const [show, setShow] = React.useState(false);
