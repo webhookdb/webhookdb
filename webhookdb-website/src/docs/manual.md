@@ -1,7 +1,7 @@
 ---
 title: Manual
 path: /docs/manual
-order: 3
+order: 30
 ---
 All commands for the WebhookDB CLI.
 

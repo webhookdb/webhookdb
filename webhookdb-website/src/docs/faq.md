@@ -1,7 +1,7 @@
 ---
 title: FAQ
 path: /docs/faq
-order: 3
+order: 30
 ---
 
 We know that any partners for your business, especially ones touching data, require a huge amount of trust.
@@ -21,6 +21,10 @@ Please reach out if you like what you see here, and think we can help you build 
 <a id="how-is-my-data-stored"></a>
 
 ### [How is my data stored?](#how-is-my-data-stored)
+
+Right off the bat, if you are not comfortable with someone else storing data from the APIs you use,
+we totally understand- please check out our [Guide to Self-Hosting WebhookDB](/docs/self-hosting)
+for more information.
 
 All of your data is stored encrypted in Postgres databases in Amazon Web Services.
 

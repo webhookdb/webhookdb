@@ -1,7 +1,7 @@
 ---
 title: Guide
 path: /docs/cli
-order: 2
+order: 20
 ---
 
 The WebhookDB api is a developer tool designed to help you interface with your WebhookDB databases. Follow the steps below to initiate and test your first integration. 
@@ -424,7 +424,9 @@ or create a sync target, the identiier must conform to these rules:
 That it, it must match the regular expression `/^[a-zA-Z][a-zA-Z\d_ ]*$/`.
 
 We understand this may be an issue in some rare cases, such as if WebhookDB needs to integrate
-with some existing system. If that's the case, please email webhookdb@lithic.tech and let us know.
+with some existing system. If that's the case,
+please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+and let us know.
 
 ## [And More!](#and-more)
 

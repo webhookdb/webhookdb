@@ -1,15 +1,15 @@
 ---
 title: Plaid
 path: /docs/plaid
-order: 4
+order: 50
 ---
 
 **NOTICE: Our Plaid integration is still in Beta.
 We'd love for you to try it out!
-Please email webhookdb@lithic.tech to be added to our
-Plaid beta.**
+Please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+to be added to our Plaid beta.**
 
-Some APIs we integrate with a extremely tricky,
+Some APIs we integrate with are extremely tricky,
 and we cannot create as seamless a user experience as we strive for.
 [Plaid](https://plaid.com) is one such API.
 
@@ -128,7 +128,7 @@ body = {
   access_token: access_token
 }
 # Notify WebhookDB about the new token.
-resp = Net::Http.post(
+resp = Net::HTTP.post(
   URI(whdb_plaid_webhook_url),
   body.to_json,
   {'Content-Type' => 'application/json', 'Whdb-Webhook-Secret' => whdb_plaid_webhook_secret}
@@ -182,7 +182,7 @@ MyApp::PlaidItem.each do |item|
       item_id: item.plaid_item_id,
       access_token: item.plaid_access_token
     }
-    resp = Net::Http.post(
+    resp = Net::HTTP.post(
       URI(whdb_plaid_webhook_url),
       body.to_json,
       {'Content-Type' => 'application/json', 'Whdb-Webhook-Secret' => whdb_plaid_webhook_secret}
@@ -218,7 +218,7 @@ body = {
   webhook_code: "HISTORICAL_UPDATE",
   item_id: item_id,
 }
-resp = Net::Http.post(
+resp = Net::HTTP.post(
   URI(whdb_plaid_webhook_url),
   body.to_json,
   {'Content-Type' => 'application/json', 'Whdb-Webhook-Secret' => whdb_plaid_webhook_secret}

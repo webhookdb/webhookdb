@@ -1,7 +1,7 @@
 ---
 title: WebhookDB Docs
 path: /docs/home
-order: 1
+order: 10
 ---
 
 WebhookDB provides you with a URL you set up as a webhook target in 3rd party services.
