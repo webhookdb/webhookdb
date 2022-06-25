@@ -14,3 +14,11 @@
   //font-display: swap; // Removes Font Flickering
   src: local("Bungee"),url("./fonts/bungee/Bungee-Regular.ttf") format('truetype');
 }
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  //font-display: swap; // Removes Font Flickering
+  src: local("Lora"),url("./fonts/lora/Lora-VariableFont_wght.ttf") format('truetype');
+}

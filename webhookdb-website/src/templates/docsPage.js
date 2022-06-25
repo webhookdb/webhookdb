@@ -5,6 +5,7 @@ import { Breadcrumb, Col, Container, Row } from "react-bootstrap";
 import Documentation from "../pages/documentation";
 import LayoutPage from "../components/LayoutPage";
 import ModalPagination from "../components/ModalPagination";
+import RLink from "../components/RLink";
 import React from "react";
 import Seo from "../components/Seo";
 import TableOfContents from "../components/TableOfContents";

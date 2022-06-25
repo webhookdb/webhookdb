@@ -1,5 +1,5 @@
 ---
-title: Plaid
+title: Plaid Setup
 path: /docs/plaid
 order: 50
 ---

@@ -7,7 +7,11 @@ import Webterm from "../components/Webterm";
 import useContactUs from "../components/useContactUs";
 
 export default function Terminal() {
-  const { render: renderContactUs, open: openContactUs } = useContactUs();
+  const {
+    render: renderContactUs,
+    open: openContactUs,
+    href: contactUsHref,
+  } = useContactUs();
   return (
     <LayoutPage center>
       <Seo title="WebhookDB Terminal" />
@@ -20,7 +24,7 @@ export default function Terminal() {
           </p>
           <p className="font-small mb-2">
             Check out <Link to="/docs/home">how to get started</Link>, or{" "}
-            <a href="#" onClick={openContactUs}>
+            <a href={contactUsHref} onClick={openContactUs}>
               contact us
             </a>{" "}
             or email <a href="mailto:webhookdb@lithic.tech">webhookdb@lithic.tech</a> if

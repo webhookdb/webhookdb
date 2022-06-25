@@ -1,7 +1,7 @@
 import FooterSection from "./FooterSection";
 import NavigationBar from "./NavigationBar";
 import React from "react";
-import smoothScroll from "smooth-scroll";
+import SmoothScroll from "smooth-scroll/dist/smooth-scroll"; // Default has polyfills we don't need
 import useScrollTop from "../hooks/useScrollTop";
 
 export default function LayoutPage({ children }) {
@@ -9,7 +9,7 @@ export default function LayoutPage({ children }) {
 
   React.useEffect(() => {
     try {
-      smoothScroll('a[href*="#"]');
+      new SmoothScroll('a[href*="#"]', { speed: 100 });
     } catch (e) {
       console.error("Error while smooth scrolling:", e);
     }
@@ -20,7 +20,7 @@ export default function LayoutPage({ children }) {
       <div>
         <NavigationBar />
       </div>
-      <main>{children}</main>
+      <main style={{ minHeight: "75vh" }}>{children}</main>
       <FooterSection />
     </>
   );

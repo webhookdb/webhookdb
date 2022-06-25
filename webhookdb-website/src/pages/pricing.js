@@ -3,6 +3,7 @@ import "../styles/custom.scss";
 import { Button, Col, Row } from "react-bootstrap";
 
 import CheckmarkSvg from "../components/CheckmarkSvg";
+import RLink from "../components/RLink";
 import React from "react";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
@@ -91,6 +92,7 @@ function PricingCard({ title, cta, sub, features, onCta }) {
           className="mt-5"
           href={onCta ? null : "/download"}
           onClick={onCta}
+          as={RLink}
         >
           {cta}
         </Button>

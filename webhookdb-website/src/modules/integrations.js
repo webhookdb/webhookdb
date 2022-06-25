@@ -9,7 +9,7 @@ import TransistorLogo from "../images/logo-transistor-podcasting.png";
 import TwilioLogo from "../images/logo-twilio.png";
 import UnitLogo from "../images/logo-unit.png";
 
-export const Integrations = [
+const integrations = [
   {
     name: "Stripe",
     logo: StripeLogo,
@@ -81,3 +81,5 @@ export const Integrations = [
     resources: ["Transactions", "Payments"],
   },
 ];
+
+export default integrations;

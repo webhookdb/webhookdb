@@ -1,5 +1,5 @@
 ---
-title: Integrating
+title: Integrating WebhookDB
 path: /docs/integrating
 order: 70
 ---

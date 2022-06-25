@@ -1,6 +1,7 @@
 import { Nav, NavItem, NavLink } from "reactstrap";
 import { graphql, useStaticQuery } from "gatsby";
 
+import RLink from "../components/RLink";
 import React from "react";
 
 export default function Documentation() {
@@ -29,7 +30,9 @@ export default function Documentation() {
           let doc = edge.node.frontmatter;
           return (
             <NavItem key={i}>
-              <NavLink href={doc.path}>{doc.title}</NavLink>
+              <NavLink href={doc.path} as={RLink}>
+                {doc.title}
+              </NavLink>
             </NavItem>
           );
         })}

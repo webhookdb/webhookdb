@@ -157,7 +157,7 @@ $ webhookdb integrations create stripe_charge_v1
 You are about to start reflecting Stripe Charge info into webhookdb.
 We've made an endpoint available for Stripe Charge webhooks:
 
-https://api.webhookdb.com/v1/service_integrations/svi_dd4qg2ax629ab022x0pq2fiiq
+https://api.webhookdb.com/v1/service_integrations/svi_dd4qg2ax629ab022
 
 From your Stripe Dashboard, go to Developers -> Webhooks -> Add Endpoint.
 Use the URL above, and choose all of the Charge events.
