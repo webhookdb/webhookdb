@@ -12,9 +12,11 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
           params :sync_target_params do
             optional :period_seconds,
                      type: Integer,
-                     default: (valid_period.end + valid_period.begin) / 2,
                      values: valid_period,
-                     prompt: "How many seconds between syncs (#{valid_period.begin} to #{valid_period.end}):"
+                     prompt: {
+                       message: "How many seconds between syncs (#{valid_period.begin} to #{valid_period.end}):",
+                       disable: ->(req) { req.path.end_with?("/update") },
+                     }
             optional :schema,
                      type: String,
                      db_identifier: true,
@@ -41,7 +43,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
         end
 
         params do
-          requires :connection_url,
+          optional :connection_url,
                    prompt: "Enter the connection string for the database that WebhookDB should sync data to:"
           requires :service_integration_opaque_id, type: String, allow_blank: false
           use :sync_target_params
@@ -86,8 +88,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             end
           end
           params do
-            requires :user, type: String, prompt: "Username for the connection:"
-            requires :password, type: String, prompt: "Password for the connection:"
+            optional :user, type: String, prompt: "Username for the connection:"
+            optional :password, type: String, prompt: "Password for the connection:"
           end
           post :update_credentials do
             stgt = lookup!

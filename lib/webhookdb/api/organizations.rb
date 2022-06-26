@@ -62,7 +62,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Generates an invitation code for a user, adds pending membership in the organization."
       params do
-        optional :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+        optional :email, type: String, coerce_with: NormalizedEmail,
                          prompt: "Enter the email to send the invitation to:"
         optional :role_name,
                  type: String,
@@ -102,7 +102,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allows organization admin to remove customer from an organization"
       params do
-        requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+        optional :email, type: String, coerce_with: NormalizedEmail,
                          prompt: "Enter the email of the member you are removing permissions from:"
         optional :guard_confirm
       end
@@ -147,9 +147,9 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allows organization admin to change customer's role in an organization"
       params do
-        requires :emails, type: Array[String], coerce_with: CommaSepArray,
+        optional :emails, type: Array[String], coerce_with: CommaSepArray,
                           prompt: "Enter the emails to modify the roles of as a comma-separated list:"
-        requires :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
+        optional :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
                              prompt: "Enter the name of the role to assign " \
                                      "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')}): "
         optional :guard_confirm
@@ -204,7 +204,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     desc "Creates a new organization and adds current customer as a member."
     params do
-      requires :name, type: String, allow_blank: false, prompt: "Enter the name of the organization:"
+      optional :name, type: String, prompt: "Enter the name of the organization:"
     end
     post :create do
       customer = current_customer
@@ -224,7 +224,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     desc "Allows user to verify membership in an organization with an invitation code."
     params do
-      requires :invitation_code, type: String, allow_blank: false, prompt: "Enter the invitation code:"
+      optional :invitation_code, type: String, prompt: "Enter the invitation code:"
     end
     post :join do
       customer = current_customer

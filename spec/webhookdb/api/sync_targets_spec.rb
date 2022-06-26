@@ -47,16 +47,27 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     it "creates the sync target for service integration" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_opaque_id: sint.opaque_id,
-           connection_url: "postgres://a.b"
+           connection_url: "postgres://a.b",
+           period_seconds: 600
 
       expect(last_response).to have_status(200)
       stgt = sint.sync_targets.first
       expect(stgt).to have_attributes(
         connection_url: "postgres://a.b",
-        period_seconds: 43_500, # Midpoint between 10 minutes and 24 hours
+        period_seconds: 600,
         table: "",
         schema: "",
       )
+    end
+
+    it "requires period_seconds" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_opaque_id: sint.opaque_id,
+           connection_url: "postgres://a.b"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.
+        that_includes(error: include(state_machine_step: include(post_params_value_key: "period_seconds")))
     end
 
     it "can specify all fields" do
@@ -78,7 +89,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
     it "403s if service integration with given identifier doesn't exist" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: "fakesint", connection_url: "https://example.com"
+           service_integration_opaque_id: "fakesint", connection_url: "https://example.com", period_seconds: 600
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -90,7 +101,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       membership.destroy
 
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: sint.opaque_id, connection_url: "https://example.com"
+           service_integration_opaque_id: sint.opaque_id, connection_url: "https://example.com", period_seconds: 600
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(

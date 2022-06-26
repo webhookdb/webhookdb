@@ -53,6 +53,12 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
     return Webhookdb.displaysafe_url(self.destination_admin_connection_url)
   end
 
+  def status
+    return "finished" if self.finished_at.present?
+    return "in_progress" if self.started_at.present?
+    return "enqueued"
+  end
+
   def finished?
     return !!self.finished_at
   end
@@ -110,8 +116,8 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   def finish(now: Time.now)
     self.update(
       finished_at: now,
-      source_admin_connection_url: "",
-      destination_admin_connection_url: "",
+      source_admin_connection_url: displaysafe_source_url,
+      destination_admin_connection_url: displaysafe_destination_url,
     )
     return self
   end

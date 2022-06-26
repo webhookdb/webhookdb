@@ -60,9 +60,61 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         present({tables:, message:})
       end
 
+      desc "Enqueues a database migration."
+      params do
+        optional :admin_url, type: String, prompt: {
+          message: "ADMIN Postgres connection URL, in the form 'postgres://user:password@host:port/dbname',\n" \
+                   "that is capable of administrative operations on your database,\n" \
+                   "such as creating and dropping schemas and tables.\n" \
+                   "Input ADMIN URL, then press Enter:",
+          secret: true,
+          disable: ->(_) { !Webhookdb::Organization::DbBuilder.allow_public_migrations },
+        }
+
+        optional :readonly_url, type: String, prompt: {
+          message: "READONLY Postgres connection URL.\n" \
+                   "This string is displayed when you ask for your organization's connection information.\n" \
+                   "If you are okay with this being your ADMIN URL, leave it blank.\n" \
+                   "Input READONLY URL, or leave blank, then press Enter:",
+          secret: true,
+          optional: true,
+          disable: ->(_) { !Webhookdb::Organization::DbBuilder.allow_public_migrations },
+        }
+      end
+      post :migrate_database do
+        unless Webhookdb::Organization::DbBuilder.allow_public_migrations
+          merror!(403,
+                  "Public database migrations are not enabled",)
+        end
+        ensure_admin!
+        org = lookup_org!
+        # if the readonly url is blank, default to the admin url
+        readonly_url = params[:readonly_url].blank? ? params[:admin_url] : params[:readonly_url]
+        dbm = Webhookdb::Organization::DatabaseMigration.enqueue(
+          admin_connection_url_raw: params[:admin_url],
+          readonly_connection_url_raw: readonly_url,
+          public_host: "",
+          started_by: current_customer,
+          organization: org,
+        )
+        message = "Your database migration has been enqueued. You'll recieve an email when it is complete."
+        status 200
+        present dbm, with: Webhookdb::API::DatabaseMigrationEntity, message:
+      end
+
+      desc "Gets list of database migrations for org."
+      get :migrations do
+        org = lookup_org!
+        dbms = org.database_migrations
+        message = ""
+        message = "Organization #{org.name} has no database migrations" if dbms.empty?
+        status 200
+        present_collection dbms, with: Webhookdb::API::DatabaseMigrationEntity, message:
+      end
+
       desc "Execute an arbitrary query against an org's connection string"
       params do
-        requires :query, type: String, allow_blank: false, prompt: "Input your SQL query, and then press Enter:"
+        optional :query, type: String, prompt: "Input your SQL query, and then press Enter:"
       end
       post :sql do
         _customer = current_customer
@@ -91,12 +143,11 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       end
 
       params do
-        requires :guard_confirm,
-                 prompt: [
-                   "WARNING: This will invalid your existing database credentials. " \
+        optional :guard_confirm, prompt: {
+          message: "WARNING: This will invalidate your existing database credentials. " \
                    "Enter to proceed, or Ctrl+C to quit:",
-                   ->(v) { !v.nil? },
-                 ]
+          confirm: true,
+        }
       end
       post :roll_credentials do
         ensure_admin!

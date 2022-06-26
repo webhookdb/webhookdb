@@ -20,8 +20,8 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
         end
 
         params do
-          requires :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
-          requires :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
+          optional :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
+          optional :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
           optional :service_integration_opaque_id,
                    type: String,
                    desc: "If provided, attach the webhook subscription to this integration rather than the org."

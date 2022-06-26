@@ -150,4 +150,24 @@ module Webhookdb::API
       ]
     end
   end
+
+  class DatabaseMigrationEntity < BaseEntity
+    expose :created_at
+    expose :started_at
+    expose :finished_at
+    expose :displaysafe_source_url, as: :source_url
+    expose :displaysafe_destination_url, as: :destination_url
+    expose :status
+
+    def self.display_headers
+      return [
+        [:created_at, "Created at"],
+        [:started_at, "Started at"],
+        [:finished_at, "Finished at"],
+        [:source_url, "Source"],
+        [:destination_url, "Destination"],
+        [:status, "Status"],
+      ]
+    end
+  end
 end

@@ -6,31 +6,75 @@ require "webhookdb/api"
 
 class Webhookdb::API::TestV1Api < Webhookdb::API::V1
   params do
-    optional :x, prompt: "Enter param x"
-    optional :y, prompt: "Enter param y"
-    optional :z, type: Integer, prompt: "Enter param z"
+    optional :str, prompt: "Enter string"
+    optional :int, type: Integer, prompt: "Enter int"
+    optional :bool, type: Boolean, prompt: "Enter bool"
   end
-  post "prompt_missing_params" do
-    status 200
+  post :types do
+    present(params.to_h)
+  end
+
+  params do
+    optional :param, prompt: "X"
+  end
+  post :string do
     present({})
   end
 
   params do
-    requires :x, prompt: "Enter param x"
+    optional :param, prompt: {message: "X"}
   end
-  post "prompt_missing_required" do
-    status 200
+  post :hash do
     present({})
   end
 
   params do
-    requires :x, prompt: "Enter param x"
-    requires :y, prompt: ["Enter param y", :ascii_only?]
-    requires :z, prompt: ["Enter param z", ->(x) { Integer(x.blank? ? 0 : x).positive? }]
+    optional :param, type: Boolean, prompt: {message: "X"}
   end
-  post "prompt_if" do
-    status 200
+  post :boolparam do
+    present({param: params[:param]})
+  end
+
+  params do
+    optional :param, type: Integer, prompt: {message: "X"}
+  end
+  post :intparam do
+    present({param: params[:param]})
+  end
+
+  params do
+    optional :param, prompt: {message: "X", secret: true}
+  end
+  post :secret do
     present({})
+  end
+
+  params do
+    optional :param, prompt: {message: "X:", confirm: true}
+  end
+  post :confirm do
+    present({})
+  end
+
+  params do
+    optional :param, prompt: {message: "X:", optional: true}
+  end
+  post :optional do
+    present({})
+  end
+
+  params do
+    optional :param, prompt: {message: "X:", disable: ->(request) { request.env["HTTP_NOPROMPT"] == "yes" }}
+  end
+  post :disabled do
+    present(params.to_h)
+  end
+
+  params do
+    optional :param, prompt: "X:", default: "hi"
+  end
+  post :default do
+    present(params.to_h)
   end
 end
 
@@ -39,16 +83,21 @@ RSpec.describe Webhookdb::API, :db do
 
   let(:app) { Webhookdb::API::TestV1Api.build_app }
 
-  describe "prompt validator to 426 for missing params" do
+  describe "prompt validator to 422 for missing params" do
     it "noops if no param is missing" do
-      post "/v1/prompt_missing_params", x: 1, y: 2, z: 3
+      post "/v1/string", param: "x"
 
-      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(201)
+      expect(last_response.headers).to_not include("Whdb-Prompt")
     end
 
     it "errors with the correct state machine if any param is missing" do
-      post "/v1/prompt_missing_params", y: 2
+      post "/v1/types", int: 2
       expect(last_response).to have_status(422)
+      expect(last_response_json_body[:error][:state_machine_step]).to include(
+        prompt: "Enter string", prompt_is_secret: false,
+      )
+      expect(last_response.headers).to include("Whdb-Prompt" => "str")
 
       step = last_response_json_body[:error][:state_machine_step]
       new_body = step[:post_params].merge(step[:post_params_value_key] => "1")
@@ -56,51 +105,182 @@ RSpec.describe Webhookdb::API, :db do
       expect(last_response).to have_status(422)
 
       step = last_response_json_body[:error][:state_machine_step]
-      new_body = step[:post_params].merge(step[:post_params_value_key] => 3)
+      new_body = step[:post_params].merge(step[:post_params_value_key] => true)
       post step[:post_to_url], new_body
-      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq({bool: true, int: 2, str: "1"})
     end
 
-    it "can be used with required" do
-      post "/v1/prompt_missing_required"
+    it "can handle true/false booleans" do
+      post "/v1/boolparam", param: 10
+      expect(last_response).to have_status(400)
+
+      post "/v1/boolparam", param: 1
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq(param: true)
+
+      post "/v1/boolparam", param: 0
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq(param: false)
+
+      post "/v1/boolparam"
       expect(last_response).to have_status(422)
+
+      post "/v1/boolparam", param: nil
+      expect(last_response).to have_status(422)
+
+      post "/v1/boolparam", param: true
+      expect(last_response).to have_status(201)
+
+      post "/v1/boolparam", param: false
+      expect(last_response).to have_status(201)
     end
 
-    it "can use conditional promps" do
-      post "/v1/prompt_if"
-      expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "x")
+    it "can handle blankable integers" do
+      post "/v1/intparam", param: 1
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq(param: 1)
 
-      post "/v1/prompt_if", {x: ""}
-      expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "x")
+      post "/v1/intparam", param: 0
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq(param: 0)
 
-      post "/v1/prompt_if", {x: "1"}
+      post "/v1/intparam"
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
-      post "/v1/prompt_if", {x: "1", y: "\u0400"}
+      post "/v1/intparam", param: nil
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
-      post "/v1/prompt_if", {x: "1", y: "\u0400"}
+      post "/v1/intparam", param: "spam"
+      expect(last_response).to have_status(400)
+    end
+
+    it "can be specified with a string" do
+      post "/v1/string"
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "y")
 
-      post "/v1/prompt_if", {x: "1", y: "1"}
+      post "/v1/string", param: nil
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
-      post "/v1/prompt_if", {x: "1", y: "1", z: ""}
+      post "/v1/string", param: ""
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
-      post "/v1/prompt_if", {x: "1", y: "1", z: "0"}
+      post "/v1/string", param: "0"
+      expect(last_response).to have_status(201)
+    end
+
+    it "can be specified with a hash" do
+      post "/v1/hash"
       expect(last_response).to have_status(422)
-      expect(last_response_json_body[:error][:state_machine_step]).to include(post_params_value_key: "z")
 
-      post "/v1/prompt_if", {x: "1", y: "1", z: "1"}
-      expect(last_response).to have_status(200)
+      post "/v1/hash", param: "0"
+      expect(last_response).to have_status(201)
+    end
+
+    it "can prompt for a secret" do
+      post "/v1/secret"
+      expect(last_response).to have_status(422)
+      expect(last_response_json_body[:error][:state_machine_step]).to include(prompt_is_secret: true)
+
+      post "/v1/secret", param: nil
+      expect(last_response).to have_status(422)
+
+      post "/v1/secret", param: ""
+      expect(last_response).to have_status(422)
+
+      post "/v1/secret", param: "1"
+      expect(last_response).to have_status(201)
+    end
+
+    it "can prompt for confirmation" do
+      post "/v1/confirm"
+      expect(last_response).to have_status(422)
+
+      post "/v1/confirm", param: nil
+      expect(last_response).to have_status(422)
+
+      post "/v1/confirm", param: ""
+      expect(last_response).to have_status(201)
+
+      post "/v1/confirm", param: "1"
+      expect(last_response).to have_status(201)
+    end
+
+    it "can prompt as optional" do
+      post "/v1/optional"
+      expect(last_response).to have_status(422)
+
+      post "/v1/optional", param: nil
+      expect(last_response).to have_status(201)
+
+      post "/v1/optional", param: ""
+      expect(last_response).to have_status(201)
+
+      post "/v1/optional", param: "1"
+      expect(last_response).to have_status(201)
+    end
+
+    it "can be disabled" do
+      post "/v1/disabled"
+      expect(last_response).to have_status(422)
+
+      header "NOPROMPT", "no"
+      post "/v1/disabled"
+      expect(last_response).to have_status(422)
+
+      post "/v1/disabled", param: nil
+      expect(last_response).to have_status(422)
+
+      header "NOPROMPT", "yes"
+      post "/v1/disabled"
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq({})
+
+      post "/v1/disabled", param: nil
+      expect(last_response).to have_status(201)
+      expect(last_response_json_body).to eq(param: nil)
+    end
+
+    it "ignores a default" do
+      post "/v1/default"
+
+      expect(last_response).to have_status(422)
+    end
+  end
+
+  describe "assertions" do
+    describe "if using requires" do
+      let(:app) do
+        Class.new(Webhookdb::API::V1) do
+          params do
+            requires :param, prompt: "X"
+          end
+          post(:path) { body "" }
+        end.build_app
+      end
+
+      it "errors" do
+        post "/v1/path"
+        expect(last_response).to have_status(500)
+        expect(last_response.body).to include("must use optional for param")
+      end
+    end
+
+    describe "if using allow_blank" do
+      let(:app) do
+        Class.new(Webhookdb::API::V1) do
+          params do
+            optional :param, allow_blank: false, prompt: "X"
+          end
+          post(:path) { body "" }
+        end.build_app
+      end
+
+      it "errors" do
+        post "/v1/path"
+        expect(last_response).to have_status(500)
+        expect(last_response.body).to include("allow_blank must not be set")
+      end
     end
   end
 end

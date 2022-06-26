@@ -48,6 +48,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
                 org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
                 r.associated_dataset.where(Sequel[service_integration_id: org_sints.select(:id)])
               end)
+  one_to_many :database_migrations, class: "Webhookdb::Organization::DatabaseMigration", order: Sequel.desc(:created_at)
 
   def before_validation
     self.key ||= Webhookdb.to_slug(self.name)

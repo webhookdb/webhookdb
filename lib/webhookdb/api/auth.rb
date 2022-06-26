@@ -28,7 +28,7 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     params do
-      requires :email, type: String, allow_blank: false, coerce_with: NormalizedEmail,
+      optional :email, type: String, coerce_with: NormalizedEmail,
                        prompt: "Welcome to WebhookDB!\nPlease enter your email:"
       optional :token, type: String
     end

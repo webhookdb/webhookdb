@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/api/db"
+require "webhookdb/jobs/organization_database_migration_run"
 
 RSpec.describe Webhookdb::API::Db, :db do
   include Rack::Test::Methods
@@ -9,7 +10,8 @@ RSpec.describe Webhookdb::API::Db, :db do
 
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:customer) { Webhookdb::Fixtures.customer.verified_in_org(org).create }
-  let(:admin_role) { Webhookdb::Role.create(name: "admin") }
+  let(:admin_role) { Webhookdb::Role.admin_role }
+  let(:non_admin_role) { Webhookdb::Role.non_admin_role }
 
   before(:each) do
     login_as(customer)
@@ -51,6 +53,136 @@ RSpec.describe Webhookdb::API::Db, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(tables: contain_exactly("fake_v1"))
+    end
+  end
+
+  describe "POST /v1/db/:organization_key/migrate_database" do
+    before(:each) do
+      Webhookdb::Organization::DbBuilder.allow_public_migrations = true
+      customer.all_memberships_dataset.first.update(membership_role: admin_role)
+      org.update(
+        admin_connection_url_raw: "postgres://x:y@orig/db",
+        readonly_connection_url_raw: "postgres://x:y@orig/db",
+      )
+    end
+
+    it "prompts for admin url" do
+      post "/v1/db/#{org.key}/migrate_database"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.
+        that_includes(
+          error: include(
+            code: "prompt_required_params",
+            state_machine_step: include(
+              prompt_is_secret: true,
+              prompt: match("administrative operations on your database"),
+            ),
+          ),
+        )
+    end
+
+    it "prompts for readonly url" do
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "postgres://admin:l33t@somehost:5555/mydb"
+
+      expect(last_response).to have_status(422)
+      expect(last_response).to have_json_body.
+        that_includes(
+          error: include(
+            code: "prompt_required_params",
+            state_machine_step: include(
+              prompt_is_secret: true,
+              prompt: match("READONLY Postgres connection URL"),
+            ),
+          ),
+        )
+    end
+
+    it "create a database migration, updates org, and returns message" do
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "postgres://admin:l33t@somehost:5555/mydb",
+                                                 readonly_url: "postgres://readonly:l33t@somehost:5555/mydb"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(message: include("has been enqueued"))
+      expect(org.refresh).to have_attributes(
+        admin_connection_url_raw: "postgres://admin:l33t@somehost:5555/mydb",
+        readonly_connection_url_raw: "postgres://readonly:l33t@somehost:5555/mydb",
+      )
+      expect(org.database_migrations).to contain_exactly(
+        have_attributes(
+          source_admin_connection_url: "postgres://x:y@orig/db",
+          destination_admin_connection_url: "postgres://admin:l33t@somehost:5555/mydb",
+        ),
+      )
+    end
+
+    it "uses admin url for readonly url if readonly url is not provided" do
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "postgres://admin:l33t@somehost:5555/mydb",
+                                                 readonly_url: ""
+
+      expect(last_response).to have_status(200)
+      expect(org.refresh).to have_attributes(
+        admin_connection_url_raw: "postgres://admin:l33t@somehost:5555/mydb",
+        readonly_connection_url_raw: "postgres://admin:l33t@somehost:5555/mydb",
+      )
+    end
+
+    it "errors if not org admin" do
+      customer.all_memberships_dataset.first.update(membership_role: non_admin_role)
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "admin_url", readonly_url: "url"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: include("You don't have admin privileges with #{org.name}")),
+      )
+    end
+
+    it "409s if a migration is in progress" do
+      _ongoing_dbm = Webhookdb::Fixtures.organization_database_migration.with_organization(org).with_urls.started.create
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "admin_url", readonly_url: "url"
+
+      expect(last_response).to have_status(409)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: include("Organization #{org.name} has an ongoing database host migration")),
+      )
+    end
+
+    it "errors if public migrations are not enabled" do
+      Webhookdb::Organization::DbBuilder.allow_public_migrations = false
+
+      post "/v1/db/#{org.key}/migrate_database"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: include("Public database migrations are not enabled")),
+      )
+    end
+  end
+
+  describe "GET /v1/db/:organization_key/migrations" do
+    it "returns the orgs database migrations" do
+      _finished = Webhookdb::Fixtures.organization_database_migration.with_organization(org).with_urls.finished.create
+      _started = Webhookdb::Fixtures.organization_database_migration.with_organization(org).with_urls.started.create
+
+      get "/v1/db/#{org.key}/migrations"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        items: contain_exactly(
+          match(include(status: "in_progress")),
+          match(include(status: "finished")),
+        ),
+      )
+    end
+
+    it "returns a message if there are no database migrations" do
+      get "/v1/db/#{org.key}/migrations"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        items: [],
+        message: include("has no database migrations"),
+      )
     end
   end
 

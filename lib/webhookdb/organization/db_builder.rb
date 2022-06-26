@@ -47,6 +47,9 @@ class Webhookdb::Organization::DbBuilder
     # Allows you to use dynamically configured servers.
     # Space-separate multiple env vars.
     setting :server_env_vars, ["DATABASE_URL"], convert: ->(s) { s.split.map(&:strip) }
+    # Determines whether we allow orgs to handle their own migrations.
+    # Used for self-hosted databases.
+    setting :allow_public_migrations, false
     # Create a CNAME record when building the database connection.
     setting :create_cname_for_connection_urls, false
     # The Cloudflare zone ID that DNS records will be created in.

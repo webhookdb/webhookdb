@@ -171,6 +171,10 @@ class Webhookdb::Service < Grape::API
     merror!(400, e.message, code: "invalid_input")
   end
 
+  rescue_from Webhookdb::Organization::DatabaseMigration::MigrationInProgress do |e|
+    merror!(409, e.message, code: "migration_in_progress")
+  end
+
   rescue_from Webhookdb::DatabaseLocked do |e|
     merror!(409, e.message, code: "database_locked")
   end

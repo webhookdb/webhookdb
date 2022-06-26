@@ -198,9 +198,21 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
       dbm.finish
       expect(dbm).to have_attributes(
         finished_at: be_within(5).of(Time.now),
-        source_admin_connection_url: "",
-        destination_admin_connection_url: "",
+        source_admin_connection_url: include("@oldhost/db"),
+        destination_admin_connection_url: include("@oldhost/db"),
       )
+    end
+  end
+
+  describe "status" do
+    it "returns expected information" do
+      enqueued = Webhookdb::Fixtures.organization_database_migration.create
+      in_progress = Webhookdb::Fixtures.organization_database_migration.started.create
+      finished = Webhookdb::Fixtures.organization_database_migration.finished.create
+
+      expect(enqueued.status).to eq("enqueued")
+      expect(in_progress.status).to eq("in_progress")
+      expect(finished.status).to eq("finished")
     end
   end
 

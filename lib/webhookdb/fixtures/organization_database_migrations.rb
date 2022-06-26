@@ -25,6 +25,11 @@ module Webhookdb::Fixtures::OrganizationDatabaseMigrations
     self.finished_at = t
   end
 
+  decorator :with_organization do |org={}|
+    org = Webhookdb::Fixtures.organization.create(org) unless org.is_a?(Webhookdb::Organization)
+    self.organization = org
+  end
+
   decorator :with_urls do
     self.source_admin_connection_url ||= "postgres://oldadmin:pass@oldhost.db:5432/old_db"
     self.destination_admin_connection_url ||= "postgres://newadmin:pass@newhost.db:5432/new_db"

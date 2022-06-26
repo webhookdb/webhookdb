@@ -79,6 +79,9 @@ since it's extra work we should not have to redo each upsert
 
 ## Migrating Organization Databases
 
+In order to enable database migrations, you have to have the environment variable
+`DB_BUILDER_ALLOW_PUBLIC_MIGRATIONS` set to true. (It defaults to false.) 
+
 To migrate databases, we need to use a zero-downtime approach,
 because 1) we cannot realistically stop receiving events and have them pile up,
 and 2) figuring out when it is 'safe' to cut over is very complex
