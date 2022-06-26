@@ -24,4 +24,9 @@ module Webhookdb::Fixtures::Organizations
     c = Webhookdb::Fixtures.customer.create(c) unless c.is_a?(Webhookdb::Customer)
     Webhookdb::Fixtures.organization_membership.invite.create(customer: c, organization: self)
   end
+
+  decorator :with_urls do
+    self.admin_connection_url_raw ||= Faker::Webhookdb.pg_connection
+    self.readonly_connection_url_raw ||= Faker::Webhookdb.pg_connection
+  end
 end

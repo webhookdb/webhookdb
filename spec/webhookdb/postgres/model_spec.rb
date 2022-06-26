@@ -270,6 +270,13 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
       state.price_per_unit_cents = 240
       expect(state.inspect).to include("price_per_unit: $2.40")
     end
+
+    it "decrypts strings and uris" do
+      st = Webhookdb::Fixtures.sync_target.postgres.create
+      expect(st.inspect).to include('connection_url: "postgres://*:*@localhost')
+      st.connection_url = "not a url"
+      expect(st.inspect).to include('connection_url: "not...url')
+    end
   end
 
   describe "resource_lock!" do

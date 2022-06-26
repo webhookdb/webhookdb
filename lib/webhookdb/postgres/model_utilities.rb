@@ -185,6 +185,11 @@ module Webhookdb::Postgres::ModelUtilities
       values = self.values.reject do |k, v|
         v.blank? || k.to_s.end_with?("_currency")
       end
+      begin
+        encrypted = self.class.send(:column_encryption_metadata).map { |(col, _)| col.to_s }.to_set
+      rescue NoMethodError
+        encrypted = Set.new
+      end
       values = values.map do |(k, v)|
         k = k.to_s
         v = if v.is_a?(Time)
@@ -200,9 +205,21 @@ module Webhookdb::Postgres::ModelUtilities
           accessor = k.match(/^([a-z_]+)_cents/)[1]
           k = accessor
           self.send(accessor).format
+        elsif encrypted.include?(k)
+          # Render encrypted fields as xyz...abc, or if a URL, hide the user/password.
+          unenc = self.send(k)
+          begin
+            uri = URI(unenc)
+          rescue URI::InvalidURIError
+            "\"#{unenc[..2]}...#{unenc[-3..]}\""
+          else
+            uri.user = "*"
+            uri.password = "*"
+            uri.to_s.inspect
+          end
         else
           v.inspect
-            end
+        end
         "#{k}: #{v}"
       end
       return "#<%p %s>" % [self.class, values.join(", ")]
