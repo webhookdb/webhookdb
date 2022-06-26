@@ -22,16 +22,18 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
         params do
           optional :url, prompt: "Enter the URL that WebhookDB should POST webhooks to:"
           optional :webhook_secret, prompt: "Enter a random secret used to sign and verify webhooks to the given url:"
-          optional :service_integration_opaque_id,
+          optional :service_integration_identifier,
                    type: String,
                    desc: "If provided, attach the webhook subscription to this integration rather than the org."
+          optional :service_integration_opaque_id,
+                   type: String,
+                   desc: "This is a deprecated parameter. In the future, please use `service_integration_identifier`."
         end
         post :create do
           org = lookup_org!
           sint = nil
-          if (sintid = params[:service_integration_opaque_id]).present?
-            sint = lookup_service_integration!(org, sintid)
-          end
+          identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
+          sint = lookup_service_integration!(org, identifier) if identifier.present?
           webhook_sub = Webhookdb::WebhookSubscription.create(
             webhook_secret: params[:webhook_secret],
             deliver_to_url: params[:url],

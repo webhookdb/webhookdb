@@ -140,7 +140,7 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   end
 
   def self.status_for_org(org)
-    service_integrations = org.service_integrations.reject(&:soft_deleted?)
+    service_integrations = org.service_integrations
     used = service_integrations.count
     data = {
       organization_name: org.name,

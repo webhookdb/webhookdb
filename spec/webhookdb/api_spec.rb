@@ -76,6 +76,17 @@ class Webhookdb::API::TestV1Api < Webhookdb::API::V1
   post :default do
     present(params.to_h)
   end
+
+  params do
+    requires :org_id
+    requires :sint_identifier
+  end
+  post "sint_lookup" do
+    org = Webhookdb::Organization[id: params[:org_id]]
+    sint = lookup_service_integration!(org, params[:sint_identifier])
+    status 200
+    present sint, with: Webhookdb::API::ServiceIntegrationEntity
+  end
 end
 
 RSpec.describe Webhookdb::API, :db do
@@ -281,6 +292,53 @@ RSpec.describe Webhookdb::API, :db do
         expect(last_response).to have_status(500)
         expect(last_response.body).to include("allow_blank must not be set")
       end
+    end
+  end
+
+  describe "lookup_service_integration!" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org) }
+
+    it "can return a service integration based on opaque_id" do
+      post "/v1/sint_lookup", sint_identifier: sint.opaque_id, org_id: org.id
+
+      expect(last_response).to have_status(200)
+      lookup_opaque_id = last_response_json_body[:opaque_id]
+      expect(lookup_opaque_id).to eq(sint.opaque_id)
+    end
+
+    it "can return a service integration based on table_name" do
+      post "/v1/sint_lookup", sint_identifier: sint.table_name, org_id: org.id
+
+      expect(last_response).to have_status(200)
+      lookup_opaque_id = last_response_json_body[:opaque_id]
+      expect(lookup_opaque_id).to eq(sint.opaque_id)
+    end
+
+    it "can return a service integration based on service_name" do
+      post "/v1/sint_lookup", sint_identifier: sint.service_name, org_id: org.id
+
+      expect(last_response).to have_status(200)
+      lookup_opaque_id = last_response_json_body[:opaque_id]
+      expect(lookup_opaque_id).to eq(sint.opaque_id)
+    end
+
+    it "403s if there are multiple integrations with a given service name" do
+      Webhookdb::Fixtures.service_integration.create(organization: org)
+
+      post "/v1/sint_lookup", sint_identifier: sint.service_name, org_id: org.id
+
+      expect(last_response).to have_status(409)
+      expect(last_response.body).to include(
+        "multiple integrations with that service name. Try against using an integration id, or a table name",
+      )
+    end
+
+    it "403s if there are no integrations associated with the identifier" do
+      post "/v1/sint_lookup", sint_identifier: "foo", org_id: org.id
+
+      expect(last_response).to have_status(403)
+      expect(last_response.body).to include("There is no service integration")
     end
   end
 end

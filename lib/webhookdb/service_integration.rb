@@ -9,7 +9,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   class TableRenameError < Webhookdb::InvalidInput; end
 
   plugin :timestamps
-  plugin :soft_deletes
   plugin :column_encryption do |enc|
     enc.column :data_encryption_secret
   end

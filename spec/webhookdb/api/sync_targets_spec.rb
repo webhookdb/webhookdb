@@ -46,7 +46,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
   describe "POST /v1/organizations/:identifier/sync_targets/create" do
     it "creates the sync target for service integration" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: sint.opaque_id,
+           service_integration_identifier: sint.opaque_id,
            connection_url: "postgres://a.b",
            period_seconds: 600
 
@@ -72,7 +72,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
     it "can specify all fields" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: sint.opaque_id,
+           service_integration_identifier: sint.opaque_id,
            connection_url: "postgres://a.b",
            table: "mytbl",
            schema: "my_schema",
@@ -87,9 +87,40 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       )
     end
 
+    it "can use deprecated 'service_integration_opaque_id' parameter" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_opaque_id: sint.opaque_id,
+           connection_url: "postgres://a.b",
+           period_seconds: 600
+
+      expect(last_response).to have_status(200)
+    end
+
+    it "prefers 'service_integration_identifier' over 'service_integration_opaque_id' parameter" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_identifier: sint.opaque_id,
+           service_integration_opaque_id: "fakesint",
+           connection_url: "postgres://a.b",
+           period_seconds: 600
+
+      # if the deprecated param were used, this would be a 403 integration not found
+      expect(last_response).to have_status(200)
+    end
+
+    it "errors if no service integration id parameter has been submitted" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           connection_url: "postgres://a.b",
+           period_seconds: 600
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: match("at least one parameter must be provided")),
+      )
+    end
+
     it "403s if service integration with given identifier doesn't exist" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: "fakesint", connection_url: "https://example.com", period_seconds: 600
+           service_integration_identifier: "fakesint", connection_url: "https://example.com", period_seconds: 600
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -101,7 +132,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       membership.destroy
 
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: sint.opaque_id, connection_url: "https://example.com", period_seconds: 600
+           service_integration_identifier: sint.opaque_id, connection_url: "https://example.com", period_seconds: 600
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -111,7 +142,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
     it "400s if there is no adapter for the url" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           service_integration_opaque_id: sint.opaque_id,
+           service_integration_identifier: sint.opaque_id,
            connection_url: "superdb://a.b",
            table: "mytbl",
            schema: "my_schema",

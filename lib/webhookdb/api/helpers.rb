@@ -113,4 +113,25 @@ module Webhookdb::API::Helpers
     )
     throw :error, message: body, status: 422, headers: {"Whdb-Prompt" => key.to_s}
   end
+
+  def lookup_service_integration!(org, identifier)
+    sints = org.service_integrations_dataset.
+      where(Sequel[service_name: identifier] | Sequel[table_name: identifier] | Sequel[opaque_id: identifier]).
+      limit(2).all
+    return sints.first if sints.size == 1
+    merror!(403, "There is no service integration with that identifier.") if sints.empty?
+    dupe_attr = nil
+    alternative = nil
+    if sints.first.service_name == identifier
+      dupe_attr = "service name"
+      alternative = "table name"
+    else
+      dupe_attr = "table name"
+      alternative = "service name"
+    end
+    msg403 = "There are multiple integrations with that #{dupe_attr}. " \
+             "Try against using an integration id, or a #{alternative}. " \
+             "Use `webhookdb integrations list` to see all integrations."
+    merror!(409, msg403)
+  end
 end

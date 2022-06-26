@@ -45,14 +45,19 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
         params do
           optional :connection_url,
                    prompt: "Enter the connection string for the database that WebhookDB should sync data to:"
-          requires :service_integration_opaque_id, type: String, allow_blank: false
+          optional :service_integration_opaque_id,
+                   type: String, allow_blank: false,
+                   desc: "This is a deprecated parameter. In the future, please use `service_integration_identifier`."
+          optional :service_integration_identifier, type: String, allow_blank: false
           use :sync_target_params
+          at_least_one_of :service_integration_opaque_id, :service_integration_identifier
         end
         post :create do
           customer = current_customer
           org = lookup_org!(customer:)
           ensure_admin!(org, customer:)
-          sint = lookup_service_integration!(org, params[:service_integration_opaque_id])
+          identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
+          sint = lookup_service_integration!(org, identifier)
 
           begin
             Webhookdb::DBAdapter.adapter(params[:connection_url])

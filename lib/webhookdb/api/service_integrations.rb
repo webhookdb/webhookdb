@@ -13,7 +13,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       helpers do
         def lookup_unauthed!
           sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
-          merror!(400, "No integration with that id") if sint.nil? || sint.soft_deleted?
+          merror!(400, "No integration with that id") if sint.nil?
           return sint
         end
 
@@ -178,18 +178,11 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
         end
 
-        route_param :opaque_id, type: String do
+        route_param :sint_identifier, type: String do
           helpers do
-            def lookup!
-              org = lookup_org!
-              sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id], organization: org]
-              merror!(400, "The current org has no integration with that id") if sint.nil? || sint.soft_deleted?
-              return sint
-            end
-
             def ensure_plan_supports!
-              sint = lookup!
-              # TODO: Fix this message?
+              org = lookup_org!
+              sint = lookup_service_integration!(org, params[:sint_identifier])
               err_msg = "Integration no longer supported--please visit website to activate subscription."
               merror!(402, err_msg) unless sint.plan_supports_integration?
             end
@@ -198,7 +191,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           post :reset do
             ensure_plan_supports!
             c = current_customer
-            sint = lookup!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
             svc = Webhookdb::Services.service_instance(sint)
             merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
             svc.clear_create_information
@@ -211,7 +205,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             post do
               ensure_plan_supports!
               c = current_customer
-              sint = lookup!
+              org = lookup_org!
+              sint = lookup_service_integration!(org, params[:sint_identifier])
               svc = Webhookdb::Services.service_instance(sint)
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               state_machine = svc.calculate_backfill_state_machine
@@ -227,7 +222,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             post :reset do
               ensure_plan_supports!
               c = current_customer
-              sint = lookup!
+              org = lookup_org!
+              sint = lookup_service_integration!(org, params[:sint_identifier])
               svc = Webhookdb::Services.service_instance(sint)
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               svc.clear_backfill_information
@@ -245,7 +241,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               post do
                 ensure_plan_supports!
                 c = current_customer
-                sint = lookup!
+                org = lookup_org!
+                sint = lookup_service_integration!(org, params[:sint_identifier])
                 merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
                 state_machine = sint.process_state_change(params[:field], params[:value])
                 status 200
@@ -256,7 +253,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
           desc "Gets stats about webhooks for this service integration."
           get :stats do
-            sint = lookup!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
             stats = sint.stats
             status 200
             present stats.as_json
@@ -268,7 +266,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           post :delete do
             ensure_plan_supports!
             ensure_admin!
-            sint = lookup!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
             if sint.table_name != params[:confirm]&.strip
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
@@ -297,7 +296,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                      prompt: "Enter the new name of the table. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
           end
           post :rename_table do
-            sint = lookup!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
             ensure_admin!
             old_name = sint.table_name
             sint.db.transaction do

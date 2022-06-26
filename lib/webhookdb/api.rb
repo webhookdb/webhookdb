@@ -37,12 +37,6 @@ module Webhookdb::API
             return membership.organization
           end
 
-          def lookup_service_integration!(org, opaque_id)
-            sint = org.service_integrations_dataset[opaque_id:]
-            merror!(403, "There is no service integration with that identifier.") if sint.nil? || sint.soft_deleted?
-            return sint
-          end
-
           def ensure_admin!(org=nil, customer: nil)
             customer ||= current_customer
             org ||= lookup_org!

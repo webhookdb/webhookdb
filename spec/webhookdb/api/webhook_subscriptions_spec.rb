@@ -46,7 +46,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
   describe "POST /v1/organizations/:identifier/webhook_subscriptions/create" do
     it "403s if service integration with given identifier doesn't exist" do
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: "fakesint", webhook_secret: "wh_secret", url: "https://example.com"
+           service_integration_identifier: "fakesint", webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -56,7 +56,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
     it "creates webhook subscription for service integration" do
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: sint.opaque_id,
+           service_integration_identifier: sint.opaque_id,
            webhook_secret: "wh_secret",
            url: "https://example.com"
 
@@ -70,7 +70,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
     it "returns a webhook subscription entity for service integration" do
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
+           service_integration_identifier: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(service_integration: sint).first
@@ -82,11 +82,31 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
       )
     end
 
+    it "can use deprecated param `service_integration_opaque_id`" do
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+           service_integration_opaque_id: sint.opaque_id,
+           webhook_secret: "wh_secret",
+           url: "https://example.com"
+
+      expect(last_response).to have_status(200)
+    end
+
+    it "prefers 'service_integration_identifier' over 'service_integration_opaque_id' parameter" do
+      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+           service_integration_identifier: sint.opaque_id,
+           service_integration_opaque_id: "fakesint",
+           webhook_secret: "wh_secret",
+           url: "https://example.com"
+
+      # if the deprecated param were used, this would be a 403 integration not found
+      expect(last_response).to have_status(200)
+    end
+
     it "403s if user doesn't have permissions for organization assocatied with service integration" do
       membership.destroy
 
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
+           service_integration_identifier: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -118,7 +138,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
     it "returns a webhook subscription entity for organization" do
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: "", webhook_secret: "wh_secret", url: "https://example.com"
+           service_integration_identifier: "", webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
