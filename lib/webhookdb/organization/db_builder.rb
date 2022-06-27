@@ -322,7 +322,6 @@ class Webhookdb::Organization::DbBuilder
     orig_readonly_user = URI(@org.readonly_connection_url_raw).user
     ro_user = self.randident("ro")
     ro_pwd = self.randident
-    Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_uri, @org.dbname)
     lines = [
       "ALTER ROLE #{orig_readonly_user} RENAME TO #{ro_user};",
@@ -340,7 +339,6 @@ class Webhookdb::Organization::DbBuilder
           "ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';",
         ],
       )
-      Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
       @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
     else
       @admin_url = @org.admin_connection_url_raw
