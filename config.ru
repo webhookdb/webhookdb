@@ -6,59 +6,13 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require "webhookdb"
 Webhookdb.load_app
 
-require "grape"
-require "grape_logging"
-require "grape-swagger"
-require "rack/cors"
-require "rack/lint"
-
-require "webhookdb/api"
-require "webhookdb/async"
-require "webhookdb/service"
-
-require "webhookdb/api/auth"
-require "webhookdb/api/db"
-require "webhookdb/api/me"
-require "webhookdb/api/organizations"
-require "webhookdb/api/service_integrations"
-require "webhookdb/api/services"
-require "webhookdb/api/stripe"
-require "webhookdb/api/subscriptions"
-require "webhookdb/api/sync_targets"
-require "webhookdb/api/system"
-require "webhookdb/api/uploads"
-require "webhookdb/api/webhook_subscriptions"
-
-require "webhookdb/admin_api/auth"
-require "webhookdb/admin_api/database_documents"
-require "webhookdb/admin_api/message_deliveries"
-require "webhookdb/admin_api/roles"
-require "webhookdb/admin_api/customers"
-
-module Webhookdb::App
-  class API < Webhookdb::Service
-    mount Webhookdb::API::Auth
-    mount Webhookdb::API::Db
-    mount Webhookdb::API::Me
-    mount Webhookdb::API::Organizations
-    mount Webhookdb::API::ServiceIntegrations
-    mount Webhookdb::API::Services
-    mount Webhookdb::API::Stripe
-    mount Webhookdb::API::Subscriptions
-    mount Webhookdb::API::SyncTargets
-    mount Webhookdb::API::System
-    mount Webhookdb::API::Uploads
-    mount Webhookdb::API::WebhookSubscriptions
-
-    mount Webhookdb::AdminAPI::Auth
-    mount Webhookdb::AdminAPI::DatabaseDocuments
-    mount Webhookdb::AdminAPI::MessageDeliveries
-    mount Webhookdb::AdminAPI::Roles
-    mount Webhookdb::AdminAPI::Customers
-
-    add_swagger_documentation if ENV["RACK_ENV"] == "development"
-  end
-end
-
+require "webhookdb/apps"
 Webhookdb::Async.register_subscriber
-run Webhookdb::App::API.build_app
+
+map "/admin" do
+  run Webhookdb::Apps::AdminAPI.build_app
+end
+map "/sidekiq" do
+  run Webhookdb::Apps::SidekiqWeb.to_app
+end
+run Webhookdb::Apps::API.build_app

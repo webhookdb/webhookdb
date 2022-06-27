@@ -13,11 +13,11 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     login_as_admin(admin)
   end
 
-  describe "GET /admin/v1/message_deliveries" do
+  describe "GET /v1/message_deliveries" do
     it "returns all deliveries (no bodies)" do
       deliveries = Array.new(2) { Webhookdb::Fixtures.message_delivery.create }
 
-      get "/admin/v1/message_deliveries"
+      get "/v1/message_deliveries"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -26,7 +26,7 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     end
 
     it_behaves_like "an endpoint capable of search" do
-      let(:url) { "/admin/v1/message_deliveries" }
+      let(:url) { "/v1/message_deliveries" }
       let(:search_term) { "ZIM" }
 
       def make_matching_items
@@ -44,14 +44,14 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     end
 
     it_behaves_like "an endpoint with pagination" do
-      let(:url) { "/admin/v1/message_deliveries" }
+      let(:url) { "/v1/message_deliveries" }
       def make_item(i)
         return Webhookdb::Fixtures.message_delivery.create(created_at: Time.now - i.hour)
       end
     end
 
     it_behaves_like "an endpoint with customer-supplied ordering" do
-      let(:url) { "/admin/v1/message_deliveries" }
+      let(:url) { "/v1/message_deliveries" }
       let(:order_by_field) { "to" }
       def make_item(i)
         return Webhookdb::Fixtures.message_delivery.create(to: i.to_s + "@lithic.tech")
@@ -59,14 +59,14 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     end
   end
 
-  describe "GET /admin/v1/customers/:id/message_deliveries" do
+  describe "GET /v1/customers/:id/message_deliveries" do
     it "returns all deliveries that to the customer" do
       customer = Webhookdb::Fixtures.customer.create
       to_customer = Webhookdb::Fixtures.message_delivery.with_recipient(customer).create
       to_email = Webhookdb::Fixtures.message_delivery.to(customer.email).create
       to_neither = Webhookdb::Fixtures.message_delivery.with_recipient.create
 
-      get "/admin/v1/customers/#{customer.id}/message_deliveries"
+      get "/v1/customers/#{customer.id}/message_deliveries"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -74,11 +74,11 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     end
   end
 
-  describe "GET /admin/v1/message_deliveries/:id" do
+  describe "GET /v1/message_deliveries/:id" do
     it "returns the delivery with the given ID and its bodies" do
       del = Webhookdb::Fixtures.message_delivery.with_body.with_body.create
 
-      get "/admin/v1/message_deliveries/#{del.id}"
+      get "/v1/message_deliveries/#{del.id}"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -86,18 +86,18 @@ RSpec.describe Webhookdb::AdminAPI::MessageDeliveries, :db do
     end
 
     it "404s if the delivery does not exist" do
-      get "/admin/v1/message_deliveries/0"
+      get "/v1/message_deliveries/0"
 
       expect(last_response).to have_status(404)
     end
   end
 
-  describe "GET /admin/v1/message_deliveries/last" do
+  describe "GET /v1/message_deliveries/last" do
     it "returns the last delivery" do
       d1 = Webhookdb::Fixtures.message_delivery.create
       d2 = Webhookdb::Fixtures.message_delivery.create
 
-      get "/admin/v1/message_deliveries/last"
+      get "/v1/message_deliveries/last"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.

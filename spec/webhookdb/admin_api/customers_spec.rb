@@ -13,11 +13,11 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     login_as_admin(admin)
   end
 
-  describe "GET /admin/v1/customers" do
+  describe "GET /v1/customers" do
     it "returns all customers" do
       u = Array.new(2) { Webhookdb::Fixtures.customer.create }
 
-      get "/admin/v1/customers"
+      get "/v1/customers"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
@@ -25,7 +25,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     end
 
     it_behaves_like "an endpoint capable of search" do
-      let(:url) { "/admin/v1/customers" }
+      let(:url) { "/v1/customers" }
       let(:search_term) { "ZIM" }
 
       def make_matching_items
@@ -44,7 +44,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     end
 
     it_behaves_like "an endpoint with pagination" do
-      let(:url) { "/admin/v1/customers" }
+      let(:url) { "/v1/customers" }
       def make_item(i)
         # Sorting is newest first, so the first items we create need to the the oldest.
         created = Time.now - i.days
@@ -54,7 +54,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     end
 
     it_behaves_like "an endpoint with customer-supplied ordering" do
-      let(:url) { "/admin/v1/customers" }
+      let(:url) { "/v1/customers" }
       let(:order_by_field) { "note" }
       def make_item(i)
         return admin.update(note: i.to_s) if i.zero?
@@ -63,26 +63,26 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
     end
   end
 
-  describe "GET /admin/v1/customers/:id" do
+  describe "GET /v1/customers/:id" do
     it "returns the customer" do
-      get "/admin/v1/customers/#{admin.id}"
+      get "/v1/customers/#{admin.id}"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(:roles, id: admin.id)
     end
 
     it "404s if the customer does not exist" do
-      get "/admin/v1/customers/0"
+      get "/v1/customers/0"
 
       expect(last_response).to have_status(404)
     end
   end
 
-  describe "POST /admin/v1/customers/:id" do
+  describe "POST /v1/customers/:id" do
     it "updates the customer" do
       customer = Webhookdb::Fixtures.customer.create
 
-      post "/admin/v1/customers/#{customer.id}", name: "b 2", email: "b@gmail.com"
+      post "/v1/customers/#{customer.id}", name: "b 2", email: "b@gmail.com"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(id: customer.id, name: "b 2", email: "b@gmail.com")
@@ -92,7 +92,7 @@ RSpec.describe Webhookdb::AdminAPI::Customers, :db do
       customer = Webhookdb::Fixtures.customer.with_role("existing").with_role("to_remove").create
       Webhookdb::Role.create(name: "to_add")
 
-      post "/admin/v1/customers/#{customer.id}", roles: ["existing", "to_add"]
+      post "/v1/customers/#{customer.id}", roles: ["existing", "to_add"]
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(roles: contain_exactly("existing", "to_add"))

@@ -9,9 +9,9 @@ RSpec.describe Webhookdb::AdminAPI::DatabaseDocuments, :db do
   let(:app) { described_class.build_app }
   let(:admin) { Webhookdb::Fixtures.customer.admin.create }
 
-  describe "GET /admin/v1/database_documents/:id/view" do
+  describe "GET /v1/database_documents/:id/view" do
     let(:doc) { Webhookdb::Fixtures.database_document.xml("<a><b>hi</b></a>").create }
-    let(:url_path) { "/admin/v1/database_documents/#{doc.id}/view" }
+    let(:url_path) { "/v1/database_documents/#{doc.id}/view" }
 
     def sign_url(doc, **kw)
       u = "http://example.org#{url_path}"

@@ -15,7 +15,6 @@ module Webhookdb::AdminAPI
       subclass.instance_eval do
         version "v1", using: :path
         format :json
-        prefix :admin
 
         content_type :csv, "text/csv"
 
