@@ -392,6 +392,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "TheranestScheduledBackfill" do
+    it "enqueues cascading backfill job for all theranest auth integrations" do
+      auth_sint = Webhookdb::Fixtures.service_integration.create(
+        service_name: "theranest_auth_v1",
+      )
+      expect do
+        Webhookdb::Jobs::TheranestScheduledBackfill.new.perform
+      end.to publish("webhookdb.serviceintegration.backfill", [auth_sint.id, {"cascade" => true}])
+    end
+  end
+
   describe "TrimLoggedWebhooks" do
     it "runs LoggedWebhooks.trim_table" do
       old = Webhookdb::Fixtures.logged_webhook.ancient.create
