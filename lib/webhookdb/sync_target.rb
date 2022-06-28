@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "sequel/database"
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
 #
@@ -120,7 +121,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         schema_lines << adapter.add_column_sql(table, col, if_not_exists: true)
       end
       adapter_conn = adapter.connection(self.connection_url)
-      adapter_conn.execute(schema_lines.join(";\n") + ";")
+      schema_expr = schema_lines.join(";\n") + ";"
+      if schema_expr != self.last_applied_schema
+        adapter_conn.execute(schema_expr)
+        self.update(last_applied_schema: schema_expr)
+      end
       tempfile = Tempfile.new("whdbsyncout-#{self.id}")
       tscol = Sequel[svc.timestamp_column.name]
       svc.readonly_dataset do |ds|

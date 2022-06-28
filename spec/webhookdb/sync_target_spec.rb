@@ -158,6 +158,20 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
           expect(db[Sequel[@custom_schema][:synctgttesttable]].all).to have_length(3)
         end
       end
+
+      describe "schema caching" do
+        it "executes schema changes if they change between syncs" do
+          logs = capture_logs_from(Webhookdb.logger) do
+            sync_tgt.run_sync(at: 2.hours.ago)
+            expect(sync_tgt.last_applied_schema).to include("CREATE SCHEMA")
+            sync_tgt.run_sync(at: 1.hour.ago)
+            sync_tgt.update(last_applied_schema: sync_tgt.last_applied_schema + ";")
+            sync_tgt.run_sync(at: Time.now)
+          end
+          schema_logs = logs.select { |line| line.to_s.include?("CREATE SCHEMA") }
+          expect(schema_logs).to have_length(2)
+        end
+      end
     end
 
     describe "with a snowflake target" do
@@ -201,6 +215,11 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
         values = run_cli("SELECT pk, my_id, at, data FROM #{@custom_schema}.synctgttesttable")
         expect(values.flatten).to have_length(3)
+      end
+
+      describe "schema caching" do
+        it "is not tested explicitly because Snowflake is slow"
+        # We can add it if we find it behaves differently
       end
     end
   end
