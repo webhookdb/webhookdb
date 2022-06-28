@@ -318,4 +318,26 @@ RSpec.describe Amigo::DurableJob do
       expect(cls.jobs).to be_empty
     end
   end
+
+  describe "setting db loggers" do
+    before(:each) do
+      @orig_loggers = described_class.db_loggers
+    end
+
+    after(:each) do
+      described_class.db_loggers = @orig_loggers
+    end
+
+    it "sets on the current dbs and maintains across reloads" do
+      orig_db = described_class.storage_databases.first
+      logger = Logger.new(File::NULL)
+      described_class.db_loggers = [logger]
+      expect(orig_db.loggers).to contain_exactly(logger)
+
+      described_class.reset_configuration
+      new_db = described_class.storage_databases.first
+      expect(new_db).to_not eq(orig_db)
+      expect(new_db.loggers).to contain_exactly(logger)
+    end
+  end
 end

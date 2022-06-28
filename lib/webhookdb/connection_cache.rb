@@ -39,6 +39,7 @@ class Webhookdb::ConnectionCache
   include Appydays::Configurable
   include Appydays::Loggable
   extend Webhookdb::MethodUtilities
+  include Webhookdb::Dbutil
 
   configurable(:connection_cache) do
     # If this many seconds has elapsed since the last connecton was borrowed,
@@ -74,12 +75,7 @@ class Webhookdb::ConnectionCache
     now = Time.now
     url_cache = @databases[url]
     if url_cache.nil?
-      db = Sequel.connect(
-        url,
-        extensions: [:pg_json],
-        keep_reference: false,
-        test: false,
-      )
+      db = take_conn(url, extensions: [:pg_json])
       url_cache = {pending: 1, connection: db}
       @databases[url] = url_cache
     else
@@ -104,7 +100,7 @@ class Webhookdb::ConnectionCache
     return if url_cache.nil?
     if url_cache[:pending].positive?
       raise Webhookdb::InvalidPrecondition,
-            "url #{Webhookdb.displaysafe_url(url)} still has #{url_cache[:pending]} active connections"
+            "url #{displaysafe_url(url)} still has #{url_cache[:pending]} active connections"
 
     end
     db = url_cache[:connection]
@@ -118,7 +114,7 @@ class Webhookdb::ConnectionCache
       next if url == skip_url
       if url_cache[:pending].negative?
         raise "invariant violation: url_cache pending is negative: " \
-              "#{Webhookdb.displaysafe_url(url)}, #{url_cache.inspect}"
+              "#{displaysafe_url(url)}, #{url_cache.inspect}"
       end
       url_cache[:connection].disconnect
       true

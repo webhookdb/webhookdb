@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "appydays/configurable"
 require "appydays/loggable"
 require "sentry-sidekiq"
@@ -240,3 +241,5 @@ module Webhookdb::Async
     raise "Errors loading sidekiq-cron jobs: %p" % [load_errs] if load_errs.present?
   end
 end
+
+Amigo::DurableJob.db_loggers = [Webhookdb.logger]

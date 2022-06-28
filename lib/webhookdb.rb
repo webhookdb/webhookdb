@@ -231,13 +231,6 @@ module Webhookdb
     return slug
   end
 
-  def self.displaysafe_url(url)
-    u = URI(url)
-    u.user = "***"
-    u.password = "***"
-    return u.to_s
-  end
-
   NUMBERS_TO_WORDS = {
     "0" => "zero",
     "1" => "one",
@@ -289,6 +282,7 @@ module Webhookdb
 end
 
 require "webhookdb/aggregate_result"
+require "webhookdb/dbutil"
 require "webhookdb/developer_alert"
 require "webhookdb/http"
 require "webhookdb/phone_number"

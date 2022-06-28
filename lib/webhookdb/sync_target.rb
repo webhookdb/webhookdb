@@ -16,6 +16,7 @@
 #
 class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Appydays::Configurable
+  include Webhookdb::Dbutil
 
   class SyncInProgress < RuntimeError; end
 
@@ -153,7 +154,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   def displaysafe_connection_url
-    return Webhookdb.displaysafe_url(self.connection_url)
+    return displaysafe_url(self.connection_url)
   end
 
   def associated_type

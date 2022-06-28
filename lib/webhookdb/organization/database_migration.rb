@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:organization_database_migrations)
+  include Webhookdb::Dbutil
+
   class MigrationInProgress < Webhookdb::DatabaseLocked; end
   class MigrationAlreadyFinished < RuntimeError; end
 
@@ -46,11 +48,11 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   end
 
   def displaysafe_source_url
-    return Webhookdb.displaysafe_url(self.source_admin_connection_url)
+    return displaysafe_url(self.source_admin_connection_url)
   end
 
   def displaysafe_destination_url
-    return Webhookdb.displaysafe_url(self.destination_admin_connection_url)
+    return displaysafe_url(self.destination_admin_connection_url)
   end
 
   def status
@@ -66,8 +68,8 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   def migrate
     raise MigrationAlreadyFinished if self.finished?
     self.update(started_at: Time.now) if self.started_at.nil?
-    Sequel.connect(self.source_admin_connection_url) do |srcdb|
-      Sequel.connect(self.destination_admin_connection_url) do |dstdb|
+    borrow_conn(self.source_admin_connection_url) do |srcdb|
+      borrow_conn(self.destination_admin_connection_url) do |dstdb|
         self.organization.service_integrations.sort_by(&:id).each do |sint|
           next if sint.id <= self.last_migrated_service_integration_id
           self.migrate_service_integration(sint, srcdb, dstdb)

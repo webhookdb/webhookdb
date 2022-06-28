@@ -75,6 +75,16 @@ module Amigo::DurableJob
   class << self
     attr_accessor :storage_database_urls, :storage_databases, :table_fqn
 
+    def db_loggers
+      return @db_loggers ||= []
+    end
+
+    def db_loggers=(a)
+      a = Array(a)
+      self.storage_databases.each { |db| db.loggers = a }
+      @db_loggers = a
+    end
+
     def ensure_jobs_tables(drop: false)
       self.storage_databases.map do |db|
         db.drop_table?(self.table_fqn) if drop
@@ -280,6 +290,7 @@ module Amigo::DurableJob
           url,
           keep_reference: false,
           test: false,
+          loggers: self.db_loggers,
         )
       end
       self.table_fqn = Sequel[self.schema_name][self.table_name]

@@ -19,6 +19,7 @@ require "webhookdb/cloudflare"
 class Webhookdb::Organization::DbBuilder
   include Appydays::Configurable
   include Appydays::Loggable
+  include Webhookdb::Dbutil
   extend Webhookdb::MethodUtilities
 
   class IsolatedOperationError < StandardError; end
@@ -118,7 +119,8 @@ class Webhookdb::Organization::DbBuilder
     ro_user = self.randident("ro")
     ro_pwd = self.randident
     dbname = self.randident("db")
-    Sequel.connect(superuser_url_str) do |conn|
+    # Do not log this
+    borrow_conn(superuser_url_str, loggers: []) do |conn|
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
@@ -137,7 +139,7 @@ class Webhookdb::Organization::DbBuilder
     # NOT the DB owner: https://pgsql-general.postgresql.narkive.com/X9VKOPIW
     superuser_in_db_str = self._create_conn_url(superuser_url.user, superuser_url.password, superuser_url, dbname)
     schema = self._org_schema
-    Sequel.connect(superuser_in_db_str) do |conn|
+    borrow_conn(superuser_in_db_str) do |conn|
       conn << <<~SQL
         -- Revoke all rights from readonly user, and public role, which all users have.
         REVOKE ALL ON DATABASE #{dbname} FROM PUBLIC, #{ro_user};
@@ -158,7 +160,7 @@ class Webhookdb::Organization::DbBuilder
     @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_url, dbname)
     # We MUST modify the default privs AFTER changing ownership.
     # Changing ownership seems to reset default piv grants (and it cannot be done after transferring ownership)
-    Sequel.connect(@admin_url) do |conn|
+    borrow_conn(@admin_url) do |conn|
       conn << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{schema} GRANT SELECT ON TABLES TO #{ro_user};"
     end
     @readonly_url = self._create_conn_url(ro_user, ro_pwd, superuser_url, dbname)
@@ -167,13 +169,13 @@ class Webhookdb::Organization::DbBuilder
   def _prepare_database_connections_database_schema_user(superuser_url_str)
     self._prepare_database_connections_database_user(superuser_url_str)
     # Revoke everything on public schema, so our readonly user cannot access it.
-    Sequel.connect(@admin_url) do |conn|
+    borrow_conn(@admin_url) do |conn|
       conn << "REVOKE ALL ON SCHEMA public FROM public"
     end
   end
 
   def _prepare_database_connections_schema(superuser_url_str)
-    Sequel.connect(superuser_url_str) do |conn|
+    borrow_conn(superuser_url_str) do |conn|
       conn << "CREATE SCHEMA IF NOT EXISTS #{self._org_schema};"
     end
     @admin_url = superuser_url_str
@@ -184,7 +186,7 @@ class Webhookdb::Organization::DbBuilder
     ro_user = self.randident("ro")
     ro_pwd = self.randident
     schema = self._org_schema
-    Sequel.connect(superuser_url_str) do |conn|
+    borrow_conn(superuser_url_str) do |conn|
       conn << <<~SQL
         -- Create readonly role and make sure it cannot access public stuff
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
@@ -275,7 +277,8 @@ class Webhookdb::Organization::DbBuilder
   def remove_related_database
     return if @org.admin_connection_url_raw.blank?
     superuser_str = self._find_superuser_url_str
-    Sequel.connect(superuser_str) do |conn|
+    # Cannot use conn cache since we may be removing ourselves
+    borrow_conn(superuser_str) do |conn|
       case self.class.isolation_mode
         when "database+user", "database+schema+user"
           Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
@@ -343,7 +346,8 @@ class Webhookdb::Organization::DbBuilder
     else
       @admin_url = @org.admin_connection_url_raw
     end
-    Sequel.connect(superuser_uri.to_s) do |conn|
+    # New conn so we don't log it
+    borrow_conn(superuser_uri.to_s, loggers: []) do |conn|
       conn << lines.join("\n")
     end
   end

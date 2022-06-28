@@ -112,17 +112,19 @@ class Webhookdb::DBAdapter
   end
 
   class SequelConnection < Connection
+    include Webhookdb::Dbutil
+
     def initialize(url)
       super()
       @url = url
     end
 
     def using(&)
-      Sequel.connect(@url, &)
+      borrow_conn(@url, &)
     end
 
     def execute(sql)
-      Sequel.connect(@url) do |db|
+      borrow_conn(@url) do |db|
         db << sql
       end
     end
