@@ -26,7 +26,6 @@ WebhookDB works the same way:
   there's no need to learn, deploy, and manage new technology or services on your critical path,
   like GraphQL or gRPC.
 
-**If you want to make integrating APIs as simple as turning on a tap,
-To get started with API-over-SQL today, you can try [WebhookDB](/get-started) today.**
+**If you want to make integrating APIs as simple as turning on a tap, you can try [WebhookDB](/get-started) today.**
 
 <img src="/content/diagram-reservoir.png" style="width: calc(100% - 1rem); margin-left: 0.5rem; margin-right: 0.5rem; margin-bottom: 1rem; height: auto;"></img>

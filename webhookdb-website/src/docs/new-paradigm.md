@@ -8,7 +8,8 @@ When we talk about working with and integrating APIs,
 we are usually talking about using JSON-over-HTTP.
 In the past, and into the future,
 our industries developed alternatives and improvements to JSON-over-HTTP,
-like WSDL, RPC/gRPC, and GraphQL. Each of these serve a purpose,
+like WSDL, RPC/gRPC, GraphQL, and iPaaS (Integration Platforms-as-a-Service).
+Each of these solutions serve a purpose,
 but none of them conquer the issues that cause API integration
 to be fundamentally more complex than normal application development.
 
@@ -31,6 +32,16 @@ GraphQL offers compelling benefits for remote clients (web and native apps, etc.
 But offering a public GraphQL API is rare, and developers preferring it over
 a more REST-like alternative is even rarer. It requires complex and specialized tools,
 and I don't see meaningful progress on using it as an API integration approach.
+Recently attempts at "superschemas" have been made,
+which attempt to manage the complexity of GraphQL at scale
+by introducing even more complexity.
+
+iPaaS platforms, like Zapier, Mulesoft, and dozens of others,
+promise to make it easy to glue together different systems.
+But while they are amazing for certain types of automation,
+they introduce another whole set of problems around
+maintenance, performance, security, and cost,
+and so are poor fits for integrating multiple APIs.
 
 So, we are stuck with good-ole JSON-over-HTTP, usually as some sort of REST-like API.
 Just like any great, durable technology, it has a laundry list of problems,
@@ -86,7 +97,7 @@ To see the schema of the API, or inspect all its data,
 you would fire up `psql` and use `\d`,
 rather than trawl documentations or wrestle with Postman.
 
-You can secure your data with PostgreSQL permissions,
+You can [secure your data with PostgreSQL permissions](/docs/securing/),
 rather than handing out your API keys to every service that needs to know
 anything about the data you store in APIs.
 Plus, 3rd party platforms can integrate with anything

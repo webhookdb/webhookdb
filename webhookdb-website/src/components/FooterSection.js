@@ -32,18 +32,19 @@ export default function FooterSection() {
                   ],
                   ["/terms/", "Terms of Use"],
                   ["/privacy/", "Privacy Policy"],
-                ],
-                [
-                  ["/docs/home/", "Documentation"],
-                  ["/docs/new-paradigm/", "API-over-SQL"],
-                  ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
                   ["/careers", "Careers"],
                 ],
                 [
-                  ["/integrations/", "Supported Integrations"],
                   ["/app-startups/", "For Application Startups"],
                   ["/digital-transformation/", "For Digital Transformation"],
                   ["/development-agencies/", "For Development Agencies"],
+                  ["/integrations/", "Supported Integrations"],
+                ],
+                [
+                  ["/docs/home/", "Documentation"],
+                  ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
+                  ["/docs/new-paradigm/", "API-over-SQL"],
+                  ["/docs/faq/", "FAQ"],
                 ],
               ].map((navs) => (
                 <div className="d-flex flex-column" key={navs[0][0]}>

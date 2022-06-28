@@ -48,3 +48,37 @@ you can rotate them from the CLI with `webhookdb db roll-credentials`.
 ### [How much does WebhookDB cost?](#how-much-does-webhookdb-cost)
 
 Check out our [pricing page](/pricing).
+
+<a id="never-expose-database"></a>
+
+### [I though we should never expose a database?](#never-expose-database)
+
+This advice is generally true, but WebhookDB has two things going for it.
+
+First, managing user access is a core concern, similar to something like shared database hosting.
+There's nothing conceptually wrong with exposing your database to the public;
+it's just that the failure mode can be catastrophic so you should avoid it
+unless you know what you're doing.
+
+Second, if you still don't feel good about it,
+you can [self-host WebhookDB](/docs/self-hosting) so it sits in your VPC.
+You can then implement your own endpoint,
+using your access control, to access WebhookDB.
+
+[See more about securing WebhookDB](/docs/securing/).
+
+<a id="never-share-schemas"></a>
+
+### [What about services not sharing schemas?](#never-share-schemas)
+
+This advice is also generally true:
+multiple microservices should not share the same database,
+but instead version through the requests (header, URL, etc).
+
+However there's a simple explanation as to why
+the approach WebhookDB takes is totally fine:
+the schemas we expose in are based on the compatibility comitments the APIs themselves are making.
+For example, the Stripe Customer integration is known as `stripe_customer_v1`.
+If Stripe made a backwards-incompatible change to their API,
+it would no longer be their V1 API, and we'd add a `stripe_customer_v2`
+which would carry the same compatibility guarantees as their V2 API.
