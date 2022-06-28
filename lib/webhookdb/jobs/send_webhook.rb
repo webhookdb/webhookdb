@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async/job"
 require "webhookdb/jobs"
 
 class Webhookdb::Jobs::SendWebhook
   extend Webhookdb::Async::Job
+  include Amigo::DurableJob
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)

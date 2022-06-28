@@ -11,6 +11,7 @@ module Webhookdb::SpecHelpers::Async
     Sidekiq::Testing.inline!
 
     context.before(:each) do |example|
+      Sidekiq::Testing.inline!
       Webhookdb::Async.synchronous_mode = true if example.metadata[:async]
       Webhookdb::Postgres.do_not_defer_events = true if example.metadata[:do_not_defer_events]
       if example.metadata[:slack]

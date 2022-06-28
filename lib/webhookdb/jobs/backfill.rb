@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async/job"
 require "webhookdb/jobs"
 
 class Webhookdb::Jobs::Backfill
   extend Webhookdb::Async::Job
+  include Amigo::DurableJob
 
   on "webhookdb.serviceintegration.backfill"
   sidekiq_options queue: "netout"

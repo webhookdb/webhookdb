@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async/job"
 
 class Webhookdb::Jobs::ProcessWebhook
   extend Webhookdb::Async::Job
+  include Amigo::DurableJob
 
   on "webhookdb.serviceintegration.webhook"
   sidekiq_options queue: "webhook" # This is usually overridden.

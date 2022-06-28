@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async/job"
 require "webhookdb/jobs"
 
 class Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent
   include Sidekiq::Worker
+  include Amigo::DurableJob
 
   sidekiq_options queue: "netout"
 

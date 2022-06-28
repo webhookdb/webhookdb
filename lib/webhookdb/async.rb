@@ -125,6 +125,8 @@ module Webhookdb::Async
     "webhookdb/jobs/customer_created_notify_internal",
     "webhookdb/jobs/deprecated_jobs",
     "webhookdb/jobs/developer_alert_handle",
+    "webhookdb/jobs/durable_job_recheck_poller",
+    "webhookdb/jobs/durable_sleeper",
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/organization_database_migration_notify_finished",

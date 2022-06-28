@@ -94,6 +94,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
       if chunk.size >= chunksize
         self.upsert_chunk(service_integration, dstdb, chunk)
         chunk.clear
+        Amigo::DurableJob.heartbeat
       end
     end
     self.upsert_chunk(service_integration, dstdb, chunk)

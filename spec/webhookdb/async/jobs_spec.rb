@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async"
 require "webhookdb/messages/specs"
 require "rspec/eventually"
@@ -108,6 +109,16 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         alert.emit
       end.to perform_async_job(Webhookdb::Jobs::DeveloperAlertHandle)
       expect(Webhookdb::Slack.http_client.posts).to have_length(1)
+    end
+  end
+
+  describe "DurableJobRecheckPoller" do
+    it "runs DurableJob.poll_jobs" do
+      # Ensure polling is called, but it should be early-outed.
+      # rubocop:disable RSpec/VerifiedDoubles
+      expect(Sidekiq::RetrySet).to receive(:new).and_return(double(size: 1000))
+      # rubocop:enable RSpec/VerifiedDoubles
+      Webhookdb::Jobs::DurableJobRecheckPoller.new.perform
     end
   end
 

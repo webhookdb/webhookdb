@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
+require "amigo/durable_job"
 require "webhookdb/async/job"
 
 class Webhookdb::Jobs::OrganizationDatabaseMigrationRun
   extend Webhookdb::Async::Job
+  include Amigo::DurableJob
 
   on "webhookdb.organization.databasemigration.created"
 

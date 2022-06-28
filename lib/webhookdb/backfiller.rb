@@ -24,6 +24,7 @@ class Webhookdb::Backfiller
       page.each do |item|
         self.handle_item(item)
       end
+      Amigo::DurableJob.heartbeat
       break if pagination_token.blank?
     end
   end
