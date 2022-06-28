@@ -73,11 +73,13 @@ module Webhookdb::IntegrationSpecHelpers
 
   [:get, :post, :put, :patch, :delete].each do |method|
     define_method(method) do |url_, opts={}|
+      opts[:headers] ||= {}
       store_cookies do
         cookie_header = stored_cookies&.to_cookie_string
-        if cookie_header.present?
-          opts[:headers] ||= {}
-          opts[:headers] = opts[:headers].merge("Cookie" => cookie_header)
+        opts[:headers] = opts[:headers].merge("Cookie" => cookie_header) if cookie_header.present?
+        if opts.delete(:json)
+          opts[:headers]["Content-Type"] = "application/json"
+          opts[:body] = opts[:body].to_json unless opts[:body].is_a?(String)
         end
         Webhookdb::IntegrationSpecHelpers.logger.info "%s %s %s" % [method.upcase, url_, opts]
         HTTParty.send(method, url(url_), opts)

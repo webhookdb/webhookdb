@@ -418,6 +418,46 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
   end
 
+  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/upsert" do
+    before(:each) do
+      login_as(customer)
+    end
+
+    it "upserts a webhook synchronously" do
+      org.prepare_database_connections
+      svc = sint.service_instance
+      svc.create_table
+      fake_body = {"my_id" => "id", "at" => Time.now}
+      post "/v1/organizations/#{org.key}/service_integrations/#{sint.opaque_id}/upsert", fake_body
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(message: /You have upserted/)
+
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to contain_exactly(include(my_id: "id"))
+      end
+    end
+
+    it "returns a friendly 400 error if error occurs on upsert" do
+      org.prepare_database_connections
+      svc = sint.service_instance
+      svc.create_table
+      post "/v1/organizations/#{org.key}/service_integrations/#{sint.opaque_id}/upsert", {}
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: include("something has gone wrong")),
+      )
+    end
+
+    it "returns a 401 error if request is unauthed" do
+      logout
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/upsert", {}
+
+      expect(last_response).to have_status(401)
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill" do
     before(:each) do
       login_as(customer)

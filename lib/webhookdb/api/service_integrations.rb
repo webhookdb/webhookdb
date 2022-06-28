@@ -201,6 +201,24 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             present state_machine, with: Webhookdb::API::StateMachineEntity
           end
 
+          post :upsert do
+            current_customer
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
+            svc = Webhookdb::Services.service_instance(sint)
+            body = env["api.request.body"]
+            begin
+              svc.upsert_webhook(body:)
+            rescue KeyError, TypeError => e
+              self.logger.error "immediate_upsert", error: e
+              err_msg = "Sorry! Looks like something has gone wrong. " \
+                        "Check your schema or contact support at #{Webhookdb.support_email}."
+              merror!(400, err_msg)
+            end
+            status 200
+            present({}, with: Webhookdb::API::BaseEntity, message: "You have upserted into #{sint.table_name}.")
+          end
+
           resource :backfill do
             post do
               ensure_plan_supports!
