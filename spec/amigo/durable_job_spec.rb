@@ -111,6 +111,17 @@ RSpec.describe Amigo::DurableJob do
       cls = create_job_class
       cls.perform_async
     end
+
+    it "not suspectible to a Redis/Postgres race with Redis inserted and running first" do
+      cls = create_job_class
+      call_order = []
+      expect(described_class).to receive(:insert_job) { call_order << "inserted" }
+      fake_client = Sidekiq::Client.new
+      expect(fake_client).to(receive(:raw_push)) { call_order << "pushed" }
+      expect(Sidekiq::Client).to receive(:new).and_return(fake_client)
+      j1 = cls.perform_async
+      expect(call_order).to eq(["inserted", "pushed"])
+    end
   end
 
   describe "running the job" do

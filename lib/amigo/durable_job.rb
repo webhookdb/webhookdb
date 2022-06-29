@@ -336,8 +336,16 @@ module Amigo::DurableJob
 
   module PrependedClassMethods
     def client_push(item)
+      # We need to set the job id ahead of time, since we need to use it.
+      # We must insert the row into storage **BEFORE** we enqueue the job in Sidekiq;
+      # otherwise, the job can run before the insert even finishes, which results in
+      # an enqueued durable job that will be a duplicate when it runs.
+      item["jid"] ||= SecureRandom.hex(12)
+      Amigo::DurableJob.insert_job(self, item["jid"], item) unless item["durable_reenqueued_at"]
       jid = super
-      Amigo::DurableJob.insert_job(self, jid, item) unless item["durable_reenqueued_at"]
+      if jid != item["jid"]
+        raise "Sidekiq generated jid #{jid} but we generated jid #{item['jid']}. Should never have happened."
+      end
       return jid
     end
   end
