@@ -66,7 +66,7 @@ class Webhookdb::Organization::DbBuilder
         raise KeyError, msg
       end
       self.available_server_urls = self.server_urls.dup
-      self.available_server_urls.concat(self.server_env_vars.map { |e| ENV[e] })
+      self.available_server_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
     end
   end
 

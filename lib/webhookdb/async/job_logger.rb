@@ -3,15 +3,15 @@
 require "appydays/configurable"
 require "appydays/loggable"
 require "sidekiq"
+require "sidekiq/component"
 require "sidekiq/job_logger"
-require "sidekiq/util"
 
 require "webhookdb/async"
 
 class Webhookdb::Async::JobLogger < Sidekiq::JobLogger
   include Appydays::Configurable
   include Appydays::Loggable
-  include Sidekiq::Util
+  include Sidekiq::Component
 
   Sidekiq.logger = self.logger
 

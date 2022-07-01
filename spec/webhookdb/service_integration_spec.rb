@@ -22,11 +22,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
   describe "plan_supports_integration?" do
     it "returns true if the organization has an active subscription" do
       Webhookdb::Fixtures.subscription.active.for_org(sint.organization).create
-      expect(sint.plan_supports_integration?).to eq(true)
+      expect(sint.plan_supports_integration?).to be(true)
     end
 
     it "returns true if the organization has no active subscription and sint is in first integrations" do
-      expect(sint.plan_supports_integration?).to eq(true)
+      expect(sint.plan_supports_integration?).to be(true)
     end
 
     it "returns false if the organization has no subscription and sint is not in first integrations" do
@@ -48,8 +48,8 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
         },
       )
 
-      expect(twilio_sint.plan_supports_integration?).to eq(true)
-      expect(shopify_sint.plan_supports_integration?).to eq(false)
+      expect(twilio_sint.plan_supports_integration?).to be(true)
+      expect(shopify_sint.plan_supports_integration?).to be(false)
     end
   end
 

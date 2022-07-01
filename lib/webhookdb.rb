@@ -9,7 +9,7 @@ require "pathname"
 require "phony"
 require "yajl"
 
-if (heroku_app = ENV["MERGE_HEROKU_ENV"])
+if (heroku_app = ENV.fetch("MERGE_HEROKU_ENV", nil))
   text = `heroku config -j --app=#{heroku_app}`
   json = Yajl::Parser.parse(text)
   json.each do |k, v|
@@ -42,11 +42,11 @@ module Webhookdb
   class DatabaseLocked < StandardError; end
 
   APPLICATION_NAME = "Webhookdb"
-  RACK_ENV = ENV["RACK_ENV"] || "development"
-  VERSION = ENV["HEROKU_SLUG_COMMIT"] || "unknown-version"
-  RELEASE = ENV["HEROKU_RELEASE_VERSION"] || "unknown-release"
-  RELEASE_CREATED_AT = ENV["HEROKU_RELEASE_CREATED_AT"] || Time.at(0).utc.iso8601
-  INTEGRATION_TESTS_ENABLED = ENV["INTEGRATION_TESTS"] || false
+  RACK_ENV = ENV.fetch("RACK_ENV", "development")
+  VERSION = ENV.fetch("HEROKU_SLUG_COMMIT", "unknown-version")
+  RELEASE = ENV.fetch("HEROKU_RELEASE_VERSION", "unknown-release")
+  RELEASE_CREATED_AT = ENV.fetch("HEROKU_RELEASE_CREATED_AT") { Time.at(0).utc.iso8601 }
+  INTEGRATION_TESTS_ENABLED = ENV.fetch("INTEGRATION_TESTS", false)
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"
 
@@ -57,7 +57,7 @@ module Webhookdb
             side_effect: ->(v) { Appydays::Loggable.default_level = v if v }
     setting :log_format, nil
     setting :app_url, "http://localhost:18002"
-    setting :api_url, "http://localhost:#{ENV['PORT'] || 18_001}"
+    setting :api_url, "http://localhost:#{ENV.fetch('PORT', 18_001)}"
     setting :bust_idempotency, false
     setting :http_user_agent, ""
     setting :marketing_site, "https://webhookdb.com/"

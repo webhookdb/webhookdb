@@ -76,7 +76,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             table: params[:table] || "",
             created_by: customer,
           )
-          message = "Every #{stgt.period_seconds} seconds, data from #{sint.service_name} "\
+          message = "Every #{stgt.period_seconds} seconds, data from #{sint.service_name} " \
                     "in #{sint.table_name} will be reflected to #{stgt.displaysafe_connection_url}"
           status 200
           present stgt, with: Webhookdb::API::SyncTargetEntity, message:

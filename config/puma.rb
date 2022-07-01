@@ -11,7 +11,7 @@ require "appydays/dotenviable"
 Appydays::Dotenviable.load
 
 raise "No port defined?" unless ENV["PORT"]
-port ENV["PORT"]
+port ENV.fetch("PORT", nil)
 
 preload_app!
 

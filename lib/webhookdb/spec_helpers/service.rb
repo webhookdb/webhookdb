@@ -332,7 +332,7 @@ module Webhookdb::SpecHelpers::Service
       @response = response
       unless response.respond_to?(:status)
         raise "response has no .status method, did you pass in last_response.status " \
-              " instead of last_response?"
+              "instead of last_response?"
       end
       return response.status == @expected_status
     end

@@ -4,7 +4,7 @@ require "appydays/configurable"
 require "sequel"
 require "sidekiq"
 require "sidekiq/api"
-require "sidekiq/util"
+require "sidekiq/component"
 
 module Amigo
   # This is a placeholder until it's migrated to Amigo proper
@@ -62,7 +62,7 @@ end
 #
 module Amigo::DurableJob
   include Appydays::Configurable
-  extend Sidekiq::Util
+  extend Sidekiq::Component
 
   def self.included(cls)
     cls.prepend PrependedMethods
@@ -283,7 +283,7 @@ module Amigo::DurableJob
 
     after_configured do
       self.storage_database_urls = self.server_urls.dup
-      self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV[e] })
+      self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
       self.storage_databases&.each(&:disconnect)
       self.storage_databases = self.storage_database_urls.map do |url|
         Sequel.connect(

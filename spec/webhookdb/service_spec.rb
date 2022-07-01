@@ -872,17 +872,15 @@ RSpec.describe Webhookdb::Service, :db do
 
   describe "BaseEntity" do
     describe "timezone helper" do
+      let(:obj_class) { Struct.new(:time, :customer, keyword_init: true) }
       let(:t) { Time.parse("2021-09-16T12:41:23Z") }
 
       it "renders using a path to a timezone" do
+        customer_class = Struct.new(:mytz)
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer, :mytz)
         end
-        r = ent.represent(
-          instance_double("Obj",
-                          time: t,
-                          customer: instance_double("Customer", mytz: "America/New_York"),),
-        )
+        r = ent.represent(obj_class.new(time: t, customer: customer_class.new("America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
@@ -890,47 +888,42 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(
-          instance_double("Obj",
-                          time: t,
-                          customer: instance_double("Customer", timezone: "America/New_York"),),
-        )
+        customer_class = Struct.new(:timezone)
+        r = ent.represent(obj_class.new(time: t, customer: customer_class.new("America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
       it "renders using a path to an object with a :time_zone method" do
+        customer_class = Struct.new(:time_zone)
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer)
         end
-        r = ent.represent(
-          instance_double("Obj",
-                          time: t,
-                          customer: instance_double("Customer", time_zone: "America/New_York"),),
-        )
+        r = ent.represent(obj_class.new(time: t, customer: customer_class.new("America/New_York")))
         expect(r.as_json[:time]).to eq("2021-09-16T08:41:23-04:00")
       end
 
       it "uses the default rendering if any item in the path is missing" do
         ts = t.iso8601
+        customer_class = Struct.new(:mytz)
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time, &self.timezone(:customer, :mytz)
         end
 
-        d = instance_double("Obj", time: t)
+        d = obj_class.new(time: t)
         expect(d).to receive(:customer).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = instance_double("Obj", time: t, customer: instance_double("Customer"))
+        d = obj_class.new(time: t, customer: customer_class.new)
         expect(d.customer).to receive(:mytz).and_raise(NoMethodError)
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: nil))
+        d = obj_class.new(time: t, customer: customer_class.new(nil))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
 
-        d = instance_double("Obj", time: t, customer: instance_double("Customer", mytz: ""))
+        d = obj_class.new(time: t, customer: customer_class.new(""))
         r = ent.represent(d)
         expect(r.as_json[:time]).to eq(ts)
       end
@@ -939,11 +932,9 @@ RSpec.describe Webhookdb::Service, :db do
         ent = Class.new(Webhookdb::Service::Entities::Base) do
           expose :time_not_here, &self.timezone(:customer, field: :mytime)
         end
-        r = ent.represent(
-          instance_double("Obj",
-                          mytime: t,
-                          customer: instance_double("Customer", time_zone: "America/New_York"),),
-        )
+        obj_class = Struct.new(:mytime, :customer)
+        customer_class = Struct.new(:time_zone)
+        r = ent.represent(obj_class.new(t, customer_class.new("America/New_York")))
         expect(r.as_json[:time_not_here]).to eq("2021-09-16T08:41:23-04:00")
       end
     end

@@ -152,7 +152,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :guard_confirm,
-                "WARNING: #{org.name} already has an integration for service #{params[:service_name]}. "\
+                "WARNING: #{org.name} already has an integration for service #{params[:service_name]}. " \
                 "Press Enter to create another, or Ctrl+C to quit:",
               )
             end
@@ -302,7 +302,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
             sint.destroy
             message = "Great! We've deleted all secrets for #{sint.service_name}. " \
-                      " The table #{sint.table_name} containing its data has been dropped."
+                      "The table #{sint.table_name} containing its data has been dropped."
             status 200
             present sint, with: Webhookdb::API::ServiceIntegrationEntity, message:
           end
