@@ -4,7 +4,7 @@ require "appydays/configurable"
 require "sequel"
 require "sidekiq"
 require "sidekiq/api"
-require "sidekiq/util"
+require "sidekiq/component"
 
 module Amigo
   # This is a placeholder until it's migrated to Amigo proper
@@ -62,7 +62,7 @@ end
 #
 module Amigo::DurableJob
   include Appydays::Configurable
-  extend Sidekiq::Util
+  extend Sidekiq::Component
 
   def self.included(cls)
     cls.prepend PrependedMethods

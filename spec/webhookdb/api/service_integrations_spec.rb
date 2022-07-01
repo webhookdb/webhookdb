@@ -216,7 +216,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
               ),
             ],
           ),
-          queue: "webhook",
+          "queue" => "webhook",
         ),
       )
 
@@ -228,7 +228,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     it "uses netout queue for ProcessWebhook job if integration has deps", :async do
       Webhookdb::Services::Fake.upsert_has_deps = true
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).
-        with(include(queue: "netout"))
+        with(include("queue" => "netout"))
 
       post "/v1/service_integrations/xyz", foo: 1
 
