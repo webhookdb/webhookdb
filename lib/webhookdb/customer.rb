@@ -105,7 +105,7 @@ It contains a One Time Password used to log in.
       step.prompt_is_secret = true
       step.needs_input = true
       step.post_to_url = "/v1/auth"
-      step.post_params = {email: email}
+      step.post_params = {email:}
       step.post_params_value_key = "token"
       return [step, me]
     end

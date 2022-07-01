@@ -53,7 +53,7 @@ Metrics/CyclomaticComplexity:
 Layout/LineLength:
   Max: 120
   # Allow comments to be long
-  IgnoredPatterns: ['\A#']
+  AllowedPatterns: ['\A#']
 Metrics/MethodLength:
   Enabled: false
 Metrics/ModuleLength:

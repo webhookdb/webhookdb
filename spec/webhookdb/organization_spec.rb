@@ -37,7 +37,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
       expect(res.columns).to match([:my_id, :data])
       expect(res.rows).to eq([["alpha", {}]])
-      expect(res.max_rows_reached).to eq(nil)
+      expect(res.max_rows_reached).to be_nil
     end
 
     it "truncates results correctly" do
@@ -51,7 +51,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
       res = o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")
       expect(res.rows).to eq([["alpha"], ["beta"]])
-      expect(res.max_rows_reached).to eq(true)
+      expect(res.max_rows_reached).to be(true)
     end
   end
 
@@ -155,18 +155,18 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
   describe "can_add_new_integration?" do
     it "returns true if org has active subscription" do
       Webhookdb::Fixtures.subscription.active.for_org(o).create
-      expect(o.can_add_new_integration?).to eq(true)
+      expect(o.can_add_new_integration?).to be(true)
     end
 
     it "returns true if org has no active subscription and uses fewer than max free integrations" do
       Webhookdb::Fixtures.subscription.canceled.for_org(o).create
-      expect(o.can_add_new_integration?).to eq(true)
+      expect(o.can_add_new_integration?).to be(true)
     end
 
     it "returns false if org has no active subscription and uses at least max free integrations" do
       Webhookdb::Subscription.max_free_integrations = 1
       sint = Webhookdb::Fixtures.service_integration.create(organization: o)
-      expect(o.can_add_new_integration?).to eq(false)
+      expect(o.can_add_new_integration?).to be(false)
       Webhookdb::Subscription.max_free_integrations = 2
     end
   end

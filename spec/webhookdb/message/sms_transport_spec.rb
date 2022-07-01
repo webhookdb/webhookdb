@@ -69,10 +69,10 @@ RSpec.describe Webhookdb::Message::SmsTransport, :db do
     end
 
     it "returns nil if number is not valid" do
-      expect(described_class.format_phone("555444321")).to be nil
-      expect(described_class.format_phone("notaphonenumber")).to be nil
-      expect(described_class.format_phone("")).to be nil
-      expect(described_class.format_phone(nil)).to be nil
+      expect(described_class.format_phone("555444321")).to be_nil
+      expect(described_class.format_phone("notaphonenumber")).to be_nil
+      expect(described_class.format_phone("")).to be_nil
+      expect(described_class.format_phone(nil)).to be_nil
     end
   end
 

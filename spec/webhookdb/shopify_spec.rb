@@ -35,7 +35,7 @@ RSpec.describe "Webhookdb::Shopify" do
       webhook_secret = "asdf5678"
       hmac_header = "6ffbb59b2300aae63f272406069a9788598b792a944a07aba816edb039989a39"
       verified = Webhookdb::Shopify.verify_webhook("asdfghujkl", hmac_header, webhook_secret)
-      expect(verified).to eq(false)
+      expect(verified).to be(false)
     end
 
     it "returns true if auth info is correct" do
@@ -43,7 +43,7 @@ RSpec.describe "Webhookdb::Shopify" do
       request_data = "asdfghujkl"
       hmac_header = Base64.strict_encode64(OpenSSL::HMAC.digest("sha256", webhook_secret, request_data))
       verified = Webhookdb::Shopify.verify_webhook(request_data, hmac_header, webhook_secret)
-      expect(verified).to eq(true)
+      expect(verified).to be(true)
     end
   end
 end

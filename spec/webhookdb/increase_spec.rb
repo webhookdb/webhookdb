@@ -53,11 +53,11 @@ RSpec.describe "Webhookdb::Increase" do
     end
 
     it "returns true when object name is in the id of the webhook object" do
-      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transaction")).to eq(true)
+      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transaction")).to be(true)
     end
 
     it "returns false when object name is not in the id of the webhook object" do
-      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transfer")).to eq(false)
+      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transfer")).to be(false)
     end
   end
 

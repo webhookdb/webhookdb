@@ -394,7 +394,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   def stub_service_request_error
     raise NotImplementedError,
-          "return an erroring stub_request for an enrichment "\
+          "return an erroring stub_request for an enrichment " \
           "if _fetch_enrichment requires HTTP request, else return nil"
   end
 

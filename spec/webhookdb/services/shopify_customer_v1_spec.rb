@@ -448,11 +448,11 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
       it "asks for webhook secret" do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
-          needs_input: eq(true),
+          needs_input: be(true),
           prompt: eq("Paste or type your secret here:"),
-          prompt_is_secret: eq(true),
+          prompt_is_secret: be(true),
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
-          complete: eq(false),
+          complete: be(false),
           output: match("We've made an endpoint available for Shopify Customer webhooks:"),
         )
       end
@@ -461,11 +461,11 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
         sint.webhook_secret = "whsec_abcasdf"
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
-          needs_input: eq(false),
+          needs_input: be(false),
           prompt: "",
           prompt_is_secret: false,
           post_to_url: "",
-          complete: eq(true),
+          complete: be(true),
           output: match("Great! WebhookDB is now listening for Shopify Customer webhooks."),
         )
       end

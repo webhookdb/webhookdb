@@ -283,7 +283,7 @@ module Amigo::DurableJob
 
     after_configured do
       self.storage_database_urls = self.server_urls.dup
-      self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV[e] })
+      self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
       self.storage_databases&.each(&:disconnect)
       self.storage_databases = self.storage_database_urls.map do |url|
         Sequel.connect(

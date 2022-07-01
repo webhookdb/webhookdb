@@ -209,7 +209,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
       expect(row[:click_rate]).to eq(23.17)
       expect(row[:unsubscribes]).to eq(9)
       expect(row[:total_clicks]).to eq(15)
-      expect(row[:show_total_clicks]).to eq(false)
+      expect(row[:show_total_clicks]).to be(false)
       expect(row[:status]).to eq("completed")
       expect(row[:progress]).to eq(100.0)
     end

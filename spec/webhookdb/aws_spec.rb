@@ -14,9 +14,9 @@ RSpec.describe Webhookdb::AWS do
 
   describe "configuration" do
     it "sets up the AWS services for Webhookdb systems" do
-      expect(ENV["AWS_REGION"]).to eq("us-east-2")
-      expect(ENV["AWS_ACCESS_KEY_ID"]).to eq("access")
-      expect(ENV["AWS_SECRET_ACCESS_KEY"]).to eq("sekrit")
+      expect(ENV.fetch("AWS_REGION", nil)).to eq("us-east-2")
+      expect(ENV.fetch("AWS_ACCESS_KEY_ID", nil)).to eq("access")
+      expect(ENV.fetch("AWS_SECRET_ACCESS_KEY", nil)).to eq("sekrit")
     end
   end
 

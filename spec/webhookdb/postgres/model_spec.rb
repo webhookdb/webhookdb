@@ -104,7 +104,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
   it "knows that it doesn't belong to a schema if one hasn't been specified'" do
     subclass = create_model(:a_table)
-    expect(subclass.schema_name).to eq(nil)
+    expect(subclass.schema_name).to be_nil
   end
 
   it "can build a single string of validation errors" do
