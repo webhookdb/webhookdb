@@ -100,7 +100,7 @@ Log out of your current session.
 
 Start backfilling all the resources available to the service integration.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -182,11 +182,39 @@ Write out commands that can be used to generate a FDW against your WebhookDB dat
 
 #### [rename-table](#rename-table)
 
-Rename the database table associated with the integration
+Rename the database table associated with the integration.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--new-name, -n**="": The new name of the table. Valid table names must adhere to the following rules: must begin with an ASCII letter, contain only ASCII letters, numbers, underscores, dashes, and spaces, can begin and end with double quotes, and must otherwise be a valid Postgres identifier.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+<a id="migrations"></a>
+
+#### [migrations](#migrations)
+
+Command namespace for interacting with your organizations database migrations.
+
+<a id="start"></a>
+
+##### [start](#start)
+
+Enqueue a migration of all your organization's data to a new database.
+
+**--admin-url, -a**="": 
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--readonly-url, -r**="": 
+
+<a id="list"></a>
+
+##### [list](#list)
+
+List all database migrations.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -254,7 +282,7 @@ Delete an integration and its table.
 
 **--confirm, -c**="": Confirm this action by providing a value of the integration's table name. Will be prompted if not provided.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -274,7 +302,7 @@ List all integrations for the given organization.
 
 Reset the webhook secret for this integration.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -286,7 +314,7 @@ Get statistics about webhooks for this integration.
 
 **--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -338,6 +366,8 @@ Invite a user to your organization.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
+**--role, -r**="": Role to assign the new organization member
+
 **--username, -u, --email**="": Takes an email.
 
 <a id="join"></a>
@@ -380,15 +410,17 @@ Remove a member from an organization.
 
 **--username, -u, --email**="": Takes an email.
 
-<a id="rename"></a>
+<a id="update"></a>
 
-#### [rename](#rename)
+#### [update](#update)
 
-Change the name of the organization. Does not change the org key, which is immutable.
+Change the name or billing email of the organization. (Note: the org key is immutable and will not change.)
 
-**--name, -n**="": New name of the organization
+**--field, -f**="": The field that you want to change.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--value, -v**="": The new value for the chosen field
 
 <a id="services"></a>
 
@@ -442,6 +474,90 @@ Print information about the WebhookDB pricing plans.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
+<a id="sync"></a>
+
+### [sync](#sync)
+
+Replicate data in a WebhookDB table into another database.
+
+<a id="create"></a>
+
+#### [create](#create)
+
+Create a sync target for the specified integration. Data will be automatically synced from the integration's WebhookDB table into the database specified by the connection string. PostgresQL and SnowflakeDB databases are supported.
+
+**--connection-url, -u**="": The connection string for the database that WebhookDB should write data to.
+
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--period**="": Number of seconds between syncs. (default: 0)
+
+**--schema**="": Schema (or namespace) to write the table into. Default to no schema/namespace.
+
+**--table**="": Table to create and update. Default to match the table name of the service integration.
+
+<a id="delete"></a>
+
+#### [delete](#delete)
+
+Delete the sync target and stop any further syncing. The table being synced to is not modified.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+
+<a id="list"></a>
+
+#### [list](#list)
+
+List all sync targets for the given organization.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+<a id="update"></a>
+
+#### [update](#update)
+
+Update the sync target. Use `webhookdb sync list` to see all sync targets.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--period**="": Number of seconds between syncs. (default: 0)
+
+**--schema**="": Schema (or namespace) to write the table into. Default to no schema/namespace.
+
+**--table**="": Table to create and update. Default to match the table name of the service integration.
+
+**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+
+<a id="update-creds"></a>
+
+#### [update-creds](#update-creds)
+
+Update credentials for the sync target. If the database URL used to sync is changing, you must use update-creds so WebhookDB can continue to write to it.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--password, -p**="": Takes a password.
+
+**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+
+**--user, -u**="": Database username
+
+<a id="trigger"></a>
+
+#### [trigger](#trigger)
+
+Trigger a sync to the sync target. The sync will happen at the earliest possible moment since the last sync, no matter how long the configured period is on the sync target.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+
 <a id="update"></a>
 
 ### [update](#update)
@@ -464,7 +580,7 @@ Manage webhooks that will be notified when WebhookDB data is updated.
 
 Create a new webhook that WebhookDB will call on every data update.
 
-**--integration, -i**="": Integration opaque id, starting with 'svi_'. Run `webhookdb integrations list` to see a list of all your integrations.
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
