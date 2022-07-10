@@ -1,11 +1,17 @@
 # frozen_string_literal: true
 
+require "amigo/backoff_job"
 require "webhookdb/async/job"
 
 class Webhookdb::Jobs::SyncTargetRunSync
   extend Webhookdb::Async::Job
+  include Amigo::BackoffJob
 
   sidekiq_options queue: "netout"
+
+  def dependent_queues
+    return ["critical"]
+  end
 
   def perform(sync_target_id)
     (stgt = Webhookdb::SyncTarget[sync_target_id]) or raise "no sync target with id #{sync_target_id}"

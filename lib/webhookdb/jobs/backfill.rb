@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/backoff_job"
 require "amigo/durable_job"
 require "webhookdb/async/job"
 require "webhookdb/jobs"
@@ -7,9 +8,15 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::Backfill
   extend Webhookdb::Async::Job
   include Amigo::DurableJob
+  include Amigo::BackoffJob
 
   on "webhookdb.serviceintegration.backfill"
   sidekiq_options queue: "netout"
+
+  def dependent_queues
+    # This is really the lowest-priority job so always defer to other queues.
+    return super
+  end
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event.payload[0])

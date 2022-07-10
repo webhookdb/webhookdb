@@ -117,6 +117,7 @@ module Webhookdb::Async
 
   # Registry of all jobs that will be required when the async system is started/run.
   JOBS = [
+    "webhookdb/jobs/amigo_test_jobs",
     "webhookdb/jobs/backfill",
     "webhookdb/jobs/convertkit_broadcast_backfill",
     "webhookdb/jobs/convertkit_subscriber_backfill",
@@ -127,7 +128,6 @@ module Webhookdb::Async
     "webhookdb/jobs/deprecated_jobs",
     "webhookdb/jobs/developer_alert_handle",
     "webhookdb/jobs/durable_job_recheck_poller",
-    "webhookdb/jobs/durable_sleeper",
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/organization_database_migration_notify_finished",

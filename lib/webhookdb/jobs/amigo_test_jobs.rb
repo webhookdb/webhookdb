@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/backoff_job"
 require "amigo/durable_job"
 require "sidekiq"
 
@@ -24,6 +25,37 @@ class Webhookdb::Jobs::DurableSleeper
   end
 
   def perform(duration=5)
+    sleep(duration)
+  end
+end
+
+# Use this and BackoffShouldBeRun to test the behavior of BackoffJob.
+#
+# First, fill up the 'netout' queue with a ton of these slow jobs:
+# From pry: `Webhookdb::Async.require_jobs; 500.times { Webhookdb::Jobs::BackoffShouldBeRescheduled.perform_async }`
+#
+# Then, fill up the other queues with fast jobs:
+# `1000.times { Webhookdb::Jobs::BackoffShouldRun.perform_async }`
+#
+# Then go to http://localhost:18001/sidekiq (user/pass) to check the latency.
+# The netout queue should get slow,
+# but the other queues should not build up much of a backlog.
+class Webhookdb::Jobs::BackoffShouldBeRescheduled
+  include Sidekiq::Job
+  include Amigo::DurableJob # Uncomment to verify performance with durable jobs, which hit the DB.
+  include Amigo::BackoffJob
+
+  sidekiq_options queue: "netout"
+
+  def perform(duration=3)
+    sleep(duration)
+  end
+end
+
+class Webhookdb::Jobs::BackoffShouldRun
+  include Sidekiq::Job
+
+  def perform(duration=0.1)
     sleep(duration)
   end
 end
