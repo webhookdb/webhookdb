@@ -11,7 +11,7 @@ import Lead from "../components/Lead";
 import { Link } from "gatsby";
 import RLink from "../components/RLink";
 import React from "react";
-import Reservoir from "../images/diagram-reservoir.png";
+import Reservoir from "../images/diagram-api2sql-reservoir.png";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
