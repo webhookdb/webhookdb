@@ -425,7 +425,7 @@ That it, it must match the regular expression `/^[a-zA-Z][a-zA-Z\d_ ]*$/`.
 
 We understand this may be an issue in some rare cases, such as if WebhookDB needs to integrate
 with some existing system. If that's the case,
-please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+please email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>
 and let us know.
 
 ## [And More!](#and-more)
