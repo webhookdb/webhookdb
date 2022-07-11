@@ -2,6 +2,7 @@ import "../styles/custom.scss";
 
 import { Button, Container, Image } from "react-bootstrap";
 
+import API2SQL from "../components/API2SQL";
 import Centered from "../components/Centered";
 import CenteredDiv from "../components/CenteredDiv";
 import Helmet from "react-helmet";
@@ -47,8 +48,8 @@ export default function IndexPage() {
             <h1>Unify. Automate. Build.</h1>
           </CenteredDiv>
           <Lead>
-            WebhookDB is your <Hilite>Unified API Data Reservoir</Hilite> for the age of{" "}
-            <Hilite>Composable Applications Development.</Hilite>
+            WebhookDB is your <Hilite>{API2SQL} API Data Reservoir</Hilite> for the age
+            of <Hilite>Composable Applications Development.</Hilite>
           </Lead>
           <Lead>
             WebhookDB mirrors data from 3rd party APIs into a dedicated Postgres
@@ -86,24 +87,30 @@ export default function IndexPage() {
             <Hilite>structured, relational, and accessible</Hilite> for use in your
             applications and analytics.
           </Lead>
-          <CenteredDiv>
-            <Image src={Reservoir} fluid height={300} style={{ maxHeight: 400 }} />
-          </CenteredDiv>
-          <h2 className="mt-5">Introducing API-over-SQL</h2>
           <Lead>
-            Move over JSON-over-HTTP, REST, gRPC, and WSDL. Say hello to API-over-SQL,
-            which we believe offers a new, superior paradigm for API integration.
+            Learn more about <Link to="/docs/api2sql">{API2SQL}</Link> and the{" "}
+            <Link to="/docs/api-reservoir">API Data Reservoir</Link>.
+          </Lead>
+          <CenteredDiv>
+            <Link to="/docs/api-reservoir">
+              <Image src={Reservoir} fluid height={300} style={{ maxHeight: 400 }} />
+            </Link>
+          </CenteredDiv>
+          <h2 className="mt-5">Introducing {API2SQL}</h2>
+          <Lead>
+            Move over REST, GraphSQL, gRPC, and WSDL. Say hello to {API2SQL}, which we
+            believe offers a new, superior paradigm for API integration.
           </Lead>
           <Button
-            href="/docs/new-paradigm"
+            href="/docs/api2sql"
             variant="outline-primary"
             size="lg"
             className="cta mb-4"
             as={RLink}
           >
-            Learn more about API-over-SQL
+            Learn more about {API2SQL}
           </Button>
-          <Lead>What makes API-over-SQL superior?</Lead>
+          <Lead>What makes {API2SQL} superior?</Lead>
           <ul className="lead">
             <li>
               <span className="font-weight-bold">Fast</span>: Query a database instead
@@ -117,7 +124,7 @@ export default function IndexPage() {
             <li>
               <span className="font-weight-bold">Practical</span>: Integration is a
               breeze. Get up and running in seconds for any supported API. Unit testing
-              is a lot more fun than with JSON-over-HTTP.
+              is a lot more fun than using HTTP.
             </li>
             <li>
               <span className="font-weight-bold">Secure</span>: Use standard SQL-based

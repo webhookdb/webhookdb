@@ -44,7 +44,7 @@ export default function NavigationBar() {
               <Sep />
               <NavDropdownItem
                 href="/docs/api-reservoir"
-                title="The API Reservoir"
+                title="The API Data Reservoir"
                 text="Like a reservoir collects water and makes using it as simple as turning a tap, so WebhookDB does for API data."
               />
               <Sep />
@@ -72,9 +72,9 @@ export default function NavigationBar() {
               />
               <Sep />
               <NavDropdownItem
-                href="/docs/new-paradigm"
-                title="The New API Paradigm"
-                text="Introducing API-over-SQL, the new pattern for API integration."
+                href="/docs/api2sql"
+                title="API2SQL Architecture"
+                text="Welcome to a new, superior paradigm for API integration."
               />
               <Sep />
               <NavDropdownItem

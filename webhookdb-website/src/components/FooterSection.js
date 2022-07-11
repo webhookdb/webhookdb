@@ -2,6 +2,7 @@ import "../styles/custom.scss";
 
 import { Col, Container, Image, Nav, Row } from "react-bootstrap";
 
+import API2SQL from "./API2SQL";
 import Centered from "./Centered";
 import { Link } from "gatsby";
 import Logo from "../images/blueonwhite.png";
@@ -43,7 +44,7 @@ export default function FooterSection() {
                 [
                   ["/docs/home/", "Documentation"],
                   ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
-                  ["/docs/new-paradigm/", "API-over-SQL"],
+                  ["/docs/api2sql/", API2SQL],
                   ["/docs/faq/", "FAQ"],
                 ],
               ].map((navs) => (

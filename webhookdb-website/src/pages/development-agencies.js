@@ -1,6 +1,8 @@
 import "../styles/custom.scss";
 
+import API2SQL from "../components/API2SQL";
 import CtaAction from "../components/CtaAction";
+import Hilite from "../components/Hilite";
 import Lead from "../components/Lead";
 import { Link } from "gatsby";
 import React from "react";
@@ -26,26 +28,26 @@ export default function DevelopmentAgencies() {
       <Seo title="Development Agencies" />
       <Lead className="mt-4">
         WebhookDB and its novel{" "}
-        <Link to="/docs/new-paradigm">&ldquo;API-over-SQL&rdquo; approach</Link> will
-        help you:
+        <Link to="/docs/api2sql">&ldquo;{API2SQL}&rdquo; approach</Link> will help you:
       </Lead>
       <ul className="lead mb-5">
         <li>Delight your most demanding customers with builder-friendly WebhookDB</li>
         <li>
-          Happily check API integration off your to-do list with our developer friendly
-          data flow reservoir approach to composable app creation
+          Happily <Hilite>check API integration off your to-do list</Hilite> with our
+          developer friendly data flow reservoir approach to composable app creation
         </li>
         <li>
-          Capitalize on the API-as-a-Product market landgrab with WebhookDB supported
-          integrations, automations, and best practices
+          <Hilite>Capitalize on the API-as-a-Product market land grab</Hilite> with
+          WebhookDB supported integrations, automations, and best practices
         </li>
         <li>
-          Differentiate your value proposition within your target customer use cases by
-          offering 360 degree webhook visibility and SQL support
+          <Hilite>Differentiate your value proposition</Hilite> within your target
+          customer use cases by offering 360 degree webhook visibility and SQL search
+          and query
         </li>
         <li>
-          Customize and co-brand/white-label WebhookDB for your geography or vertical
-          market specialization
+          <Hilite>Customize and co-brand/white-label</Hilite> WebhookDB for your
+          geography or vertical market specialization
         </li>
       </ul>
       <CtaAction />
