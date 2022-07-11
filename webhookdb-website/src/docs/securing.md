@@ -4,7 +4,7 @@ path: /docs/securing
 order: 65
 ---
 
-One of the amazing features of [API-over-SQL](/docs/new-paradigm/)
+One of the amazing features of [API2SQL](/docs/api2sql/)
 is that you don't need to learn anything new about securing access to your data.
 
 If you are using the hosted version of WebhookDB,
