@@ -55,8 +55,8 @@ export default function ContactForm({
       <div>
         {!hideEmail && (
           <p>
-            Email us at <a href="mailto:webhookdb@lithic.tech">webhookdb@lithic.tech</a>{" "}
-            or use this form:
+            Email us at <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a> or
+            use this form:
           </p>
         )}
         <Form as="form" name="contact" onSubmit={handleSubmit}>

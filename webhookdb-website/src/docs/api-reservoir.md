@@ -28,4 +28,4 @@ WebhookDB works the same way:
 
 **If you want to make integrating APIs as simple as turning on a tap, you can try [WebhookDB](/get-started) today.**
 
-<img src="/content/diagram-reservoir.png" style="width: calc(100% - 1rem); margin-left: 0.5rem; margin-right: 0.5rem; margin-bottom: 1rem; height: auto;"></img>
+<img src="/content/diagram-api2sql-reservoir.png" style="width: calc(100% - 1rem); margin-left: 0.5rem; margin-right: 0.5rem; margin-bottom: 1rem; height: auto;"></img>

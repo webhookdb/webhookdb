@@ -6,7 +6,7 @@ order: 50
 
 **NOTICE: Our Plaid integration is still in Beta.
 We'd love for you to try it out!
-Please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+Please email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>
 to be added to our Plaid beta.**
 
 Some APIs we integrate with are extremely tricky,
@@ -236,5 +236,5 @@ WebhookDB takes several times longer, in our experience- something like 1 to 2 h
 and clients, we have found it rare that someone gets all of the nuances of their Plaid
 integration set up correctly, if at all, such as webhooks.
 
-If you need any help, we're here to assist. Just email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+If you need any help, we're here to assist. Just email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>
 and we'll get back to you right away.

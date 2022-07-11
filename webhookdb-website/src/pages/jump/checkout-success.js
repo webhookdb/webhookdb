@@ -9,8 +9,8 @@ export default function CheckoutSuccess() {
       <p>Thanks for supporting WebhookDB! We really appreciate it.</p>
       <p>
         Don&rsquo;t hesitate to reach out to{" "}
-        <a href="mailto:webhookdb@lithic.tech">webhookdb@lithic.tech</a> with any
-        feedback or support needs.
+        <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a> with any feedback
+        or support needs.
       </p>
       <p>You may close this page.</p>
     </JumpPageLayout>

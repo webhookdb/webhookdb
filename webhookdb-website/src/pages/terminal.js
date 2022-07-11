@@ -27,8 +27,8 @@ export default function Terminal() {
             <a href={contactUsHref} onClick={openContactUs}>
               contact us
             </a>{" "}
-            or email <a href="mailto:webhookdb@lithic.tech">webhookdb@lithic.tech</a> if
-            you run into any problems.
+            or email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a> if you
+            run into any problems.
           </p>
           <Webterm width="100%" style={{ height: "80vh" }} autofocus />
           {renderContactUs()}

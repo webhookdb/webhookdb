@@ -5,10 +5,8 @@ import { Button, Col, Row } from "react-bootstrap";
 import CheckmarkSvg from "../components/CheckmarkSvg";
 import RLink from "../components/RLink";
 import React from "react";
-import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import WavesLayout from "../components/WavesLayout";
-import staticData from "../components/staticData";
 import useContactUs from "../components/useContactUs";
 
 export default function Pricing() {
@@ -25,7 +23,8 @@ export default function Pricing() {
               sub="Get started with WebhookDB with up to two integrations."
               features={[
                 "Up to 2 free active integrations",
-                "Unlimited storage for each integration*",
+                "Unlimited storage for each integration",
+                "API2SQL stored in a dedicated database",
                 "Upgrade anytime",
               ]}
             />
@@ -37,7 +36,8 @@ export default function Pricing() {
               sub="Upgrade to a paid subscription for $89/month or $890/year once you are ready."
               features={[
                 "Unlimited active integrations",
-                "Unlimited storage for each integration*",
+                "Unlimited storage for each integration",
+                "Write API2SQL into your own database",
                 "Priority email support",
               ]}
             />
@@ -47,24 +47,17 @@ export default function Pricing() {
               title="Enterprise"
               cta="Contact Us"
               onCta={openContactUs}
-              sub="If you have a ton of data, or other particular needs."
+              sub="Complete data and operational ownership for customers seeking more control."
               features={[
-                "Truly unlimited storage",
-                "Write all data into your own database",
+                "Run everything on your own servers",
+                "Develop custom integrations",
+                "Scale, source, and OEM licenses",
                 "Phone support",
               ]}
             />
           </Col>
         </Row>
       </div>
-      <p className="mt-4 ml-4 font-small">
-        * In practice, if your database grows very large, we will work with you on
-        upgrading your plan.{" "}
-        <SafeExternalLink href={staticData.announcementBlog}>
-          Learn more
-        </SafeExternalLink>
-        .
-      </p>
       {renderContactUs()}
     </WavesLayout>
   );
@@ -75,7 +68,8 @@ function PricingCard({ title, cta, sub, features, onCta }) {
     <div className="d-flex justify-content-center pt-5 h-100">
       <div className="max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100">
         <h3 className="text-center">{title}</h3>
-        <p className="lead">{sub}</p>
+        <p className="lead mb-5">{sub}</p>
+        <div className="h-100" />
         {features.map((feature, idx) => (
           <React.Fragment key={feature}>
             <div>
@@ -85,7 +79,6 @@ function PricingCard({ title, cta, sub, features, onCta }) {
             {idx !== features.length - 1 && <hr className="w-100" />}
           </React.Fragment>
         ))}
-        <div className="h-100" />
         <Button
           size="lg"
           block

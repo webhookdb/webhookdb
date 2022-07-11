@@ -1,4 +1,5 @@
 import ContactForm from "./ContactForm";
+import Hilite from "./Hilite";
 import Lead from "./Lead";
 import { Link } from "gatsby";
 import React from "react";
@@ -15,15 +16,17 @@ export default function CtaAction({ alt, className, formClassName }) {
         <Link to="/terminal" className={linkCls}>
           terminal
         </Link>{" "}
-        and get started from your browser. You can upgrade to a pain plan, or{" "}
+        and <Hilite>get started from your browser.</Hilite> You can upgrade to a pain
+        plan, or{" "}
         <Link to="/docs/self-hosting" className={linkCls}>
           switch to self-hosting
         </Link>
         , later.
       </Lead>
       <Lead>
-        To discuss licensing WebhookDB for self-hosting, embedded use as OEM, and
-        additional or custom integrations, please use this contact form, or email{" "}
+        We pride ourselves on our <Hilite>partner-focused approach.</Hilite> To discuss
+        licensing WebhookDB for self-hosting, embedded use as OEM, and additional or
+        custom integrations, please use this contact form, or email{" "}
         <a href="mailto:hello@webhookdb.com" className={linkCls}>
           hello@webhookdb.com
         </a>

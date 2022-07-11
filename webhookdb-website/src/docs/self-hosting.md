@@ -45,7 +45,7 @@ or feel more comfortable with data sitting on their servers.
 We do not yet offer self-serve BYOD setup,
 since it requires you provision a database user with the right permissions,
 and can be tricky to get right.
-Please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+Please email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>
 if you would like to get set up with BYOD.
 In the meantime, you can set up a hosted version and we can migrate
 to your database when you're ready.
@@ -69,5 +69,5 @@ This gives you total ownership over everything that goes on.
 We're here for support!
 
 The self-hosted option is only available for Enterprise customers.
-Please email <a href="mailto:webhokdb@lithic.tech">webhookdb@lithic.tech</a>
+Please email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>
 to get that conversation started.
