@@ -1,6 +1,6 @@
 ---
 title: New Paradigm for API Integration
-path: /docs/new-paradigm
+path: /docs/api2sql
 order: 25
 ---
 

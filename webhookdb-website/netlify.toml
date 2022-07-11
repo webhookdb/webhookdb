@@ -1,0 +1,5 @@
+[[redirects]]
+  from = "/docs/new-paradigm"
+  to = "/docs/api2sql"
+  status = 302
+  force = true
