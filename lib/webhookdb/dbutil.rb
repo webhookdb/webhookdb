@@ -12,6 +12,12 @@
 # Note you MUST take care to call `disconnect` at some point
 # or connections will leak.
 module Webhookdb::Dbutil
+  include Appydays::Configurable
+  configurable(:dbutil) do
+    setting :slow_query_seconds, 0.2
+    setting :max_connections, 6
+  end
+
   module_function def borrow_conn(url, **opts, &block)
     raise LocalJumpError, "borrow_conn requires a block" if block.nil?
     opts = conn_opts(opts)
@@ -29,6 +35,9 @@ module Webhookdb::Dbutil
     res.merge!(opts)
     res[:test] = false unless res.key?(:test)
     res[:loggers] = [Webhookdb.logger] unless res.key?(:logger) || res.key?(:loggers)
+    res[:sql_log_level] ||= :debug
+    res[:log_warn_duration] ||= Webhookdb::Dbutil.slow_query_seconds
+    res[:max_connections] ||= Webhookdb::Dbutil.max_connections
     res[:keep_reference] = false unless res.key?(:keep_reference)
     return res
   end

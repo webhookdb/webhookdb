@@ -243,3 +243,8 @@ module Webhookdb::Async
 end
 
 Amigo::DurableJob.db_loggers = [Webhookdb.logger]
+Amigo::DurableJob.db_connection_options = {
+  slow_query_seconds: Webhookdb::Dbutil.slow_query_seconds,
+  max_connections: Webhookdb::Dbutil.max_connections,
+  sql_log_level: :debug,
+}

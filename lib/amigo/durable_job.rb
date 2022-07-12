@@ -73,7 +73,7 @@ module Amigo::DurableJob
   end
 
   class << self
-    attr_accessor :storage_database_urls, :storage_databases, :table_fqn
+    attr_accessor :storage_database_urls, :storage_databases, :table_fqn, :db_connection_options
 
     def db_loggers
       return @db_loggers ||= []
@@ -285,12 +285,14 @@ module Amigo::DurableJob
       self.storage_database_urls = self.server_urls.dup
       self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
       self.storage_databases&.each(&:disconnect)
+      conn_opts = self.db_connection_options || {}
       self.storage_databases = self.storage_database_urls.map do |url|
         Sequel.connect(
           url,
           keep_reference: false,
           test: false,
           loggers: self.db_loggers,
+          **conn_opts,
         )
       end
       self.table_fqn = Sequel[self.schema_name][self.table_name]
