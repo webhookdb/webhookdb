@@ -73,16 +73,38 @@ module Amigo::DurableJob
   end
 
   class << self
-    attr_accessor :storage_database_urls, :storage_databases, :table_fqn, :db_connection_options
+    attr_accessor :storage_database_urls, :storage_databases, :table_fqn
 
-    def db_loggers
-      return @db_loggers ||= []
+    # Set a field on the underlying storage databases,
+    # such as :logger or :sql_log_level.
+    # This value is set immediately on all storage databases,
+    # and persists across resets.
+    # NOTE: Some fields, like max_connections, can only be set on connect.
+    # Use replace_database_settings for this instead.
+    def set_database_setting(key, value)
+      @database_settings ||= {}
+      @database_settings[key] = value
+      self.storage_databases.each { |db| db.send("#{key}=", value) }
     end
 
-    def db_loggers=(a)
-      a = Array(a)
-      self.storage_databases.each { |db| db.loggers = a }
-      @db_loggers = a
+    # Reconnect to all databases using the given settings.
+    # Settings persist across resets.
+    def replace_database_settings(new_settings)
+      @database_settings = new_settings
+      self.reconnect
+    end
+
+    def reconnect
+      self.storage_databases&.each(&:disconnect)
+      settings = @database_settings || {}
+      self.storage_databases = self.storage_database_urls.map do |url|
+        Sequel.connect(
+          url,
+          keep_reference: false,
+          test: false,
+          **settings,
+        )
+      end
     end
 
     def ensure_jobs_tables(drop: false)
@@ -284,17 +306,7 @@ module Amigo::DurableJob
     after_configured do
       self.storage_database_urls = self.server_urls.dup
       self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
-      self.storage_databases&.each(&:disconnect)
-      conn_opts = self.db_connection_options || {}
-      self.storage_databases = self.storage_database_urls.map do |url|
-        Sequel.connect(
-          url,
-          keep_reference: false,
-          test: false,
-          loggers: self.db_loggers,
-          **conn_opts,
-        )
-      end
+      self.reconnect
       self.table_fqn = Sequel[self.schema_name][self.table_name]
       self.ensure_jobs_tables
     end

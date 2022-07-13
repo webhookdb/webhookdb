@@ -330,25 +330,47 @@ RSpec.describe Amigo::DurableJob do
     end
   end
 
-  describe "setting db loggers" do
+  describe "database_setting" do
     before(:each) do
-      @orig_loggers = described_class.db_loggers
+      @orig_settings = described_class.instance_variable_get(:@database_settings)
+      described_class.instance_variable_set(:@database_settings, {})
     end
 
     after(:each) do
-      described_class.db_loggers = @orig_loggers
+      described_class.instance_variable_set(:@database_settings, @orig_settings)
     end
 
     it "sets on the current dbs and maintains across reloads" do
       orig_db = described_class.storage_databases.first
       logger = Logger.new(File::NULL)
-      described_class.db_loggers = [logger]
+      described_class.set_database_setting(:loggers, [logger])
       expect(orig_db.loggers).to contain_exactly(logger)
 
       described_class.reset_configuration
       new_db = described_class.storage_databases.first
       expect(new_db).to_not eq(orig_db)
       expect(new_db.loggers).to contain_exactly(logger)
+    end
+
+    it "can replace all settings" do
+      described_class.reset_configuration
+      orig_db = described_class.storage_databases.first
+      # Initial value
+      expect(orig_db).to have_attributes(log_warn_duration: nil)
+      # Ensure it gets proxied
+      described_class.set_database_setting(:log_warn_duration, 1)
+      expect(orig_db).to have_attributes(log_warn_duration: 1)
+      # Replace fields. Old log warn duration is replaced.
+      described_class.replace_database_settings({sql_log_level: :error})
+      # This original instance is not modified; the new one is
+      expect(orig_db).to have_attributes(log_warn_duration: 1, sql_log_level: :info)
+      expect(described_class.storage_databases.first).to have_attributes(log_warn_duration: nil, sql_log_level: :error)
+
+      described_class.reset_configuration
+      new_db = described_class.storage_databases.first
+      expect(new_db).to_not eq(orig_db)
+      # log warn time should have been reset, but log level persisted
+      expect(new_db).to have_attributes(log_warn_duration: nil, sql_log_level: :error)
     end
   end
 end

@@ -209,6 +209,12 @@ module Webhookdb::Async
   end
 
   def self.require_jobs
+    Amigo::DurableJob.replace_database_settings(
+      loggers: [Webhookdb.logger],
+      log_warn_duration: Webhookdb::Dbutil.slow_query_seconds,
+      max_connections: Webhookdb::Dbutil.max_connections,
+      sql_log_level: :debug,
+    )
     JOBS.each { |j| require(j) }
   end
 
@@ -241,10 +247,3 @@ module Webhookdb::Async
     raise "Errors loading sidekiq-cron jobs: %p" % [load_errs] if load_errs.present?
   end
 end
-
-Amigo::DurableJob.db_loggers = [Webhookdb.logger]
-Amigo::DurableJob.db_connection_options = {
-  slow_query_seconds: Webhookdb::Dbutil.slow_query_seconds,
-  max_connections: Webhookdb::Dbutil.max_connections,
-  sql_log_level: :debug,
-}
