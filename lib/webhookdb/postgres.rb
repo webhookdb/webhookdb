@@ -115,10 +115,10 @@ module Webhookdb::Postgres
     end
   end
 
-  def self.run_all_migrations(target: nil)
+  def self.run_all_migrations(target: nil, install_extensions: true)
     Sequel.extension :migration
     Webhookdb::Postgres.each_model_superclass do |cls|
-      self.install_all_extensions(cls.db)
+      self.install_all_extensions(cls.db) if install_extensions
       Sequel::Migrator.run(cls.db, "db/migrations", target:)
     end
   end
