@@ -14,7 +14,10 @@ class Webhookdb::API::Services < Webhookdb::API::V1
         rescue Webhookdb::Services::InvalidService
           merror!(403, "No service with that name exists.")
         end
-        sint = Webhookdb::ServiceIntegration.new(table_name: params[:service_name] + "_fixture")
+        sint = Webhookdb::ServiceIntegration.new(
+          opaque_id: "svi_fixture",
+          table_name: params[:service_name] + "_fixture",
+        )
         sch = descr.ctor.call(sint).create_table_sql
         present({schema_sql: sch})
       end

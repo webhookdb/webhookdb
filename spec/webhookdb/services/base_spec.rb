@@ -43,7 +43,9 @@ RSpec.describe Webhookdb::Services::Base, :db do
           ]
         end
       end
-      s = test_svc_cls.new(sint_fac.instance)
+      sint = sint_fac.instance
+      sint.opaque_id = "opaq"
+      s = test_svc_cls.new(sint)
       expect(s.create_table_sql).to eq(<<~S.rstrip)
         CREATE TABLE public.mytbl (
           pk bigserial PRIMARY KEY,
@@ -54,8 +56,8 @@ RSpec.describe Webhookdb::Services::Base, :db do
           denorm4 integer,
           data jsonb NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS denorm1_idx ON public.mytbl (denorm1);
-        CREATE INDEX IF NOT EXISTS from_idx ON public.mytbl ("from");
+        CREATE INDEX IF NOT EXISTS opaq_denorm1_idx ON public.mytbl (denorm1);
+        CREATE INDEX IF NOT EXISTS opaq_from_idx ON public.mytbl ("from");
       S
     end
 

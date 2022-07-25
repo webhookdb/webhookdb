@@ -161,7 +161,11 @@ class Webhookdb::Services::Base
     adapter = Webhookdb::DBAdapter::PG.new
     lines = [adapter.create_table_sql(table, columns, if_not_exists:)]
     columns.filter(&:index?).each do |col|
-      dbindex = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
+      # We need to give indices a persistent name, unique across the schema,
+      # since multiple indices within a schema cannot share a name.
+      raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
+      idx_name = "#{self.service_integration.opaque_id}_#{col.name}_idx"
+      dbindex = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
       lines << adapter.create_index_sql(dbindex)
     end
     self._enrichment_tables_descriptors.each do |tdesc|
