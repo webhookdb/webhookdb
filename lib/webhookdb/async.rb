@@ -211,9 +211,7 @@ module Webhookdb::Async
   def self.require_jobs
     Amigo::DurableJob.replace_database_settings(
       loggers: [Webhookdb.logger],
-      log_warn_duration: Webhookdb::Dbutil.slow_query_seconds,
-      max_connections: Webhookdb::Dbutil.max_connections,
-      sql_log_level: :debug,
+      **Webhookdb::Dbutil.configured_connection_options,
     )
     JOBS.each { |j| require(j) }
   end

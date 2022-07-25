@@ -34,25 +34,25 @@ module Webhookdb::Postgres::ModelUtilities
     # The application name, set on database connections.
     attr_reader :appname
 
-    # Set up some things on new database connections.
-    def db=(newdb)
-      self.logger.debug "Setting db %p" % [newdb]
-      newdb.sql_log_level = :debug
-      newdb.logger = self.logger
-      newdb.log_warn_duration = self.slow_query_seconds
-
-      newdb.extension(:pagination)
-      newdb.extension(:pg_json)
-      newdb.extension(:pg_inet)
-      newdb.extension(:pg_array)
-      newdb.extension(:pg_streaming)
-      newdb.extension(:pg_range)
-      newdb.extension(:pg_interval)
-      newdb.extension(:pg_triggers)
-      newdb.extension(:pretty_table)
-
-      super
-
+    # Connect to the given URI using the standard extensions and other options.
+    def connect(uri)
+      newdb = Sequel.connect(
+        uri,
+        logger: self.logger,
+        extensions: [
+          :pagination,
+          :pg_json,
+          :pg_inet,
+          :pg_array,
+          :pg_streaming,
+          :pg_range,
+          :pg_interval,
+          :pg_triggers,
+          :pretty_table,
+        ],
+        **Webhookdb::Dbutil.configured_connection_options,
+      )
+      self.db = newdb
       self.descendents.each do |subclass|
         subclass.db = newdb
       end
