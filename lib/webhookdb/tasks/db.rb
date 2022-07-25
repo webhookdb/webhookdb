@@ -37,7 +37,7 @@ module Webhookdb::Tasks
           Webhookdb::Postgres.load_superclasses
           Webhookdb::Postgres.run_all_migrations(
             target: args[:version]&.to_i,
-            install_extensions: ENV.fetch("DATABASE_NO_EXTENSIONS").blank?,
+            install_extensions: ENV.fetch("DATABASE_NO_EXTENSIONS", "").blank?,
           )
         end
 
