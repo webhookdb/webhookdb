@@ -21,10 +21,22 @@ RSpec.describe Webhookdb::ConnectionCache do
     end
   end
 
+  after(:each) do
+    instance.force_disconnect_all
+  end
+
   def change_db(url, name)
     u = URI(url)
     u.path = name
     return u.to_s
+  end
+
+  def capture_conn(inst, url)
+    c = nil
+    inst.borrow(url) do |co|
+      c = co
+    end
+    return c
   end
 
   describe "borrow" do
@@ -95,6 +107,51 @@ RSpec.describe Webhookdb::ConnectionCache do
         c << "insert into t1(c) values('x')"
       end
     end
+
+    describe "timeouts" do
+      it "can use a known :timeout option" do
+        conn = capture_conn(instance, db1_url)
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 30000")
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 0")
+        instance.borrow(db1_url, timeout: :fast) do |c|
+          expect(c).to be conn
+        end
+      end
+
+      it "does not modify statement timeout if not given" do
+        conn = capture_conn(instance, db1_url)
+        expect(conn).to_not receive(:<<)
+        instance.borrow(db1_url, timeout: nil) do |c|
+          expect(c).to be conn
+        end
+      end
+
+      it "errors if :timeout is unknown" do
+        expect do
+          instance.borrow(db1_url, timeout: :foo) {}
+        end.to raise_error(/no timeout accessor :timeout_foo/)
+      end
+
+      it "uses a numeric timeout as the timeout seconds" do
+        conn = capture_conn(instance, db1_url)
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 5000")
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 0")
+        instance.borrow(db1_url, timeout: 5) do |c|
+          expect(c).to be conn
+        end
+      end
+
+      it "reverts the timeout on error" do
+        conn = capture_conn(instance, db1_url)
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 5000")
+        expect(conn).to receive(:<<).with("SET statement_timeout TO 0")
+        expect do
+          instance.borrow(db1_url, timeout: 5) do |_|
+            raise NotImplementedError
+          end
+        end.to raise_error(NotImplementedError)
+      end
+    end
   end
 
   describe "disconnect" do
@@ -128,10 +185,7 @@ RSpec.describe Webhookdb::ConnectionCache do
 
   describe "force_disconnect_all" do
     it "disconnects all open connections and clears them from the cache" do
-      conn = nil
-      instance.borrow(db1_url) do |c|
-        conn = c
-      end
+      conn = capture_conn(instance, db1_url)
       conn << "select 1"
       expect(conn.pool.available_connections).to have_length(1)
       expect(instance.databases).to have_length(1)

@@ -61,7 +61,7 @@ you are all set.
     raise Webhookdb::Services::CredentialsMissing if auth_cookie.blank?
 
     client_svc = self.service_integration.depends_on.service_instance
-    client_rows = client_svc.readonly_dataset { |ds| ds.exclude(archived_in_theranest: true) }
+    client_rows = client_svc.readonly_dataset(timeout: :fast) { |ds| ds.exclude(archived_in_theranest: true) }
     client_rows.each do |client|
       backfiller = CaseBackfiller.new(
         case_svc: self,
@@ -116,7 +116,7 @@ you are all set.
         theranest_deleted_at: parse_mdy_date(body.fetch("DeletedDate")),
         theranest_deleted_by_name: body.fetch("DeletedByName"),
       }
-      upserted_rows = @case_svc.admin_dataset do |ds|
+      upserted_rows = @case_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :external_id,
           update: inserting,

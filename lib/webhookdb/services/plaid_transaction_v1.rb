@@ -57,7 +57,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
     code = body.fetch("webhook_code")
     item_id = body.fetch("item_id")
     plaid_item_service = self.service_integration.depends_on.service_instance
-    plaid_item_row = plaid_item_service.readonly_dataset { |ds| ds[plaid_id: item_id] }
+    plaid_item_row = plaid_item_service.readonly_dataset(timeout: :fast) { |ds| ds[plaid_id: item_id] }
     if plaid_item_row.nil?
       raise Webhookdb::InvalidPrecondition,
             "could not find Plaid item #{item_id} for integration #{self.service_integration.opaque_id}"
@@ -77,14 +77,14 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   end
 
   def handle_incremental_update(plaid_item_service, plaid_item_row)
-    pagination_start_date = self.readonly_dataset do |ds|
+    pagination_start_date = self.readonly_dataset(timeout: :fast) do |ds|
       ds.where(item_id: plaid_item_row.fetch(:plaid_id)).max(:date)
     end
     self.backfill_plaid_item(plaid_item_service, plaid_item_row, pagination_start_date || 2.years.ago)
   end
 
   def _mark_transactions_removed(removed_ids)
-    self.admin_dataset do |ds|
+    self.admin_dataset(timeout: :fast) do |ds|
       now = Time.now
       ds.where(plaid_id: removed_ids).update(removed_at: now, row_updated_at: now)
       ds.where(plaid_id: removed_ids).each do |row|
@@ -180,7 +180,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         row_created_at: now,
         row_updated_at: now,
       }
-      upserted_rows = @transaction_svc.admin_dataset do |ds|
+      upserted_rows = @transaction_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :plaid_id,
           update: inserting,

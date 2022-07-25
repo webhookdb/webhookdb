@@ -296,7 +296,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
 
             begin
-              sint.service_instance.admin_dataset { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
+              sint.service_instance.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
             rescue Sequel::DatabaseError => e
               raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
             end

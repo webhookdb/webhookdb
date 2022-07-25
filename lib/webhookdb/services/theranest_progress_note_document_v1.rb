@@ -111,7 +111,7 @@ you are all set.
         external_staff_signer_id: body.fetch("StaffSignerId"),
         updated_at: DateTime.now,
       }
-      upserted_rows = @progress_note_document_svc.admin_dataset do |ds|
+      upserted_rows = @progress_note_document_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :external_id,
           update: inserting,

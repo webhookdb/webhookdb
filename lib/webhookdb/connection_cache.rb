@@ -45,12 +45,17 @@ class Webhookdb::ConnectionCache
     # If this many seconds has elapsed since the last connecton was borrowed,
     # prune connections with no pending borrows.
     setting :prune_interval, 120
+
+    # Seconds for the :fast timeout option.
+    setting :timeout_fast, 30
+    # Seconds for the :slow_schema timeout option.
+    setting :timeout_slow_schema, 30.minutes.to_i
   end
 
   singleton_attr_accessor :_instance
 
-  def self.borrow(url, &)
-    return self._instance.borrow(url, &)
+  def self.borrow(url, **kw, &)
+    return self._instance.borrow(url, **kw, &)
   end
 
   def self.disconnect(url)
@@ -73,7 +78,7 @@ class Webhookdb::ConnectionCache
   # (or reuse existing connection),
   # and yield the database to the given block.
   # See class docs for more details.
-  def borrow(url, &block)
+  def borrow(url, opts={}, &block)
     raise LocalJumpError if block.nil?
     raise ArgumentError, "url cannot be blank" if url.blank?
     now = Time.now
@@ -85,12 +90,24 @@ class Webhookdb::ConnectionCache
     else
       url_cache[:pending] += 1
     end
+    timeout = opts[:timeout]
+    if timeout.is_a?(Symbol)
+      timeout_name = "timeout_#{timeout}"
+      begin
+        timeout = Webhookdb::ConnectionCache.send(timeout_name)
+      rescue NoMethodError
+        raise NoMethodError, "no timeout accessor :#{timeout_name}"
+      end
+    end
+    conn = url_cache[:connection]
+    conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
     begin
-      result = yield url_cache[:connection]
+      result = yield conn
     rescue Sequel::DatabaseError
-      url_cache[:connection] << "ROLLBACK;"
+      conn << "ROLLBACK;"
       raise
     ensure
+      conn << "SET statement_timeout TO 0" if timeout.present?
       url_cache[:pending] -= 1
     end
     self.prune(url) if now > self.next_prune_at

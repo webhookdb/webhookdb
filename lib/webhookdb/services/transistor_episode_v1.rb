@@ -21,8 +21,8 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
     return "#{self.service_integration.table_name}_stats".to_sym
   end
 
-  def analytics_admin_dataset(&)
-    return self.admin_dataset do |ds|
+  def analytics_admin_dataset(*_opts, &)
+    return self.admin_dataset(timeout: :fast) do |ds|
       yield(ds.db[self.qualified_table_sequel_identifier(table: self.analytics_table_name)])
     end
   end
@@ -87,7 +87,7 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
     # the date of the last entry so that we don't have to upsert information that we know will not
     # be changed. We allow for a two day buffer before the date of the last entry to account for changes
     # that may occur on the day of a new entry, while the downloads are accruing.
-    latest_update = self.analytics_admin_dataset { |ds| ds.where(episode_id:).max(:date) }
+    latest_update = self.analytics_admin_dataset(timeout: :fast) { |ds| ds.where(episode_id:).max(:date) }
     start_date = latest_update.nil? ? Time.parse(created_at) : (latest_update - 2.days)
     request_body = {
       start_date: start_date.strftime("%d-%m-%Y"),
