@@ -1,7 +1,5 @@
 :timeout: 25
-:concurrency: 5
-production:
-  :concurrency: 10
+:concurrency: <%= ENV['SIDEKIQ_CONCURRENCY'] || 10 %>
 :queues:
   - ["critical", 30] # Used for audit logging and routing. Should be emptied as soon as possible, before anything else runs.
   - ["default", 6] # Application jobs should run more often.
