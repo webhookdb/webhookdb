@@ -57,6 +57,10 @@ class Webhookdb::ConnectionCache
     self._instance.disconnect(url)
   end
 
+  def self.force_disconnect_all
+    self._instance.force_disconnect_all
+  end
+
   attr_accessor :databases, :prune_interval, :last_pruned_at
 
   def initialize(prune_interval:)
@@ -83,6 +87,9 @@ class Webhookdb::ConnectionCache
     end
     begin
       result = yield url_cache[:connection]
+    rescue Sequel::DatabaseError
+      url_cache[:connection] << "ROLLBACK;"
+      raise
     ensure
       url_cache[:pending] -= 1
     end
@@ -120,6 +127,13 @@ class Webhookdb::ConnectionCache
       true
     end
     self.last_pruned_at = Time.now
+  end
+
+  def force_disconnect_all
+    self.databases.each_value do |url_cache|
+      url_cache[:connection].disconnect
+    end
+    @databases.clear
   end
 end
 
