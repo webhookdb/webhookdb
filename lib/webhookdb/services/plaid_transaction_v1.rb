@@ -39,6 +39,10 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
     return :row_updated_at
   end
 
+  def _update_where_expr
+    return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
+  end
+
   def upsert_has_deps?
     return true
   end

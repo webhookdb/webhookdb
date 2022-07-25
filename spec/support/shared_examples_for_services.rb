@@ -15,6 +15,10 @@ RSpec.shared_examples "a service implementation" do |name|
     sint.organization.remove_related_database
   end
 
+  it "knows the expression used to conditionally update" do
+    expect(svc._update_where_expr).to be_a(Sequel::SQL::Expression)
+  end
+
   it "has a timestamp column" do
     expect(svc.timestamp_column).to be_a(Webhookdb::DBAdapter::Column)
   end
