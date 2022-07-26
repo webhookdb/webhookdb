@@ -80,7 +80,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       else
         return nil
     end
-    upserted_rows = self.admin_dataset do |ds|
+    upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
       ds.insert_conflict(
         target: self._remote_key_column.name,
         update: payload,

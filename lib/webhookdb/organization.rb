@@ -83,12 +83,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return org
   end
 
-  def readonly_connection(&)
-    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url_raw, &)
+  def readonly_connection(**kw, &)
+    return Webhookdb::ConnectionCache.borrow(self.readonly_connection_url_raw, **kw, &)
   end
 
-  def admin_connection(&)
-    return Webhookdb::ConnectionCache.borrow(self.admin_connection_url_raw, &)
+  def admin_connection(**kw, &)
+    return Webhookdb::ConnectionCache.borrow(self.admin_connection_url_raw, **kw, &)
   end
 
   def execute_readonly_query(sql)
@@ -222,7 +222,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
     builder = Webhookdb::Organization::DbBuilder.new(self)
     sql = builder.migration_replication_schema_sql(self.replication_schema, schema)
-    self.admin_connection do |db|
+    self.admin_connection(transaction: true) do |db|
       db << sql
     end
     self.update(replication_schema: schema)

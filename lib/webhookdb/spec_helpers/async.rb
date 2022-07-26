@@ -9,7 +9,7 @@ require "webhookdb/spec_helpers"
 module Webhookdb::SpecHelpers::Async
   def self.included(context)
     Sidekiq::Testing.inline!
-    Amigo::BackoffJob.reset
+    Amigo::QueueBackoffJob.reset
 
     context.before(:each) do |example|
       Sidekiq::Testing.inline!

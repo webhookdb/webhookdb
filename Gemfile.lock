@@ -300,6 +300,7 @@ DEPENDENCIES
   bcrypt
   biz
   clipboard
+  concurrent-ruby
   dotenv
   faker
   fluent_fixtures

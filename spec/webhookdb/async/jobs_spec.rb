@@ -200,6 +200,14 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     ensure
       sint.organization.remove_related_database
     end
+
+    it "can calculate semaphore details" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      sint.organization.update(job_semaphore_size: 6)
+      j = Webhookdb::Jobs::ProcessWebhook.new
+      j.before_perform({"id" => "1", "name" => "topic", "payload" => [sint.id]})
+      expect(j).to have_attributes(semaphore_key: "semaphore-procwebhook-#{sint.organization_id}", semaphore_size: 6)
+    end
   end
 
   describe "OrganizationDatabaseMigrationRun" do
@@ -219,6 +227,23 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       expect(Webhookdb::Organization::DatabaseMigration.first).to have_attributes(
         started_at: match_time(Time.now).within(5),
       )
+    end
+
+    it "noops if the migration is already finished" do
+      org = Webhookdb::Fixtures.organization.create
+      org.prepare_database_connections
+      dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
+      dbm = Webhookdb::Organization::DatabaseMigration.enqueue(
+        admin_connection_url_raw: dbinfo.admin_url,
+        readonly_connection_url_raw: dbinfo.readonly_url,
+        public_host: "",
+        started_by: nil,
+        organization: org,
+      )
+      dbm.update(finished_at: Time.now)
+      expect do
+        dbm.publish_immediate("created", dbm.id)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationRun)
     end
   end
 

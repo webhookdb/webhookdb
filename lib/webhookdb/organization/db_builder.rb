@@ -406,7 +406,6 @@ class Webhookdb::Organization::DbBuilder
     qold_schema = ad.escape_identifier(old_schema)
     qnew_schema = ad.escape_identifier(new_schema)
     lines = []
-    lines << "BEGIN;"
     # lines << "ALTER SCHEMA #{qold_schema} RENAME TO #{qnew_schema};"
     # lines << "CREATE SCHEMA IF NOT EXISTS public;"
     lines << "CREATE SCHEMA IF NOT EXISTS #{qnew_schema};"
@@ -423,7 +422,6 @@ class Webhookdb::Organization::DbBuilder
       lines << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{qnew_schema} GRANT SELECT ON TABLES TO #{ro_user};"
     end
     # lines << "DROP SCHEMA #{qold_schema} CASCADE;"
-    lines << "COMMIT;"
     return lines.join("\n")
   end
 end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "amigo/backoff_job"
+require "amigo/queue_backoff_job"
 require "amigo/durable_job"
 require "sidekiq"
 
@@ -43,7 +43,7 @@ end
 class Webhookdb::Jobs::BackoffShouldBeRescheduled
   include Sidekiq::Job
   include Amigo::DurableJob # Uncomment to verify performance with durable jobs, which hit the DB.
-  include Amigo::BackoffJob
+  include Amigo::QueueBackoffJob
 
   sidekiq_options queue: "netout"
 

@@ -58,7 +58,7 @@ you are all set.
     raise Webhookdb::Services::CredentialsMissing if auth_cookie.blank?
 
     case_svc = self.service_integration.depends_on.service_instance
-    case_rows = case_svc.readonly_dataset { |ds| ds.exclude(state: "deleted") }
+    case_rows = case_svc.readonly_dataset(timeout: :fast) { |ds| ds.exclude(state: "deleted") }
     case_rows.each do |theranest_case|
       backfiller = ProgressNoteBackfiller.new(
         progress_note_svc: self,
@@ -103,7 +103,7 @@ you are all set.
         theranest_is_signed_by_staff: body.fetch("IsSignedByStaff"),
         theranest_created_at: parse_datetime(body.fetch("Date")),
       }
-      upserted_rows = @progress_note_svc.admin_dataset do |ds|
+      upserted_rows = @progress_note_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :external_id,
           update: inserting,

@@ -146,7 +146,7 @@ class Webhookdb::Services::Base
 
   def create_table(if_not_exists: false)
     cmd = self.create_table_sql(if_not_exists:)
-    self.admin_dataset do |ds|
+    self.admin_dataset(timeout: :fast) do |ds|
       ds.db << cmd
     end
   end
@@ -242,7 +242,7 @@ class Webhookdb::Services::Base
   def ensure_all_columns
     stmt = self.ensure_all_columns_sql
     return if stmt.blank?
-    self.admin_dataset do |ds|
+    self.admin_dataset(timeout: :slow_schema) do |ds|
       ds.db << stmt
       # We need to clear cached columns on the data since we know we're adding more.
       # It's probably not a huge deal but may as well keep it in sync.
@@ -252,26 +252,27 @@ class Webhookdb::Services::Base
   end
 
   def ensure_all_columns_sql
+    existing_cols = nil
     self.admin_dataset do |ds|
       return self.create_table_sql unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns
-      missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
-      adapter = Webhookdb::DBAdapter::PG.new
-      table = self.dbadapter_table
-      lines = []
-      missing_columns.each do |whcol|
-        # Don't bother bulking the ADDs into a single ALTER TABLE,
-        # it won't really matter.
-        col = whcol.to_dbadapter
-        lines << adapter.add_column_sql(table, col)
-        if col.index?
-          index = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
-          lines << adapter.create_index_sql(index)
-        end
-      end
-      result = lines.join(";\n")
-      return result.empty? ? "" : result + ";"
     end
+    missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
+    adapter = Webhookdb::DBAdapter::PG.new
+    table = self.dbadapter_table
+    lines = []
+    missing_columns.each do |whcol|
+      # Don't bother bulking the ADDs into a single ALTER TABLE,
+      # it won't really matter.
+      col = whcol.to_dbadapter
+      lines << adapter.add_column_sql(table, col)
+      if col.index?
+        index = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
+        lines << adapter.create_index_sql(index)
+      end
+    end
+    result = lines.join(";\n")
+    return result.empty? ? "" : result + ";"
   end
 
   def upsert_webhook(body:)
@@ -286,7 +287,7 @@ class Webhookdb::Services::Base
     inserting.merge!(prepared)
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
-    upserted_rows = self.admin_dataset do |ds|
+    upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
       ds.insert_conflict(
         target: remote_key_col.name,
         update: updating,
@@ -382,18 +383,18 @@ class Webhookdb::Services::Base
   end
 
   # @return [Sequel::Dataset]
-  def admin_dataset(&)
-    self.with_dataset(self.service_integration.organization.admin_connection_url_raw, &)
+  def admin_dataset(**kw, &)
+    self.with_dataset(self.service_integration.organization.admin_connection_url_raw, **kw, &)
   end
 
   # @return [Sequel::Dataset]
-  def readonly_dataset(&)
-    self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, &)
+  def readonly_dataset(**kw, &)
+    self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, **kw, &)
   end
 
-  protected def with_dataset(url, &block)
+  protected def with_dataset(url, **kw, &block)
     raise LocalJumpError if block.nil?
-    Webhookdb::ConnectionCache.borrow(url) do |conn|
+    Webhookdb::ConnectionCache.borrow(url, **kw) do |conn|
       yield(conn[self.qualified_table_sequel_identifier])
     end
   end

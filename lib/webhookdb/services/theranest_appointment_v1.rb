@@ -22,7 +22,7 @@ class Webhookdb::Services::TheranestAppointmentV1 < Webhookdb::Services::Base
   end
 
   def service_types_dataset(&)
-    return self.admin_dataset do |ds|
+    return self.admin_dataset(timeout: :fast) do |ds|
       yield(ds.db[self.qualified_table_sequel_identifier(table: self.service_types_join_table_name)])
     end
   end
