@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "amigo/backoff_job"
+require "amigo/queue_backoff_job"
 
-RSpec.describe Amigo::BackoffJob do
+RSpec.describe Amigo::QueueBackoffJob do
   before(:each) do
     Sidekiq::Testing.fake!
     described_class.reset
@@ -19,7 +19,7 @@ RSpec.describe Amigo::BackoffJob do
   def create_job_class(perform:, dependent_queues:, calculate_backoff:)
     cls = Class.new do
       include Sidekiq::Worker
-      include Amigo::BackoffJob
+      include Amigo::QueueBackoffJob
 
       perform && define_method(:perform) do |*args|
         perform[*args]

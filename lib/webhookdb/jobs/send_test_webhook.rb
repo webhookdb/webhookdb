@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "amigo/backoff_job"
+require "amigo/queue_backoff_job"
 require "webhookdb/async/job"
 
 class Webhookdb::Jobs::SendTestWebhook
   extend Webhookdb::Async::Job
-  include Amigo::BackoffJob
+  include Amigo::QueueBackoffJob
 
   on "webhookdb.webhooksubscription.test"
   sidekiq_options queue: "netout"

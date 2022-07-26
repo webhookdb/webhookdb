@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "amigo/backoff_job"
+require "amigo/queue_backoff_job"
 require "amigo/durable_job"
 require "webhookdb/async/job"
 
 class Webhookdb::Jobs::ProcessWebhook
   extend Webhookdb::Async::Job
   include Amigo::DurableJob
-  include Amigo::BackoffJob
+  include Amigo::QueueBackoffJob
 
   on "webhookdb.serviceintegration.webhook"
   sidekiq_options queue: "webhook" # This is usually overridden.

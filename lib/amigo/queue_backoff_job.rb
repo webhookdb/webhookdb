@@ -7,7 +7,7 @@ module Amigo
   # This is a placeholder until it's migrated to Amigo proper
 end
 
-# Backoff jobs can reschedule themselves to happen at a later time
+# Queue backoff jobs can reschedule themselves to happen at a later time
 # if one of their dependent queues has latency.
 # This is commonly needed where a lower-priority queue has longer-running jobs
 # (such as paginating through an external API)
@@ -34,7 +34,7 @@ end
 # This is a fast call (it just gets the last item), but it's not free,
 # so users should be aware of it.
 #
-module Amigo::BackoffJob
+module Amigo::QueueBackoffJob
   def self.included(cls)
     cls.include InstanceMethods
     cls.prepend PrependedMethods
@@ -101,20 +101,20 @@ module Amigo::BackoffJob
   module InstanceMethods
     def dependent_queues
       qname = self.class.get_sidekiq_options["queue"]
-      return ::Amigo::BackoffJob.all_queue_names.excluding(qname)
+      return ::Amigo::QueueBackoffJob.all_queue_names.excluding(qname)
     end
 
     def calculate_backoff(_queue_name, latency, _args)
-      return [latency, ::Amigo::BackoffJob.max_backoff].min
+      return [latency, ::Amigo::QueueBackoffJob.max_backoff].min
     end
   end
 
   module PrependedMethods
     def perform(*args)
-      return super unless ::Amigo::BackoffJob.enabled?
+      return super unless ::Amigo::QueueBackoffJob.enabled?
       # rubocop:disable Style/GuardClause, Lint/NonLocalExitFromIterator
       dependent_queues.each do |qname|
-        latency = Amigo::BackoffJob.check_latency(qname)
+        latency = Amigo::QueueBackoffJob.check_latency(qname)
         # If latency is <= 0, we can skip this queue.
         next unless latency.positive?
         # If backoff is nil, ignore this queue and check the next
