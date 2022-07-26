@@ -7,6 +7,8 @@ require "sentry-sidekiq"
 require "sidekiq"
 require "sidekiq-cron"
 
+Sidekiq.strict_args!
+
 require "webhookdb"
 
 # Host module and namespace for the Webhookdb async jobs system.

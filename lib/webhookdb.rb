@@ -178,7 +178,10 @@ module Webhookdb
     end
 
     protected def safe_stringify(o)
-      return o.respond_to?(:deep_stringify_keys) ? o.deep_stringify_keys : o
+      return o.utc.strftime("%Y-%m-%dT%H:%M:%S.%LZ") if o.is_a?(Time)
+      return o.each_with_object({}) { |(k, v), m| m[k.to_s] = safe_stringify(v) } if o.is_a?(Hash)
+      return o.map { |x| safe_stringify(x) } if o.is_a?(Array)
+      return o
     end
   end
 

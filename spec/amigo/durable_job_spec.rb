@@ -69,7 +69,7 @@ RSpec.describe Amigo::DurableJob do
   describe "adding the job" do
     it "pushes into the first database on client_push and all perform_async variants" do
       cls = create_job_class
-      j1 = cls.perform_async({x: 1})
+      j1 = cls.perform_async({"x" => 1})
       j2 = cls.perform_in(10.minutes, [1, 2, 3])
       j3 = cls.perform_at(5.minutes.from_now)
       expect(ds1.where(job_id: [j1, j2, j3]).all).to contain_exactly(

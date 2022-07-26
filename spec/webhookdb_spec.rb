@@ -59,10 +59,19 @@ RSpec.describe Webhookdb do
       end.to publish("some-event")
     end
 
-    it "converts all hash keys to strings" do
+    it "converts all payload values into JSON native types" do
+      t = Time.at(500.05).in_time_zone("America/Los_Angeles")
       expect do
-        described_class.publish("some-event", key: {subkey: "subvalue"})
-      end.to publish("some-event").with_payload([{"key" => {"subkey" => "subvalue"}}])
+        described_class.publish("some-event", "arg1", 5, {key: {subkey: "subvalue", t:}}, t, [5, {t:}])
+      end.to publish("some-event").with_payload(
+        [
+          "arg1",
+          5,
+          {"key" => {"subkey" => "subvalue", "t" => "1970-01-01T00:08:20.050Z"}},
+          "1970-01-01T00:08:20.050Z",
+          [5, {"t" => "1970-01-01T00:08:20.050Z"}],
+        ],
+      )
     end
   end
 
