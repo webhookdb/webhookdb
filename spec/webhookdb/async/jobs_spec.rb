@@ -220,6 +220,23 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         started_at: match_time(Time.now).within(5),
       )
     end
+
+    it "noops if the migration is already finished" do
+      org = Webhookdb::Fixtures.organization.create
+      org.prepare_database_connections
+      dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
+      dbm = Webhookdb::Organization::DatabaseMigration.enqueue(
+        admin_connection_url_raw: dbinfo.admin_url,
+        readonly_connection_url_raw: dbinfo.readonly_url,
+        public_host: "",
+        started_by: nil,
+        organization: org,
+      )
+      dbm.update(finished_at: Time.now)
+      expect do
+        dbm.publish_immediate("created", dbm.id)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationRun)
+    end
   end
 
   describe "OrganizationDatabaseMigrationNotifyStarted" do

@@ -17,6 +17,8 @@ class Webhookdb::Jobs::OrganizationDatabaseMigrationRun
       organization_database_migration_id: dbm.id,
     ) do
       dbm.migrate
+    rescue Webhookdb::Organization::DatabaseMigration::MigrationAlreadyFinished
+      self.logger.warn("org_database_migration_already_finished")
     end
   end
 end
