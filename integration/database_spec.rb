@@ -41,7 +41,7 @@ RSpec.describe "database", :integration do
     end
     expect { dbmigration.refresh }.to eventually(have_attributes(status: "finished"))
     Sequel.connect(dbinfo.readonly_url) do |db|
-      expect(db[sint.table_name.to_sym].all).to have_attributes(size: 5)
+      expect(db[Sequel[org.replication_schema.to_sym][sint.table_name.to_sym]].all).to have_attributes(size: 5)
     end
   end
 end
