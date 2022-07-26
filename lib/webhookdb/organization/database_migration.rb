@@ -91,7 +91,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
       self.last_migrated_timestamp.nil?
     chunksize = Webhookdb::Organization.database_migration_page_size
     chunk = []
-    ds.paged_each(rows_per_fetch: chunksize, hold: true) do |row|
+    ds.paged_each(rows_per_fetch: chunksize, hold: true, cursor_name: "whdb_dbmigration_#{self.id}") do |row|
       chunk << row
       if chunk.size >= chunksize
         self.upsert_chunk(service_integration, dstdb, chunk)
