@@ -200,6 +200,14 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     ensure
       sint.organization.remove_related_database
     end
+
+    it "can calculate semaphore details" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      sint.organization.update(job_semaphore_size: 6)
+      j = Webhookdb::Jobs::ProcessWebhook.new
+      j.before_perform({"id" => "1", "name" => "topic", "payload" => [sint.id]})
+      expect(j).to have_attributes(semaphore_key: "semaphore-procwebhook-#{sint.organization_id}", semaphore_size: 6)
+    end
   end
 
   describe "OrganizationDatabaseMigrationRun" do
