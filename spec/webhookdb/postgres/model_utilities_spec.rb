@@ -19,11 +19,7 @@ RSpec.describe Webhookdb::Postgres::ModelUtilities do
   end
 
   let(:extended_class) do
-    model_class = Class.new(Sequel::Model) do
-      def self.slow_query_seconds
-        1
-      end
-    end
+    model_class = Class.new(Sequel::Model)
     model_class.extend(Appydays::Loggable)
     model_class.extend(described_class)
     model_class.db = Sequel.connect("mock://postgres")
