@@ -382,6 +382,13 @@ class Webhookdb::Services::Base
     return inserting
   end
 
+  # The string 'null' in a json column still represents 'null' but we'd rather have an actual NULL value,
+  # represented by 'nil'. So, return nil if the arg is nil (so we get NULL),
+  # otherwise return the argument.
+  protected def _nil_or_json(x)
+    return x.nil? ? nil : x.to_json
+  end
+
   # @return [Sequel::Dataset]
   def admin_dataset(**kw, &)
     self.with_dataset(self.service_integration.organization.admin_connection_url_raw, **kw, &)

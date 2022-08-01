@@ -155,6 +155,50 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       expect(req).to have_been_made
     end
 
+    it "does not store nulls as 'null' strings" do
+      plaid_body = <<~J
+        {
+          "item": {
+            "available_products": null,
+            "billed_products": null,
+            "error": null,
+            "institution_id": "ins_109508",
+            "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+            "update_type": "background",
+            "webhook": "https://plaid.com/example/hook",
+            "consent_expiration_time": null
+          },
+          "status": null,
+          "request_id": "m8MDnv9okwxFNBV"
+        }
+      J
+      sint.backfill_key = "clid"
+      sint.backfill_secret = "rune"
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        with(body: {access_token: "atok", client_id: "clid", secret: "rune"}.to_json).
+        to_return(status: 200, body: plaid_body, headers: {"Content-Type" => "application/json"})
+
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "CREATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          "access_token": "atok"
+        }
+      J
+      svc.upsert_webhook(body:)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(
+          plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          available_products: nil,
+          billed_products: nil,
+          error: nil,
+          status: nil,
+        ),
+      )
+      expect(req).to have_been_made
+    end
+
     it "marks the item as errored if there is an ITEM_ERROR while fetching" do
       plaid_body = <<~J
         {

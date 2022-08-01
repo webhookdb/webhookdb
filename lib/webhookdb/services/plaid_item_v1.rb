@@ -121,13 +121,13 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     body = resp.parsed_response
     return {
       encrypted_access_token:,
-      available_products: body.fetch("item").fetch("available_products").to_json,
-      billed_products: body.fetch("item").fetch("billed_products").to_json,
-      error: body.fetch("item").fetch("error").to_json,
+      available_products: self._nil_or_json(body.fetch("item").fetch("available_products")),
+      billed_products: self._nil_or_json(body.fetch("item").fetch("billed_products")),
+      error: self._nil_or_json(body.fetch("item").fetch("error")),
       institution_id: body.fetch("item").fetch("institution_id"),
       update_type: body.fetch("item").fetch("update_type"),
       consent_expiration_time: body.fetch("item").fetch("consent_expiration_time"),
-      status: body.fetch("status").to_json,
+      status: self._nil_or_json(body.fetch("status")),
     }
   end
 
