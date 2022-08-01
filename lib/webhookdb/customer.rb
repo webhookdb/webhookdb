@@ -85,13 +85,11 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
       me.add_reset_code(transport: "email")
       step = Webhookdb::Services::StateMachineStep.new
       step.output = if new_customer
-                      %(Welcome to WebhookDB!
-
-To finish registering, please look for an email we just sent to #{email}.
+                      %(To finish registering, please look for an email we just sent to #{email}.
 It contains a One Time Password code to validate your email.
 )
       else
-        %(Welcome back!
+        %(Hello again!
 
 To finish logging in, please look for an email we just sent to #{email}.
 It contains a One Time Password used to log in.

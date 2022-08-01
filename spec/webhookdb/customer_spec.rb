@@ -103,7 +103,7 @@ RSpec.describe "Webhookdb::Customer", :db do
         step, c = described_class.register_or_login(**customer_params)
         expect(c).to_not be_nil
         expect(c).to have_attributes(email:)
-        expect(step.output).to include("Welcome to WebhookDB")
+        expect(step.output).to include("One Time Password")
       end
 
       it "lowercases the email" do
@@ -154,7 +154,7 @@ RSpec.describe "Webhookdb::Customer", :db do
         step, me = described_class.register_or_login(email:)
 
         expect(me).to be === customer
-        expect(step.output).to include("Welcome to WebhookDB")
+        expect(step.output).to include("To finish registering")
       end
 
       it "provides welcome back message if user has at least one verified membership" do
@@ -162,7 +162,7 @@ RSpec.describe "Webhookdb::Customer", :db do
         step, me = described_class.register_or_login(email:)
 
         expect(me).to be === customer
-        expect(step.output).to include("Welcome back")
+        expect(step.output).to include("Hello again")
       end
 
       it "creates new organization and membership for current customer if user has no verified memberships" do

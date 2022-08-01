@@ -25,7 +25,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
         post "/v1/auth", **customer_params
 
         expect(last_response).to have_status(202)
-        expect(last_response).to have_json_body.that_includes(output: /Welcome to WebhookDB/)
+        expect(last_response).to have_json_body.that_includes(output: /To finish registering/)
         customer = Webhookdb::Customer.last
         expect(customer).to_not be_nil
         expect(customer).to have_attributes(email:)
@@ -49,7 +49,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
         post "/v1/auth", email: email
 
         expect(last_response).to have_status(202)
-        expect(last_response).to have_json_body.that_includes(output: /Welcome back/)
+        expect(last_response).to have_json_body.that_includes(output: /Hello again/)
         expect(existing_code.refresh).to be_expired
         new_code = customer.refresh.reset_codes.first
         expect(new_code).to_not be_expired
