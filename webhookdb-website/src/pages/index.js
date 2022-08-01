@@ -48,8 +48,8 @@ export default function IndexPage() {
             <h1>Unify. Automate. Build.</h1>
           </CenteredDiv>
           <Lead>
-            WebhookDB is your <Hilite>{API2SQL} API Data Reservoir</Hilite> for the age
-            of <Hilite>Composable Applications Development.</Hilite>
+            WebhookDB is your <Hilite>{API2SQL} Data Reservoir</Hilite> for the age of{" "}
+            <Hilite>Composable Applications Development.</Hilite>
           </Lead>
           <Lead>
             WebhookDB mirrors data from 3rd party APIs into a dedicated Postgres

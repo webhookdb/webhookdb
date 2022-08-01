@@ -69,16 +69,16 @@ using your access control, to access WebhookDB.
 
 <a id="never-share-schemas"></a>
 
-### [What about services not sharing schemas?](#never-share-schemas)
+### [I thought services should not share schemas?](#never-share-schemas)
 
 This advice is also generally true:
 multiple microservices should not share the same database,
-but instead version through the requests (header, URL, etc).
+but instead version through requests (header, URL, etc).
 
 However there's a simple explanation as to why
 the approach WebhookDB takes is totally fine:
-the schemas we expose in are based on the compatibility comitments the APIs themselves are making.
+the schemas we expose are based on the compatibility commitments the APIs themselves are making.
 For example, the Stripe Customer integration is known as `stripe_customer_v1`.
 If Stripe made a backwards-incompatible change to their API,
-it would no longer be their V1 API, and we'd add a `stripe_customer_v2`
+it would no longer be their V1 API, and we'd add a `stripe_customer_v2` integration
 which would carry the same compatibility guarantees as their V2 API.
