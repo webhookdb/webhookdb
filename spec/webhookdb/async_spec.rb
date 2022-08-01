@@ -207,5 +207,17 @@ RSpec.describe "Webhookdb::Async", :db, :async do
         ),
       )
     end
+
+    it "does not mutate the original payload" do
+      stub_const("Webhookdb::Async::AuditLogger::MAX_STR_LEN", 6)
+      stub_const("Webhookdb::Async::AuditLogger::STR_PREFIX_LEN", 2)
+      shortstr = "abcdef"
+      longstr = "abcdefg"
+      payload = {x: {y: {longarr: [shortstr, 1, longstr, 2], longhash: longstr, shorthash: shortstr}}}
+      event_json = Webhookdb::Event.create("x", [payload]).as_json
+      orig_json = event_json.deep_dup
+      Webhookdb::Async::AuditLogger.new.perform(event_json)
+      expect(event_json).to eq(orig_json)
+    end
   end
 end
