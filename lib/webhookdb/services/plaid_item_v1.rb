@@ -77,6 +77,8 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
         payload[:consent_expiration_time] = body.fetch("consent_expiration_time")
       when "CREATED"
         payload.merge!(self._handle_item_create(body.fetch("item_id"), body.fetch("access_token")))
+      when "UPDATED"
+        payload.merge!(self._handle_item_refresh(body.fetch("item_id")))
       else
         return nil
     end
@@ -98,7 +100,22 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       Webhookdb::Crypto::Boxed.from_b64(self.service_integration.data_encryption_secret),
       Webhookdb::Crypto::Boxed.from_raw(access_token),
     ).base64
+    payload = self._fetch_insert_payload(access_token)
+    payload[:encrypted_access_token] = encrypted_access_token
+    return payload
+  end
 
+  def _handle_item_refresh(item_id)
+    plaid_item_row = self.readonly_dataset(timeout: :fast) { |ds| ds[plaid_id: item_id] }
+    if plaid_item_row.nil?
+      raise Webhookdb::InvalidPrecondition,
+            "could not find Plaid item #{item_id} for integration #{self.service_integration.opaque_id}"
+    end
+    access_token = self.decrypt_item_row_access_token(plaid_item_row)
+    return self._fetch_insert_payload(access_token)
+  end
+
+  def _fetch_insert_payload(access_token)
     begin
       resp = Webhookdb::Http.post(
         "#{self.service_integration.api_url}/item/get",
@@ -113,7 +130,6 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       errtype = e.response.parsed_response["error_type"]
       if STORABLE_ERROR_TYPES.include?(errtype)
         return {
-          encrypted_access_token:,
           error: e.response.body,
         }
       end
@@ -121,7 +137,6 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     end
     body = resp.parsed_response
     return {
-      encrypted_access_token:,
       available_products: self._nil_or_json(body.fetch("item").fetch("available_products")),
       billed_products: self._nil_or_json(body.fetch("item").fetch("billed_products")),
       error: self._nil_or_json(body.fetch("item").fetch("error")),
@@ -130,6 +145,13 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       consent_expiration_time: body.fetch("item").fetch("consent_expiration_time"),
       status: self._nil_or_json(body.fetch("status")),
     }
+  end
+
+  def decrypt_item_row_access_token(plaid_item_row)
+    return Webhookdb::Crypto.decrypt_value(
+      Webhookdb::Crypto::Boxed.from_b64(self.service_integration.data_encryption_secret),
+      Webhookdb::Crypto::Boxed.from_b64(plaid_item_row.fetch(:encrypted_access_token)),
+    ).raw
   end
 
   def _webhook_response(request)

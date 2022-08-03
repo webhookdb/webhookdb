@@ -46,6 +46,7 @@ There are, broadly, five (small) things that need to be done to integrate Webhoo
 - [Update existing "items" in Plaid itself to use the new WebhookDB webhook URL.](#update-plaid-items)
 - [POST to the WebhookDB webhook URL from your backend about existing Plaid Items/Tokens in your database.](#backfill-items)
 - (Optional) [Backfill Transaction history of already-fetched accounts.](#backfill-history)
+- (Optional) [POST to the WebhookDB webhook URL from your backend when Plaid Items are updated.](#notify-whdb-update)
 
 We'll walk through each of these steps exactly as we do them for clients.
 
@@ -225,6 +226,41 @@ resp = Net::HTTP.post(
 )
 raise "Bad response: #{resp.inspect}" unless resp.code == '200'
 ```
+
+<a id="notify-whdb"></a>
+
+### [Notify WebhookDB about updated Tokens/Items](#notify-whdb-update)
+
+Plaid sends webhooks for certain types of item changes,
+like when there is an error, or consent is going to expire.
+
+Plaid does not, unfortunately, send a webhook when an error is **cleared**,
+like after a user goes through Update Mode and re-links their items.
+In these cases, you will need to send a notification to WebhookDB directly
+to tell it to sync down changes to the item.
+The `webhook_type` must be `ITEM` and the `webhook_code` must be `UPDATED`.
+
+Here is an example of how you would do this in Ruby:
+
+```ruby
+whdb_plaid_webhook_url = ENV['WHDB_PLAID_WEBHOOK_URL']
+whdb_plaid_webhook_secret = ENV['WHDB_PLAID_WEBHOOK_SECRET']
+body = {
+  webhook_type: "ITEM",
+  webhook_code: "UPDATED",
+  item_id: item_id
+}
+resp = Net::HTTP.post(
+  URI(whdb_plaid_webhook_url),
+  body.to_json,
+  {'Content-Type' => 'application/json', 'Whdb-Webhook-Secret' => whdb_plaid_webhook_secret}
+)
+raise "Bad response: #{resp.inspect}" unless resp.code == '200'
+```
+
+In the future, if Plaid starts sending webhooks on updates like this
+(which we think is pretty important!) you won't have to do this
+from your backend.
 
 <a id="getting-help"></a>
 
