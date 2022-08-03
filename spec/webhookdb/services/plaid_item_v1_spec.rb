@@ -285,17 +285,37 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       svc.upsert_webhook(body:)
     end
 
-    it "records the time of the upsert" do
-      body = JSON.parse(<<~J)
-        {
-          "webhook_type": "ITEM",
-          "webhook_code": "USER_PERMISSION_REVOKED",
-          "error": {},
-          "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
-        }
-      J
-      svc.upsert_webhook(body:)
-      expect(svc.readonly_dataset(&:all)).to contain_exactly(include(row_updated_at: match_time(Time.now).within(5)))
+    describe "created and updated timestamps" do
+      let(:resource_json) do
+        JSON.parse(<<~J)
+          {
+            "webhook_type": "ITEM",
+            "webhook_code": "USER_PERMISSION_REVOKED",
+            "error": {},
+            "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
+          }
+        J
+      end
+
+      it "are set on insert" do
+        svc.upsert_webhook(body: resource_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(:now), row_updated_at: match_time(:now))
+        end
+      end
+
+      it "does not modify created at on update" do
+        t = 1.day.ago
+        Timecop.travel(t) do
+          svc.upsert_webhook(body: resource_json)
+        end
+        svc.upsert_webhook(body: resource_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(t), row_updated_at: match_time(:now))
+        end
+      end
     end
   end
 

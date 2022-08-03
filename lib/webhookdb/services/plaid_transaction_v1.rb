@@ -180,10 +180,11 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         row_created_at: now,
         row_updated_at: now,
       }
+      update = @transaction_svc._coalesce_excluded_on_update(inserting, [:row_created_at])
       upserted_rows = @transaction_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :plaid_id,
-          update: inserting,
+          update:,
         ).insert(inserting)
       end
       row_changed = upserted_rows.present?

@@ -80,10 +80,11 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       else
         return nil
     end
+    update = self._coalesce_excluded_on_update(payload, [:row_created_at])
     upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
       ds.insert_conflict(
         target: self._remote_key_column.name,
-        update: payload,
+        update:,
       ).insert(payload)
     end
     row_changed = upserted_rows.present?

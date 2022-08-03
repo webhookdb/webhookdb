@@ -68,9 +68,9 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       svc.upsert_webhook(body: create_body(item_id, "TRANSACTIONS_REMOVED", removed_transactions: ["x1", "x3"]))
       rows = svc.readonly_dataset(&:all)
       expect(rows).to contain_exactly(
-        include(plaid_id: "x1", removed_at: match_time(Time.now).within(5)),
+        include(plaid_id: "x1", removed_at: match_time(:now)),
         include(plaid_id: "x2", removed_at: nil),
-        include(plaid_id: "x3", removed_at: match_time(Time.now).within(5)),
+        include(plaid_id: "x3", removed_at: match_time(:now)),
       )
     end
 
@@ -92,16 +92,100 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       svc.upsert_webhook(body: create_body(item_id, "DEFAULT_UPDATE"))
     end
 
-    it "records the time of the update" do
-      dep_svc.create_table
-      svc.create_table
-      insert_item_row
-      insert_transaction_row("x1")
-      svc.upsert_webhook(body: create_body(item_id, "TRANSACTIONS_REMOVED", removed_transactions: ["x1"]))
-      rows = svc.readonly_dataset(&:all)
-      expect(rows).to contain_exactly(
-        include(row_updated_at: match_time(Time.now).within(5)),
-      )
+    describe "created and updated timestamps" do
+      let(:backfiller) do
+        described_class::TransactionBackfiller.new(
+          item_svc: dep_svc,
+          transaction_svc: svc,
+          plaid_item_id: "itemid1",
+          plaid_access_token: "atok1",
+        )
+      end
+      let(:transaction_json) do
+        JSON.parse(<<~J)
+          {
+            "account_id": "BxBXxLj1m4HMXBm9WZZmCWVbPjX16EHwv99vp",
+            "amount": 2307.21,
+            "iso_currency_code": "USD",
+            "unofficial_currency_code": null,
+            "category": [
+              "Shops",
+              "Computers and Electronics"
+            ],
+            "category_id": "19013000",
+            "check_number": null,
+            "date": "2017-01-29",
+            "datetime": "2017-01-27T11:00:00Z",
+            "authorized_date": "2017-01-27",
+            "authorized_datetime": "2017-01-27T10:34:50Z",
+            "location": {
+              "address": "300 Post St",
+              "city": "San Francisco",
+              "region": "CA",
+              "postal_code": "94108",
+              "country": "US",
+              "lat": 40.740352,
+              "lon": -74.001761,
+              "store_number": "1235"
+            },
+            "name": "Apple Store",
+            "merchant_name": "Apple",
+            "payment_meta": {
+              "by_order_of": null,
+              "payee": null,
+              "payer": null,
+              "payment_method": null,
+              "payment_processor": null,
+              "ppd_id": null,
+              "reason": null,
+              "reference_number": null
+            },
+            "payment_channel": "in store",
+            "pending": false,
+            "pending_transaction_id": null,
+            "account_owner": null,
+            "transaction_id": "abc123",
+            "transaction_code": null,
+            "transaction_type": "place"
+          }
+        J
+      end
+
+      before(:each) do
+        dep_svc.create_table
+        svc.create_table
+        insert_item_row
+      end
+
+      it "are set on insert" do
+        backfiller.handle_item(transaction_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(:now), row_updated_at: match_time(:now))
+        end
+      end
+
+      it "does not modify created at on update" do
+        t = 1.day.ago
+        Timecop.travel(t) do
+          backfiller.handle_item(transaction_json)
+        end
+        backfiller.handle_item(transaction_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(t), row_updated_at: match_time(:now))
+        end
+      end
+
+      it "sets updated during removal marking" do
+        t = 1.day.ago
+        insert_transaction_row("x1", row_created_at: t, row_updated_at: t)
+        svc.upsert_webhook(body: create_body(item_id, "TRANSACTIONS_REMOVED", removed_transactions: ["x1"]))
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(t), row_updated_at: match_time(:now))
+        end
+      end
     end
   end
 

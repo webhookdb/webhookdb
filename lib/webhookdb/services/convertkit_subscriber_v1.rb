@@ -152,11 +152,7 @@ your database will be populated.
     return inserting if state == "active"
     # If it's inactive, we only want to update canceled_at if it's not already set
     # (coalesce the existing row's canceled_at with the 'time.now' we are passing in).
-    update = inserting.dup
-    update[:canceled_at] = Sequel.function(
-      :coalesce, self.qualified_table_sequel_identifier[:canceled_at], Sequel[:excluded][:canceled_at],
-    )
-    return update
+    return self._coalesce_excluded_on_update(inserting, [:canceled_at])
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)

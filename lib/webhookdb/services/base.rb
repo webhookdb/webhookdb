@@ -389,6 +389,25 @@ class Webhookdb::Services::Base
     return x.nil? ? nil : x.to_json
   end
 
+  # Have a column set itself only on insert or if nil.
+  #
+  # Given the payload being inserted, return a new hash where
+  # the column names included in 'column_names' use what is already in the table,
+  # and fall back to what's being inserted.
+  # This new payload should be passed to the `update` kwarg of `insert_conflict`:
+  #
+  # ds.insert_conflict(update: self._coalesce_excluded_on_update(payload, :created_at)).insert(payload)
+  #
+  # @param inserting [Hash]
+  # @param column_names [Array<Symbol>]
+  def _coalesce_excluded_on_update(inserting, column_names)
+    result = inserting.dup
+    column_names.each do |c|
+      result[c] = Sequel.function(:coalesce, self.qualified_table_sequel_identifier[c], Sequel[:excluded][c])
+    end
+    return result
+  end
+
   # @return [Sequel::Dataset]
   def admin_dataset(**kw, &)
     self.with_dataset(self.service_integration.organization.admin_connection_url_raw, **kw, &)
