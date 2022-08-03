@@ -13,6 +13,7 @@ require "rspec"
 require "rspec/json_expectations"
 require "timecop"
 require "webmock/rspec"
+require "appydays/spec_helpers"
 require "appydays/loggable/spec_helpers"
 
 require "webhookdb"
@@ -44,6 +45,7 @@ RSpec.configure do |config|
   config.disable_monkey_patching!
   config.default_formatter = "doc" if config.files_to_run.one?
 
+  config.include(Appydays::SpecHelpers)
   config.include(Appydays::Loggable::SpecHelpers)
 
   # Several of these files have side effects of being loaded (like async loading sidekiq/testing),

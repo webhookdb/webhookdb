@@ -59,11 +59,7 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
 
   def _upsert_update_expr(inserting, **_kwargs)
     # Only set created_at if it's not set so the initial insert isn't modified.
-    update = inserting.dup
-    update[:row_created_at] = Sequel.function(
-      :coalesce, self.qualified_table_sequel_identifier[:row_created_at], Sequel[:excluded][:row_created_at],
-    )
-    return update
+    return self._coalesce_excluded_on_update(inserting, [:row_created_at])
   end
 
   def _mixin_backfill_url

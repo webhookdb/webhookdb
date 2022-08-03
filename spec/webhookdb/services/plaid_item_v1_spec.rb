@@ -155,6 +155,73 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       expect(req).to have_been_made
     end
 
+    it "fetches on refreshed webhooks using the currently existing token" do
+      plaid_body = <<~J
+        {
+          "item": {
+            "available_products": [],
+            "billed_products": [],
+            "error": null,
+            "institution_id": "ins_109508",
+            "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+            "update_type": "background",
+            "webhook": "https://plaid.com/example/hook",
+            "consent_expiration_time": "2020-01-15T13:25:17.766Z"
+          },
+          "status": {
+            "transactions": {},
+            "last_webhook": {}
+          },
+          "request_id": "m8MDnv9okwxFNBV"
+        }
+      J
+      sint.backfill_key = "clid"
+      sint.backfill_secret = "rune"
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        with(body: {access_token: "atok", client_id: "clid", secret: "rune"}.to_json).
+        to_return(status: 200, body: plaid_body, headers: {"Content-Type" => "application/json"})
+
+      svc.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          encrypted_access_token: "amIg507BPydo1vl3B3Tn9g==",
+          error: {error_code: "hi"}.to_json,
+        )
+      end
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "UPDATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb"
+        }
+      J
+      svc.upsert_webhook(body:)
+      expect(req).to have_been_made
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(
+          plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          institution_id: "ins_109508",
+          encrypted_access_token: "amIg507BPydo1vl3B3Tn9g==",
+          error: nil,
+          consent_expiration_time: match_time("2020-01-15T13:25:17.766Z"),
+        ),
+      )
+    end
+
+    it "errors on refreshed webhooks if the token is not present in the database" do
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "UPDATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb"
+        }
+      J
+      expect do
+        svc.upsert_webhook(body:)
+      end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
+    end
+
     it "does not store nulls as 'null' strings" do
       plaid_body = <<~J
         {
@@ -285,17 +352,37 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       svc.upsert_webhook(body:)
     end
 
-    it "records the time of the upsert" do
-      body = JSON.parse(<<~J)
-        {
-          "webhook_type": "ITEM",
-          "webhook_code": "USER_PERMISSION_REVOKED",
-          "error": {},
-          "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
-        }
-      J
-      svc.upsert_webhook(body:)
-      expect(svc.readonly_dataset(&:all)).to contain_exactly(include(row_updated_at: match_time(Time.now).within(5)))
+    describe "created and updated timestamps" do
+      let(:resource_json) do
+        JSON.parse(<<~J)
+          {
+            "webhook_type": "ITEM",
+            "webhook_code": "USER_PERMISSION_REVOKED",
+            "error": {},
+            "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
+          }
+        J
+      end
+
+      it "are set on insert" do
+        svc.upsert_webhook(body: resource_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(:now), row_updated_at: match_time(:now))
+        end
+      end
+
+      it "does not modify created at on update" do
+        t = 1.day.ago
+        Timecop.travel(t) do
+          svc.upsert_webhook(body: resource_json)
+        end
+        svc.upsert_webhook(body: resource_json)
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(row_created_at: match_time(t), row_updated_at: match_time(:now))
+        end
+      end
     end
   end
 

@@ -143,11 +143,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         item_integration.backfill_secret.blank? ||
         item_integration.api_url.blank?
 
-    plaid_access_token = Webhookdb::Crypto.decrypt_value(
-      Webhookdb::Crypto::Boxed.from_b64(item_integration.data_encryption_secret),
-      Webhookdb::Crypto::Boxed.from_b64(plaid_item_row.fetch(:encrypted_access_token)),
-    ).raw
-
+    plaid_access_token = plaid_item_service.decrypt_item_row_access_token(plaid_item_row)
     backfiller = TransactionBackfiller.new(
       item_svc: plaid_item_service,
       transaction_svc: self,
@@ -180,10 +176,11 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         row_created_at: now,
         row_updated_at: now,
       }
+      update = @transaction_svc._coalesce_excluded_on_update(inserting, [:row_created_at])
       upserted_rows = @transaction_svc.admin_dataset(timeout: :fast) do |ds|
         ds.insert_conflict(
           target: :plaid_id,
-          update: inserting,
+          update:,
         ).insert(inserting)
       end
       row_changed = upserted_rows.present?
