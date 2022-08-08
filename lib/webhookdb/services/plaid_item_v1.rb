@@ -39,6 +39,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:billed_products, OBJECT),
       Webhookdb::Services::Column.new(:status, OBJECT),
       Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:transaction_sync_next_cursor, TEXT),
     ]
   end
 

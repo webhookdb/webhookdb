@@ -217,10 +217,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # @!attribute skip_webhook_verification
   #   @return [Boolean] Set this to disable webhook verification on this integration.
   #                     Useful when replaying logged webhooks.
-
-  # @!attribute backfill_cursor
-  #   @return [String] Token used for token/cursor-based backfill pagination.
-  #
 end
 
 # Table: service_integrations

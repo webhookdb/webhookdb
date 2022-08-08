@@ -117,6 +117,9 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
     plaid_access_token = plaid_item_service.decrypt_item_row_access_token(plaid_item_row)
 
     url = self.service_integration.organization.admin_connection_url_raw
+    plaid_item_id = plaid_item_row.fetch(:plaid_id)
+    sync_cursor = plaid_item_row.fetch(:transaction_sync_next_cursor)
+    # Slow due to bulk upsert, it could in theory take a while
     Webhookdb::ConnectionCache.borrow(url, timeout: :slow) do |conn|
       # Use the Plaid sync endpoint to increment through pages of transactions,
       # and upsert (or update in the case of remove) each transaction.
@@ -126,26 +129,32 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         conn:,
         item_svc: plaid_item_service,
         transaction_svc: self,
-        plaid_item_id: plaid_item_row.fetch(:plaid_id),
+        plaid_item_id:,
         plaid_access_token:,
+        sync_cursor:,
       )
       # This will be unified with normal backfiller code eventually
       backfiller.backfill(nil)
       backfiller.commit
-      self.service_integration.update(backfill_cursor: backfiller.cursor)
+      if sync_cursor != backfiller.cursor
+        conn[plaid_item_service.qualified_table_sequel_identifier].
+          where(plaid_id: plaid_item_id).
+          update(transaction_sync_next_cursor: backfiller.cursor)
+      end
     end
   end
 
   class TransactionBackfiller < Webhookdb::Backfiller
     attr_reader :cursor
 
-    def initialize(conn:, item_svc:, transaction_svc:, plaid_item_id:, plaid_access_token:)
+    def initialize(conn:, item_svc:, transaction_svc:, plaid_item_id:, plaid_access_token:, sync_cursor:)
       @conn = conn
       @item_svc = item_svc
       @transaction_svc = transaction_svc
       @transaction_ds = @conn[@transaction_svc.qualified_table_sequel_identifier]
       @plaid_item_id = plaid_item_id
       @plaid_access_token = plaid_access_token
+      @cursor = sync_cursor
       @api_url = @item_svc.service_integration.api_url
       @temp_table = "#{@plaid_item_id}_backfill_#{SecureRandom.hex(6)}".to_sym
       @insert_row_cols = [
@@ -159,7 +168,6 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         :row_created_at,
         :row_updated_at,
       ]
-      @cursor = transaction_svc.service_integration.backfill_cursor
       @wrote_any_rows = false
       @row_chunk = []
       @removed = []
@@ -268,7 +276,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       # We don't bother chunking removed transactions, since their representation is tiny
       # and their update is a separate routine.
       @removed.concat(resp.fetch("removed", []).map { |t| t.fetch("transaction_id") })
-      @cursor = response.parsed_response["next_cursor"]
+      @cursor = response.parsed_response.fetch("next_cursor")
       return transactions, nil unless resp.fetch("has_more")
       # We manage the cursor internally.
       return transactions, :next_page

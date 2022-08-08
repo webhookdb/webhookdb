@@ -15,7 +15,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
     "itemid-#{@item_id}"
   end
 
-  def insert_item_row(plaid_id: item_id)
+  def insert_item_row(plaid_id: item_id, **more)
     dep_svc.admin_dataset do |ds|
       ds.insert(
         data: "{}",
@@ -24,6 +24,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
           Webhookdb::Crypto::Boxed.from_b64(dependency.data_encryption_secret),
           Webhookdb::Crypto::Boxed.from_raw("atok"),
         ).base64,
+        **more,
       )
       return ds.order(:pk).last
     end
@@ -214,7 +215,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
             "webhook": "https://www.genericwebhookurl.com/webhook"
           },
           "total_transactions": 2,
-          "next_cursor": null,
+          "next_cursor": "cursor3",
           "has_more": false,
           "request_id": "45QSn"
         }
@@ -268,7 +269,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
             {"transaction_id": "x1"},
             {"transaction_id": "x3"}
           ],
-          "next_cursor": null,
+          "next_cursor": "cursor3",
           "has_more": false
         }
       R
@@ -316,7 +317,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       expect(responses).to all(have_been_made)
       WebMock.reset!
       responses = [
-        stub_service_request(page1_response, cursor: nil),
+        stub_service_request(page1_response, cursor: "cursor3"),
         stub_service_request(page2_response, cursor: "cursor1"),
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
@@ -370,16 +371,18 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
     it "uses the backfill token as the cursor" do
       insert_transaction_row("abc")
       insert_transaction_row("xyz")
-      sint.update(backfill_cursor: "cursor0")
+      insert_item_row(transaction_sync_next_cursor: "cursor0")
       responses = [
         stub_service_request(page1_response, cursor: "cursor0"),
         stub_service_request(page2_response, cursor: "cursor1"),
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
-      insert_item_row
       transaction_svc.upsert_webhook(body: create_body)
       expect(responses).to all(have_been_made)
       expect(transaction_svc.readonly_dataset(&:all)).to have_length(4) # 2 backfilled, 2 existed
+      dep_svc.admin_dataset do |ds|
+        expect(ds[plaid_id: item_id]).to include(transaction_sync_next_cursor: "cursor3")
+      end
     end
 
     describe "created and updated timestamps" do
