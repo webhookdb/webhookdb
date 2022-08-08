@@ -144,6 +144,7 @@ module Amigo::DurableJob
     end
 
     def insert_job(job, job_id, item, more: {})
+      raise Webhookdb::InvalidPrecondition, "not enabled" unless  self.enabled?
       job_class = item.fetch("class").to_s
       item = item.dup
       item["class"] = job_class
@@ -171,6 +172,7 @@ module Amigo::DurableJob
     end
 
     def lock_job(job_id, heartbeat_extension)
+      raise Webhookdb::InvalidPrecondition, "not enabled" unless  self.enabled?
       self.storage_datasets.each do |ds|
         begin
           row = ds[job_id:]
@@ -196,6 +198,7 @@ module Amigo::DurableJob
     end
 
     def heartbeat(now: nil)
+      return unless self.enabled?
       now ||= Time.now
       active_job, ds = Thread.current[:durable_job_active_job]
       return nil if active_job.nil?
@@ -205,12 +208,14 @@ module Amigo::DurableJob
     end
 
     def heartbeat!(now: nil)
+      return unless self.enabled?
       assume_dead_at = self.heartbeat(now:)
       return assume_dead_at if assume_dead_at
       raise "DurableJob.heartbeat called but no durable job is in TLS"
     end
 
     def poll_jobs(now: Time.now, skip_queue_size: 500, max_page_size: 2000)
+      return unless self.enabled?
       # There is a global retry set we can use across all queues.
       # If it's too big, don't bother polling jobs.
       # Note, this requires we don't let our retry set grow too large...
@@ -289,9 +294,15 @@ module Amigo::DurableJob
         end
       end
     end
+
+    def enabled?
+      return self.enabled
+    end
   end
 
   configurable(:durable_job) do
+    setting :enabled, true
+
     # Space-separated URLs to write durable jobs into.
     setting :server_urls, [], convert: ->(s) { s.split.map(&:strip) }
     # Server env vars are the names of environment variables whose value are
@@ -305,10 +316,12 @@ module Amigo::DurableJob
 
     after_configured do
       self.storage_database_urls = self.server_urls.dup
-      self.storage_database_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
-      self.reconnect
+      self.storage_database_urls.concat(self.server_env_vars.filter_map { |e| ENV.fetch(e, nil) })
       self.table_fqn = Sequel[self.schema_name][self.table_name]
-      self.ensure_jobs_tables
+      if self.enabled?
+        self.reconnect
+        self.ensure_jobs_tables
+      end
     end
   end
 
@@ -327,6 +340,8 @@ module Amigo::DurableJob
 
   module PrependedMethods
     def perform(*)
+      return super unless Amigo::DurableJob.enabled?
+
       ds, row = Amigo::DurableJob.lock_job(self.jid, self.class.heartbeat_extension)
       if row.nil?
         Sidekiq.logger.error "DurableJob: #{self.class}[#{self.jid}]: no row found in database"
@@ -350,6 +365,8 @@ module Amigo::DurableJob
 
   module PrependedClassMethods
     def client_push(item)
+      return super unless Amigo::DurableJob.enabled?
+
       # We need to set the job id ahead of time, since we need to use it.
       # We must insert the row into storage **BEFORE** we enqueue the job in Sidekiq;
       # otherwise, the job can run before the insert even finishes, which results in

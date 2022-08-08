@@ -122,6 +122,13 @@ RSpec.describe Amigo::DurableJob do
       j1 = cls.perform_async
       expect(call_order).to eq(["inserted", "pushed"])
     end
+
+    it "does standard behavior if not enabled" do
+      described_class.enabled = false
+      cls = create_job_class
+      cls.perform_async
+      cls.drain
+    end
   end
 
   describe "running the job" do
@@ -171,6 +178,14 @@ RSpec.describe Amigo::DurableJob do
       expect(Sidekiq.logger).to receive(:error)
       cls.drain
     end
+
+    it "does standard behavior if not enabled" do
+      described_class.enabled = false
+      expect(described_class).to_not receive(:insert_job)
+      cls = create_job_class
+      cls.perform_async
+      cls.drain
+    end
   end
 
   describe "heartbeat" do
@@ -190,6 +205,12 @@ RSpec.describe Amigo::DurableJob do
     it "errors if there is no job in TLS" do
       expect { described_class.heartbeat! }.to raise_error(/but no durable job/)
       expect { described_class.heartbeat }.to_not raise_error
+    end
+
+    it "noops if not enabled" do
+      described_class.enabled = false
+      described_class.heartbeat
+      described_class.heartbeat!
     end
   end
 
@@ -327,6 +348,12 @@ RSpec.describe Amigo::DurableJob do
       described_class.poll_jobs
       expect(ds1.all).to be_empty
       expect(cls.jobs).to be_empty
+    end
+
+    it "noops if not enabled" do
+      described_class.enabled = false
+      expect(Sidekiq::RetrySet).to_not receive(:new)
+      described_class.poll_jobs
     end
   end
 
