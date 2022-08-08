@@ -113,6 +113,10 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "DurableJobRecheckPoller" do
+    before(:all) do
+      Amigo::DurableJob.reset_configuration
+    end
+
     it "runs DurableJob.poll_jobs" do
       # Ensure polling is called, but it should be early-outed.
       # rubocop:disable RSpec/VerifiedDoubles

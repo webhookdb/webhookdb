@@ -25,7 +25,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:item_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(:account_id, TEXT),
+      Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
       Webhookdb::Services::Column.new(:amount, TEXT),
       Webhookdb::Services::Column.new(:iso_currency_code, TEXT),
       Webhookdb::Services::Column.new(:date, DATE, index: true),
@@ -54,7 +54,6 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   # want to initiate our own backfills, as they cost customers money.
   def upsert_webhook(body:)
     return unless body.fetch("webhook_type") == "TRANSACTIONS"
-    code = body.fetch("webhook_code")
     item_id = body.fetch("item_id")
     plaid_item_service = self.service_integration.depends_on.service_instance
     plaid_item_row = plaid_item_service.readonly_dataset(timeout: :fast) { |ds| ds[plaid_id: item_id] }
@@ -62,35 +61,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
       raise Webhookdb::InvalidPrecondition,
             "could not find Plaid item #{item_id} for integration #{self.service_integration.opaque_id}"
     end
-    case code
-      when "TRANSACTIONS_REMOVED"
-        self._mark_transactions_removed(body.fetch("removed_transactions"))
-      when "HISTORICAL_UPDATE"
-        self.handle_historical_update(plaid_item_service, plaid_item_row)
-    else
-        self.handle_incremental_update(plaid_item_service, plaid_item_row)
-    end
-  end
-
-  def handle_historical_update(plaid_item_service, plaid_item_row)
-    self.backfill_plaid_item(plaid_item_service, plaid_item_row, 2.years.ago)
-  end
-
-  def handle_incremental_update(plaid_item_service, plaid_item_row)
-    pagination_start_date = self.readonly_dataset(timeout: :fast) do |ds|
-      ds.where(item_id: plaid_item_row.fetch(:plaid_id)).max(:date)
-    end
-    self.backfill_plaid_item(plaid_item_service, plaid_item_row, pagination_start_date || 2.years.ago)
-  end
-
-  def _mark_transactions_removed(removed_ids)
-    self.admin_dataset(timeout: :fast) do |ds|
-      now = Time.now
-      ds.where(plaid_id: removed_ids).update(removed_at: now, row_updated_at: now)
-      ds.where(plaid_id: removed_ids).each do |row|
-        self._publish_rowupsert(row)
-      end
-    end
+    self.backfill_plaid_item(plaid_item_service, plaid_item_row)
   end
 
   def _webhook_response(_request)
@@ -136,7 +107,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
 
   # @param plaid_item_service [Webhookdb::Services::PlaidItemV1]
   # @param plaid_item_row [Hash<Symbol, Any>]
-  def backfill_plaid_item(plaid_item_service, plaid_item_row, start_date)
+  def backfill_plaid_item(plaid_item_service, plaid_item_row)
     item_integration = plaid_item_service.service_integration
     raise Webhookdb::Services::CredentialsMissing if
       item_integration.backfill_key.blank? ||
@@ -144,54 +115,136 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         item_integration.api_url.blank?
 
     plaid_access_token = plaid_item_service.decrypt_item_row_access_token(plaid_item_row)
-    backfiller = TransactionBackfiller.new(
-      item_svc: plaid_item_service,
-      transaction_svc: self,
-      plaid_item_id: plaid_item_row.fetch(:plaid_id),
-      plaid_access_token:,
-    )
-    backfiller.backfill(start_date)
+
+    url = self.service_integration.organization.admin_connection_url_raw
+    Webhookdb::ConnectionCache.borrow(url, timeout: :slow) do |conn|
+      # Use the Plaid sync endpoint to increment through pages of transactions,
+      # and upsert (or update in the case of remove) each transaction.
+      # Because transaction backfilling can include many writers
+      # for the table, we need to be careful about batching updates.
+      backfiller = TransactionBackfiller.new(
+        conn:,
+        item_svc: plaid_item_service,
+        transaction_svc: self,
+        plaid_item_id: plaid_item_row.fetch(:plaid_id),
+        plaid_access_token:,
+      )
+      # This will be unified with normal backfiller code eventually
+      backfiller.backfill(nil)
+      backfiller.commit
+      self.service_integration.update(backfill_cursor: backfiller.cursor)
+    end
   end
 
   class TransactionBackfiller < Webhookdb::Backfiller
-    def initialize(item_svc:, transaction_svc:, plaid_item_id:, plaid_access_token:)
+    attr_reader :cursor
+
+    def initialize(conn:, item_svc:, transaction_svc:, plaid_item_id:, plaid_access_token:)
+      @conn = conn
       @item_svc = item_svc
       @transaction_svc = transaction_svc
+      @transaction_ds = @conn[@transaction_svc.qualified_table_sequel_identifier]
       @plaid_item_id = plaid_item_id
       @plaid_access_token = plaid_access_token
       @api_url = @item_svc.service_integration.api_url
+      @temp_table = "#{@plaid_item_id}_backfill_#{SecureRandom.hex(6)}".to_sym
+      @insert_row_cols = [
+        :plaid_id,
+        :item_id,
+        :data,
+        :account_id,
+        :amount,
+        :iso_currency_code,
+        :date,
+        :row_created_at,
+        :row_updated_at,
+      ]
+      @cursor = transaction_svc.service_integration.backfill_cursor
+      @wrote_any_rows = false
+      @row_chunk = []
+      @removed = []
       super()
+    end
+
+    def commit
+      # Capture this so we only need to hit the DB once.
+      has_to_notify = @transaction_svc._any_subscriptions_to_notify?
+      # Always run this; it is done separately from the normal upsert
+      self.flush_removed(notify: has_to_notify)
+      self.flush_chunk
+      # If we never wrote any rows, we know we have nothing to copy, nor alert.
+      return unless @wrote_any_rows
+      columns = [
+        :plaid_id,
+        :item_id,
+        :data,
+        :account_id,
+        :amount,
+        :iso_currency_code,
+        :date,
+        :row_created_at,
+        :row_updated_at,
+      ]
+      update = columns.each_with_object({}).each do |c, h|
+        h[c] = Sequel[:excluded][c]
+      end
+      update.delete(:row_created_at)
+      insert_ds = @transaction_ds
+      (insert_ds = insert_ds.returning) if has_to_notify
+      upserted_rows = insert_ds.
+        insert_conflict(target: :plaid_id, update:).
+        insert(columns, @conn[@temp_table].select(*columns))
+      # Only have a table to drop if we ever created the table/wrote rows.
+      @conn.drop_table(@temp_table) if @wrote_any_rows
+      has_to_notify && upserted_rows.each do |row|
+        @transaction_svc._publish_rowupsert(row, check_for_subscriptions: false)
+      end
     end
 
     def handle_item(body)
       now = Time.now
-      inserting = {
-        plaid_id: body.fetch("transaction_id"),
-        item_id: @plaid_item_id,
-        data: body.to_json,
-        account_id: body.fetch("account_id"),
-        amount: body.fetch("amount"),
-        iso_currency_code: body.fetch("iso_currency_code"),
-        date: body.fetch("date"),
-        row_created_at: now,
-        row_updated_at: now,
-      }
-      update = @transaction_svc._coalesce_excluded_on_update(inserting, [:row_created_at])
-      upserted_rows = @transaction_svc.admin_dataset(timeout: :fast) do |ds|
-        ds.insert_conflict(
-          target: :plaid_id,
-          update:,
-        ).insert(inserting)
-      end
-      row_changed = upserted_rows.present?
-      @transaction_svc._publish_rowupsert(inserting) if row_changed
+      # MUST match @insert_row_columns
+      inserting = [
+        body.fetch("transaction_id"),
+        @plaid_item_id,
+        body.to_json,
+        body.fetch("account_id"),
+        body.fetch("amount"),
+        body.fetch("iso_currency_code"),
+        body.fetch("date"),
+        now,
+        now,
+      ]
+      @row_chunk << inserting
+      self.flush_chunk if @row_chunk.size >= 500
     end
 
-    def fetch_backfill_page(pagination_token, last_backfilled:)
-      count = Webhookdb::Plaid.page_size
-      offset = pagination_token.present? ? pagination_token : 0
-      url = @api_url + "/transactions/get"
+    def flush_removed(notify:)
+      return if @removed.empty?
+      now = Time.now
+      @transaction_ds.where(plaid_id: @removed).update(removed_at: now, row_updated_at: now)
+      notify && @transaction_ds.where(plaid_id: @removed).each do |row|
+        @transaction_svc._publish_rowupsert(row)
+      end
+    end
 
+    def flush_chunk
+      return if @row_chunk.empty?
+      # Defer the creation of the temp table until we have our first write,
+      # so if our query no-ops we have nothing to do.
+      unless @wrote_any_rows
+        @conn.create_table(@temp_table, temp: true, as: @transaction_ds.clone(limit: 0))
+        @conn.alter_table(@temp_table) { drop_column :pk }
+      end
+      @conn[@temp_table].import(@insert_row_cols, @row_chunk)
+      @row_chunk.clear
+      @wrote_any_rows = true
+    end
+
+    def fetch_backfill_page(*)
+      # We ignore the token and backfill arguments since we track the backfill cursor ourselves.
+      count = Webhookdb::Plaid.page_size
+      url = @api_url + "/transactions/sync"
       begin
         response = Webhookdb::Http.post(
           url,
@@ -199,12 +252,8 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
             client_id: @item_svc.service_integration.backfill_key,
             secret: @item_svc.service_integration.backfill_secret,
             access_token: @plaid_access_token,
-            start_date: last_backfilled.strftime("%Y-%m-%d"),
-            end_date: Time.now.tomorrow.strftime("%Y-%m-%d"),
-            options: {
-              count:,
-              offset:,
-            },
+            cursor: @cursor,
+            count:,
           },
           logger: @transaction_svc.logger,
         )
@@ -214,9 +263,15 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
         raise e
       end
 
-      data = response.parsed_response["transactions"]
-      return data, nil if data.size < count
-      return data, offset + count
+      resp = response.parsed_response
+      transactions = resp.fetch("added", []) + resp.fetch("modified", [])
+      # We don't bother chunking removed transactions, since their representation is tiny
+      # and their update is a separate routine.
+      @removed.concat(resp.fetch("removed", []).map { |t| t.fetch("transaction_id") })
+      @cursor = response.parsed_response["next_cursor"]
+      return transactions, nil unless resp.fetch("has_more")
+      # We manage the cursor internally.
+      return transactions, :next_page
     end
   end
 end

@@ -54,6 +54,8 @@ class Webhookdb::ConnectionCache
 
     # Seconds for the :fast timeout option.
     setting :timeout_fast, 30
+    # Seconds for the :slow timeout option.
+    setting :timeout_slow, 180
     # Seconds for the :slow_schema timeout option.
     setting :timeout_slow_schema, 30.minutes.to_i
   end

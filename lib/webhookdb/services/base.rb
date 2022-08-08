@@ -307,8 +307,12 @@ class Webhookdb::Services::Base
     end
   end
 
-  def _publish_rowupsert(row)
-    return if self.service_integration.all_webhook_subscriptions_dataset.to_notify.empty?
+  def _any_subscriptions_to_notify?
+    return !self.service_integration.all_webhook_subscriptions_dataset.to_notify.empty?
+  end
+
+  def _publish_rowupsert(row, check_for_subscriptions: true)
+    return unless check_for_subscriptions && self._any_subscriptions_to_notify?
     # We AVOID pubsub here because we do NOT want to go through the router
     # and audit logger for this.
     event = Webhookdb::Event.create(

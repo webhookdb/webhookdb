@@ -347,7 +347,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       dep_svc = sint.dependents.first.service_instance
       dep_svc.create_table
       expect(sint.dependents.first).to receive(:service_instance).and_return(dep_svc)
-      expect(dep_svc).to receive(:handle_incremental_update)
+      expect(dep_svc).to receive(:upsert_webhook).with(body:)
 
       svc.upsert_webhook(body:)
     end
