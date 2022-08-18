@@ -385,6 +385,31 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       end
     end
 
+    it "commits changes and raises a retry on 429" do
+      rate_limit_body = <<~J
+        {
+          "error_type": "RATE_LIMIT_EXCEEDED",
+          "error_code": "TRANSACTIONS_LIMIT",
+          "error_message": "rate limit exceeded for attempts to access this item. please try again later",
+          "display_message": null,
+          "request_id": "HNTDNrA8F1shFEW"
+        }
+      J
+      req = stub_request(:post, "https://sandbox.plaid.com/transactions/sync").
+        to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}).
+        to_return(status: 429, body: rate_limit_body, headers: {"Content-Type" => "application/json"})
+      insert_item_row
+      expect do
+        transaction_svc.upsert_webhook(body: create_body)
+      end.to raise_error(Webhookdb::Async::Job::Retry)
+      expect(req).to have_been_made.twice
+
+      rows = transaction_svc.readonly_dataset(&:all)
+      expect(rows).to contain_exactly(
+        include(item_id:, plaid_id: "abc123"),
+      )
+    end
+
     describe "created and updated timestamps" do
       it "are set on insert" do
         responses = [

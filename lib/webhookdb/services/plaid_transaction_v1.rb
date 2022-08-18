@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "webhookdb/async/job"
 require "webhookdb/backfiller"
 require "webhookdb/crypto"
 require "webhookdb/plaid"
@@ -142,12 +143,15 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       )
       # This will be unified with normal backfiller code eventually
       backfiller.backfill(nil)
+      # Commit to the org DB before we update the cursor so we don't lose any changes.
       backfiller.commit
       if sync_cursor != backfiller.cursor
         conn[plaid_item_service.qualified_table_sequel_identifier].
           where(plaid_id: plaid_item_id).
           update(transaction_sync_next_cursor: backfiller.cursor)
       end
+      # We may need to raise an error after we commit all changes.
+      backfiller.after_commit
     end
   end
 
@@ -216,6 +220,10 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       end
     end
 
+    def after_commit
+      raise @retry_error if @retry_error
+    end
+
     def handle_item(body)
       now = Time.now
       # MUST match @insert_row_columns
@@ -275,6 +283,11 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
       rescue Webhookdb::Http::Error => e
         errtype = e.response.parsed_response["error_type"]
         return [], nil if Webhookdb::Services::PlaidItemV1::STORABLE_ERROR_TYPES.include?(errtype)
+        if errtype == "RATE_LIMIT_EXCEEDED"
+          backoff = rand(20..59)
+          @retry_error = Webhookdb::Async::Job::Retry.new(backoff)
+          return [], nil
+        end
         raise e
       end
 
