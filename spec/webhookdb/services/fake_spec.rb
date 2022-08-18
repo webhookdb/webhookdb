@@ -68,7 +68,7 @@ RSpec.describe "fake implementations", :db do
 
     it_behaves_like "a service implementation that upserts webhooks only under specific conditions", "fake_v1" do
       before(:each) do
-        described_class.prepare_for_insert_hook = ->(_h) {}
+        described_class.resource_and_event_hook = ->(_h) {}
       end
 
       let(:incorrect_webhook) do
@@ -137,12 +137,13 @@ RSpec.describe "fake implementations", :db do
     end
 
     it_behaves_like "a service implementation that uses enrichments", "fake_with_enrichments_v1" do
-      let(:enrichment_tables) { described_class.enrichment_tables }
       let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
+      let(:enrichment_body) { {extra: "abc"}.to_json }
+      let(:expected_enrichment_data) { JSON.parse(enrichment_body) }
 
       def stub_service_request
         return stub_request(:get, "https://fake-integration/enrichment/abc").
-            to_return(status: 200, body: {extra: "abc"}.to_json, headers: {"Content-Type" => "application/json"})
+            to_return(status: 200, body: enrichment_body, headers: {"Content-Type" => "application/json"})
       end
 
       def stub_service_request_error
@@ -151,16 +152,26 @@ RSpec.describe "fake implementations", :db do
       end
 
       def assert_is_enriched(row)
-        expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})
-      end
-
-      def assert_enrichment_after_insert(db)
-        expect(db[:fake_v1_enrichments].all).to have_length(1)
+        expect(row[:extra]).to eq("abc")
       end
     end
   end
 
   describe Webhookdb::Services::FakeDependent do
+    before(:each) do
+      described_class.reset
+    end
+
+    after(:each) do
+      described_class.reset
+    end
+
+    it_behaves_like "a service implementation dependent on another", "fake_dependent_v1", "fake_v1" do
+      let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
+    end
+  end
+
+  describe Webhookdb::Services::FakeDependentDependent do
     before(:each) do
       described_class.reset
     end
@@ -241,13 +252,53 @@ RSpec.describe "fake implementations", :db do
           ]
         end
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
-        expect(fake.ensure_all_columns_sql).to eq(%{ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
+        expect(fake.ensure_all_columns_sql).to include(%{ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
 CREATE INDEX IF NOT EXISTS c2_idx ON #{table_str} (c2);
 ALTER TABLE #{table_str} ADD COLUMN c3 date;
 ALTER TABLE #{table_str} ADD COLUMN "from" text;
 CREATE INDEX IF NOT EXISTS from_idx ON #{table_str} ("from");})
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
+      end
+
+      it "can backfill values for columns that exist in code but not in the DB" do
+        fake.create_table
+        fake.admin_dataset do |ds|
+          expect(ds.columns).to eq([:pk, :my_id, :at, :data])
+          ds.insert(
+            my_id: "abc123",
+            at: Time.now,
+            data: {
+              c2: 14,
+              from: "Canada",
+            }.to_json,
+          )
+        end
+
+        fake.define_singleton_method(:_denormalized_columns) do
+          [
+            Webhookdb::Services::Column.new(
+              :c2,
+              Webhookdb::DBAdapter::ColumnTypes::INTEGER,
+              converter: Webhookdb::Services::Column::CONV_TO_I,
+            ),
+            Webhookdb::Services::Column.new(:c3, Webhookdb::DBAdapter::ColumnTypes::TIMESTAMP, defaulter: :now),
+            Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+          ]
+        end
+        table_str = fake.schema_and_table_symbols.map(&:to_s).join('"."')
+        expect(fake.ensure_all_columns_sql).to include(
+          %{"c2" = CAST(CAST(("data" #> ARRAY['c2']) AS integer) AS integer)},
+        )
+        expect(fake.ensure_all_columns_sql).to include(
+          %{"c3" = coalesce(CAST(("data" ->> 'c3') AS timestamptz), now())},
+        )
+        expect(fake.ensure_all_columns_sql).to include(%{"from" = CAST(("data" ->> 'from') AS text)})
+        fake.ensure_all_columns
+        fake.readonly_dataset do |ds|
+          expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from])
+          expect(ds.first).to include({c2: 14, from: "Canada", my_id: "abc123", at: be_within(5.seconds).of(Time.now)})
+        end
       end
     end
 

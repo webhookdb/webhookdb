@@ -5,7 +5,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   singleton_attr_accessor :webhook_response
   singleton_attr_accessor :upsert_has_deps
-  singleton_attr_accessor :prepare_for_insert_hook
+  singleton_attr_accessor :resource_and_event_hook
 
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -19,7 +19,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   def self.reset
     self.webhook_response = Webhookdb::WebhookResponse.ok
     self.upsert_has_deps = false
-    self.prepare_for_insert_hook = nil
+    self.resource_and_event_hook = nil
   end
 
   def self.stub_backfill_request(items, status: 200)
@@ -72,7 +72,12 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :at,
+        TIMESTAMP,
+        index: true,
+        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+      ),
     ]
   end
 
@@ -80,17 +85,13 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     return :at
   end
 
-  def _update_where_expr
-    return Sequel[self.qualified_table_sequel_identifier][:at] < Sequel[:excluded][:at]
+  def _resource_and_event(body)
+    return self.class.resource_and_event_hook.call(body) if self.class.resource_and_event_hook
+    return body, nil
   end
 
-  def _prepare_for_insert(body, *)
-    h = {
-      my_id: body["my_id"],
-      at: Time.parse(body["at"]),
-    }
-    (h = self.class.prepare_for_insert_hook.call(h)) if self.class.prepare_for_insert_hook
-    return h
+  def _update_where_expr
+    return Sequel[self.qualified_table_sequel_identifier][:at] < Sequel[:excluded][:at]
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
@@ -114,31 +115,17 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
     )
   end
 
-  def self.enrichment_tables
-    return ["fake_v1_enrichments"]
+  def _denormalized_columns
+    return super << Webhookdb::Services::Column.new(:extra, TEXT, from_enrichment: true)
   end
 
-  def _enrichment_tables_descriptors
-    return [
-      Webhookdb::DBAdapter::TableDescriptor.new(
-        table: Webhookdb::DBAdapter::Table.new(name: :fake_v1_enrichments),
-        columns: [Webhookdb::DBAdapter::Column.new(name: :id, type: TEXT)],
-      ),
-    ]
+  def _store_enrichment_body?
+    return true
   end
 
-  def _prepare_for_insert(body, enrichment: nil)
-    body["enrichment"] = enrichment
-    return super
-  end
-
-  def _fetch_enrichment(body)
-    r = Webhookdb::Http.get("https://fake-integration/enrichment/" + body["my_id"], logger: nil)
+  def _fetch_enrichment(resource, _event)
+    r = Webhookdb::Http.get("https://fake-integration/enrichment/" + resource["my_id"], logger: nil)
     return r.parsed_response
-  end
-
-  def _after_insert(inserting, *)
-    self.admin_dataset(&:db) << "INSERT INTO fake_V1_enrichments(id) VALUES ('#{inserting['my_id']}')"
   end
 end
 
@@ -152,6 +139,32 @@ class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
       feature_roles: ["internal"],
       resource_name_singular: "FakeDependent",
       dependency_descriptor: Webhookdb::Services::Fake.descriptor,
+    )
+  end
+
+  def on_dependency_webhook_upsert(service_instance, payload, changed:)
+    self.class.on_dependency_webhook_upsert_callback&.call(service_instance, payload, changed:)
+  end
+
+  def calculate_create_state_machine
+    dependency_help = "This is where you would explain things like the relationship between stripe cards and customers."
+    if (step = self.calculate_dependency_state_machine_step(dependency_help:))
+      return step
+    end
+    return super
+  end
+end
+
+class Webhookdb::Services::FakeDependentDependent < Webhookdb::Services::Fake
+  singleton_attr_accessor :on_dependency_webhook_upsert_callback
+
+  def self.descriptor
+    return Webhookdb::Services::Descriptor.new(
+      name: "fake_dependent_dependent_v1",
+      ctor: ->(sint) { Webhookdb::Services::FakeDependentDependent.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "FakeDependentDependent",
+      dependency_descriptor: Webhookdb::Services::FakeDependent.descriptor,
     )
   end
 

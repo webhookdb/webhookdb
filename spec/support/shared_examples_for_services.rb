@@ -125,7 +125,7 @@ RSpec.shared_examples "a service implementation that upserts webhooks only under
     sint.organization.remove_related_database
   end
 
-  it "won't insert webhook of incorrect type" do
+  it "won't insert webhook if resource_and_event returns nil" do
     svc.create_table
     svc.upsert_webhook(body: incorrect_webhook)
     svc.readonly_dataset do |ds|
@@ -259,7 +259,15 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     )
   end
   let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:backfiller_class) { Webhookdb::Backfiller }
   let(:expected_items_count) { raise NotImplementedError, "how many items do we insert?" }
+
+  def insert_required_data_callback
+    # For instances where our custom backfillers use info from rows in the dependency table to make requests.
+    # The function should take a service instance of the dependency.
+    # Something like: `return ->(dep_svc) { insert_some_info }`
+    return ->(_dep_svc) { return }
+  end
 
   def stub_service_requests
     raise NotImplementedError, "return stub_request for service"
@@ -279,6 +287,12 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
 
   it "upsert records for pages of results" do
     svc.create_table
+    create_all_dependencies(sint)
+    unless sint.depends_on.nil?
+      dependency_svc = sint.depends_on.service_instance
+      dependency_svc.create_table
+      insert_required_data_callback.call(dependency_svc)
+    end
     responses = stub_service_requests
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -287,12 +301,24 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
 
   it "retries the page fetch" do
     svc.create_table
-    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
-    expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
-    expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
+    create_all_dependencies(sint)
+    unless sint.depends_on.nil?
+      dependency_svc = sint.depends_on.service_instance
+      dependency_svc.create_table
+      insert_required_data_callback.call(dependency_svc)
+    end
+    backfillers = svc._backfillers
+    expect(svc).to receive(:_backfillers).and_return(backfillers)
+    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).
+      exactly(backfillers.size * 2).times # Each backfiller sleeps twice
+    # rubocop:disable RSpec/IteratedExpectation
+    backfillers.each do |bf|
+      expect(bf).to receive(:fetch_backfill_page).and_raise(RuntimeError)
+      expect(bf).to receive(:fetch_backfill_page).and_raise(RuntimeError)
+      expect(bf).to receive(:fetch_backfill_page).at_least(:once).and_call_original
+    end
+    # rubocop:enable RSpec/IteratedExpectation
     responses = stub_service_requests
-    expect(svc).to receive(:_fetch_backfill_page).at_least(:once).and_call_original
-
     svc.backfill
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
@@ -301,10 +327,18 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   it "errors if backfill credentials are not present" do
     svc.service_integration.backfill_key = ""
     svc.service_integration.backfill_secret = ""
+    # `depends_on` is nil because we haven't created dependencies in this test
     expect { svc.backfill }.to raise_error(Webhookdb::Services::CredentialsMissing)
   end
 
   it "errors if fetching page errors" do
+    svc.create_table
+    create_all_dependencies(sint)
+    unless sint.depends_on.nil?
+      dependency_svc = sint.depends_on.service_instance
+      dependency_svc.create_table
+      insert_required_data_callback.call(dependency_svc)
+    end
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     response = stub_service_request_error
     expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
@@ -378,8 +412,8 @@ end
 RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }
-  let(:enrichment_tables) { raise NotImplementedError }
   let(:body) { raise NotImplementedError }
+  let(:expected_enrichment_data) { raise NotImplementedError }
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -406,14 +440,12 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
     raise NotImplementedError, 'something like: expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})'
   end
 
-  def assert_enrichment_after_insert(_db)
-    raise NotImplementedError, "something like: expect(db[:fake_v1_enrichments].all).to have_length(1)"
-  end
-
-  it "creates enrichment tables on service table create" do
-    enrichment_tables.each do |tbl|
-      expect(svc.readonly_dataset(&:db)).to be_table_exists(tbl.to_sym)
-    end
+  it "adds enrichment column to main table" do
+    req = stub_service_request
+    svc.upsert_webhook(body:)
+    expect(req).to have_been_made unless req.nil?
+    row = svc.readonly_dataset(&:first)
+    expect(row[:enrichment]).to eq(expected_enrichment_data)
   end
 
   it "can use enriched data when inserting" do
@@ -422,13 +454,6 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
     expect(req).to have_been_made unless req.nil?
     row = svc.readonly_dataset(&:first)
     assert_is_enriched(row)
-  end
-
-  it "calls the after insert hook with the enrichment" do
-    req = stub_service_request
-    svc.upsert_webhook(body:)
-    expect(req).to have_been_made unless req.nil?
-    assert_enrichment_after_insert(svc.readonly_dataset(&:db))
   end
 
   it "errors if fetching enrichment errors" do
@@ -486,10 +511,6 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }
 
-  def create_dependency(name)
-    return Webhookdb::Fixtures.service_integration(service_name: name, organization: sint.organization).create
-  end
-
   it "can list and describe the services used as dependencies" do
     this_descriptor = Webhookdb::Services.registered_service!(service_name)
     dep_descriptor = Webhookdb::Services.registered_service!(dependency_service_name)
@@ -497,7 +518,7 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
     expect(sint.dependency_candidates).to be_empty
     Webhookdb::Fixtures.service_integration(service_name: dependency_service_name).create
     expect(sint.dependency_candidates).to be_empty
-    dep = create_dependency(dependency_service_name)
+    dep = create_dependency(sint)
     expect(sint.dependency_candidates).to contain_exactly(be === dep)
   end
 
@@ -509,7 +530,8 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
   end
 
   it "asks for the dependency as the first step of its state machine" do
-    create_dependency(dependency_service_name)
+    create_dependency(sint)
+    sint.depends_on = nil
     step = sint.service_instance.calculate_create_state_machine
     expect(step).to have_attributes(
       output: match("Enter the number for the"),

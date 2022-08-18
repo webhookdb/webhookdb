@@ -9,7 +9,7 @@ module Webhookdb::Services::ConvertkitV1Mixin
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:convertkit_id, BIGINT)
+    return Webhookdb::Services::Column.new(:convertkit_id, BIGINT, data_key: "id")
   end
 
   def calculate_backfill_state_machine
@@ -44,4 +44,17 @@ and they will show up in your database momentarily.
   def _verify_backfill_err_msg
     return "An error occurred. Please reenter the API Secret:"
   end
+
+  # Converter for use with the denormalized columns
+  CONV_FIND_CANCELED_AT = Webhookdb::Services::Column::IsomorphicProc.new(
+    ruby: lambda do |_value, resource|
+      # Subscribers do not store a cancelation time (nor an updated at time),
+      # so we derive and store it based on their state.
+      # When they become inactive state, we set canceled_at,
+      # and clear it when they are not active.
+      # See the upsert_update_expr for Convertkit Subscriber for the details.
+      resource.fetch("state") == "active" ? nil : Time.now
+    end,
+    sql: nil,
+  )
 end

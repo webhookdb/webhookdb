@@ -19,6 +19,11 @@ module Webhookdb::Services::ShopifyV1Mixin
     return :updated_at
   end
 
+  # For Shopify endpoints the object and webhook have the same shape—the webhook is simply the updated object
+  def _resource_and_event(body)
+    return body, nil
+  end
+
   def _webhook_response(request)
     # info for debugging
     shopify_auth = request.env["HTTP_X_SHOPIFY_HMAC_SHA256"]

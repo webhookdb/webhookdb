@@ -18,36 +18,29 @@ class Webhookdb::Services::StripeProductV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created, TIMESTAMP),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
       Webhookdb::Services::Column.new(:name, TEXT),
       Webhookdb::Services::Column.new(:package_dimensions, TEXT),
       Webhookdb::Services::Column.new(:statement_descriptor, TEXT),
       Webhookdb::Services::Column.new(:unit_label, TEXT),
-      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
+      Webhookdb::Services::Column.new(
+        :updated,
+        TIMESTAMP,
+        index: true,
+        data_key: "created",
+        event_key: "created",
+        converter: :tsat,
+      ),
     ]
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    return {
-      data: obj_of_interest.to_json,
-      created: self.tsat(obj_of_interest.fetch("created")),
-      name: obj_of_interest.fetch("name"),
-      package_dimensions: obj_of_interest.fetch("package_dimensions"),
-      statement_descriptor: obj_of_interest.fetch("statement_descriptor"),
-      unit_label: obj_of_interest.fetch("unit_label"),
-      updated: self.tsat(updated),
-      stripe_id: obj_of_interest.fetch("id"),
-    }
   end
 
   def _mixin_backfill_url

@@ -47,27 +47,27 @@ Which will be received by this running instance, so there's nothing else you hav
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:webhookdb_id, TEXT)
+    return Webhookdb::Services::Column.new(:webhookdb_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:email, TEXT, index: true),
       Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:email, TEXT, index: true),
+      Webhookdb::Services::Column.new(
+        :updated_at,
+        TIMESTAMP,
+        index: true,
+        defaulter: Webhookdb::Services::Column::DEFAULTER_FROM_CREATED_AT,
+      ),
     ]
+  end
+
+  def _resource_and_event(body)
+    return body, nil
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    return {
-      webhookdb_id: body.fetch("id"),
-      email: body.fetch("email"),
-      created_at: body.fetch("created_at"),
-      updated_at: body.fetch("updated_at") || body.fetch("created_at"),
-    }
   end
 end

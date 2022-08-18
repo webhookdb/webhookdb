@@ -20,7 +20,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
+    let(:expected_data) { body.fetch("subscriber") }
   end
 
   it_behaves_like "a service implementation that verifies backfill secrets" do

@@ -55,6 +55,70 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
+  describe "enqueue_migrate_all_replication_tables" do
+    let(:org2) { Webhookdb::Fixtures.organization.create }
+
+    it "enqueues replication table migrations for all organizations" do
+      o.prepare_database_connections
+      org2.prepare_database_connections
+
+      expect do
+        Webhookdb::Organization.enqueue_migrate_all_replication_tables
+      end.to publish("webhookdb.organization.migratereplication", [o.id]).and(
+        "webhookdb.organization.migratereplication", org2.id,
+      )
+    end
+  end
+
+  describe "migrate_replication_tables" do
+    let(:fake_sint) { Webhookdb::Fixtures.service_integration.create(organization: o) }
+    let(:fake) { fake_sint.service_instance }
+
+    before(:each) do
+      o.prepare_database_connections
+      fake.create_table
+    end
+
+    after(:each) do
+      o.remove_related_database
+    end
+
+    it "adds missing columns only from changed tables and backfills values" do
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
+        ds.multi_insert(
+          [
+            {my_id: "abc123", data: {from: "Canada"}.to_json},
+            {my_id: "def456", data: {from: "Iceland"}.to_json},
+          ],
+        )
+      end
+      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      fake.define_singleton_method(:_denormalized_columns) do
+        [
+          Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT),
+        ]
+      end
+      expect(fake).to receive(:ensure_all_columns).and_call_original
+
+      o.migrate_replication_tables
+
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data, :from)
+        expect(ds.all).to contain_exactly(
+          include(my_id: "abc123", from: "Canada"),
+          include(my_id: "def456", from: "Iceland"),
+        )
+      end
+    end
+
+    it "does not add columns if none are considered missing" do
+      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      expect(fake).to_not receive(:ensure_all_columns)
+      o.migrate_replication_tables
+    end
+  end
+
   describe "get_stripe_billing_portal_url" do
     it "raises error if org has no stripe customer ID" do
       o.update(stripe_customer_id: "")

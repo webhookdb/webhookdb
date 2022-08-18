@@ -17,63 +17,52 @@ class Webhookdb::Services::TheranestProgressNoteV1 < Webhookdb::Services::Base
     )
   end
 
-  def calculate_create_state_machine
-    # can inherit the `.ASPXAUTH` piece of the cookie and the API url from the auth dependency
-    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
-      return step
-    end
-    step = Webhookdb::Services::StateMachineStep.new
-    step.output = %(Great! If you have fully set up your Theranest Auth, Client, and Case integrations,
-you are all set.
-
-#{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
-    return step.completed
-  end
-
   def _webhook_verified?(_request)
     # Webhooks aren't supported
     return true
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:external_id, TEXT)
+    return Webhookdb::Services::Column.new(:external_id, TEXT, data_key: "NoteId")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:external_client_id, TEXT),
+      # We will populate these "external" values with values from the Backfiller Class in `handle_item`
       Webhookdb::Services::Column.new(:external_case_id, TEXT),
-      Webhookdb::Services::Column.new(:theranest_is_signed_by_staff, BOOLEAN),
-      Webhookdb::Services::Column.new(:theranest_created_at, DATE),
+      Webhookdb::Services::Column.new(:external_client_id, TEXT, optional: true),
+      Webhookdb::Services::Column.new(
+        :theranest_created_at,
+        DATE,
+        data_key: "Date",
+        converter: CONV_PARSE_DATETIME,
+      ),
+      Webhookdb::Services::Column.new(:theranest_is_signed_by_staff, BOOLEAN, data_key: "IsSignedByStaff"),
     ]
+  end
+
+  def _timestamp_column_name
+    return :theranest_created_at
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
-  def backfill(cascade: false, **)
-    auth_svc = self.find_auth_integration.service_instance
-    auth_cookie = auth_svc.get_auth_cookie
-    raise Webhookdb::Services::CredentialsMissing if auth_cookie.blank?
+  def _backfillers
+    raise Webhookdb::Services::CredentialsMissing if self.theranest_auth_cookie.blank?
 
     case_svc = self.service_integration.depends_on.service_instance
-    case_rows = case_svc.readonly_dataset(timeout: :fast) { |ds| ds.exclude(state: "deleted") }
-    case_rows.each do |theranest_case|
-      backfiller = ProgressNoteBackfiller.new(
-        progress_note_svc: self,
-        theranest_case_id: theranest_case[:external_id],
-        theranest_client_id: theranest_case[:external_client_id],
-      )
-      backfiller.backfill(nil)
+    backfillers = case_svc.readonly_dataset(timeout: :fast) do |case_ds|
+      case_ds.exclude(state: "deleted").select(:external_id, :external_client_id).map do |theranest_case|
+        ProgressNoteBackfiller.new(
+          progress_note_svc: self,
+          theranest_case_id: theranest_case[:external_id],
+          theranest_client_id: theranest_case[:external_client_id],
+        )
+      end
     end
-
-    return unless cascade
-    self.service_integration.dependents.each do |dep|
-      Webhookdb.publish(
-        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true},
-      )
-    end
+    return backfillers
   end
 
   class ProgressNoteBackfiller < Webhookdb::Backfiller
@@ -81,44 +70,21 @@ you are all set.
       @progress_note_svc = progress_note_svc
       @theranest_client_id = theranest_client_id
       @theranest_case_id = theranest_case_id
-      @auth_sint = progress_note_svc.find_auth_integration
-      @auth_svc = @auth_sint.service_instance
-      @api_url = @auth_sint.api_url
       super()
     end
 
-    def parse_datetime(date)
-      return Date.strptime(date, "%m/%d/%Y %H:%M %p")
-    rescue TypeError
-      return nil
-    end
-
     def handle_item(body)
-      # what gets enacted on each item of each page
-      inserting = {
-        data: body.to_json,
-        external_id: body.fetch("NoteId"),
-        external_client_id: @theranest_client_id,
-        external_case_id: body.fetch("CaseId"),
-        theranest_is_signed_by_staff: body.fetch("IsSignedByStaff"),
-        theranest_created_at: parse_datetime(body.fetch("Date")),
-      }
-      upserted_rows = @progress_note_svc.admin_dataset(timeout: :fast) do |ds|
-        ds.insert_conflict(
-          target: :external_id,
-          update: inserting,
-        ).insert(inserting)
-      end
-      row_changed = upserted_rows.present?
-      @progress_note_svc._publish_rowupsert(inserting) if row_changed
+      body["external_case_id"] = @theranest_case_id
+      body["external_client_id"] = @theranest_client_id
+      @progress_note_svc.upsert_webhook(body:)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)
-      url = @api_url + "/api/cases/get-progress-notes-list?caseId=#{@theranest_case_id}"
+      url = @progress_note_svc.theranest_api_url + "/api/cases/get-progress-notes-list?caseId=#{@theranest_case_id}"
 
       response = Webhookdb::Http.get(
         url,
-        headers: @auth_svc.get_auth_headers,
+        headers: @progress_note_svc.theranest_auth_headers,
         logger: @progress_note_svc.logger,
       )
       data = response.parsed_response["Notes"]

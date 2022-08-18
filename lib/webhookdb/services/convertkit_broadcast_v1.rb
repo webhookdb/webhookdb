@@ -24,17 +24,21 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:click_rate, DECIMAL),
+      Webhookdb::Services::Column.new(:click_rate, DECIMAL, from_enrichment: true, optional: true),
       Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:open_rate, DECIMAL),
-      Webhookdb::Services::Column.new(:progress, DECIMAL),
-      Webhookdb::Services::Column.new(:recipients, INTEGER),
-      Webhookdb::Services::Column.new(:show_total_clicks, BOOLEAN),
-      Webhookdb::Services::Column.new(:status, TEXT),
+      Webhookdb::Services::Column.new(:open_rate, DECIMAL, from_enrichment: true, optional: true),
+      Webhookdb::Services::Column.new(:progress, DECIMAL, from_enrichment: true, optional: true),
+      Webhookdb::Services::Column.new(:recipients, INTEGER, from_enrichment: true, optional: true),
+      Webhookdb::Services::Column.new(:show_total_clicks, BOOLEAN, from_enrichment: true, optional: true),
+      Webhookdb::Services::Column.new(:status, TEXT, from_enrichment: true, optional: true),
       Webhookdb::Services::Column.new(:subject, TEXT),
-      Webhookdb::Services::Column.new(:total_clicks, INTEGER),
-      Webhookdb::Services::Column.new(:unsubscribes, INTEGER),
+      Webhookdb::Services::Column.new(:total_clicks, INTEGER, from_enrichment: true, optional: true),
+      Webhookdb::Services::Column.new(:unsubscribes, INTEGER, from_enrichment: true, optional: true),
     ]
+  end
+
+  def _resource_and_event(body)
+    return body, nil
   end
 
   def _timestamp_column_name
@@ -45,34 +49,17 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
-  def _fetch_enrichment(body)
-    broadcast_id = body.fetch("id")
+  def _store_enrichment_body?
+    return true
+  end
+
+  def _fetch_enrichment(resource, _event)
+    broadcast_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/broadcasts/#{broadcast_id}/stats?api_secret=#{self.service_integration.backfill_secret}"
     Kernel.sleep(Webhookdb::Convertkit.sleep_seconds)
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data.dig("broadcast", "stats") || {}
-  end
-
-  def _prepare_for_insert(body, enrichment:)
-    # we aren't using `fetch` on the enrichment kwarg here because `fetch` throws an error
-    # when a key is not present, and implementing fetch here would require us to rework our
-    # base shared examples (e.g. `a service implementation`, `a service implementation that can
-    # backfill`, etc.) to account for the possible presence of an enrichment object in order to
-    # avoid those errors
-    return {
-      convertkit_id: body.fetch("id"),
-      created_at: body.fetch("created_at"),
-      click_rate: enrichment["click_rate"],
-      open_rate: enrichment["open_rate"],
-      progress: enrichment["progress"],
-      recipients: enrichment["recipients"],
-      show_total_clicks: enrichment["show_total_clicks"],
-      status: enrichment["status"],
-      subject: body.fetch("subject"),
-      total_clicks: enrichment["total_clicks"],
-      unsubscribes: enrichment["unsubscribes"],
-    }
   end
 
   def _fetch_backfill_page(_pagination_token, **_kwargs)

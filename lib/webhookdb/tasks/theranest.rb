@@ -14,7 +14,7 @@ module Webhookdb::Tasks
           Webhookdb.load_app
           # We must create this here, not via the CLI, because we cannot use the normal DB routine.
           org = Webhookdb::Organization.find_or_create(name: args[:org_name])
-          org.prepare_database_connections
+          org.prepare_database_connections unless org.admin_connection_url.present?
 
           # Now create an admin user for the org
           daybreak_admin = Webhookdb::Customer.find_or_create(
@@ -37,11 +37,11 @@ module Webhookdb::Tasks
           )
 
           client = self.find_or_create_service_integration(org, "theranest_client_v1", depends_on: auth)
-          case_int = self.find_or_create_service_integration(org, "theranest_case_v1", depends_on: client)
+          case_sint = self.find_or_create_service_integration(org, "theranest_case_v1", depends_on: client)
           progress_note = self.find_or_create_service_integration(
             org,
             "theranest_progress_note_v1",
-            depends_on: case_int,
+            depends_on: case_sint,
           )
           _progress_note_document = self.find_or_create_service_integration(
             org,
@@ -50,6 +50,14 @@ module Webhookdb::Tasks
           )
 
           _staff = self.find_or_create_service_integration(org, "theranest_staff_v1", depends_on: auth)
+
+          _service_type = self.find_or_create_service_integration(org, "theranest_service_type_v1", depends_on: auth)
+          appointment = self.find_or_create_service_integration(org, "theranest_appointment_v1", depends_on: auth)
+          _appointment_service_type = self.find_or_create_service_integration(
+            org,
+            "theranest_appointment_service_type_v1",
+            depends_on: appointment,
+          )
         end
       end
     end

@@ -5,16 +5,15 @@ require "support/shared_examples_for_services"
 RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
-  let(:dependency) do
+  let(:auth) do
     fac.create(service_name: "theranest_auth_v1", api_url: "https://auth-api-url.com", backfill_key: "username",
                backfill_secret: "password",)
   end
-  let(:dep_svc) { dependency.service_instance }
-  let(:sint) { fac.depending_on(dependency).create(service_name: "theranest_client_v1").refresh }
+  let(:sint) { fac.depending_on(auth).create(service_name: "theranest_client_v1").refresh }
   let(:svc) { sint.service_instance }
 
   def auth_stub_request
-    return stub_request(:post, "https://fake-url.com/home/signin").to_return(
+    return stub_request(:post, "https://auth-api-url.com/home/signin").to_return(
       status: 200,
       headers: {"Set-Cookie" => "new_cookie"},
     )
@@ -84,7 +83,6 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
     let(:supports_row_diff) { false }
   end
 
@@ -92,7 +90,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
     let(:no_dependencies_message) { "This integration requires Theranest Auth to sync" }
   end
 
-  describe "backfill process" do
+  it_behaves_like "a service implementation that can backfill", "theranest_client_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -306,17 +304,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
 
       R
     end
-
-    before(:each) do
-      org.prepare_database_connections
-      svc.create_table
-      dep_svc.create_table
-      stub_auth_request
-    end
-
-    after(:each) do
-      org.remove_related_database
-    end
+    let(:expected_items_count) { 2 }
 
     def stub_auth_request
       return stub_request(:post, "https://auth-api-url.com/home/signin").
@@ -338,46 +326,14 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
       return stub_request(:get, "https://auth-api-url.com/api/clients/listing?fullNameSort=asc&skip=0&take=1").
           to_return(status: 503, body: "uhh")
     end
+  end
 
-    it "inserts records for pages of results" do
-      responses = stub_service_requests
-      svc.backfill
-      expect(responses).to all(have_been_made)
-      rows = svc.readonly_dataset(&:all)
-      expect(rows).to have_length(2)
-      expect(rows).to contain_exactly(
-        include(theranest_id: "abc123"),
-        include(theranest_id: "def456"),
-      )
-    end
-
-    it "retries the page fetch" do
-      expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
-      expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
-      expect(svc).to receive(:_fetch_backfill_page).and_raise(RuntimeError)
-      responses = stub_service_requests
-      expect(svc).to receive(:_fetch_backfill_page).at_least(:once).and_call_original
-
-      svc.backfill
-      expect(responses).to all(have_been_made)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(2) }
-    end
-
-    it "errors if fetching page errors" do
-      expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
-      response = stub_service_request_error
-      expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
-      expect(response).to have_been_made.at_least_once
-    end
-
-    it "emits the backfill event for dependencies when cascade is true", :async, :do_not_defer_events do
-      stub_service_requests
-      case_sint =
-        Webhookdb::Fixtures.service_integration.organization(sint.organization).
-          depending_on(sint).create(service_name: "theranest_case_v1")
+  describe "specialized backfill behavior" do
+    it "returns credentials missing error if creds are missing from corresponding auth integration" do
+      auth.update(backfill_key: "", backfill_secret: "")
       expect do
-        svc.backfill(cascade: true)
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([case_sint.id, {"cascade" => true}])
+        svc.backfill
+      end.to raise_error(Webhookdb::Services::CredentialsMissing).with_message(/requires Theranest Username/)
     end
   end
 
@@ -385,7 +341,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
     describe "calculate_create_state_machine" do
       it "prompts for dependencies" do
         sint.update(depends_on: nil)
-        dependency.destroy
+        auth.destroy
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
           output: match("This integration requires Theranest Auth to sync"),
@@ -398,7 +354,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
-          output: match("If you have fully set up"),
+          output: /You are all set/,
         )
       end
     end
@@ -418,12 +374,12 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
   describe "mixin methods" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
-    let(:dependency) { fac.create(service_name: "theranest_auth_v1") }
-    let(:sint) { fac.depending_on(dependency).create(service_name: "theranest_client_v1").refresh }
+    let(:auth) { fac.create(service_name: "theranest_auth_v1") }
+    let(:sint) { fac.depending_on(auth).create(service_name: "theranest_client_v1").refresh }
 
     it "can find parent auth integration" do
       auth_parent = sint.service_instance.find_auth_integration
-      expect(auth_parent.id).to eq(dependency.id)
+      expect(auth_parent.id).to eq(auth.id)
     end
 
     it "returns error if no auth parent present" do

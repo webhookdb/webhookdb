@@ -7,7 +7,7 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
     fac.create(service_name: "theranest_auth_v1",
                backfill_key: "username",
                backfill_secret: "password",
-               api_url: "https://fake-url.com",)
+               api_url: "https://auth-api-url.com",)
   end
   let(:case_id_one) { SecureRandom.hex(5) }
   let(:case_id_two) { SecureRandom.hex(5) }
@@ -22,14 +22,14 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
 
   def auth_stub_request
-    return stub_request(:post, "https://fake-url.com/home/signin").to_return(
+    return stub_request(:post, "https://auth-api-url.com/home/signin").to_return(
       status: 200,
       headers: {"Set-Cookie" => "new_cookie"},
     )
   end
 
-  def insert_case_rows
-    case_svc.admin_dataset do |ds|
+  def insert_case_rows(dep_svc)
+    dep_svc.admin_dataset do |ds|
       ds.multi_insert([
                         {
                           data: "{}",
@@ -50,8 +50,10 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
 
   before(:each) { auth_stub_request }
 
-  describe "basic service integration functionality" do
+  it_behaves_like "a service implementation", "theranest_progress_note_v1" do
     let(:body) do
+      # this is an enhanced json body, which mimics the preparation done in `handle_item`,
+      # NOT the response we get from the API
       JSON.parse(<<~J)
         {
           "Date": "05/06/2022 10:48 AM",
@@ -64,39 +66,11 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
           "IsCreatedUsingWiley": false,
           "IsSignedByStaff": true,
           "AwaitingReview": false,
-          "DetailsHeader": "Session Focus"
+          "DetailsHeader": "Session Focus",
+          "external_case_id": "#{case_id_two}",#{' '}
+          "external_client_id": "client ID"
         }
       J
-    end
-
-    before(:each) do
-      org.prepare_database_connections
-    end
-
-    after(:each) do
-      org.remove_related_database
-    end
-
-    it "can create its table in its org db" do
-      svc.create_table
-      svc.readonly_dataset do |ds|
-        expect(ds.db).to be_table_exists(svc.qualified_table_sequel_identifier)
-      end
-      expect(sint.db).to_not be_table_exists(svc.qualified_table_sequel_identifier)
-    end
-
-    it "clears setup information" do
-      sint.update(webhook_secret: "wh_sek")
-      svc.clear_create_information
-      expect(sint).to have_attributes(webhook_secret: "")
-    end
-
-    it "clears backfill information" do
-      sint.update(api_url: "example.api.com", backfill_key: "bf_key", backfill_secret: "bf_sek")
-      svc.clear_backfill_information
-      expect(sint).to have_attributes(api_url: "")
-      expect(sint).to have_attributes(backfill_key: "")
-      expect(sint).to have_attributes(backfill_secret: "")
     end
   end
 
@@ -104,7 +78,7 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
     let(:no_dependencies_message) { "This integration requires Theranest Cases to sync" }
   end
 
-  describe "backfill process" do
+  it_behaves_like "a service implementation that can backfill", "theranest_progress_note_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -183,82 +157,33 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
         }
       R
     end
+    let(:expected_items_count) { 2 }
 
-    before(:each) do
-      org.prepare_database_connections
-      auth_svc.create_table
-      client_svc.create_table
-      case_svc.create_table
-      svc.create_table
-      insert_case_rows
-    end
-
-    after(:each) do
-      org.remove_related_database
+    def insert_required_data_callback
+      return ->(dep_svc) { insert_case_rows(dep_svc) }
     end
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://fake-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_one}").
+        stub_request(:get, "https://auth-api-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_one}").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://fake-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_two}").
+        stub_request(:get, "https://auth-api-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_two}").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://fake-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_one}").
+      return stub_request(:get, "https://auth-api-url.com/api/cases/get-progress-notes-list?caseId=#{case_id_one}").
           to_return(status: 503, body: "uhh")
     end
+  end
 
-    it "inserts records for pages of results" do
-      # this implicitly tests that the service integration can insert into its table
-      responses = stub_service_requests
-      svc.backfill
-      expect(responses).to all(have_been_made)
-      rows = svc.readonly_dataset(&:all)
-      expect(rows).to have_length(2)
-      expect(rows).to contain_exactly(
-        include(external_id: "progressNote123"),
-        include(external_id: "progressNoteABC"),
-      )
-    end
-
-    it "errors if fetching page errors" do
-      expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
-      response = stub_service_request_error
-      expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
-      expect(response).to have_been_made.at_least_once
-    end
-
-    it "emits the rowupsert event", :async, :do_not_defer_events do
-      body = JSON.parse(<<~J)
-        {
-          "Date": "05/06/2022 10:48 AM",
-          "NoteId": "progressNoteABC",
-          "CaseId": "#{case_id_two}",
-          "Duration": 60,
-          "Details": "",
-          "IsSigned": true,
-          "IsApproved": false,
-          "IsCreatedUsingWiley": false,
-          "IsSignedByStaff": true,
-          "AwaitingReview": false,
-          "DetailsHeader": "Session Focus"
-        }
-      J
-      Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
-      expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).
-        with(include(
-               "payload" => match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
-             ))
-      # this integration has no exact equivalent for `upsert_webhook`. `handle_item` mimics its functionality.
-      backfiller = Webhookdb::Services::TheranestProgressNoteV1::ProgressNoteBackfiller.new(
-        progress_note_svc: svc,
-        theranest_case_id: case_id_one,
-        theranest_client_id: "client_id",
-      )
-      backfiller.handle_item(body)
+  describe "specialized backfill behavior" do
+    it "returns credentials missing error if creds are missing from corresponding auth integration" do
+      auth.update(backfill_key: "", backfill_secret: "")
+      expect do
+        svc.backfill
+      end.to raise_error(Webhookdb::Services::CredentialsMissing).with_message(/requires Theranest Username/)
     end
   end
 
@@ -279,7 +204,7 @@ RSpec.describe Webhookdb::Services::TheranestProgressNoteV1, :db do
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
-          output: match("If you have fully set up"),
+          output: /You are all set/,
         )
       end
     end

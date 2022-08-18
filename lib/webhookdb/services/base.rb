@@ -144,6 +144,12 @@ class Webhookdb::Services::Base
     self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
   end
 
+  # Use this to determine whether we should add an enrichment column in the create_table_sql
+  # to store the enrichment body.
+  def _store_enrichment_body?
+    return false
+  end
+
   def create_table(if_not_exists: false)
     cmd = self.create_table_sql(if_not_exists:)
     self.admin_dataset(timeout: :fast) do |ds|
@@ -157,6 +163,7 @@ class Webhookdb::Services::Base
     columns = [self.primary_key_column, self.remote_key_column]
     columns.concat(self.denormalized_columns)
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
+    columns << self.enrichment_column if self._store_enrichment_body?
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
     lines = [adapter.create_table_sql(table, columns, if_not_exists:)]
@@ -168,12 +175,7 @@ class Webhookdb::Services::Base
       dbindex = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
       lines << adapter.create_index_sql(dbindex)
     end
-    self._enrichment_tables_descriptors.each do |tdesc|
-      lines << adapter.create_table_sql(tdesc.table.change(schema: table.schema), tdesc.columns)
-      tdesc.indices.each do |ind|
-        lines << adapter.create_index_sql(ind.change(table: ind.table.change(schema: table.schema)))
-      end
-    end
+
     return lines.join(";\n") + ";"
   end
 
@@ -190,6 +192,11 @@ class Webhookdb::Services::Base
   # @return [Webhookdb::DBAdapter::Column]
   def data_column
     return Webhookdb::DBAdapter::Column.new(name: :data, type: OBJECT, nullable: false)
+  end
+
+  # @return [Webhookdb::DBAdapter::Column]
+  def enrichment_column
+    return Webhookdb::DBAdapter::Column.new(name: :enrichment, type: OBJECT, nullable: true)
   end
 
   # @return [Array<Webhookdb::DBAdapter::Column>]
@@ -209,11 +216,6 @@ class Webhookdb::Services::Base
 
   def _timestamp_column_name
     raise NotImplementedError
-  end
-
-  # @return [Array<Webhookdb::DBAdapter::TableDescriptor>]
-  def _enrichment_tables_descriptors
-    return []
   end
 
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
@@ -271,19 +273,27 @@ class Webhookdb::Services::Base
         lines << adapter.create_index_sql(index)
       end
     end
+    # add update statement for any columns that are getting added
+    unless missing_columns.empty?
+      self.admin_dataset do |ds|
+        update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.to_sql_expr] })
+        lines << update_query
+      end
+    end
     result = lines.join(";\n")
     return result.empty? ? "" : result + ";"
   end
 
   def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
-    enrichment = self._fetch_enrichment(body)
-    prepared = self._prepare_for_insert(body, enrichment:)
-    return nil if prepared.nil?
+    resource, event = self._resource_and_event(body)
+    return nil if resource.nil?
+    enrichment = self._fetch_enrichment(resource, event)
+    prepared = self._prepare_for_insert(resource, event, enrichment)
+    raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    # Only put the data in here if we're not replacing it,
-    # to avoid the extra to_json call.
-    inserting[:data] = body.to_json unless prepared.key?(:data)
+    inserting[:data] = resource.to_json
+    inserting[:enrichment] = enrichment.to_json if self._store_enrichment_body?
     inserting.merge!(prepared)
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
@@ -295,7 +305,6 @@ class Webhookdb::Services::Base
       ).insert(inserting)
     end
     row_changed = upserted_rows.present?
-    self._after_insert(inserting, enrichment:)
     self._notify_dependents(inserting, row_changed)
     return unless row_changed
     self._publish_rowupsert(inserting)
@@ -335,21 +344,11 @@ class Webhookdb::Services::Base
     return false
   end
 
-  # Given a webhook body that is going to be inserted,
-  # make an optional API call to enrich it with further data.
-  # The result of this is passed to _prepare_for_insert
-  # and _after_insert.
+  # Given the resource that is going to be inserted and an optional event,
+  # make an API call to enrich it with further data if needed.
+  # The result of this is passed to _prepare_for_insert.
   # @return [*]
-  def _fetch_enrichment(_body)
-    return nil
-  end
-
-  # After an insert is done, do any additional processing
-  # on other tables. Useful when we have to maintain 'enrichment tables'
-  # for a resource that have things that aren't useful in a single row,
-  # like time-series data.
-  # @return [*]
-  def _after_insert(_inserting, enrichment:)
+  def _fetch_enrichment(_resource, _event)
     return nil
   end
 
@@ -363,15 +362,35 @@ class Webhookdb::Services::Base
     raise NotImplementedError
   end
 
-  # Given the webhook headers and body, return a hash of what will be inserted.
-  # It must include the key column and all denormalized columns.
+  # Given a webhook/backfill item payload,
+  # return the resource hash, and an optional event hash.
+  # If 'body' is the resource itself,
+  # this method returns [body, nil].
+  # If 'body' is an event,
+  # this method returns [body.resource-key, body].
+  # Columns can check for whether there is an event and/or body
+  # when converting.
   #
   # If this returns nil, the upsert is skipped.
   #
+  # For example, a Stripe customer backfill upsert would be `{id: 'cus_123'}`
+  # when we backfill, but `{type: 'event', data: {id: 'cus_123'}}` when handling an event.
   # @abstract
-  # @return [Hash]
-  def _prepare_for_insert(body, enrichment: nil)
+  # @return [Array<Hash>]
+  def _resource_and_event(_body)
     raise NotImplementedError
+  end
+
+  # Return the hash that should be inserted into the database,
+  # based on the denormalized columns and data given.
+  # @return [Hash]
+  def _prepare_for_insert(resource, event, enrichment)
+    h = [self._remote_key_column].concat(self._denormalized_columns).each_with_object({}) do |col, memo|
+      value = col.to_ruby_converter[resource, event, enrichment]
+      skip = value.nil? && col.skip_nil?
+      memo[col.name] = value unless skip
+    end
+    return h
   end
 
   # Given the hash that is passed to the Sequel insert
@@ -435,9 +454,16 @@ class Webhookdb::Services::Base
 
   # @return [Webhookdb::CredentialVerificationResult]
   def verify_backfill_credentials
+    backfiller = self._backfillers.first
+    if backfiller.nil?
+      # If for some reason we do not have a backfiller,
+      # we can't verify credentials. This should never happen in practice,
+      # because we wouldn't call this method if the integration doesn't support it.
+      raise "No backfiller available for #{self.service_integration.inspect}"
+    end
     begin
       # begin backfill attempt but do not return backfill result
-      _backfill = self._fetch_backfill_page(nil, last_backfilled: nil)
+      backfiller.fetch_backfill_page(nil, last_backfilled: nil)
     rescue Webhookdb::Http::Error => e
       msg = if self.respond_to?("_verify_backfill_#{e.status}_err_msg")
               self.send("_verify_backfill_#{e.status}_err_msg")
@@ -470,7 +496,11 @@ class Webhookdb::Services::Base
     raise Webhookdb::Services::CredentialsMissing if
       sint.backfill_key.blank? && sint.backfill_secret.blank? && sint.depends_on.blank?
     new_last_backfilled = Time.now
-    ServiceBackfiller.new(self).backfill(last_backfilled)
+
+    self._backfillers.each do |backfiller|
+      backfiller.backfill(last_backfilled)
+    end
+
     sint.update(last_backfilled_at: new_last_backfilled) if incremental
     return unless cascade
     sint.dependents.each do |dep|
@@ -480,8 +510,16 @@ class Webhookdb::Services::Base
     end
   end
 
-  def _fetch_backfill_page(pagination_token, last_backfilled:)
-    raise NotImplementedError
+  # Return backfillers for the replicator.
+  # We must use an array for 'data-based' backfillers,
+  # like when we need to paginate for each row in another table.
+  #
+  # By default, return a ServiceBackfiller,
+  # which will call _fetch_backfill_page on the receiver.
+  #
+  # @return [Array<Webhookdb::Backfiller>]
+  def _backfillers
+    return [ServiceBackfiller.new(self)]
   end
 
   class ServiceBackfiller < Webhookdb::Backfiller
@@ -490,6 +528,7 @@ class Webhookdb::Services::Base
 
     def initialize(svc)
       @svc = svc
+      raise "#{svc} must implement :_fetch_backfill_page" unless svc.respond_to?(:_fetch_backfill_page)
       super()
     end
 

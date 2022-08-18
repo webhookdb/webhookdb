@@ -63,7 +63,7 @@ dependents requires access to the API.
     self.clear_create_information
   end
 
-  def get_auth_cookie
+  def get_cookie
     sint = self.service_integration
     unless sint.backfill_key.present? && sint.backfill_secret.present?
       raise Webhookdb::Services::CredentialsMissing,
@@ -85,6 +85,6 @@ dependents requires access to the API.
   end
 
   def get_auth_headers
-    return {"cookie" => self.get_auth_cookie}
+    return {"cookie" => self.get_cookie}
   end
 end

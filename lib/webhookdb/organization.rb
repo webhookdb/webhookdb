@@ -201,6 +201,38 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  def self.enqueue_migrate_all_replication_tables
+    Webhookdb::Organization.each do |org|
+      org.publish_immediate("migratereplication", org.id)
+    end
+  end
+
+  # Get all the table names and column names for all integrations in the org
+  # Find any of those table/column pairs that are not present in information_schema.columns
+  # Ensure all columns for those integrations/tables.
+  def migrate_replication_tables
+    tables = self.service_integrations.map(&:table_name)
+    cols_in_db = self.admin_connection do |db|
+      db[Sequel[:information_schema][:columns]].
+        where(table_schema: self.replication_schema, table_name: tables).
+        select(
+          :table_name,
+          Sequel.function(:array_agg, :column_name).cast("text[]").as(:columns),
+        ).
+        group_by(:table_name).
+        all.
+        to_h { |c| [c[:table_name], c[:columns]] }
+    end
+
+    self.service_integrations.each do |sint|
+      svc = sint.service_instance
+      existing_columns = cols_in_db.fetch(sint.table_name) { [] }
+      all_col_names = svc.denormalized_columns.map(&:name).map(&:to_s)
+      all_cols_exist_in_db = (all_col_names - existing_columns).empty?
+      svc.ensure_all_columns unless all_cols_exist_in_db
+    end
+  end
+
   # Modify the admin and readonly users to have new usernames and passwords.
   def roll_database_credentials
     self.db.transaction do

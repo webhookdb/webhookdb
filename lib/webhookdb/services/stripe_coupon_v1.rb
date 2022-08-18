@@ -18,40 +18,31 @@ class Webhookdb::Services::StripeCouponV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:amount_off, TEXT),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, event_key: "created", converter: :tsat),
       Webhookdb::Services::Column.new(:duration, TEXT),
       Webhookdb::Services::Column.new(:max_redemptions, INTEGER),
       Webhookdb::Services::Column.new(:name, TEXT),
       Webhookdb::Services::Column.new(:percent_off, DECIMAL),
       Webhookdb::Services::Column.new(:times_redeemed, DECIMAL),
-      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
+      Webhookdb::Services::Column.new(
+        :updated,
+        TIMESTAMP,
+        index: true,
+        data_key: "created",
+        event_key: "created",
+        converter: :tsat,
+      ),
     ]
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    return {
-      data: obj_of_interest.to_json,
-      amount_off: obj_of_interest.fetch("amount_off"),
-      created: self.tsat(obj_of_interest.fetch("created")),
-      duration: obj_of_interest.fetch("duration"),
-      max_redemptions: obj_of_interest.fetch("max_redemptions"),
-      name: obj_of_interest.fetch("name"),
-      percent_off: obj_of_interest.fetch("percent_off"),
-      times_redeemed: obj_of_interest.fetch("times_redeemed"),
-      updated: self.tsat(updated),
-      stripe_id: obj_of_interest.fetch("id"),
-    }
   end
 
   def _mixin_backfill_url

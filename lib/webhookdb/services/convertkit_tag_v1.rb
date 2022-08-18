@@ -24,14 +24,18 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
       Webhookdb::Services::Column.new(:name, TEXT, index: true),
-      Webhookdb::Services::Column.new(:total_subscriptions, INTEGER),
+      Webhookdb::Services::Column.new(:total_subscriptions, INTEGER, from_enrichment: true),
     ]
   end
 
   def _timestamp_column_name
     return :created_at
+  end
+
+  def _resource_and_event(body)
+    return body, nil
   end
 
   def _update_where_expr
@@ -42,22 +46,17 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return true
   end
 
-  def _fetch_enrichment(body)
-    tag_id = body.fetch("id")
+  def _store_enrichment_body?
+    return true
+  end
+
+  def _fetch_enrichment(resource, _event)
+    tag_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/tags/#{tag_id}/subscriptions?api_secret=#{self.service_integration.backfill_secret}"
     Kernel.sleep(Webhookdb::Convertkit.sleep_seconds)
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data
-  end
-
-  def _prepare_for_insert(body, enrichment:)
-    return {
-      convertkit_id: body.fetch("id"),
-      created_at: body.fetch("created_at"),
-      name: body.fetch("name"),
-      total_subscriptions: enrichment.fetch("total_subscriptions"),
-    }
   end
 
   def _fetch_backfill_page(_pagination_token, **_kwargs)

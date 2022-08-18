@@ -28,7 +28,6 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
   end
 
   it_behaves_like "a service implementation that verifies backfill secrets" do
@@ -156,7 +155,6 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
   end
 
   it_behaves_like "a service implementation that uses enrichments", "convertkit_tag_v1" do
-    let(:enrichment_tables) { [] }
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -176,6 +174,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
         }
       R
     end
+    let(:expected_enrichment_data) { JSON.parse(analytics_body) }
 
     def stub_service_request
       return stub_request(:get, "https://api.convertkit.com/v3/tags/2641288/subscriptions?api_secret=").
@@ -189,11 +188,6 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
 
     def assert_is_enriched(row)
       return row[:total_subscribers] == 2
-    end
-
-    def assert_enrichment_after_insert(_db)
-      # we are not putting enriched data in a separate table, so this can just return true
-      return true
     end
   end
 
@@ -213,7 +207,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
     it "sleeps to avoid rate limiting" do
       Webhookdb::Convertkit.sleep_seconds = 1.2
       expect(Kernel).to receive(:sleep).with(1.2)
-      svc._fetch_enrichment(body)
+      svc._fetch_enrichment(body, nil)
     end
   end
 end

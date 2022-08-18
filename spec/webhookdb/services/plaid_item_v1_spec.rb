@@ -19,6 +19,8 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
   end
 
   it_behaves_like "a service implementation with dependents", "plaid_item_v1", "plaid_transaction_v1" do
+    let(:can_track_row_changes) { false }
+
     around(:each) do |example|
       Timecop.freeze("2022-05-28 22:14:06 -0200") do
         example.run
@@ -40,6 +42,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         consent_expiration_time: "2020-01-15T13:25:17.766Z",
         data: {item_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb"}.to_json,
         plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+        error: nil,
         row_created_at: Time.parse("2022-05-28 22:14:06 -0200"),
         row_updated_at: Time.parse("2022-05-28 22:14:06 -0200"),
       }
@@ -380,7 +383,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
         svc.upsert_webhook(body: resource_json)
         svc.readonly_dataset do |ds|
           expect(ds.all).to have_length(1)
-          expect(ds.first).to include(row_created_at: match_time(t), row_updated_at: match_time(:now))
+          expect(ds.first).to include(row_created_at: match_time(t).within(1), row_updated_at: match_time(:now))
         end
       end
     end

@@ -18,7 +18,7 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:shopify_id, TEXT)
+    return Webhookdb::Services::Column.new(:shopify_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
@@ -29,7 +29,7 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:checkout_token, TEXT),
       Webhookdb::Services::Column.new(:closed_at, TIMESTAMP, index: true),
       Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:customer_id, TEXT, index: true),
+      Webhookdb::Services::Column.new(:customer_id, TEXT, index: true, data_key: ["customer", "id"]),
       Webhookdb::Services::Column.new(:email, TEXT, index: true),
       Webhookdb::Services::Column.new(:name, TEXT),
       Webhookdb::Services::Column.new(:order_number, INTEGER, index: true),
@@ -42,26 +42,6 @@ class Webhookdb::Services::ShopifyOrderV1 < Webhookdb::Services::Base
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    return {
-      app_id: body.fetch("app_id"),
-      cancelled_at: body.fetch("cancelled_at"),
-      cart_token: body.fetch("cart_token"),
-      checkout_token: body.fetch("checkout_token"),
-      closed_at: body.fetch("closed_at"),
-      created_at: body.fetch("created_at"),
-      customer_id: body.dig("customer", "id"),
-      email: body.fetch("email"),
-      name: body.fetch("name"),
-      order_number: body.fetch("order_number"),
-      phone: body.fetch("phone"),
-      shopify_id: body.fetch("id"),
-      token: body.fetch("token"),
-      updated_at: body.fetch("updated_at"),
-      user_id: body.fetch("user_id"),
-    }
   end
 
   def _mixin_backfill_url

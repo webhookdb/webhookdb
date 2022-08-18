@@ -62,7 +62,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
+    let(:expected_data) { body["data"] }
   end
 
   it_behaves_like "a service implementation that prevents overwriting new data with old", "transistor_show_v1" do
@@ -182,6 +182,8 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
         }
       J
     end
+    let(:expected_old_data) { old_body["data"] }
+    let(:expected_new_data) { new_body["data"] }
   end
 
   it_behaves_like "a service implementation that verifies backfill secrets" do

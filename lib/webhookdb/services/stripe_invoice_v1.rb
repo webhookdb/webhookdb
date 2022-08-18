@@ -18,7 +18,7 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
@@ -27,7 +27,7 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:amount_paid, INTEGER),
       Webhookdb::Services::Column.new(:amount_remaining, INTEGER),
       Webhookdb::Services::Column.new(:charge, TEXT, index: true),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
       Webhookdb::Services::Column.new(:customer, TEXT, index: true),
       Webhookdb::Services::Column.new(:customer_address, TEXT),
       Webhookdb::Services::Column.new(:customer_email, TEXT, index: true),
@@ -35,56 +35,58 @@ class Webhookdb::Services::StripeInvoiceV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:customer_phone, TEXT, index: true),
       Webhookdb::Services::Column.new(:customer_shipping, TEXT),
       Webhookdb::Services::Column.new(:number, TEXT, index: true),
-      Webhookdb::Services::Column.new(:period_start, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:period_end, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:period_start, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Services::Column.new(:period_end, TIMESTAMP, index: true, converter: :tsat),
       Webhookdb::Services::Column.new(:statement_descriptor, TEXT),
       Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:status_transitions_finalized_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:status_transitions_marked_uncollectible_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:status_transitions_marked_paid_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:status_transitions_voided_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :status_transitions_finalized_at,
+        TIMESTAMP,
+        index: true,
+        data_key: ["status_transitions", "status_transitions_finalized_at"],
+        optional: true,
+        converter: :tsat,
+      ),
+      Webhookdb::Services::Column.new(
+        :status_transitions_marked_uncollectible_at,
+        TIMESTAMP,
+        index: true,
+        data_key: ["status_transitions", "status_transitions_marked_uncollectible_at"],
+        optional: true,
+        converter: :tsat,
+      ),
+      Webhookdb::Services::Column.new(
+        :status_transitions_marked_paid_at,
+        TIMESTAMP,
+        index: true,
+        data_key: ["status_transitions", "status_transitions_marked_paid_at"],
+        optional: true,
+        converter: :tsat,
+      ),
+      Webhookdb::Services::Column.new(
+        :status_transitions_voided_at,
+        TIMESTAMP,
+        index: true,
+        data_key: ["status_transitions", "status_transitions_voided_at"],
+        optional: true,
+        converter: :tsat,
+      ),
       Webhookdb::Services::Column.new(:subtotal, INTEGER, index: true),
       Webhookdb::Services::Column.new(:tax, INTEGER, index: true),
       Webhookdb::Services::Column.new(:total, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :updated,
+        TIMESTAMP,
+        index: true,
+        data_key: "created",
+        event_key: "created",
+        converter: :tsat,
+      ),
     ]
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    transitions = obj_of_interest.fetch("status_transitions") || {}
-    return {
-      data: obj_of_interest.to_json,
-      amount_due: obj_of_interest.fetch("amount_due"),
-      amount_paid: obj_of_interest.fetch("amount_paid"),
-      amount_remaining: obj_of_interest.fetch("amount_remaining"),
-      charge: obj_of_interest.fetch("charge"),
-      created: self.tsat(obj_of_interest.fetch("created")),
-      customer: obj_of_interest.fetch("customer"),
-      customer_address: obj_of_interest.fetch("customer_address"),
-      customer_email: obj_of_interest.fetch("customer_email"),
-      customer_name: obj_of_interest.fetch("customer_name"),
-      customer_phone: obj_of_interest.fetch("customer_phone"),
-      customer_shipping: obj_of_interest.fetch("customer_shipping"),
-      number: obj_of_interest.fetch("number"),
-      period_start: self.tsat(obj_of_interest.fetch("period_start")),
-      period_end: self.tsat(obj_of_interest.fetch("period_end")),
-      statement_descriptor: obj_of_interest.fetch("statement_descriptor"),
-      status: obj_of_interest.fetch("status"),
-      status_transitions_finalized_at: self.tsat(transitions["status_transitions_finalized_at"]),
-      status_transitions_marked_uncollectible_at: self.tsat(transitions["status_transitions_marked_uncollectible_at"]),
-      status_transitions_marked_paid_at: self.tsat(transitions["status_transitions_marked_paid_at"]),
-      status_transitions_voided_at: self.tsat(transitions["status_transitions_voided_at"]),
-      subtotal: obj_of_interest.fetch("subtotal"),
-      tax: obj_of_interest.fetch("tax"),
-      total: obj_of_interest.fetch("total"),
-      updated: self.tsat(updated),
-      stripe_id: obj_of_interest.fetch("id"),
-    }
   end
 
   def _mixin_backfill_url

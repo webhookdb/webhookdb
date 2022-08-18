@@ -15,10 +15,10 @@ module Webhookdb::Services::IncreaseV1Mixin
     return :updated_at
   end
 
-  def _extract_obj_and_updated(body, default: nil, body_key: "created_at")
-    return body.fetch("data"), body.fetch("created_at") if
-      body.key?("event") && body.key?("event_id")
-    return body, default ? body.fetch(body_key, default) : body.fetch(body_key)
+  def _find_resource_and_event(body, desired_object_name)
+    return nil unless Webhookdb::Increase.contains_desired_object(body, desired_object_name)
+    return body.fetch("data"), body if body.key?("event") && body.key?("event_id")
+    return body, nil
   end
 
   def process_state_change(field, value)

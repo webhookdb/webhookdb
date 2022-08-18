@@ -17,17 +17,8 @@ class Webhookdb::Services::TheranestCaseV1 < Webhookdb::Services::Base
     )
   end
 
-  def calculate_create_state_machine
-    # can inherit the `.ASPXAUTH` piece of the cookie and the API url from the auth dependency
-    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
-      return step
-    end
-    step = Webhookdb::Services::StateMachineStep.new
-    step.output = %(Great! If you have fully set up your Theranest Auth and Theranest Client integrations,
-you are all set.
-
-#{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
-    return step.completed
+  def _timestamp_column_name
+    return :row_updated_at
   end
 
   def _webhook_verified?(_request)
@@ -36,66 +27,55 @@ you are all set.
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:external_id, TEXT)
+    return Webhookdb::Services::Column.new(:external_id, TEXT, data_key: "CaseId")
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:external_client_id, TEXT),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, defaulter: :now, optional: true),
       Webhookdb::Services::Column.new(:state, TEXT),
-      Webhookdb::Services::Column.new(:theranest_created_at, DATE),
-      Webhookdb::Services::Column.new(:theranest_status, TEXT),
-      Webhookdb::Services::Column.new(:theranest_service_type_formatted_name, TEXT),
-      Webhookdb::Services::Column.new(:theranest_deleted_at, DATE),
-      Webhookdb::Services::Column.new(:theranest_deleted_by_name, TEXT),
+      Webhookdb::Services::Column.new(
+        :theranest_created_at,
+        DATE,
+        data_key: "Date",
+        converter: CONV_PARSE_MDY_SLASH,
+      ),
+      Webhookdb::Services::Column.new(
+        :theranest_deleted_at,
+        DATE,
+        data_key: "DeletedDate",
+        converter: CONV_PARSE_MDY_SLASH,
+      ),
+      Webhookdb::Services::Column.new(:theranest_deleted_by_name, TEXT, data_key: "DeletedByName"),
+      Webhookdb::Services::Column.new(:theranest_service_type_formatted_name, TEXT, data_key: "ServiceType"),
+      Webhookdb::Services::Column.new(:theranest_status, TEXT, data_key: "Status"),
     ]
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
-  end
-
-  def backfill(cascade: false, **)
-    auth_svc = self.find_auth_integration.service_instance
-    auth_cookie = auth_svc.get_auth_cookie
-    raise Webhookdb::Services::CredentialsMissing if auth_cookie.blank?
+  def _backfillers
+    raise Webhookdb::Services::CredentialsMissing if self.theranest_auth_cookie.blank?
 
     client_svc = self.service_integration.depends_on.service_instance
-    client_rows = client_svc.readonly_dataset(timeout: :fast) { |ds| ds.exclude(archived_in_theranest: true) }
-    client_rows.each do |client|
-      backfiller = CaseBackfiller.new(
-        case_svc: self,
-        theranest_client_id: client[:theranest_id],
-      )
-      backfiller.backfill(nil)
+    backfillers = client_svc.admin_dataset(timeout: :fast) do |client_ds|
+      client_ds.exclude(archived_in_theranest: true).select(:theranest_id).map do |client|
+        CaseBackfiller.new(
+          case_svc: self,
+          theranest_client_id: client[:theranest_id],
+        )
+      end
     end
-
-    return unless cascade
-    self.service_integration.dependents.each do |dep|
-      Webhookdb.publish(
-        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true},
-      )
-    end
+    return backfillers
   end
 
   class CaseBackfiller < Webhookdb::Backfiller
     def initialize(case_svc:, theranest_client_id:)
       @case_svc = case_svc
       @theranest_client_id = theranest_client_id
-      @auth_sint = case_svc.find_auth_integration
-      @auth_svc = @auth_sint.service_instance
-      @api_url = @auth_sint.api_url
       super()
     end
 
-    def parse_mdy_date(date)
-      return Date.strptime(date, "%m/%d/%Y")
-    rescue TypeError
-      return nil
-    end
-
     def handle_item(body)
-      # what gets enacted on each item of each page
       state = if body.fetch("DeletedDate").present?
                 "deleted"
               elsif body.fetch("Status").present?
@@ -103,35 +83,17 @@ you are all set.
               else
                 ""
               end
-      # TODO: Add rest of columns, even the ones whose info can't be retrieved from the API,
-      # for the sake of fully matching the existing DB schema?
-      inserting = {
-        data: body.to_json,
-        external_id: body.fetch("CaseId"),
-        external_client_id: @theranest_client_id,
-        state:,
-        theranest_created_at: parse_mdy_date(body.fetch("Date")),
-        theranest_status: body.fetch("Status"),
-        theranest_service_type_formatted_name: body.fetch("ServiceType"),
-        theranest_deleted_at: parse_mdy_date(body.fetch("DeletedDate")),
-        theranest_deleted_by_name: body.fetch("DeletedByName"),
-      }
-      upserted_rows = @case_svc.admin_dataset(timeout: :fast) do |ds|
-        ds.insert_conflict(
-          target: :external_id,
-          update: inserting,
-        ).insert(inserting)
-      end
-      row_changed = upserted_rows.present?
-      @case_svc._publish_rowupsert(inserting) if row_changed
+      body["external_client_id"] = @theranest_client_id
+      body["state"] = state
+      @case_svc.upsert_webhook(body:)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)
-      url = @api_url + "/api/cases/getClientCases?clientId=#{@theranest_client_id}"
+      url = @case_svc.theranest_api_url + "/api/cases/getClientCases?clientId=#{@theranest_client_id}"
 
       response = Webhookdb::Http.get(
         url,
-        headers: @auth_svc.get_auth_headers,
+        headers: @case_svc.theranest_auth_headers,
         logger: @case_svc.logger,
       )
       open_cases = response.parsed_response["OpenCases"]

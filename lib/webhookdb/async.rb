@@ -137,6 +137,7 @@ module Webhookdb::Async
     "webhookdb/jobs/organization_database_migration_run",
     "webhookdb/jobs/process_webhook",
     "webhookdb/jobs/prepare_database_connections",
+    "webhookdb/jobs/replication_migration",
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/send_webhook",
     "webhookdb/jobs/send_test_webhook",

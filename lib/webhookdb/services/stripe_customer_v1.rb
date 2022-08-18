@@ -18,36 +18,29 @@ class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:balance, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, event_key: "created", converter: :tsat),
       Webhookdb::Services::Column.new(:email, TEXT, index: true),
       Webhookdb::Services::Column.new(:name, TEXT),
       Webhookdb::Services::Column.new(:phone, TEXT, index: true),
-      Webhookdb::Services::Column.new(:updated, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :updated,
+        TIMESTAMP,
+        index: true,
+        data_key: "created",
+        event_key: "created",
+        converter: :tsat,
+      ),
     ]
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    return {
-      data: obj_of_interest.to_json,
-      balance: obj_of_interest.fetch("balance"),
-      created: self.tsat(obj_of_interest.fetch("created")),
-      email: obj_of_interest.fetch("email"),
-      name: obj_of_interest.fetch("name"),
-      phone: obj_of_interest.fetch("phone"),
-      stripe_id: obj_of_interest.fetch("id"),
-      updated: self.tsat(updated),
-    }
   end
 
   def _mixin_backfill_url

@@ -19,27 +19,22 @@ class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:author, TEXT),
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:description, TEXT),
-      Webhookdb::Services::Column.new(:title, TEXT),
-      Webhookdb::Services::Column.new(:website, TEXT),
-      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:author, TEXT, data_key: ["attributes", "author"]),
+      Webhookdb::Services::Column.new(
+        :created_at, TIMESTAMP,
+        index: true,
+        data_key: ["attributes", "created_at"],
+      ),
+      Webhookdb::Services::Column.new(:description, TEXT, data_key: ["attributes", "description"]),
+      Webhookdb::Services::Column.new(:title, TEXT, data_key: ["attributes", "title"]),
+      Webhookdb::Services::Column.new(
+        :updated_at,
+        TIMESTAMP,
+        index: true,
+        data_key: ["attributes", "updated_at"],
+      ),
+      Webhookdb::Services::Column.new(:website, TEXT, data_key: ["attributes", "website"]),
     ]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest = body.key?("data") ? body["data"] : body
-    attributes = obj_of_interest.fetch("attributes")
-    return {
-      author: attributes.fetch("author"),
-      created_at: attributes.fetch("created_at"),
-      description: attributes.fetch("description"),
-      title: attributes.fetch("title"),
-      transistor_id: obj_of_interest.fetch("id"),
-      updated_at: attributes.fetch("updated_at"),
-      website: attributes.fetch("website"),
-    }
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)

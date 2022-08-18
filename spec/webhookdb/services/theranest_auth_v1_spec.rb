@@ -68,7 +68,7 @@ RSpec.describe Webhookdb::Services::TheranestAuthV1, :db do
     end
   end
 
-  describe "get_auth_cookie" do
+  describe "get_cookie" do
     def auth_stub_request
       return stub_request(:post, "https://fake-url.com/home/signin").to_return(
         status: 200,
@@ -79,18 +79,18 @@ RSpec.describe Webhookdb::Services::TheranestAuthV1, :db do
     it "returns existing cookie if it was generated less than fifteen minutes ago" do
       sint.webhook_secret = "the_cookie"
       sint.last_backfilled_at = DateTime.now
-      expect(svc.get_auth_cookie).to eq("the_cookie")
+      expect(svc.get_cookie).to eq("the_cookie")
     end
 
     it "makes a request to Theranest API" do
       response = auth_stub_request
-      svc.get_auth_cookie
+      svc.get_cookie
       expect(response).to have_been_made
     end
 
     it "updates `webhook_secret` and `last_backfilled_at` values on the integration" do
       auth_stub_request
-      svc.get_auth_cookie
+      svc.get_cookie
       expect(sint.webhook_secret).to eq("new_cookie")
       expect(sint.last_backfilled_at).to be_within(30.seconds).of(DateTime.now)
     end

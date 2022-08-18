@@ -18,7 +18,7 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, TEXT)
+    return Webhookdb::Services::Column.new(:increase_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
@@ -27,10 +27,26 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
       Webhookdb::Services::Column.new(:metric, TEXT),
       Webhookdb::Services::Column.new(:model_id, TEXT, index: true),
       Webhookdb::Services::Column.new(:model_type, TEXT),
+      Webhookdb::Services::Column.new(
+        :row_created_at,
+        TIMESTAMP,
+        data_key: "created_at",
+        event_key: "created_at",
+        defaulter: :now,
+        optional: true,
+        index: true,
+      ),
+      Webhookdb::Services::Column.new(
+        :row_updated_at,
+        TIMESTAMP,
+        data_key: "created_at",
+        event_key: "created_at",
+        defaulter: :now,
+        optional: true,
+        index: true,
+      ),
       Webhookdb::Services::Column.new(:status, TEXT),
       Webhookdb::Services::Column.new(:value, INTEGER),
-      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
     ]
   end
 
@@ -42,21 +58,8 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
   end
 
-  def _prepare_for_insert(body, **_kwargs)
-    return nil unless Webhookdb::Increase.contains_desired_object(body, "limit")
-    obj_of_interest, updated = self._extract_obj_and_updated(body, default: Time.now)
-    return {
-      data: obj_of_interest.to_json,
-      interval: obj_of_interest.fetch("interval"),
-      metric: obj_of_interest.fetch("metric"),
-      model_id: obj_of_interest.fetch("model_id"),
-      model_type: obj_of_interest.fetch("model_type"),
-      increase_id: obj_of_interest.fetch("id"),
-      status: obj_of_interest.fetch("status"),
-      value: obj_of_interest.fetch("value"),
-      row_created_at: updated, # See upsert_update_expr
-      row_updated_at: updated,
-    }
+  def _resource_and_event(body)
+    return self._find_resource_and_event(body, "limit")
   end
 
   def _upsert_update_expr(inserting, **_kwargs)

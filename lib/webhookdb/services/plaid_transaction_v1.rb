@@ -19,19 +19,26 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:plaid_id, TEXT)
+    return Webhookdb::Services::Column.new(:plaid_id, TEXT, data_key: "transaction_id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:item_id, TEXT, index: true),
+      # Item Id is populated from the backfiller instance here, so we use a dummy key and replace it later
+      Webhookdb::Services::Column.new(:item_id, TEXT, index: true, data_key: "ignore_id", optional: true),
       Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
       Webhookdb::Services::Column.new(:amount, TEXT),
       Webhookdb::Services::Column.new(:iso_currency_code, TEXT),
       Webhookdb::Services::Column.new(:date, DATE, index: true),
-      Webhookdb::Services::Column.new(:removed_at, TIMESTAMP),
-      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:removed_at, TIMESTAMP, optional: true),
+      Webhookdb::Services::Column.new(
+        :row_created_at,
+        TIMESTAMP,
+        index: true,
+        optional: true,
+        defaulter: :now,
+      ),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
     ]
   end
 

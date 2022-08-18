@@ -47,7 +47,7 @@ module Webhookdb::Dbutil
     return Sequel.connect(url, **opts, &block)
   end
 
-  private def conn_opts(opts)
+  private module_function def conn_opts(opts)
     res = Webhookdb::Dbutil.configured_connection_options
     res.merge!(opts)
     res[:test] = false unless res.key?(:test)

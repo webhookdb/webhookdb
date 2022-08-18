@@ -9,11 +9,16 @@ module Webhookdb::Services::TransistorV1Mixin
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:transistor_id, TEXT)
+    return Webhookdb::Services::Column.new(:transistor_id, TEXT, data_key: "id")
   end
 
   def _timestamp_column_name
     return :updated_at
+  end
+
+  def _resource_and_event(body)
+    return body["data"], body if body.key?("data")
+    return body, nil
   end
 
   def _update_where_expr

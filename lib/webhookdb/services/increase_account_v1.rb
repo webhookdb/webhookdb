@@ -18,18 +18,31 @@ class Webhookdb::Services::IncreaseAccountV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, TEXT)
+    return Webhookdb::Services::Column.new(:increase_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:balance, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :created_at,
+        TIMESTAMP,
+        data_key: "created_at",
+        defaulter: :now,
+        index: true,
+      ),
       Webhookdb::Services::Column.new(:entity_id, TEXT, index: true),
       Webhookdb::Services::Column.new(:interest_accrued, DECIMAL),
       Webhookdb::Services::Column.new(:name, TEXT),
       Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:updated_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :updated_at,
+        TIMESTAMP,
+        data_key: "created_at",
+        event_key: "created_at",
+        defaulter: :now,
+        index: true,
+      ),
     ]
   end
 
@@ -37,20 +50,8 @@ class Webhookdb::Services::IncreaseAccountV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _prepare_for_insert(body, **_kwargs)
-    return nil unless Webhookdb::Increase.contains_desired_object(body, "account")
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    return {
-      data: obj_of_interest.to_json,
-      balance: obj_of_interest.fetch("balance"),
-      created_at: obj_of_interest.fetch("created_at"),
-      entity_id: obj_of_interest.fetch("entity_id"),
-      increase_id: obj_of_interest.fetch("id"),
-      interest_accrued: obj_of_interest.fetch("interest_accrued"),
-      name: obj_of_interest.fetch("name"),
-      status: obj_of_interest.fetch("status"),
-      updated_at: updated,
-    }
+  def _resource_and_event(body)
+    return self._find_resource_and_event(body, "account")
   end
 
   def _mixin_backfill_url

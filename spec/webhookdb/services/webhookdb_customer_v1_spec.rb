@@ -87,4 +87,32 @@ RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
       end
     end
   end
+
+  describe "_prepare_for_insert" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
+    let(:svc) { Webhookdb::Services.service_instance(sint) }
+
+    let(:resource) do
+      JSON.parse(<<~J)
+        {
+          "id": "cu_abc123",
+          "created_at": "2022-06-13T14:21:04.123Z",
+          "updated_at": "2022-06-14T14:21:04.123Z",
+          "email": "test@webhookdb.com"
+        }
+      J
+    end
+
+    # we're testing how the defaulter on the :updated_at field handles the resource information
+    it "populates `updated_at` value correctly if present in resource" do
+      prepared_hash = svc._prepare_for_insert(resource, nil, nil)
+      expect(prepared_hash).to include(updated_at: "2022-06-14T14:21:04.123Z")
+    end
+
+    it "uses `created_at` value if `updated_at` not present in resource" do
+      resource[:updated_at] = nil
+      prepared_hash = svc._prepare_for_insert(resource, nil, nil)
+      expect(prepared_hash).to include(updated_at: "2022-06-14T14:21:04.123Z")
+    end
+  end
 end

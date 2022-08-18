@@ -83,14 +83,29 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:twilio_id, TEXT)
+    return Webhookdb::Services::Column.new(:twilio_id, TEXT, data_key: "sid")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:date_created, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:date_sent, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:date_updated, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :date_created,
+        TIMESTAMP,
+        index: true,
+        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+      ),
+      Webhookdb::Services::Column.new(
+        :date_sent,
+        TIMESTAMP,
+        index: true,
+        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+      ),
+      Webhookdb::Services::Column.new(
+        :date_updated,
+        TIMESTAMP,
+        index: true,
+        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+      ),
       Webhookdb::Services::Column.new(:direction, TEXT),
       Webhookdb::Services::Column.new(:from, TEXT, index: true),
       Webhookdb::Services::Column.new(:status, TEXT),
@@ -102,21 +117,12 @@ Both of these values should be visible from the homepage of your Twilio admin Da
     return :date_updated
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
+  def _resource_and_event(body)
+    return body, nil
   end
 
-  def _prepare_for_insert(body, **_kwargs)
-    return {
-      twilio_id: body.fetch("sid"),
-      date_created: Time.parse(body.fetch("date_created")),
-      date_sent: Time.parse(body.fetch("date_sent")),
-      date_updated: Time.parse(body.fetch("date_updated")),
-      direction: body.fetch("direction"),
-      from: body.fetch("from"),
-      status: body.fetch("status"),
-      to: body.fetch("to"),
-    }
+  def _update_where_expr
+    return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)

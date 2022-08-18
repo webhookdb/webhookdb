@@ -110,11 +110,17 @@ your database will be populated.
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:canceled_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(
+        :canceled_at,
+        TIMESTAMP,
+        index: true,
+        optional: true,
+        converter: CONV_FIND_CANCELED_AT,
+      ),
+      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
       Webhookdb::Services::Column.new(:email_address, TEXT, index: true),
       Webhookdb::Services::Column.new(:first_name, TEXT),
-      Webhookdb::Services::Column.new(:last_name, TEXT),
+      Webhookdb::Services::Column.new(:last_name, TEXT, data_key: ["fields", "last_name"], optional: true),
       Webhookdb::Services::Column.new(:state, TEXT),
     ]
   end
@@ -123,23 +129,9 @@ your database will be populated.
     return :created_at
   end
 
-  def _prepare_for_insert(body, **_kwargs)
-    object_of_interest = body["subscriber"].present? ? body["subscriber"] : body
-    state = object_of_interest["state"]
-    return {
-      convertkit_id: object_of_interest.fetch("id"),
-      created_at: object_of_interest.fetch("created_at"),
-      email_address: object_of_interest.fetch("email_address"),
-      first_name: object_of_interest.fetch("first_name"),
-      last_name: object_of_interest.dig("fields", "last_name"),
-      state:,
-      # Subscribers do not store a cancelation time (nor an updated at time),
-      # so we derive and store it based on their state.
-      # When they become inactive state, we set canceled_at,
-      # and clear it when they are not active.
-      # See upsert_update_expr for the details.
-      canceled_at: state == "active" ? nil : Time.now,
-    }
+  def _resource_and_event(body)
+    return body["subscriber"], body if body.key?("subscriber").present?
+    return body, nil
   end
 
   def _update_where_expr

@@ -325,7 +325,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
       expect(logs).to contain_exactly(
         include_json(
           message: eq("sequel_query"),
-          duration_ms: be_within(0.5).of(0.5),
+          duration_ms: be_positive,
           context: {
             query: eq("SELECT 1=1"),
           },

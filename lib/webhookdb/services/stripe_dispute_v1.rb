@@ -18,46 +18,44 @@ class Webhookdb::Services::StripeDisputeV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT)
+    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Services::Column.new(:amount, INTEGER),
       Webhookdb::Services::Column.new(:charge, TEXT),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP),
-      Webhookdb::Services::Column.new(:cancellation_policy, TEXT),
-      Webhookdb::Services::Column.new(:receipt, TEXT),
-      Webhookdb::Services::Column.new(:refund_policy, TEXT),
-      Webhookdb::Services::Column.new(:service_date, TIMESTAMP),
-      Webhookdb::Services::Column.new(:due_by, TIMESTAMP),
+      Webhookdb::Services::Column.new(:cancellation_policy, TEXT, data_key: ["evidence", "cancellation_policy"]),
+      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Services::Column.new(
+        :due_by,
+        TIMESTAMP,
+        data_key: ["evidence_details", "due_by"],
+        converter: :tsat,
+      ),
       Webhookdb::Services::Column.new(:is_charge_refundable, TEXT),
+      Webhookdb::Services::Column.new(:receipt, TEXT, data_key: ["evidence", "receipt"]),
+      Webhookdb::Services::Column.new(:refund_policy, TEXT, data_key: ["evidence", "refund_policy"]),
+      Webhookdb::Services::Column.new(
+        :service_date,
+        TIMESTAMP,
+        data_key: ["evidence", "service_date"],
+        converter: :tsat,
+      ),
       Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:updated, TIMESTAMP),
+      Webhookdb::Services::Column.new(
+        :updated,
+        TIMESTAMP,
+        index: true,
+        data_key: "created",
+        event_key: "created",
+        converter: :tsat,
+      ),
     ]
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated] < Sequel[:excluded][:updated]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    obj_of_interest, updated = self._extract_obj_and_updated(body)
-    return {
-      data: obj_of_interest.to_json,
-      amount: obj_of_interest.fetch("amount"),
-      charge: obj_of_interest.fetch("charge"),
-      created: self.tsat(obj_of_interest.fetch("created")),
-      cancellation_policy: obj_of_interest.fetch("evidence").fetch("cancellation_policy"),
-      receipt: obj_of_interest.fetch("evidence").fetch("receipt"),
-      refund_policy: obj_of_interest.fetch("evidence").fetch("refund_policy"),
-      service_date: self.tsat(obj_of_interest.fetch("evidence").fetch("service_date")),
-      due_by: self.tsat(obj_of_interest.fetch("evidence_details").fetch("due_by")),
-      is_charge_refundable: obj_of_interest.fetch("is_charge_refundable"),
-      status: obj_of_interest.fetch("status"),
-      updated: self.tsat(updated),
-      stripe_id: obj_of_interest.fetch("id"),
-    }
   end
 
   def _mixin_backfill_url

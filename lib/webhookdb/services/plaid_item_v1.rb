@@ -24,35 +24,61 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:plaid_id, TEXT)
+    return Webhookdb::Services::Column.new(:plaid_id, TEXT, data_key: "item_id")
   end
 
   def _denormalized_columns
+    # These are only added during the initial create call,
+    # so are optional and should never be set to nil if they are not present.
+    on_create_only = {skip_nil: true, from_enrichment: true, optional: true}
+
+    # Error and consent expiration seem to be mutually exclusive.
+    # So when one is set, we want to set the other to nil.
+    mutually_exclusive = {from_enrichment: true, optional: true}
     return [
-      Webhookdb::Services::Column.new(:institution_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(:encrypted_access_token, TEXT),
-      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:consent_expiration_time, TIMESTAMP),
-      Webhookdb::Services::Column.new(:update_type, TEXT),
-      Webhookdb::Services::Column.new(:error, OBJECT),
-      Webhookdb::Services::Column.new(:available_products, OBJECT),
-      Webhookdb::Services::Column.new(:billed_products, OBJECT),
-      Webhookdb::Services::Column.new(:status, OBJECT),
-      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:transaction_sync_next_cursor, TEXT),
+      Webhookdb::Services::Column.new(:row_created_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
+      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
+      Webhookdb::Services::Column.new(:transaction_sync_next_cursor, TEXT, optional: true, skip_nil: true),
+
+      # on_create_only
+      Webhookdb::Services::Column.new(:available_products, OBJECT, **on_create_only),
+      Webhookdb::Services::Column.new(:billed_products, OBJECT, **on_create_only),
+      Webhookdb::Services::Column.new(:encrypted_access_token, TEXT, **on_create_only),
+      Webhookdb::Services::Column.new(:institution_id, TEXT, index: true, **on_create_only),
+      Webhookdb::Services::Column.new(:status, OBJECT, **on_create_only),
+      Webhookdb::Services::Column.new(:update_type, TEXT, **on_create_only),
+
+      # mutually_exclusive
+      Webhookdb::Services::Column.new(:consent_expiration_time, TIMESTAMP, index: true, **mutually_exclusive),
+      Webhookdb::Services::Column.new(:error, OBJECT, **mutually_exclusive),
     ]
+  end
+
+  def _update_where_expr
+    # This is not very applicable here, because the webhooks are basically partial updates,
+    # rather than full resource updates. Sort of? Consent and error columns will still conflict.
+    return Sequel[true]
+  end
+
+  def _upsert_update_expr(inserting, **_kwargs)
+    # Only set created_at if it's not set so the initial insert isn't modified.
+    return self._coalesce_excluded_on_update(inserting, [:row_created_at])
   end
 
   def _timestamp_column_name
     return :row_updated_at
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
-  end
-
   def upsert_has_deps?
     return true
+  end
+
+  def _resource_and_event(body)
+    # Remember Plaid webhooks are very different from what is normally meant by 'webhook',
+    # more like 'here is information about a thing that happened to an item with this id'.
+    # So 'resource' for Plaid Items is ONLY {'item_id' => <id>}.
+    # The 'event' is whatever the API sends us (which always includes an item id).
+    return {"item_id" => body.fetch("item_id")}, body
   end
 
   def upsert_webhook(body:)
@@ -62,47 +88,32 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       end
       return
     end
-    now = Time.now
-    # Webhooks are going to be from plaid, or from the client,
-    # so the 'codes' here cover more than just Plaid.
-    payload = {
-      row_created_at: now,
-      row_updated_at: now,
-      data: {"item_id" => body.fetch("item_id")}.to_json,
-      plaid_id: body.fetch("item_id"),
-    }
-    case body.fetch("webhook_code")
-      when "ERROR", "USER_PERMISSION_REVOKED"
-        payload[:error] = body.fetch("error").to_json
-      when "PENDING_EXPIRATION"
-        payload[:consent_expiration_time] = body.fetch("consent_expiration_time")
-      when "CREATED"
-        payload.merge!(self._handle_item_create(body.fetch("item_id"), body.fetch("access_token")))
-      when "UPDATED"
-        payload.merge!(self._handle_item_refresh(body.fetch("item_id")))
-      else
-        return nil
-    end
-    update = self._coalesce_excluded_on_update(payload, [:row_created_at])
-    upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
-      ds.insert_conflict(
-        target: self._remote_key_column.name,
-        update:,
-      ).insert(payload)
-    end
-    row_changed = upserted_rows.present?
-    self._notify_dependents(payload, row_changed)
-    return unless row_changed
-    self._publish_rowupsert(payload)
+    super
   end
 
-  def _handle_item_create(_item_id, access_token)
+  def _fetch_enrichment(_resource, event)
+    # Ignore 'resource' which is just {item_id: ''}, the 'event' contains the real webhook.
+    case event.fetch("webhook_code")
+      when "ERROR", "USER_PERMISSION_REVOKED"
+        return {"error" => self._nil_or_json(event.fetch("error"))}
+      when "PENDING_EXPIRATION"
+        return {"consent_expiration_time" => event.fetch("consent_expiration_time")}
+      when "CREATED"
+        return self._handle_item_create(event.fetch("access_token"))
+      when "UPDATED"
+        return self._handle_item_refresh(event.fetch("item_id"))
+      else
+        return {}
+    end
+  end
+
+  def _handle_item_create(access_token)
     encrypted_access_token = Webhookdb::Crypto.encrypt_value(
       Webhookdb::Crypto::Boxed.from_b64(self.service_integration.data_encryption_secret),
       Webhookdb::Crypto::Boxed.from_raw(access_token),
     ).base64
     payload = self._fetch_insert_payload(access_token)
-    payload[:encrypted_access_token] = encrypted_access_token
+    payload["encrypted_access_token"] = encrypted_access_token
     return payload
   end
 
@@ -131,20 +142,24 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       errtype = e.response.parsed_response["error_type"]
       if STORABLE_ERROR_TYPES.include?(errtype)
         return {
-          error: e.response.body,
+          "error" => e.response.body,
         }
       end
       raise e
     end
     body = resp.parsed_response
+    # This is sort of duplicated with the denormalized columns list,
+    # but requires merging different parts of the response into a single payload.
+    # It's not worth trying to remove the duplication,
+    # so manually create the enrichment shape which is used by the denormalized columns.
     return {
-      available_products: self._nil_or_json(body.fetch("item").fetch("available_products")),
-      billed_products: self._nil_or_json(body.fetch("item").fetch("billed_products")),
-      error: self._nil_or_json(body.fetch("item").fetch("error")),
-      institution_id: body.fetch("item").fetch("institution_id"),
-      update_type: body.fetch("item").fetch("update_type"),
-      consent_expiration_time: body.fetch("item").fetch("consent_expiration_time"),
-      status: self._nil_or_json(body.fetch("status")),
+      "available_products" => self._nil_or_json(body.fetch("item").fetch("available_products")),
+      "billed_products" => self._nil_or_json(body.fetch("item").fetch("billed_products")),
+      "error" => self._nil_or_json(body.fetch("item").fetch("error")),
+      "institution_id" => body.fetch("item").fetch("institution_id"),
+      "update_type" => body.fetch("item").fetch("update_type"),
+      "consent_expiration_time" => body.fetch("item").fetch("consent_expiration_time"),
+      "status" => self._nil_or_json(body.fetch("status")),
     }
   end
 

@@ -18,12 +18,12 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:shopify_id, TEXT)
+    return Webhookdb::Services::Column.new(:shopify_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Services::Column.new(:created_at,  TIMESTAMP, index: true),
       Webhookdb::Services::Column.new(:email, TEXT, index: true),
       Webhookdb::Services::Column.new(:first_name, TEXT),
       Webhookdb::Services::Column.new(:last_name, TEXT),
@@ -37,21 +37,6 @@ class Webhookdb::Services::ShopifyCustomerV1 < Webhookdb::Services::Base
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _prepare_for_insert(body, **_kwargs)
-    return {
-      created_at: body.fetch("created_at"),
-      email: body.fetch("email"),
-      first_name: body.fetch("first_name"),
-      last_name: body.fetch("last_name"),
-      last_order_id: body.fetch("last_order_id"),
-      last_order_name: body.fetch("last_order_name"),
-      phone: body.fetch("phone"),
-      shopify_id: body.fetch("id"),
-      state: body.fetch("state"),
-      updated_at: body.fetch("updated_at"),
-    }
   end
 
   def _mixin_backfill_url

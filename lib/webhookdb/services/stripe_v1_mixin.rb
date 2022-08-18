@@ -3,20 +3,9 @@
 require "webhookdb/stripe"
 
 module Webhookdb::Services::StripeV1Mixin
-  # When we are backfilling, we recieve information from the charge api, but when
-  # we recieve a webhook we are getting that information from the events api. Because
-  # of this, the data we get in each case will have a different shape. This conditional
-  # at the beginning of the function accomodates that difference in shape and ensures
-  # that information from a webhook will always supercede information obtained through
-  # backfilling.
-  def _extract_obj_and_updated(body)
-    updated = 0
-    obj_of_interest = body
-    if body.fetch("object") == "event"
-      updated = body.fetch("created")
-      obj_of_interest = body.fetch("data").fetch("object")
-    end
-    return obj_of_interest, updated
+  def _resource_and_event(body)
+    return body.fetch("data").fetch("object"), body if body.fetch("object") == "event"
+    return body, nil
   end
 
   def _mixin_backfill_url

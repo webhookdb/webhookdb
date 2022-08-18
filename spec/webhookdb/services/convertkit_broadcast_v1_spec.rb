@@ -25,7 +25,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         }
       J
     end
-    let(:expected_data) { body }
   end
 
   it_behaves_like "a service implementation that verifies backfill secrets" do
@@ -158,7 +157,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
   end
 
   it_behaves_like "a service implementation that uses enrichments", "convertkit_broadcast_v1" do
-    let(:enrichment_tables) { [] }
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -188,6 +186,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         }
       R
     end
+    let(:expected_enrichment_data) { JSON.parse(analytics_body).dig("broadcast", "stats") }
 
     def stub_service_request
       return stub_request(:get, "https://api.convertkit.com/v3/broadcasts/1/stats?api_secret=").
@@ -213,11 +212,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
       expect(row[:status]).to eq("completed")
       expect(row[:progress]).to eq(100.0)
     end
-
-    def assert_enrichment_after_insert(_db)
-      # we are not putting enriched data in a separate table, so this can just return true
-      return true
-    end
   end
 
   describe "_fetch_enrichment" do
@@ -240,7 +234,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           headers: {"Content-Type" => "application/json"},
           body: {broadcast: {id: 10_000_000, stats: {x: 1}}}.to_json,
         )
-      svc._fetch_enrichment(body)
+      svc._fetch_enrichment(body, nil)
       expect(req).to have_been_made
     end
 
@@ -251,14 +245,14 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           headers: {"Content-Type" => "application/json"},
           body: {broadcast: {id: 5}}.to_json,
         )
-      expect(svc._fetch_enrichment(body)).to eq({})
+      expect(svc._fetch_enrichment(body, nil)).to eq({})
       expect(req).to have_been_made
     end
 
     it "sleeps to avoid rate limiting" do
       Webhookdb::Convertkit.sleep_seconds = 1.2
       expect(Kernel).to receive(:sleep).with(1.2)
-      svc._fetch_enrichment(body)
+      svc._fetch_enrichment(body, nil)
     end
   end
 end
