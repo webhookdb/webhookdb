@@ -5,6 +5,15 @@ require "sidekiq"
 require "webhookdb/async"
 
 module Webhookdb::Async::Job
+  class Retry < StandardError
+    attr_accessor :interval_or_timestamp
+
+    def initialize(interval_or_timestamp)
+      @interval_or_timestamp = interval_or_timestamp
+      super("retry job in #{interval_or_timestamp}")
+    end
+  end
+
   extend Webhookdb::MethodUtilities
 
   def self.extended(cls)
@@ -43,7 +52,12 @@ module Webhookdb::Async::Job
       else
         raise "perform should always be called with no args or [Webhookdb::Event#as_json], got %p" % [args]
       end
-      self._perform(event)
+      begin
+        self._perform(event)
+      rescue Retry => e
+        self.logger.info("scheduling_retry")
+        self.class.perform_in(e.interval_or_timestamp)
+      end
     end
 
     # Return +klass[payload_or_id]+ if it exists, or raise an error if it does not.

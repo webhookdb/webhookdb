@@ -362,4 +362,34 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       end
     end
   end
+
+  describe "perform" do
+    let(:subclass) do
+      Class.new do
+        extend Webhookdb::Async::Job
+        attr_accessor :callback
+
+        def _perform(x)
+          callback[x] if callback
+          return x
+        end
+      end
+    end
+    let(:instance) { subclass.new }
+
+    it "can run with no args" do
+      expect(instance.perform).to be_nil
+    end
+
+    it "can deserialize an event" do
+      ev = Webhookdb::Event.new("id1", "evname", [1, 2])
+      expect(instance.perform(ev.as_json)).to have_attributes(id: "id1", name: "evname")
+    end
+
+    it "catches retry exceptions and reschedules with the given interval" do
+      expect(subclass).to receive(:perform_in).with(30)
+      instance.callback = ->(*) { raise described_class::Retry, 30 }
+      instance.perform
+    end
+  end
 end
