@@ -10,6 +10,7 @@ module Webhookdb::Tasks
       super()
       desc "Migrate replication tables for each integration, ensure all columns and backfill new columns."
       task :migrate_replication_tables do
+        Webhookdb.load_app
         Webhookdb::Organization.enqueue_migrate_all_replication_tables
       end
 
