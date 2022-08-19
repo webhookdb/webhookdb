@@ -189,7 +189,7 @@ end
 #  stripe_customer_id | text                     | NOT NULL DEFAULT ''::text
 #  stripe_json        | jsonb                    | DEFAULT '{}'::jsonb
 # Indexes:
-#  subscriptions_pkey                   | PRIMARY KEY btree (id)
-#  subscriptions_stripe_customer_id_key | UNIQUE btree (stripe_customer_id)
-#  subscriptions_stripe_id_key          | UNIQUE btree (stripe_id)
+#  subscriptions_pkey                     | PRIMARY KEY btree (id)
+#  subscriptions_stripe_id_key            | UNIQUE btree (stripe_id)
+#  subscriptions_stripe_customer_id_index | btree (stripe_customer_id)
 # ---------------------------------------------------------------------------------------------
