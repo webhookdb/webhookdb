@@ -359,6 +359,14 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         ),
       )
     end
+
+    it "does not db log if the retry header is present" do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
+      header Webhookdb::LoggedWebhook::RETRY_HEADER, "1"
+      post "/v1/service_integrations/xyz", a: 1
+      expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.all).to be_empty
+    end
   end
 
   describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/stats" do

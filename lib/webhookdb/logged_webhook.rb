@@ -15,6 +15,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   TRUNCATE_SUCCESSES = 7.days
   DELETE_FAILURES = 90.days
   TRUNCATE_FAILURES = 30.days
+  # When we retry a request, set this so we know not to re-log it.
+  RETRY_HEADER = "Whdb-Logged-Webhook-Retry"
   # When we retry a request, these headers
   # must come from the Ruby client, NOT the original request.
   NONOVERRIDABLE_HEADERS = [
@@ -91,6 +93,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
         next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
       end
+      req[Webhookdb::LoggedWebhook::RETRY_HEADER] = lw.id
       resp = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
         http.request(req)
       end

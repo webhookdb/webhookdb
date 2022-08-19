@@ -18,6 +18,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         end
 
         def log_webhook(sint, sstatus)
+          return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
           # Status can be set from:
           # - the 'status' method, which will be 201 if it hasn't been set,
           # or another value if it has been set.
@@ -39,16 +40,17 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         end
       end
 
-      # this particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
+      # This particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
       # it is the url that customers should point their webhooks to.
       # we can't check org permissions on this endpoint
       # because external services will be posting webhooks here
-      # hence, it has a special lookup function
+      # hence, it has a special lookup function.
       post do
         sint = lookup_unauthed!
         svc = Webhookdb::Services.service_instance(sint)
         whresp = svc.webhook_response(request)
         s_status, s_headers, s_body = whresp.to_rack
+        (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
 
         if s_status >= 400
           logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
