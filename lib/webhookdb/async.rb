@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "amigo/durable_job"
+require "amigo/rate_limited_error_handler"
 require "appydays/configurable"
 require "appydays/loggable"
 require "sentry-sidekiq"
@@ -167,6 +168,9 @@ module Webhookdb::Async
     setting :web_username, SecureRandom.hex(8)
     setting :web_password, SecureRandom.hex(8)
 
+    setting :error_reporting_sample_rate, 0.1
+    setting :error_reporting_ttl, 120
+
     after_configured do
       # Very hard to to test this, so it's not tested.
       url = self.sidekiq_redis_provider.present? ? ENV.fetch(self.sidekiq_redis_provider, nil) : self.sidekiq_redis_url
@@ -182,7 +186,11 @@ module Webhookdb::Async
         # We do NOT want the unstructured default error handler
         config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
         # We must then replace the otherwise-automatically-added sentry middleware
-        config.error_handlers << Sentry::Sidekiq::ErrorHandler.new
+        config.error_handlers << Amigo::RateLimitedErrorHandler.new(
+          Sentry::Sidekiq::ErrorHandler.new,
+          sample_rate: self.error_reporting_sample_rate,
+          ttl: self.error_reporting_ttl,
+        )
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
       end
 
