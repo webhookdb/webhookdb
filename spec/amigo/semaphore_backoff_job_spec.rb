@@ -7,6 +7,7 @@ RSpec.describe Amigo::SemaphoreBackoffJob do
     Sidekiq::Testing.fake!
     described_class.reset
     described_class.enabled = true
+    Sidekiq.redis(&:flushdb)
   end
 
   after(:each) do
@@ -47,35 +48,32 @@ RSpec.describe Amigo::SemaphoreBackoffJob do
   end
 
   it "calls perform if the semaphore is below max size" do
-    Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("semkey").and_return(1)
-      expect(c).to receive(:expire).with("semkey", 30)
-      expect(c).to receive(:decr).with("semkey").and_return(0)
-    end
     calls = []
     kls = create_job_class(perform: ->(a) { calls << a })
     kls.perform_async(1)
     kls.drain
     expect(calls).to eq([1])
+    Sidekiq.redis do |c|
+      expect(c.get("semkey")).to eq("0")
+      expect(c.ttl("semkey")).to eq(30)
+    end
   end
 
   it "only sets key expiry for the first job taking the semaphore" do
     Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("semkey").and_return(2)
-      expect(c).to receive(:decr).with("semkey").and_return(1)
+      c.setex("semkey", 100, "1") # Pretend the semaphore is already taken, and we check the TTL later
     end
     calls = []
     kls = create_job_class(perform: ->(a) { calls << a })
     kls.perform_async(1)
     kls.drain
     expect(calls).to eq([1])
+    Sidekiq.redis do |c|
+      expect(c.ttl("semkey")).to be_within(10).of(100)
+    end
   end
 
   it "invokes before_perform if provided" do
-    Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("k-myarg").and_return(2)
-      expect(c).to receive(:decr).with("k-myarg").and_return(1)
-    end
     calls = []
     kls = create_job_class(perform: ->(a) { calls << a }) do |this|
       this.define_method(:before_perform) do |args|
@@ -92,8 +90,7 @@ RSpec.describe Amigo::SemaphoreBackoffJob do
 
   it "reschedules via perform_in using the result of sempahore_backoff" do
     Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("semkey").and_return(6)
-      expect(c).to receive(:decr).with("semkey").and_return(5)
+      c.set("semkey", 5) # Semaphore is at max size
     end
     kls = create_job_class(perform: nocall) do |this|
       this.define_method(:semaphore_backoff) do
@@ -107,8 +104,7 @@ RSpec.describe Amigo::SemaphoreBackoffJob do
 
   it "reschedules with a default semaphore backoff" do
     Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("semkey").and_return(6)
-      expect(c).to receive(:decr).with("semkey").and_return(5)
+      c.set("semkey", 5) # Semaphore is at max size
     end
     kls = create_job_class(perform: nocall)
     expect(kls).to receive(:perform_in).with((be >= 10).and(be <= 20), 1)
@@ -118,14 +114,13 @@ RSpec.describe Amigo::SemaphoreBackoffJob do
 
   it "expires the key if the decrement returns a negative value" do
     Sidekiq.redis do |c|
-      expect(c).to receive(:incr).with("semkey").and_return(2)
-      expect(c).to receive(:decr).with("semkey").and_return(-1)
-      expect(c).to receive(:del).with("semkey")
+      c.set("semkey", "-1")
     end
     calls = []
     kls = create_job_class(perform: ->(a) { calls << a })
     kls.perform_async(1)
     kls.drain
     expect(calls).to eq([1])
+    expect(Sidekiq.redis { |c| c.exists("semkey") }).to eq(0)
   end
 end
