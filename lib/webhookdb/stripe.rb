@@ -27,7 +27,7 @@ class Webhookdb::Stripe
         request_data, auth, webhook_secret,
       )
     rescue Stripe::SignatureVerificationError => e
-      self.logger.error "stripe signature verification error: ", e
+      self.logger.warn "stripe_signature_verification_error", message: e.to_s
       return Webhookdb::WebhookResponse.error("invalid hmac")
     end
 
