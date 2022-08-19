@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 Sequel.migration do
-  down do
+  change do
     alter_table(:service_integrations) do
       drop_column :backfill_cursor
     end
