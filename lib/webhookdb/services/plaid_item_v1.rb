@@ -88,7 +88,11 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       end
       return
     end
-    super
+    begin
+      super
+    rescue Webhookdb::RegressionModeSkip
+      nil
+    end
   end
 
   def _fetch_enrichment(_resource, event)
@@ -120,6 +124,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
   def _handle_item_refresh(item_id)
     plaid_item_row = self.readonly_dataset(timeout: :fast) { |ds| ds[plaid_id: item_id] }
     if plaid_item_row.nil?
+      raise Webhookdb::RegressionModeSkip if Webhookdb.regression_mode?
       raise Webhookdb::InvalidPrecondition,
             "could not find Plaid item #{item_id} for integration #{self.service_integration.opaque_id}"
     end

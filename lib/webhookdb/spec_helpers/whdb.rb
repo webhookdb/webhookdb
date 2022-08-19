@@ -7,9 +7,13 @@ require "webhookdb/spec_helpers"
 module Webhookdb::SpecHelpers::Whdb
   def self.included(context)
     context.before(:each) do |example|
-      isomode = example.metadata[:whdbisolation]
-      Webhookdb::Organization::DbBuilder.isolation_mode = isomode if isomode.is_a?(String)
-      Webhookdb::Organization::DbBuilder.reset_configuration if isomode == :reset
+      if (isomode = example.metadata[:whdbisolation])
+        Webhookdb::Organization::DbBuilder.isolation_mode = isomode if isomode.is_a?(String)
+        Webhookdb::Organization::DbBuilder.reset_configuration if isomode == :reset
+      end
+      if (regress = example.metadata[:regression_mode])
+        Webhookdb.regression_mode = regress
+      end
     end
 
     context.after(:each) do |example|
@@ -17,6 +21,7 @@ module Webhookdb::SpecHelpers::Whdb
         Webhookdb::Organization.dataset.each(&:remove_related_database) if mode != :reset
         Webhookdb::Organization::DbBuilder.reset_configuration
       end
+      Webhookdb.regression_mode = false if example.metadata[:regression_mode]
     end
 
     super

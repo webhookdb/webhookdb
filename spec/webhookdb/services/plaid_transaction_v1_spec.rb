@@ -249,10 +249,16 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
           with(body: hash_including({})).to_return(status: 503, body: "uhh")
     end
 
-    it "errors if there is no Plaid Item for the item id" do
-      expect do
-        svc.upsert_webhook(body: create_body)
-      end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
+    describe "when there is no Plaid Item for the item id" do
+      it "errors" do
+        expect do
+          svc.upsert_webhook(body: create_body)
+        end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
+      end
+
+      it "noops in regression mode", :regression_mode do
+        expect { svc.upsert_webhook(body: create_body) }.to_not raise_error
+      end
     end
 
     it "marks transactions removed for that webhook" do
