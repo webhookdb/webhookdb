@@ -84,6 +84,15 @@ RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
       described_class.retry_logs([lw], truncate_successful: true)
       expect(req).to have_been_made
     end
+
+    it "includes the retry header" do
+      lw = Webhookdb::Fixtures.logged_webhook(service_integration_opaque_id: "a").create
+      req = stub_request(:post, "http://localhost:18001/v1/service_integrations/a").
+        with(headers: {"Whdb-Logged-Webhook-Retry" => lw.id.to_s}).
+        to_return(status: 200, body: "", headers: {})
+      described_class.retry_logs([lw])
+      expect(req).to have_been_made
+    end
   end
 
   describe "retry_one" do

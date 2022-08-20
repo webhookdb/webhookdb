@@ -114,7 +114,7 @@ RSpec.describe "fake implementations", :db do
         {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
         {"my_id" => "def", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
       ]
-      _backfill_req = stub_request(:get, "https://fake-integration/?token=").
+      backfill_req = stub_request(:get, "https://fake-integration/?token=").
         to_return(
           status: 200,
           body: [page_items, nil].to_json,
@@ -124,6 +124,28 @@ RSpec.describe "fake implementations", :db do
       expect do
         svc.backfill(cascade: true)
       end.to publish("webhookdb.serviceintegration.backfill").with_payload([dependent_sint.id, {"cascade" => true}])
+      expect(backfill_req).to have_been_made
+    end
+
+    it "stops backfill pagination if regression mode is set", :regression_mode do
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "fake_v1", backfill_key: "abc123")
+      sint.organization.prepare_database_connections
+      sint.service_instance.create_table
+
+      page_items = [
+        {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+        {"my_id" => "def", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+      ]
+      req = stub_request(:get, "https://fake-integration/?token=").
+        to_return(
+          status: 200,
+          # Returning the pagination token here would normally cause another request to be made
+          body: [page_items, "tok1"].to_json,
+          headers: {"Content-Type" => "application/json"},
+        )
+
+      sint.service_instance.backfill
+      expect(req).to have_been_made
     end
   end
 

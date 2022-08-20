@@ -39,6 +39,70 @@ using the `schema` isolation since it uses a shared Heroku database.
 - When the test run finishes, it will upload the test results to the database
   and notify about the results in Slack.
 
+## Regression Testing
+
+Testing changes to integrations can be difficult because we often don't have access
+to the accounts or data needed to do comprehensive regressions.
+
+To get around this, we can:
+
+- Use our logged webhooks to 'replay' what integrations have given us.
+- Run backfills for integrations that we have backfill keys for.
+
+Note that regression testing is not meant to be automated or hands-off;
+it requires knowing what replicators are valid and orgs make good test subjects,
+what differences are meant to be observed, and looking out for errors.
+In the future we may need automated regression testing;
+this is just a first step in that direction by building out tooling
+to make manual regression testing possible/easier.
+
+See `lib/webhookdb/tasks/regress.rb` Rake task file for more details.
+The basic behavior would be:
+
+```
+$ make download-production-dump
+$ make restore-db-from-dump-safe
+# Restores the dump and removes anything that can impact production.
+$ make reset-sidekiq-redis
+# In case there are jobs in redis that won't work post-restore.
+
+$ WEBHOOKDB_REGRESSION_MODE=true make run
+$ WEBHOOKDB_REGRESSION_MODE=true make run-workers
+# Replaying webhooks hits the local server and uses workers
+
+$ bundle exec rake regress:prepare
+# Creates databases for all orgs that do not have them,
+# and ensures all integrations have replication tables.
+
+# NOTE: If the replicator being regressed uses Webhookdb::Crypto,
+# you probably need to copy the crypto key from
+# WEBHOOKDB_DB_ENCRYPTION_KEY_0 (and related if multiple keys)
+# in the production app so it is used locally.
+# That is required so your local machine can decrypt
+# the fields from the production dump.
+
+$ bundle exec rake regress:list_available
+# Prints out all service integrations that have untrimmed logged webhooks.
+MyOrg (2)    stripe_charge_v1    svi_c1lih496odohq4aftvzii6333    stripe_charge_v1_0123  
+
+$ bundle exec rake regress:replay[svi_c1lih496odohq4aftvzii6333,10]
+# Replay the earliest available 10 webhooks going to the service integration
+
+$ bundle exec rake regress:replay[svi_c1lih496odohq4aftvzii6333,-1]
+# Replay the all webhooks going to the service integration
+
+$ bundle exec rake regress:list_backfill
+# Prints out all service integrations that have backfill info available.
+
+$ bundle exec rake regress:backfill[svi_c1lih496odohq4aftvzii6333]
+# Runs a backfill for the service integration. Regression backfills are limited to one page.
+
+$ make psql-org-2
+# Connect PSQL to the Organization with ID 2's database so you can see if it replayed.
+> SELECT COUNT(1) FROM stripe_charge_v1_0123;
+702
+```
+
 ## Response Shapes
 
 We try to avoid as much rendering logic on the client as possible.

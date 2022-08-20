@@ -212,7 +212,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       )
     end
 
-    it "errors on refreshed webhooks if the token is not present in the database" do
+    describe "if the item is not present in the database" do
       body = JSON.parse(<<~J)
         {
           "webhook_type": "ITEM",
@@ -220,9 +220,15 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb"
         }
       J
-      expect do
-        svc.upsert_webhook(body:)
-      end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
+      it "errors on refreshed webhooks" do
+        expect do
+          svc.upsert_webhook(body:)
+        end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
+      end
+
+      it "noops if in regression mode", :regression_mode do
+        expect { svc.upsert_webhook(body:) }.to_not raise_error
+      end
     end
 
     it "does not store nulls as 'null' strings" do

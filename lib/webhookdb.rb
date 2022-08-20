@@ -41,6 +41,9 @@ module Webhookdb
   # Raised when an organization's database cannot be modified.
   class DatabaseLocked < StandardError; end
 
+  # Used in various places that need to short-circuit code in regression mode.
+  class RegressionModeSkip < StandardError; end
+
   APPLICATION_NAME = "Webhookdb"
   RACK_ENV = ENV.fetch("RACK_ENV", "development")
   VERSION = ENV.fetch("HEROKU_SLUG_COMMIT", "unknown-version")
@@ -63,6 +66,15 @@ module Webhookdb
     setting :marketing_site, "https://webhookdb.com/"
     setting :support_email, "webhookdb@lithic.tech"
     setting :use_globals_cache, false
+    setting :regression_mode, false
+  end
+
+  # Regression mode is true when we re replaying webhooks locally,
+  # or for some other reason, want to disable certain checks we use in production.
+  # For example, we may want to ignore certain errors (like if integrations are missing dependency rows),
+  # or disable certain validations (like always assume the webhook is valid).
+  def self.regression_mode?
+    return self.regression_mode
   end
 
   require "webhookdb/method_utilities"

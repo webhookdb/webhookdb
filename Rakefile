@@ -18,6 +18,8 @@ require "webhookdb/tasks/release"
 Webhookdb::Tasks::Release.new
 require "webhookdb/tasks/message"
 Webhookdb::Tasks::Message.new
+require "webhookdb/tasks/regress"
+Webhookdb::Tasks::Regress.new
 require "webhookdb/tasks/sidekiq"
 Webhookdb::Tasks::Sidekiq.new
 require "webhookdb/tasks/specs"

@@ -66,6 +66,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
     plaid_item_service = self.service_integration.depends_on.service_instance
     plaid_item_row = plaid_item_service.readonly_dataset(timeout: :fast) { |ds| ds[plaid_id: item_id] }
     if plaid_item_row.nil?
+      return if Webhookdb.regression_mode
       raise Webhookdb::InvalidPrecondition,
             "could not find Plaid item #{item_id} for integration #{self.service_integration.opaque_id}"
     end

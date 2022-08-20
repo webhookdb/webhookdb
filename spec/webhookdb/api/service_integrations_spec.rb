@@ -297,6 +297,18 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       expect(last_response).to have_status(400)
     end
 
+    it "runs the job and 200s if in regression mode, even if the webhook is invalid", :regression_mode do
+      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+        status: 402, reason: "erm", body: "<></>", headers: {"Content-Type" => "text/plain"},
+      )
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
+
+      post "/v1/service_integrations/xyz"
+
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to eq("<></>")
+    end
+
     it "does not publish if the webhook fails verification", :async do
       Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
 
@@ -358,6 +370,14 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
           service_integration_opaque_id: "xyz",
         ),
       )
+    end
+
+    it "does not db log if the retry header is present" do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
+      header Webhookdb::LoggedWebhook::RETRY_HEADER, "1"
+      post "/v1/service_integrations/xyz", a: 1
+      expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.all).to be_empty
     end
   end
 
