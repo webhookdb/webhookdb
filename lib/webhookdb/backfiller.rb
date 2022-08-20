@@ -26,6 +26,7 @@ class Webhookdb::Backfiller
       end
       Amigo::DurableJob.heartbeat
       break if pagination_token.blank?
+      break if Webhookdb.regression_mode?
     end
   end
 
