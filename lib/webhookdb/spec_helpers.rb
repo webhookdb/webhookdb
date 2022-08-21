@@ -18,6 +18,11 @@ module Webhookdb::SpecHelpers
     context.before(:all) do
       Webhookdb::Customer.password_hash_cost = 1
     end
+    context.before(:each) do
+      allow(Kernel).to receive(:sleep) do |n|
+        raise "Never sleep with > 0 during tests" if n.positive?
+      end
+    end
     super
   end
 

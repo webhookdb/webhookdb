@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "webhookdb/transistor"
 require "webhookdb/services/transistor_v1_mixin"
 
 class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
@@ -130,7 +129,6 @@ When your Transistor Episodes get added or updated, their stats will be updated 
         start_date: start_date.strftime("%d-%m-%Y"),
         end_date: Time.now.strftime("%d-%m-%Y"),
       }
-      Kernel.sleep(Webhookdb::Transistor.sleep_seconds)
       response = Webhookdb::Http.get(
         analytics_url,
         headers: {"x-api-key" => @episode_svc.service_integration.backfill_key},

@@ -40,7 +40,7 @@ class Webhookdb::Backfiller
 
   # Make this easy to mock
   def self.do_retry_wait(seconds)
-    sleep(seconds)
+    Kernel.sleep(seconds)
   end
 
   def _fetch_backfill_page_with_retry(pagination_token, last_backfilled: nil, attempt: 1)

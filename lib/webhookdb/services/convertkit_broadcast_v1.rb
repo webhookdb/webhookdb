@@ -56,7 +56,6 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
   def _fetch_enrichment(resource, _event)
     broadcast_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/broadcasts/#{broadcast_id}/stats?api_secret=#{self.service_integration.backfill_secret}"
-    Kernel.sleep(Webhookdb::Convertkit.sleep_seconds)
     response = Webhookdb::Http.get(url, logger: self.logger)
     data = response.parsed_response
     return data.dig("broadcast", "stats") || {}
