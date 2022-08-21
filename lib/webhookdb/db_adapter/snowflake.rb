@@ -27,7 +27,7 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     return SnowsqlConnection.new(url)
   end
 
-  def create_index_sql(_index)
+  def create_index_sql(*)
     raise NotImplementedError, "Snowflake does not support indices"
   end
 

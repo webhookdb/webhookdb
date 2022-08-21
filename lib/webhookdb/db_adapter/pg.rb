@@ -12,12 +12,13 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return '"'
   end
 
-  def create_index_sql(index)
+  def create_index_sql(index, concurrently:)
     tgts = index.targets.map { |c| self.escape_identifier(c.name) }.join(", ")
     uniq = index.unique ? " UNIQUE" : ""
+    concurrent = concurrently ? " CONCURRENTLY" : ""
     idxname = self.escape_identifier(index.name)
     tblname = self.qualify_table(index.table)
-    return "CREATE#{uniq} INDEX IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})"
+    return "CREATE#{uniq} INDEX#{concurrent} IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})"
   end
 
   def column_create_sql(column)

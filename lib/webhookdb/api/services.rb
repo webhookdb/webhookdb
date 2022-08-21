@@ -18,7 +18,7 @@ class Webhookdb::API::Services < Webhookdb::API::V1
           opaque_id: "svi_fixture",
           table_name: params[:service_name] + "_fixture",
         )
-        sch = descr.ctor.call(sint).create_table_sql
+        sch = descr.ctor.call(sint).create_table_modification.to_s
         present({schema_sql: sch})
       end
     end

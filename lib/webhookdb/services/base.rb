@@ -4,6 +4,7 @@ require "webhookdb/backfiller"
 require "webhookdb/db_adapter"
 require "webhookdb/connection_cache"
 require "webhookdb/services/column"
+require "webhookdb/services/schema_modification"
 require "webhookdb/typed_struct"
 
 require "webhookdb/jobs/send_webhook"
@@ -144,21 +145,21 @@ class Webhookdb::Services::Base
     self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
   end
 
-  # Use this to determine whether we should add an enrichment column in the create_table_sql
-  # to store the enrichment body.
+  # Use this to determine whether we should add an enrichment column in
+  # the create table modification to store the enrichment body.
   def _store_enrichment_body?
     return false
   end
 
   def create_table(if_not_exists: false)
-    cmd = self.create_table_sql(if_not_exists:)
+    cmd = self.create_table_modification(if_not_exists:)
     self.admin_dataset(timeout: :fast) do |ds|
-      ds.db << cmd
+      cmd.execute(ds.db)
     end
   end
 
-  # @return [String]
-  def create_table_sql(if_not_exists: false)
+  # @return [Webhookdb::Services::SchemaModification]
+  def create_table_modification(if_not_exists: false)
     table = self.dbadapter_table
     columns = [self.primary_key_column, self.remote_key_column]
     columns.concat(self.denormalized_columns)
@@ -166,17 +167,17 @@ class Webhookdb::Services::Base
     columns << self.enrichment_column if self._store_enrichment_body?
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
-    lines = [adapter.create_table_sql(table, columns, if_not_exists:)]
+    result = Webhookdb::Services::SchemaModification.new
+    result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
     columns.filter(&:index?).each do |col|
       # We need to give indices a persistent name, unique across the schema,
       # since multiple indices within a schema cannot share a name.
       raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
       idx_name = "#{self.service_integration.opaque_id}_#{col.name}_idx"
       dbindex = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
-      lines << adapter.create_index_sql(dbindex)
+      result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
-
-    return lines.join(";\n") + ";"
+    return result
   end
 
   # @return [Webhookdb::DBAdapter::Column]
@@ -242,10 +243,10 @@ class Webhookdb::Services::Base
   # To figure out what columns we need to add, we can check what are currently defined,
   # check what exists, and add denormalized columns and indices for those that are missing.
   def ensure_all_columns
-    stmt = self.ensure_all_columns_sql
-    return if stmt.blank?
+    modification = self.ensure_all_columns_modification
+    return if modification.noop?
     self.admin_dataset(timeout: :slow_schema) do |ds|
-      ds.db << stmt
+      modification.execute(ds.db)
       # We need to clear cached columns on the data since we know we're adding more.
       # It's probably not a huge deal but may as well keep it in sync.
       ds.send(:clear_columns_cache)
@@ -253,35 +254,35 @@ class Webhookdb::Services::Base
     self.readonly_dataset { |ds| ds.send(:clear_columns_cache) }
   end
 
-  def ensure_all_columns_sql
+  # @return [Webhookdb::Services::SchemaModification]
+  def ensure_all_columns_modification
     existing_cols = nil
     self.admin_dataset do |ds|
-      return self.create_table_sql unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
+      return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns
     end
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
     adapter = Webhookdb::DBAdapter::PG.new
     table = self.dbadapter_table
-    lines = []
+    result = Webhookdb::Services::SchemaModification.new
     missing_columns.each do |whcol|
       # Don't bother bulking the ADDs into a single ALTER TABLE,
       # it won't really matter.
       col = whcol.to_dbadapter
-      lines << adapter.add_column_sql(table, col)
+      result.transaction_statements << adapter.add_column_sql(table, col)
       if col.index?
         index = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
-        lines << adapter.create_index_sql(index)
+        result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
       end
     end
     # add update statement for any columns that are getting added
     unless missing_columns.empty?
       self.admin_dataset do |ds|
         update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.to_sql_expr] })
-        lines << update_query
+        result.transaction_statements << update_query
       end
     end
-    result = lines.join(";\n")
-    return result.empty? ? "" : result + ";"
+    return result
   end
 
   def upsert_webhook(body:)

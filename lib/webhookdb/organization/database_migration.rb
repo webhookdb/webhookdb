@@ -85,7 +85,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
     svc = service_integration.service_instance
     # If the service integration was not synced in the old db, skip it
     return unless srcdb.table_exists?(svc.qualified_table_sequel_identifier)
-    dstdb << svc.create_table_sql(if_not_exists: true)
+    svc.create_table_modification(if_not_exists: true).execute(dstdb)
     ds = srcdb[svc.qualified_table_sequel_identifier].order(svc.timestamp_column.name)
     (ds = ds.where(Sequel[svc.timestamp_column.name] > self.last_migrated_timestamp)) unless
       self.last_migrated_timestamp.nil?

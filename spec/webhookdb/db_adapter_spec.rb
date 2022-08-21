@@ -58,8 +58,17 @@ RSpec.describe Webhookdb::DBAdapter do
       it "returns the query" do
         sql = ad.create_index_sql(
           ind.new(name: :foo, table: tbl.new(name: :tbl), targets: [col.new(name: :c1, type: coltype::TEXT)]),
+          concurrently: false,
         )
         expect(sql).to eq("CREATE INDEX IF NOT EXISTS foo ON tbl (c1)")
+      end
+
+      it "can use concurrently" do
+        sql = ad.create_index_sql(
+          ind.new(name: :foo, table: tbl.new(name: :tbl), targets: [col.new(name: :c1, type: coltype::TEXT)]),
+          concurrently: true,
+        )
+        expect(sql).to eq("CREATE INDEX CONCURRENTLY IF NOT EXISTS foo ON tbl (c1)")
       end
 
       it "escapes identifiers and can be unique" do
@@ -70,6 +79,7 @@ RSpec.describe Webhookdb::DBAdapter do
             targets: [col.new(name: :not, type: coltype::TEXT), col.new(name: :in, type: coltype::TEXT)],
             unique: true,
           ),
+          concurrently: false,
         )
         expect(sql).to eq("CREATE UNIQUE INDEX IF NOT EXISTS \"from\" ON if (\"not\", \"in\")")
       end

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Webhookdb::Services::Base, :db do
-  describe "create_tables_sql" do
+  describe "create_tables_modification" do
     svc_cls = Class.new(described_class) do
       def _remote_key_column
         return Webhookdb::Services::Column.new(:remotecol, Webhookdb::DBAdapter::ColumnTypes::TEXT)
@@ -11,7 +11,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
 
     it "generates the correct sql" do
       s = svc_cls.new(sint_fac.instance)
-      expect(s.create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_modification.to_s).to eq(<<~S.rstrip)
         CREATE TABLE public.mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -32,7 +32,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
       end
       s = enrichment_svc_class.new(sint_fac.instance)
       s.store_enrichment_body = true
-      expect(s.create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_modification.to_s).to eq(<<~S.rstrip)
         CREATE TABLE public.mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -41,7 +41,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         );
       S
       s.store_enrichment_body = false
-      expect(s.create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_modification.to_s).to eq(<<~S.rstrip)
         CREATE TABLE public.mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -53,7 +53,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
     it "can use a specific schema" do
       org = Webhookdb::Fixtures.organization(replication_schema: "hi there").create
       s = svc_cls.new(sint_fac.create(organization: org))
-      expect(s.create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_modification.to_s).to eq(<<~S.rstrip)
         CREATE TABLE "hi there".mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,
@@ -76,7 +76,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
       sint = sint_fac.instance
       sint.opaque_id = "opaq"
       s = test_svc_cls.new(sint)
-      expect(s.create_table_sql).to eq(<<~S.rstrip)
+      expect(s.create_table_modification.to_s).to eq(<<~S.rstrip)
         CREATE TABLE public.mytbl (
           pk bigserial PRIMARY KEY,
           remotecol text UNIQUE NOT NULL,

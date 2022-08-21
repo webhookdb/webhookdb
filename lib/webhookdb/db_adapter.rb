@@ -156,7 +156,7 @@ class Webhookdb::DBAdapter
 
   # @param [Index] index
   # @return [String]
-  def create_index_sql(index)
+  def create_index_sql(index, concurrently:)
     raise NotImplementedError
   end
 

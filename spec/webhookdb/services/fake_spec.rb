@@ -249,8 +249,8 @@ RSpec.describe "fake implementations", :db do
         sint.organization.remove_related_database
       end
 
-      it "uses create_table SQL if the table does not exist" do
-        expect(fake.ensure_all_columns_sql).to eq(fake.create_table_sql)
+      it "uses create_table modification if the table does not exist" do
+        expect(fake.ensure_all_columns_modification.to_s).to eq(fake.create_table_modification.to_s)
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.db).to be_table_exists(sint.table_name) }
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
@@ -258,7 +258,7 @@ RSpec.describe "fake implementations", :db do
 
       it "returns empty string if all columns exist" do
         fake.create_table
-        expect(fake.ensure_all_columns_sql).to eq("")
+        expect(fake.ensure_all_columns_modification.to_s).to eq("")
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
       end
@@ -274,11 +274,15 @@ RSpec.describe "fake implementations", :db do
           ]
         end
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
-        expect(fake.ensure_all_columns_sql).to include(%{ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
-CREATE INDEX IF NOT EXISTS c2_idx ON #{table_str} (c2);
+        expect(fake.ensure_all_columns_modification.to_s).to include(
+          %(ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
 ALTER TABLE #{table_str} ADD COLUMN c3 date;
-ALTER TABLE #{table_str} ADD COLUMN "from" text;
-CREATE INDEX IF NOT EXISTS from_idx ON #{table_str} ("from");})
+ALTER TABLE #{table_str} ADD COLUMN "from" text;),
+        )
+        expect(fake.ensure_all_columns_modification.to_s).to include(
+          %{CREATE INDEX CONCURRENTLY IF NOT EXISTS c2_idx ON #{table_str} (c2);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS from_idx ON #{table_str} ("from");},
+        )
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
       end
@@ -309,13 +313,13 @@ CREATE INDEX IF NOT EXISTS from_idx ON #{table_str} ("from");})
           ]
         end
         table_str = fake.schema_and_table_symbols.map(&:to_s).join('"."')
-        expect(fake.ensure_all_columns_sql).to include(
+        expect(fake.ensure_all_columns_modification.to_s).to include(
           %{"c2" = CAST(CAST(("data" #> ARRAY['c2']) AS integer) AS integer)},
         )
-        expect(fake.ensure_all_columns_sql).to include(
+        expect(fake.ensure_all_columns_modification.to_s).to include(
           %{"c3" = coalesce(CAST(("data" ->> 'c3') AS timestamptz), now())},
         )
-        expect(fake.ensure_all_columns_sql).to include(%{"from" = CAST(("data" ->> 'from') AS text)})
+        expect(fake.ensure_all_columns_modification.to_s).to include(%{"from" = CAST(("data" ->> 'from') AS text)})
         fake.ensure_all_columns
         fake.readonly_dataset do |ds|
           expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from])
