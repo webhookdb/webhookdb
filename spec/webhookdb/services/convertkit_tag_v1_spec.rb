@@ -15,7 +15,6 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
           subscriptions: [],
         }.to_json,
       )
-    allow(Kernel).to receive(:sleep)
   end
 
   it_behaves_like "a service implementation", "convertkit_tag_v1" do
@@ -188,26 +187,6 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
 
     def assert_is_enriched(row)
       return row[:total_subscribers] == 2
-    end
-  end
-
-  describe "_fetch_enrichment" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_tag_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
-    let(:body) do
-      JSON.parse(<<~J)
-        {
-          "id":2641288,
-          "name":"Example Tag",
-          "created_at":"2021-09-22T20:40:49.000Z"
-        }
-      J
-    end
-
-    it "sleeps to avoid rate limiting" do
-      Webhookdb::Convertkit.sleep_seconds = 1.2
-      expect(Kernel).to receive(:sleep).with(1.2)
-      svc._fetch_enrichment(body, nil)
     end
   end
 end

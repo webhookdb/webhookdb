@@ -19,7 +19,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Appydays::Configurable
   include Webhookdb::Dbutil
 
-  class SyncInProgress < RuntimeError; end
+  class SyncInProgress < StandardError; end
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,

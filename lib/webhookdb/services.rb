@@ -5,9 +5,9 @@ require "webhookdb/typed_struct"
 class Webhookdb::Services
   extend Webhookdb::MethodUtilities
 
-  class InvalidService < RuntimeError; end
+  class InvalidService < StandardError; end
 
-  class CredentialsMissing < RuntimeError; end
+  class CredentialsMissing < StandardError; end
 
   # In the Descriptor struct, the value for :feature_roles is used in
   # our feature flagging functionality. It should default to [],

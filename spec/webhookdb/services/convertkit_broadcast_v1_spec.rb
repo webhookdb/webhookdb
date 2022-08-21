@@ -11,7 +11,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         headers: {"Content-Type" => "application/json"},
         body: {broadcast: {id: 10_000_000, stats: {}}}.to_json,
       )
-    allow(Kernel).to receive(:sleep)
   end
 
   it_behaves_like "a service implementation", "convertkit_broadcast_v1" do
@@ -247,12 +246,6 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
         )
       expect(svc._fetch_enrichment(body, nil)).to eq({})
       expect(req).to have_been_made
-    end
-
-    it "sleeps to avoid rate limiting" do
-      Webhookdb::Convertkit.sleep_seconds = 1.2
-      expect(Kernel).to receive(:sleep).with(1.2)
-      svc._fetch_enrichment(body, nil)
     end
   end
 end

@@ -4,7 +4,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   include Webhookdb::Dbutil
 
   class MigrationInProgress < Webhookdb::DatabaseLocked; end
-  class MigrationAlreadyFinished < RuntimeError; end
+  class MigrationAlreadyFinished < StandardError; end
 
   plugin :timestamps
   plugin :column_encryption do |enc|

@@ -10,7 +10,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   extend Webhookdb::MethodUtilities
   include Appydays::Configurable
 
-  class InvalidPassword < RuntimeError; end
+  class InvalidPassword < StandardError; end
 
   configurable(:customer) do
     setting :skip_authentication, false

@@ -4,7 +4,7 @@ require "httparty"
 
 module Webhookdb::Http
   # Error raised when some API has rate limited us.
-  class BaseError < RuntimeError; end
+  class BaseError < StandardError; end
 
   class Error < BaseError
     attr_reader :response, :body, :uri, :status

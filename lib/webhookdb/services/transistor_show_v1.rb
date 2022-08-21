@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "webhookdb/transistor"
 require "webhookdb/services/transistor_v1_mixin"
 
 class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base

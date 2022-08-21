@@ -27,11 +27,11 @@ module Webhookdb
 
   # Error raised when we cannot take an action
   # because some condition has not been set up right.
-  class InvalidPrecondition < RuntimeError; end
+  class InvalidPrecondition < StandardError; end
 
   # Error raised when, after we take an action,
   # something we expect to have changed has not changed.
-  class InvalidPostcondition < RuntimeError; end
+  class InvalidPostcondition < StandardError; end
 
   # Error raised when a customer gives us some invalid input.
   # Allows the library to raise the error with the message,
