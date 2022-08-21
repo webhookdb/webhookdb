@@ -169,15 +169,20 @@ class Webhookdb::Services::Base
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Services::SchemaModification.new
     result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
-    columns.filter(&:index?).each do |col|
-      # We need to give indices a persistent name, unique across the schema,
-      # since multiple indices within a schema cannot share a name.
-      raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
-      idx_name = "#{self.service_integration.opaque_id}_#{col.name}_idx"
-      dbindex = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
+    columns.select(&:index?).each do |col|
+      dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(col).to_sym, table:, targets: [col])
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     return result
+  end
+
+  # We need to give indices a persistent name, unique across the schema,
+  # since multiple indices within a schema cannot share a name.
+  # @param column DBAdapter or Services Column (must have :name).
+  # @return [String]
+  protected def index_name(column)
+    raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
+    return "#{self.service_integration.opaque_id}_#{column.name}_idx"
   end
 
   # @return [Webhookdb::DBAdapter::Column]
@@ -256,31 +261,40 @@ class Webhookdb::Services::Base
 
   # @return [Webhookdb::Services::SchemaModification]
   def ensure_all_columns_modification
-    existing_cols = nil
+    existing_cols, existing_indices = nil
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
-      existing_cols = ds.columns
+      existing_cols = ds.columns.to_set
+      sint = self.service_integration
+      existing_indices = ds.db[:pg_indexes].where(
+        schemaname: sint.organization.replication_schema,
+        tablename: sint.table_name,
+      ).select_map(:indexname).to_set
     end
-    missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
     adapter = Webhookdb::DBAdapter::PG.new
     table = self.dbadapter_table
     result = Webhookdb::Services::SchemaModification.new
-    missing_columns.each do |whcol|
-      # Don't bother bulking the ADDs into a single ALTER TABLE,
-      # it won't really matter.
-      col = whcol.to_dbadapter
-      result.transaction_statements << adapter.add_column_sql(table, col)
-      if col.index?
-        index = Webhookdb::DBAdapter::Index.new(name: "#{col.name}_idx".to_sym, table:, targets: [col])
-        result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
-      end
-    end
-    # add update statement for any columns that are getting added
+
+    missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
     unless missing_columns.empty?
+      # Add missing columns, and an UPDATE to fill in the defaults.
+      missing_columns.each do |whcol|
+        # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
+        col = whcol.to_dbadapter
+        result.transaction_statements << adapter.add_column_sql(table, col)
+      end
       self.admin_dataset do |ds|
         update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.to_sql_expr] })
         result.transaction_statements << update_query
       end
+    end
+
+    # Add missing indices
+    self._denormalized_columns.select(&:index?).map do |col|
+      idx_name = self.index_name(col)
+      next if existing_indices.include?(idx_name)
+      index = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
+      result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
     end
     return result
   end

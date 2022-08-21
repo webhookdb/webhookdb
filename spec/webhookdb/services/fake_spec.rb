@@ -264,6 +264,7 @@ RSpec.describe "fake implementations", :db do
       end
 
       it "can build and execute SQL for columns that exist in code but not in the DB" do
+        fake.service_integration.opaque_id = "svi_xyz"
         fake.create_table
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
         fake.define_singleton_method(:_denormalized_columns) do
@@ -280,11 +281,40 @@ ALTER TABLE #{table_str} ADD COLUMN c3 date;
 ALTER TABLE #{table_str} ADD COLUMN "from" text;),
         )
         expect(fake.ensure_all_columns_modification.to_s).to include(
-          %{CREATE INDEX CONCURRENTLY IF NOT EXISTS c2_idx ON #{table_str} (c2);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS from_idx ON #{table_str} ("from");},
+          %{CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_idx ON #{table_str} (c2);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from");},
         )
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
+      end
+
+      it "can build and execute SQL for indices that exist in code but not in the DB" do
+        fake.service_integration.update(opaque_id: "svi_abc", table_name: "xtbl")
+        fake.define_singleton_method(:_denormalized_columns) do
+          [
+            Webhookdb::Services::Column.new(:c1, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+            Webhookdb::Services::Column.new(:c2, Webhookdb::DBAdapter::ColumnTypes::TEXT),
+          ]
+        end
+        fake.create_table
+        fake.readonly_dataset do |ds|
+          indices = ds.db[:pg_indexes].where(tablename: "xtbl").select_map(:indexname)
+          expect(indices).to contain_exactly("svi_abc_c1_idx", "xtbl_my_id_key", "xtbl_pkey")
+        end
+        fake.define_singleton_method(:_denormalized_columns) do
+          [
+            Webhookdb::Services::Column.new(:c1, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+            Webhookdb::Services::Column.new(:c2, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+          ]
+        end
+        expect(fake.ensure_all_columns_modification.to_s).to eq(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_abc_c2_idx ON public.xtbl (c2);",
+        )
+        fake.ensure_all_columns
+        fake.readonly_dataset do |ds|
+          indices = ds.db[:pg_indexes].where(tablename: "xtbl").select_map(:indexname)
+          expect(indices).to contain_exactly("svi_abc_c2_idx", "svi_abc_c1_idx", "xtbl_my_id_key", "xtbl_pkey")
+        end
       end
 
       it "can backfill values for columns that exist in code but not in the DB" do
