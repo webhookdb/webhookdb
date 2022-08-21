@@ -313,8 +313,8 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
       exactly(backfillers.size * 2).times # Each backfiller sleeps twice
     # rubocop:disable RSpec/IteratedExpectation
     backfillers.each do |bf|
-      expect(bf).to receive(:fetch_backfill_page).and_raise(RuntimeError)
-      expect(bf).to receive(:fetch_backfill_page).and_raise(RuntimeError)
+      expect(bf).to receive(:fetch_backfill_page).and_raise(Webhookdb::Http::BaseError)
+      expect(bf).to receive(:fetch_backfill_page).and_raise(Webhookdb::Http::BaseError)
       expect(bf).to receive(:fetch_backfill_page).at_least(:once).and_call_original
     end
     # rubocop:enable RSpec/IteratedExpectation

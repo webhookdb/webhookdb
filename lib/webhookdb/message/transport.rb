@@ -5,7 +5,7 @@ require "webhookdb/message"
 class Webhookdb::Message::Transport
   extend Webhookdb::MethodUtilities
 
-  class Error < RuntimeError; end
+  class Error < StandardError; end
   class UndeliverableRecipient < Error; end
 
   singleton_attr_reader :transports
