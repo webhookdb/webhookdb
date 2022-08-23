@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 bundle exec rake release
 if [[ "${RUN_INTEGRATION_TESTS_ON_RELEASE}" = "true" ]]; then
