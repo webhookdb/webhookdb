@@ -47,23 +47,37 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     it "creates the sync target for service integration" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_identifier: sint.opaque_id,
-           connection_url: "postgres://a.b",
+           connection_url: "postgres://u:p@a.b",
            period_seconds: 600
 
       expect(last_response).to have_status(200)
       stgt = sint.sync_targets.first
       expect(stgt).to have_attributes(
-        connection_url: "postgres://a.b",
+        connection_url: "postgres://u:p@a.b",
         period_seconds: 600,
         table: "",
         schema: "",
       )
     end
 
+    it "can use an https connection url" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_identifier: sint.opaque_id,
+           connection_url: "https://u:p@a.b",
+           period_seconds: 600
+
+      expect(last_response).to have_status(200)
+      stgt = sint.sync_targets.first
+      expect(stgt).to have_attributes(
+        connection_url: "https://u:p@a.b",
+        period_seconds: 600,
+      )
+    end
+
     it "requires period_seconds" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_opaque_id: sint.opaque_id,
-           connection_url: "postgres://a.b"
+           connection_url: "postgres://u:p@a.b"
 
       expect(last_response).to have_status(422)
       expect(last_response).to have_json_body.
@@ -73,7 +87,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     it "can specify all fields" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_identifier: sint.opaque_id,
-           connection_url: "postgres://a.b",
+           connection_url: "postgres://u:p@a.b",
            table: "mytbl",
            schema: "my_schema",
            period_seconds: 11.minutes.to_i
@@ -90,7 +104,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
     it "can use deprecated 'service_integration_opaque_id' parameter" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_opaque_id: sint.opaque_id,
-           connection_url: "postgres://a.b",
+           connection_url: "postgres://u:p@a.b",
            period_seconds: 600
 
       expect(last_response).to have_status(200)
@@ -100,7 +114,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_identifier: sint.opaque_id,
            service_integration_opaque_id: "fakesint",
-           connection_url: "postgres://a.b",
+           connection_url: "postgres://u:p@a.b",
            period_seconds: 600
 
       # if the deprecated param were used, this would be a 403 integration not found
@@ -109,7 +123,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
     it "errors if no service integration id parameter has been submitted" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
-           connection_url: "postgres://a.b",
+           connection_url: "postgres://u:p@a.b",
            period_seconds: 600
 
       expect(last_response).to have_status(400)
@@ -140,7 +154,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       )
     end
 
-    it "400s if there is no adapter for the url" do
+    it "400s if the url fails validation" do
       post "/v1/organizations/#{org.key}/sync_targets/create",
            service_integration_identifier: sint.opaque_id,
            connection_url: "superdb://a.b",
@@ -150,7 +164,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: /The connection URL is not supported/),
+        error: include(message: /The 'superdb' protocol is not supported/),
       )
     end
   end

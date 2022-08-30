@@ -44,7 +44,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
 
         params do
           optional :connection_url,
-                   prompt: "Enter the connection string for the database that WebhookDB should sync data to:"
+                   prompt: "Enter the database connection string or webhook URL that WebhookDB should sync data to:"
           optional :service_integration_opaque_id,
                    type: String, allow_blank: false,
                    desc: "This is a deprecated parameter. In the future, please use `service_integration_identifier`."
@@ -59,13 +59,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
           identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
           sint = lookup_service_integration!(org, identifier)
 
-          begin
-            Webhookdb::DBAdapter.adapter(params[:connection_url])
-          rescue Webhookdb::DBAdapter::UnsupportedAdapter => e
-            invalid!(
-              e.message,
-              message: "The connection URL is not supported. #{Webhookdb::DBAdapter.supported_adapters_message}",
-            )
+          if (err = Webhookdb::SyncTarget.validate_url(params[:connection_url]))
+            invalid!(err, message: err)
           end
 
           stgt = Webhookdb::SyncTarget.create(

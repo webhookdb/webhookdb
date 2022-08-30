@@ -85,6 +85,48 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "validate_url" do
+    it "returns nil if the url is for a supported database" do
+      expect(described_class.validate_url("postgres://u:p@x:5432/db")).to be_nil
+    end
+
+    it "returns nil if the url is https" do
+      expect(described_class.validate_url("https://u:p@x/db")).to be_nil
+      expect(described_class.validate_url("https://:p@x/db")).to be_nil
+      expect(described_class.validate_url("https://u@x/db")).to be_nil
+    end
+
+    it "returns an error if the url cannot be parsed" do
+      expect(described_class.validate_url("this is not ao url")).to eq(
+        "The URL is not valid",
+      )
+    end
+
+    it "returns an error if the http url is http" do
+      expect(described_class.validate_url("http://u:p@x:5432/db")).to eq(
+        "The 'http' protocol is not supported. Supported protocols are: postgres, snowflake, https",
+      )
+    end
+
+    it "returns an error if the database is not supported" do
+      expect(described_class.validate_url("oracle://u:p@x:5432/db")).to eq(
+        "The 'oracle' protocol is not supported. Supported protocols are: postgres, snowflake, https",
+      )
+    end
+
+    it "returns an error if the https url has no username or password" do
+      expect(described_class.validate_url("https://x/handler")).to eq(
+        "https urls must include a Basic Auth username and/or password, like 'https://user:pass@x/handler'",
+      )
+    end
+
+    it "returns an error if the database url does not have a username and password" do
+      expect(described_class.validate_url("postgres://u@pg:5432/db")).to eq(
+        "Database URLs must include a username and password, like 'postgres://user:pass@pg:5432/db'",
+      )
+    end
+  end
+
   describe "run_sync" do
     before(:each) do
       sint.organization.prepare_database_connections
@@ -220,6 +262,66 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       describe "schema caching" do
         it "is not tested explicitly because Snowflake is slow"
         # We can add it if we find it behaves differently
+      end
+    end
+
+    describe "with an https target" do
+      url = "https://user:pass@sync-target-webhook/xyz"
+      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).https(url).create }
+
+      it "incrementally POSTs to the webhook and sets last synced" do
+        t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
+        sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+          with(
+            body: {
+              rows: [
+                {
+                  pk: 1,
+                  my_id: "abc",
+                  at: "2016-07-30T21:12:33.000+00:00",
+                  data: {at: "Thu, 30 Jul 2016 21:12:33 +0000", my_id: "abc"},
+                },
+                {
+                  pk: 2,
+                  my_id: "def",
+                  at: "2017-07-30T21:12:33.000+00:00",
+                  data: {at: "Thu, 30 Jul 2017 21:12:33 +0000", my_id: "def"},
+                },
+              ],
+              integration_id: sint.opaque_id,
+              integration_service: "fake_v1",
+              table: sint.table_name,
+              sync_timestamp: t1,
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
+
+        sync_tgt.run_sync(at: t1)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
+        expect(sync1_req).to have_been_made
+
+        t2 = Time.parse("Thu, 30 Aug 2020 21:12:33 +0000")
+        sync2_req = stub_request(:post, "https://sync-target-webhook/xyz").
+          with(
+            body: {
+              rows: [
+                {
+                  pk: 3,
+                  my_id: "ghi",
+                  at: "2018-07-30T21:12:33.000+00:00",
+                  data: {at: "Thu, 30 Jul 2018 21:12:33 +0000", my_id: "ghi"},
+                },
+              ],
+              integration_id: sint.opaque_id,
+              integration_service: "fake_v1",
+              table: sint.table_name,
+              sync_timestamp: t2,
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
+        sync_tgt.run_sync(at: t2)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
+        expect(sync2_req).to have_been_made
       end
     end
   end

@@ -25,4 +25,8 @@ module Webhookdb::Fixtures::SyncTargets
   decorator :snowflake do
     self.connection_url = Webhookdb::Snowflake.test_url
   end
+
+  decorator :https do |url=nil|
+    self.connection_url = url || Faker::Internet.url
+  end
 end

@@ -21,6 +21,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   class SyncInProgress < StandardError; end
 
+  TIMEOUT = 30.seconds
+
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,
     # but something higher is better as a default.
@@ -60,6 +62,28 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       next_due_at = Sequel[:last_synced_at] + (Sequel.lit("INTERVAL '1 second'") * Sequel[:period_seconds])
       due_before_now = next_due_at <= as_of
       return self.where(never_synced | due_before_now)
+    end
+  end
+
+  def self.validate_url(s)
+    begin
+      url = URI(s)
+    rescue URI::InvalidURIError
+      return "The URL is not valid"
+    end
+    case url.scheme
+      when "postgres", "snowflake"
+        return nil if url.user.present? && url.password.present?
+        url.user = "user"
+        url.password = "pass"
+        return "Database URLs must include a username and password, like '#{url}'"
+      when "https"
+        return nil if url.user.present? || url.password.present?
+        url.user = "user"
+        url.password = "pass"
+        return "https urls must include a Basic Auth username and/or password, like '#{url}'"
+      else
+        return "The '#{url.scheme}' protocol is not supported. Supported protocols are: postgres, snowflake, https"
     end
   end
 
@@ -103,6 +127,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       available = self.class.dataset.where(id: self.id).lock_style("FOR UPDATE SKIP LOCKED").first
       raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" if available.nil?
       self.lock!
+
+      return self._run_sync_http(at) if self.connection_url.start_with?("https://")
+
       svc = self.service_integration.service_instance
       schema_name = self.schema.present? ? self.schema : self.class.default_schema
       table_name = self.table.present? ? self.table : self.service_integration.table_name
@@ -127,11 +154,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         self.update(last_applied_schema: schema_expr)
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.id}")
-      tscol = Sequel[svc.timestamp_column.name]
-      svc.readonly_dataset do |ds|
-        tscond = (tscol <= at)
-        self.last_synced_at && (tscond &= (tscol >= self.last_synced_at))
-        ds = ds.where(tscond)
+      self._dataset_to_sync(at) do |ds|
         ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
           tempfile.write(row)
         end
@@ -147,6 +170,46 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       self.update(last_synced_at: at)
     ensure
       tempfile&.unlink
+    end
+  end
+
+  def _run_sync_http(at)
+    self._dataset_to_sync(at) do |ds|
+      chunk = []
+      ds.paged_each(rows_per_fetch: self.page_size) do |row|
+        chunk << row
+        self._flush_http_chunk(at, chunk) if chunk.size >= self.page_size
+      end
+      self._flush_http_chunk(at, chunk) unless chunk.empty?
+    end
+    self.update(last_synced_at: at)
+  end
+
+  def _flush_http_chunk(at, chunk)
+    body = {
+      rows: chunk,
+      integration_id: self.service_integration.opaque_id,
+      integration_service: self.service_integration.service_name,
+      table: self.service_integration.table_name,
+      sync_timestamp: at,
+    }
+    Webhookdb::Http.post(
+      self.connection_url,
+      body,
+      timeout: TIMEOUT,
+      logger: self.logger,
+    )
+    chunk.clear
+  end
+
+  def _dataset_to_sync(at)
+    svc = self.service_integration.service_instance
+    tscol = Sequel[svc.timestamp_column.name]
+    svc.readonly_dataset do |ds|
+      tscond = (tscol <= at)
+      self.last_synced_at && (tscond &= (tscol >= self.last_synced_at))
+      ds = ds.where(tscond)
+      yield(ds)
     end
   end
 
