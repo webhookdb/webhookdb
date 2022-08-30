@@ -38,7 +38,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     let(:min_period) { 60 }
 
     around(:each) do |example|
-      described_class.min_period_seconds = min_period
+      described_class.default_min_period_seconds = min_period
       Timecop.freeze do
         example.run
       end

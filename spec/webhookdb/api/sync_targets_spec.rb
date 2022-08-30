@@ -167,6 +167,30 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         error: include(message: /The 'superdb' protocol is not supported/),
       )
     end
+
+    it "400s if the period is outside the allowed range" do
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_identifier: sint.opaque_id,
+           connection_url: "postgres://u:p@x/b",
+           period_seconds: 1
+
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(
+          message: /The valid sync period for organization .* is between 600 and 86400 seconds/,
+        ),
+      )
+    end
+
+    it "200s if the period is outside the default range but the org setting allows it" do
+      org.update(minimum_sync_seconds: 1)
+      post "/v1/organizations/#{org.key}/sync_targets/create",
+           service_integration_identifier: sint.opaque_id,
+           connection_url: "postgres://u:p@x/b",
+           period_seconds: 1
+
+      expect(last_response).to have_status(200)
+    end
   end
 
   describe "POST /v1/organizations/:identifier/sync_targets/:opaque_id/update_credentials" do

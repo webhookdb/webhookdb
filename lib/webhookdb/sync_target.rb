@@ -26,7 +26,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,
     # but something higher is better as a default.
-    setting :min_period_seconds, 10.minutes.to_i
+    # Can be overridden per-organization.
+    setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
@@ -42,8 +43,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     end
   end
 
-  def self.valid_period
-    return self.min_period_seconds..self.max_period_seconds
+  def self.valid_period(beginval)
+    return beginval..self.max_period_seconds
+  end
+
+  def self.valid_period_for(org)
+    return self.valid_period(org.minimum_sync_seconds)
+  end
+
+  def self.default_valid_period
+    return self.valid_period(Webhookdb::SyncTarget.default_min_period_seconds)
   end
 
   plugin :timestamps
@@ -92,7 +101,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   def next_possible_sync(now:)
-    return self.next_sync(self.class.min_period_seconds, now)
+    return self.next_sync(self.organization.minimum_sync_seconds, now)
   end
 
   protected def next_sync(period, now)
@@ -233,6 +242,10 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   def associated_id
     # Eventually we need to support orgs
     return self.service_integration.opaque_id
+  end
+
+  def organization
+    return self.service_integration.organization
   end
 
   def before_create

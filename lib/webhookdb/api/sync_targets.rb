@@ -8,13 +8,13 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
     route_param :org_identifier, type: String do
       resource :sync_targets do
         helpers do
-          valid_period = Webhookdb::SyncTarget.valid_period
+          default_period = Webhookdb::SyncTarget.default_valid_period
           params :sync_target_params do
             optional :period_seconds,
                      type: Integer,
-                     values: valid_period,
+                     values: Webhookdb::SyncTarget.valid_period(1),
                      prompt: {
-                       message: "How many seconds between syncs (#{valid_period.begin} to #{valid_period.end}):",
+                       message: "How many seconds between syncs (#{default_period.begin} to #{default_period.end}):",
                        disable: ->(req) { req.path.end_with?("/update") },
                      }
             optional :schema,
@@ -27,6 +27,13 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                      db_identifier: true,
                      allow_blank: true,
                      desc: "Table to create and update. Default to match the table name of the service integration."
+          end
+
+          def validate_period!(org, value)
+            r = Webhookdb::SyncTarget.valid_period_for(org)
+            return if r.cover?(value)
+            err = "The valid sync period for organization #{org.name} is between #{r.begin} and #{r.end} seconds."
+            invalid!(err, message: err)
           end
         end
 
@@ -62,7 +69,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
           if (err = Webhookdb::SyncTarget.validate_url(params[:connection_url]))
             invalid!(err, message: err)
           end
-
+          validate_period!(sint.organization, params[:period_seconds])
           stgt = Webhookdb::SyncTarget.create(
             service_integration: sint,
             connection_url: params[:connection_url],
@@ -109,6 +116,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             stgt.period_seconds = params[:period_seconds] if params.key?(:period_seconds)
             stgt.table = params[:table] if params.key?(:table)
             stgt.schema = params[:schema] if params.key?(:schema)
+            validate_period!(stgt.organization, params[:period_seconds])
             save_or_error!(stgt)
             status 200
             present stgt, with: Webhookdb::API::SyncTargetEntity, message: "Sync target has been updated."

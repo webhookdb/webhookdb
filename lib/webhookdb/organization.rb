@@ -51,6 +51,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   one_to_many :database_migrations, class: "Webhookdb::Organization::DatabaseMigration", order: Sequel.desc(:created_at)
 
   def before_validation
+    self.minimum_sync_seconds ||= Webhookdb::SyncTarget.default_min_period_seconds
     self.key ||= Webhookdb.to_slug(self.name)
     self.replication_schema ||= Webhookdb::Organization::DbBuilder.new(self).default_replication_schema
     super
