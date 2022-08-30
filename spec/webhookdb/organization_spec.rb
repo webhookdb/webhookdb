@@ -117,6 +117,19 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       expect(fake).to_not receive(:ensure_all_columns)
       o.migrate_replication_tables
     end
+
+    it "considers structural columns like enrichments" do
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
+      end
+      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      fake.define_singleton_method(:_store_enrichment_body?) { true }
+      expect(fake).to receive(:ensure_all_columns).and_call_original
+      o.migrate_replication_tables
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data, :enrichment)
+      end
+    end
   end
 
   describe "get_stripe_billing_portal_url" do

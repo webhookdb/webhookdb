@@ -162,9 +162,8 @@ class Webhookdb::Services::Base
   def create_table_modification(if_not_exists: false)
     table = self.dbadapter_table
     columns = [self.primary_key_column, self.remote_key_column]
-    columns.concat(self.denormalized_columns)
+    columns.concat(self.storable_columns)
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
-    columns << self.enrichment_column if self._store_enrichment_body?
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Services::SchemaModification.new
@@ -200,14 +199,27 @@ class Webhookdb::Services::Base
     return Webhookdb::DBAdapter::Column.new(name: :data, type: OBJECT, nullable: false)
   end
 
+  # Column used to store enrichments. Return nil if the service does not use enrichments.
   # @return [Webhookdb::DBAdapter::Column]
   def enrichment_column
+    return nil unless self._store_enrichment_body?
     return Webhookdb::DBAdapter::Column.new(name: :enrichment, type: OBJECT, nullable: true)
   end
 
   # @return [Array<Webhookdb::DBAdapter::Column>]
   def denormalized_columns
     return self._denormalized_columns.map(&:to_dbadapter)
+  end
+
+  # Denormalized columns, plus the enrichment column if supported.
+  # Does not include the data or external id columns, though perhaps it should.
+  # @return [Array<Webhookdb::DBAdapter::Column>]
+  def storable_columns
+    cols = self.denormalized_columns
+    if (enr = self.enrichment_column)
+      cols << enr
+    end
+    return cols
   end
 
   # Column to use as the 'timestamp' for the row.
@@ -280,13 +292,16 @@ class Webhookdb::Services::Base
       # Add missing columns, and an UPDATE to fill in the defaults.
       missing_columns.each do |whcol|
         # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
-        col = whcol.to_dbadapter
-        result.transaction_statements << adapter.add_column_sql(table, col)
+        result.transaction_statements << adapter.add_column_sql(table, whcol.to_dbadapter)
       end
       self.admin_dataset do |ds|
         update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.to_sql_expr] })
         result.transaction_statements << update_query
       end
+    end
+    # Easier to handle this explicitly than use storage_columns, but it a duplicated concept so be careful.
+    if (enrich_col = self.enrichment_column) && !existing_cols.include?(enrich_col.name)
+      result.transaction_statements << adapter.add_column_sql(table, enrich_col)
     end
 
     # Add missing indices

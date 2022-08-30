@@ -234,7 +234,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     self.service_integrations.each do |sint|
       svc = sint.service_instance
       existing_columns = cols_in_db.fetch(sint.table_name) { [] }
-      all_col_names = svc.denormalized_columns.map(&:name).map(&:to_s)
+      all_col_names = svc.storable_columns.map(&:name).map(&:to_s)
       all_cols_exist_in_db = (all_col_names - existing_columns).empty?
       svc.ensure_all_columns unless all_cols_exist_in_db
     end
