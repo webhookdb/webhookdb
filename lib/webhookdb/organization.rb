@@ -153,6 +153,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return ur.user
   end
 
+  # In cases where the readonly and admin user are the same, we sometimes adapt queries
+  # to prevent revoking admin db priviliges.
+  def single_db_user?
+    return self.admin_user == self.readonly_user
+  end
+
   def display_string
     return "#{self.name} (#{self.key})"
   end

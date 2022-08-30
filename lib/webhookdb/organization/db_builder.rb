@@ -284,10 +284,8 @@ class Webhookdb::Organization::DbBuilder
           Webhookdb::ConnectionCache.disconnect(@org.admin_connection_url_raw)
           Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
           conn << "DROP DATABASE #{@org.dbname};"
-          conn << <<~SQL
-            DROP USER #{@org.readonly_user};
-            DROP USER #{@org.admin_user};
-          SQL
+          conn << "DROP USER #{@org.readonly_user};" unless @org.single_db_user?
+          conn << "DROP USER #{@org.admin_user};"
         when "schema+user"
           Webhookdb::ConnectionCache.disconnect(@org.readonly_connection_url_raw)
           conn << <<~SQL
@@ -410,15 +408,15 @@ class Webhookdb::Organization::DbBuilder
     # lines << "CREATE SCHEMA IF NOT EXISTS public;"
     lines << "CREATE SCHEMA IF NOT EXISTS #{qnew_schema};"
     @org.service_integrations.each do |sint|
-      lines << ("ALTER TABLE IF EXISTS %s.%s SET SCHEMA %s;" % [qold_schema, ad.escape_identifier(sint.table_name),
-                                                                qnew_schema,])
+      lines << ("ALTER TABLE IF EXISTS %s.%s SET SCHEMA %s;" %
+        [qold_schema, ad.escape_identifier(sint.table_name), qnew_schema])
     end
     if self.class.isolate?(USER)
       ro_user = @org.readonly_user
       lines << "GRANT USAGE ON SCHEMA #{qnew_schema} TO #{ro_user};"
       lines << "GRANT SELECT ON ALL TABLES IN SCHEMA #{qnew_schema} TO #{ro_user};"
-      lines << "REVOKE ALL ON SCHEMA #{qold_schema} FROM #{ro_user};"
-      lines << "REVOKE ALL ON ALL TABLES IN SCHEMA #{qold_schema} FROM #{ro_user};"
+      lines << "REVOKE ALL ON SCHEMA #{qold_schema} FROM #{ro_user};" unless @org.single_db_user?
+      lines << "REVOKE ALL ON ALL TABLES IN SCHEMA #{qold_schema} FROM #{ro_user};" unless @org.single_db_user?
       lines << "ALTER DEFAULT PRIVILEGES IN SCHEMA #{qnew_schema} GRANT SELECT ON TABLES TO #{ro_user};"
     end
     # lines << "DROP SCHEMA #{qold_schema} CASCADE;"

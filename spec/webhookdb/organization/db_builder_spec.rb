@@ -321,6 +321,18 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         expect(o.db.fetch(db_query).all).to(eq([{count: 0}]))
         expect(o.db.fetch(user_query).all).to(eq([{count: 0}]))
       end
+
+      it "handles single db user orgs" do
+        o.prepare_database_connections
+        o.update(readonly_connection_url_raw: o.admin_connection_url_raw)
+        db_query = "SELECT count(1) FROM pg_database WHERE datistemplate = false AND datname = '#{o.dbname}'"
+        user_query = "SELECT count(1) FROM pg_catalog.pg_user WHERE usename IN ('#{o.admin_user}')"
+        expect(o.db.fetch(db_query).all).to(eq([{count: 1}]))
+        expect(o.db.fetch(user_query).all).to(eq([{count: 1}]))
+        o.remove_related_database
+        expect(o.db.fetch(db_query).all).to(eq([{count: 0}]))
+        expect(o.db.fetch(user_query).all).to(eq([{count: 0}]))
+      end
     end
 
     describe "with database+schema+user isolation", whdbisolation: "database+schema+user" do
@@ -330,6 +342,18 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         user_query = "SELECT count(1) FROM pg_catalog.pg_user WHERE usename IN ('#{o.admin_user}', '#{o.readonly_user}')"
         expect(o.db.fetch(db_query).all).to(eq([{count: 1}]))
         expect(o.db.fetch(user_query).all).to(eq([{count: 2}]))
+        o.remove_related_database
+        expect(o.db.fetch(db_query).all).to(eq([{count: 0}]))
+        expect(o.db.fetch(user_query).all).to(eq([{count: 0}]))
+      end
+
+      it "handles single db user orgs" do
+        o.prepare_database_connections
+        o.update(readonly_connection_url_raw: o.admin_connection_url_raw)
+        db_query = "SELECT count(1) FROM pg_database WHERE datistemplate = false AND datname = '#{o.dbname}'"
+        user_query = "SELECT count(1) FROM pg_catalog.pg_user WHERE usename IN ('#{o.admin_user}')"
+        expect(o.db.fetch(db_query).all).to(eq([{count: 1}]))
+        expect(o.db.fetch(user_query).all).to(eq([{count: 1}]))
         o.remove_related_database
         expect(o.db.fetch(db_query).all).to(eq([{count: 0}]))
         expect(o.db.fetch(user_query).all).to(eq([{count: 0}]))
@@ -559,6 +583,22 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         expect do
           sint4.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
         end.to raise_error(/permission denied for table fake_v1_/)
+      end
+
+      it "handles single database user organizations" do
+        sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
+        sint1.service_instance.create_table
+        org.update(readonly_connection_url_raw: org.admin_connection_url_raw)
+
+        org.migrate_replication_schema("xyz")
+        expect(org).to have_attributes(replication_schema: "xyz")
+        # Expect that readonly mutations will succeed because 1) the tables were migrated and 2) it's the same as admin
+        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
+        sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
+        sint4.service_instance.create_table
+        expect do
+          sint4.service_instance.readonly_dataset { |ds| ds.update(at: Time.now) }
+        end.to_not raise_error
       end
 
       it "ensures readonly still cannot access the public schema when migrating from it" do
