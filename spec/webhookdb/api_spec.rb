@@ -81,11 +81,19 @@ class Webhookdb::API::TestV1Api < Webhookdb::API::V1
     requires :org_id
     requires :sint_identifier
   end
-  post "sint_lookup" do
+  post :sint_lookup do
     org = Webhookdb::Organization[id: params[:org_id]]
     sint = lookup_service_integration!(org, params[:sint_identifier])
     status 200
     present sint, with: Webhookdb::API::ServiceIntegrationEntity
+  end
+
+  params do
+    optional :blank_string, type: String
+    requires :nonblank_string, type: String
+  end
+  post :control_chars do
+    present(params.to_h)
   end
 end
 
@@ -339,6 +347,13 @@ RSpec.describe Webhookdb::API, :db do
 
       expect(last_response).to have_status(403)
       expect(last_response.body).to include("There is no service integration")
+    end
+  end
+
+  describe "before validation" do
+    it "removes control characters from string inputs" do
+      post "/v1/control_chars", blank_string: "[D[A[C[A", nonblank_string: "foo[b"
+      expect(last_response_json_body).to eq(blank_string: "", nonblank_string: "foo")
     end
   end
 end

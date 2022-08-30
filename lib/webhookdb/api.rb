@@ -52,6 +52,17 @@ module Webhookdb::API
             scope.set_tags(application: "public-api")
           end
         end
+
+        before_validation do
+          # We want to strip control characters out of the string inputs
+          # Found the control character regex here:
+          #    https://www.appsloveworld.com/ruby/100/167/how-to-remove-control-characters-in-ruby
+          #
+          rgx = /\e\[[^\x40-\x7E]*[\x40-\x7E]/
+          self.params.each do |k, v|
+            params[k] = v.gsub(rgx, "") if v.is_a?(String)
+          end
+        end
       end
     end
   end

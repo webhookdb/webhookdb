@@ -127,6 +127,17 @@ RSpec.describe Webhookdb::API::Db, :db do
       )
     end
 
+    it "strips control characters out of readonly url" do
+      post "/v1/db/#{org.key}/migrate_database", admin_url: "postgres://admin:l33t@somehost:5555/mydb",
+                                                 readonly_url: "[D[A[C[A[D[C[B[D[C[A[D[C"
+
+      expect(last_response).to have_status(200)
+      expect(org.refresh).to have_attributes(
+        admin_connection_url_raw: "postgres://admin:l33t@somehost:5555/mydb",
+        readonly_connection_url_raw: "postgres://admin:l33t@somehost:5555/mydb",
+      )
+    end
+
     it "errors if not org admin" do
       customer.all_memberships_dataset.first.update(membership_role: non_admin_role)
       post "/v1/db/#{org.key}/migrate_database", admin_url: "admin_url", readonly_url: "url"
