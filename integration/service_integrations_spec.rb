@@ -35,7 +35,7 @@ RSpec.describe "service integrations", :integration do
 
     expect do
       catch_missing_db(["default"]) { sint.service_instance.readonly_dataset(&:all) }
-    end.to eventually(have_attributes(length: 1))
+    end.to eventually(have_attributes(length: 1)).pause_for(1).within(30)
   end
 
   it "can upsert data synchrononously through endpoint" do
@@ -55,8 +55,6 @@ RSpec.describe "service integrations", :integration do
     expect(resp).to party_status(200)
     expect(resp).to party_response(match(hash_including(message: /You have upserted/)))
 
-    expect do
-      catch_missing_db(["default"]) { sint.service_instance.readonly_dataset(&:all) }
-    end.to eventually(contain_exactly(include(my_id: "id")))
+    expect(sint.service_instance.readonly_dataset(&:all)).to contain_exactly(include(my_id: "id"))
   end
 end
