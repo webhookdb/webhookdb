@@ -81,7 +81,7 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
     return Webhookdb::Http.post(
       self.deliver_to_url,
       body,
-      headers: {"Webhookdb-Webhook-Secret" => self.webhook_secret}.merge(headers),
+      headers: {"Whdb-Webhook-Secret" => self.webhook_secret}.merge(headers),
       timeout: TIMEOUT,
       logger: self.logger,
     )
@@ -94,7 +94,7 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
       external_id:,
       external_id_column: "external_id",
       row: {data: ["alpha", "beta", "charlie", "delta"]},
-      headers: {"Webhookdb-Test-Event" => "1"},
+      headers: {"Whdb-Test-Event" => "1"},
     )
   end
 
@@ -130,7 +130,7 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
       d.lock!
       attempt = d.attempt_count + 1
       begin
-        r = self.deliver(**d.payload.symbolize_keys, headers: {"Webhookdb-Attempt" => attempt.to_s})
+        r = self.deliver(**d.payload.symbolize_keys, headers: {"Whdb-Attempt" => attempt.to_s})
         d.add_attempt(status: r.code)
       rescue StandardError => e
         self.logger.error(

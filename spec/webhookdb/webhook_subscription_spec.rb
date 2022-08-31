@@ -27,7 +27,7 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
               "Accept-Encoding" => "gzip;q=1.0,deflate;q=0.6,identity;q=0.3",
               "Content-Type" => "application/json",
               "User-Agent" => "WebhookDB/unknown-release https://webhookdb.com 1970-01-01T00:00:00Z",
-              "Webhookdb-Webhook-Secret" => webhook_sub.webhook_secret,
+              "Whdb-Webhook-Secret" => webhook_sub.webhook_secret,
             },
           ).to_return(status: 200, body: "", headers: {})
 
@@ -43,7 +43,7 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
                    row: {data: ["alpha", "beta", "charlie", "delta"]},
                    external_id: "extid",
                    external_id_column: "external_id",}.to_json,
-            headers: {"Webhookdb-Test-Event" => "1"},
+            headers: {"Whdb-Test-Event" => "1"},
           ).to_return(status: 200, body: "", headers: {})
 
         webhook_sub.deliver_test_event(external_id: "extid")
@@ -68,8 +68,8 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
           with(
             body: params.to_json,
             headers: {
-              "Webhookdb-Webhook-Secret" => webhook_sub.webhook_secret,
-              "Webhookdb-Attempt" => 1,
+              "Whdb-Webhook-Secret" => webhook_sub.webhook_secret,
+              "Whdb-Attempt" => 1,
             },
           ).to_return(status: 200, body: "", headers: {})
 
