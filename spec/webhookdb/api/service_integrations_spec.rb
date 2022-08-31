@@ -328,6 +328,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
           organization_id: sint.organization_id,
           request_body: '{"a":1}',
           request_headers: hash_including("Host" => "example.org"),
+          request_path: "/v1/service_integrations/xyz",
+          request_method: "POST",
           response_status: 202,
           service_integration_opaque_id: "xyz",
         ),

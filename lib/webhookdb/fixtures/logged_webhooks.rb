@@ -13,8 +13,14 @@ module Webhookdb::Fixtures::LoggedWebhooks
   base :logged_webhook do
     self.request_body ||= "{}"
     self.request_headers ||= {}
+    self.request_method ||= "POST"
     self.response_status ||= 0
     self.service_integration_opaque_id ||= SecureRandom.hex(2)
+  end
+
+  before_saving do |instance|
+    instance.request_path ||= "/v1/service_integrations/#{instance.service_integration_opaque_id}"
+    instance
   end
 
   decorator :ancient do

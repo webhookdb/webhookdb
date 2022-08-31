@@ -8,45 +8,48 @@ require "webhookdb/async/audit_logger"
 require "webhookdb/jobs/process_webhook"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
+  # These URLsare not used by the CLI-
+  # they are the url that customers should point their webhooks to.
+  # We can't check org permissions on this endpoint
+  # because external services (so no auth) will be posting webhooks here.
+  # So, we have a special lookup function, and depend on webhook verification
+  # to ensure the request is valid.
   resource :service_integrations do
-    route_param :opaque_id do
-      helpers do
-        def lookup_unauthed!
-          sint = Webhookdb::ServiceIntegration[opaque_id: params[:opaque_id]]
-          merror!(400, "No integration with that id") if sint.nil?
-          return sint
-        end
-
-        def log_webhook(sint, sstatus)
-          return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
-          # Status can be set from:
-          # - the 'status' method, which will be 201 if it hasn't been set,
-          # or another value if it has been set.
-          # - the webhook responder, which could respond with 401, etc
-          # - if there was an exception- so no status is set yet- use 0
-          # The main thing to watch out for is that we:
-          # - Cannot assume an exception is a 500 (it can be rescued later)
-          # - Must handle error! calls
-          # Anyway, this is all pretty confusing, but it's all tested.
-          rstatus = status == 201 ? (sstatus || 0) : status
-          request.body.rewind
-          Webhookdb::LoggedWebhook.dataset.insert(
-            request_body: request.body.read,
-            request_headers: request.headers.to_json,
-            response_status: rstatus,
-            organization_id: sint&.organization_id,
-            service_integration_opaque_id: params[:opaque_id],
-          )
-        end
+    helpers do
+      def lookup_unauthed!(opaque_id)
+        sint = Webhookdb::ServiceIntegration[opaque_id:]
+        merror!(400, "No integration with that id") if sint.nil?
+        return sint
       end
 
-      # This particular url (`v1/service_integrations/#{opaque_id}`) is not used by the CLI-
-      # it is the url that customers should point their webhooks to.
-      # we can't check org permissions on this endpoint
-      # because external services will be posting webhooks here
-      # hence, it has a special lookup function.
+      def log_webhook(opaque_id, sint, sstatus)
+        return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
+        # Status can be set from:
+        # - the 'status' method, which will be 201 if it hasn't been set,
+        # or another value if it has been set.
+        # - the webhook responder, which could respond with 401, etc
+        # - if there was an exception- so no status is set yet- use 0
+        # The main thing to watch out for is that we:
+        # - Cannot assume an exception is a 500 (it can be rescued later)
+        # - Must handle error! calls
+        # Anyway, this is all pretty confusing, but it's all tested.
+        rstatus = status == 201 ? (sstatus || 0) : status
+        request.body.rewind
+        Webhookdb::LoggedWebhook.dataset.insert(
+          request_body: request.body.read,
+          request_headers: request.headers.to_json,
+          request_method: request.request_method,
+          request_path: request.path_info,
+          response_status: rstatus,
+          organization_id: sint&.organization_id,
+          service_integration_opaque_id: opaque_id,
+        )
+      end
+    end
+
+    route_param :opaque_id do
       post do
-        sint = lookup_unauthed!
+        sint = lookup_unauthed!(params[:opaque_id])
         svc = Webhookdb::Services.service_instance(sint)
         whresp = svc.webhook_response(request)
         s_status, s_headers, s_body = whresp.to_rack
@@ -78,7 +81,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         end
         status s_status
       ensure
-        log_webhook(sint, s_status)
+        log_webhook(params[:opaque_id], sint, s_status)
       end
     end
   end
