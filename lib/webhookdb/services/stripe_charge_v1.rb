@@ -25,7 +25,12 @@ class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
     return [
       Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
       Webhookdb::Services::Column.new(:balance_transaction, TEXT, index: true),
-      Webhookdb::Services::Column.new(:billing_email, TEXT, index: true, data_key: ["billing_details", "email"]),
+      Webhookdb::Services::Column.new(
+        :billing_email, TEXT,
+        index: true,
+        data_key: ["billing_details", "email"],
+        optional: true,
+      ),
       Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
       Webhookdb::Services::Column.new(:customer, TEXT, index: true, optional: true),
       Webhookdb::Services::Column.new(:invoice, TEXT, index: true, optional: true),

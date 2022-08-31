@@ -622,19 +622,6 @@ RSpec.describe Webhookdb::Services::StripeChargeV1, :db do
               "application_fee": null,
               "application_fee_amount": null,
               "balance_transaction": "txn_1IkvoaFFYxHXGyKxmrsCulwF",
-              "billing_details": {
-                "address": {
-                  "city": null,
-                  "country": null,
-                  "line1": null,
-                  "line2": null,
-                  "postal_code": null,
-                  "state": null
-                },
-                "email": null,
-                "name": null,
-                "phone": null
-              },
               "calculated_statement_descriptor": "LITHIC TECHNOLOGY",
               "captured": true,
               "created": 1619548759,
