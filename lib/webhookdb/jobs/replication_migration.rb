@@ -1,14 +1,10 @@
 # frozen_string_literal: true
 
-require "webhookdb/async/job"
-
 class Webhookdb::Jobs::ReplicationMigration
-  extend Webhookdb::Async::Job
+  include Sidekiq::Worker
 
-  on "webhookdb.organization.migratereplication"
-
-  def _perform(event)
-    org = self.lookup_model(Webhookdb::Organization, event)
+  def perform(org_id)
+    (org = Webhookdb::Organization[org_id]) or raise "Organization[#{org_id}] does not exist"
     org.migrate_replication_tables
   end
 end

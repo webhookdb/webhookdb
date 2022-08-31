@@ -297,6 +297,32 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "ReplicationMigration" do
+    let(:fake_sint) { Webhookdb::Fixtures.service_integration.create }
+    let(:o) { fake_sint.organization }
+    let(:fake) { fake_sint.service_instance }
+
+    before(:each) do
+      o.prepare_database_connections
+      fake.create_table
+    end
+
+    after(:each) do
+      o.remove_related_database
+    end
+
+    it "migrates the org replication tables" do
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
+        ds.db << "ALTER TABLE #{fake_sint.table_name} DROP COLUMN at"
+      end
+      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id)
+      fake.admin_dataset do |ds|
+        expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
+      end
+    end
+  end
+
   describe "ResetCodeCreateDispatch" do
     it "sends an email for an email reset code" do
       customer = Webhookdb::Fixtures.customer(email: "maryjane@lithic.tech").create

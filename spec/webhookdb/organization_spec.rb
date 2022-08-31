@@ -62,11 +62,9 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       o.prepare_database_connections
       org2.prepare_database_connections
 
-      expect do
-        Webhookdb::Organization.enqueue_migrate_all_replication_tables
-      end.to publish("webhookdb.organization.migratereplication", [o.id]).and(
-        "webhookdb.organization.migratereplication", org2.id,
-      )
+      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_async).with(o.id)
+      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_async).with(org2.id)
+      Webhookdb::Organization.enqueue_migrate_all_replication_tables
     end
   end
 

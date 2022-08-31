@@ -4,6 +4,7 @@ require "webhookdb/postgres/model"
 require "appydays/configurable"
 require "stripe"
 require "webhookdb/stripe"
+require "webhookdb/jobs/replication_migration"
 
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   class SchemaMigrationError < StandardError; end
@@ -210,7 +211,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def self.enqueue_migrate_all_replication_tables
     Webhookdb::Organization.each do |org|
-      org.publish_immediate("migratereplication", org.id)
+      Webhookdb::Jobs::ReplicationMigration.perform_async(org.id)
     end
   end
 
