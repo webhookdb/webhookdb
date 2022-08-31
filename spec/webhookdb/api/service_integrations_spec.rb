@@ -210,6 +210,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
                     hash_including(
                       "headers" => hash_including("X-My-Test" => "abc"),
                       "body" => {"foo" => 1},
+                      "request_path" => "/v1/service_integrations/xyz",
+                      "request_method" => "POST",
                     ),
                   ],
                 ),
@@ -316,6 +318,49 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
         post "/v1/service_integrations/xyz"
         expect(last_response).to have_status(401)
       end.to_not publish("webhookdb.serviceintegration.webhook")
+    end
+
+    it "captures all HTTP methods and subpaths" do
+      header "X-My-Test", "abc"
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
+        include(
+          "args" => match_array(
+            [
+              include(
+                "name" => "webhookdb.serviceintegration.webhook",
+                "payload" => match_array(
+                  [
+                    sint.id,
+                    hash_including(
+                      "headers" => hash_including("X-My-Test" => "abc"),
+                      "body" => {},
+                      "request_path" => "/v1/service_integrations/xyz/v2/listings",
+                      "request_method" => "DELETE",
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          "queue" => "webhook",
+        ),
+      )
+
+      delete "/v1/service_integrations/xyz/v2/listings"
+
+      expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
+        include(
+          inserted_at: match_time(Time.now).within(5),
+          organization_id: sint.organization_id,
+          request_body: "",
+          request_headers: hash_including("Host" => "example.org"),
+          request_path: "/v1/service_integrations/xyz/v2/listings",
+          request_method: "DELETE",
+          response_status: 202,
+          service_integration_opaque_id: "xyz",
+        ),
+      )
     end
 
     it "db logs on success" do

@@ -47,42 +47,48 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       end
     end
 
-    route_param :opaque_id do
-      post do
-        sint = lookup_unauthed!(params[:opaque_id])
-        svc = Webhookdb::Services.service_instance(sint)
-        whresp = svc.webhook_response(request)
-        s_status, s_headers, s_body = whresp.to_rack
-        (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
+    route [:post, :put, :delete, :patch], "/:opaque_id*" do
+      sint = lookup_unauthed!(params[:opaque_id])
+      svc = Webhookdb::Services.service_instance(sint)
+      whresp = svc.webhook_response(request)
+      s_status, s_headers, s_body = whresp.to_rack
+      (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
 
-        if s_status >= 400
-          logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
-                                          webhook_body: env["api.request.body"]
-          header "Whdb-Rejected-Reason", whresp.reason
-        else
-          event_json = Webhookdb::Event.create(
-            "webhookdb.serviceintegration.webhook",
-            [sint.id, {headers: request.headers, body: env["api.request.body"]}],
-          ).as_json
-          # Audit Log this synchronously.
-          # It should be fast enough. We may as well log here so we can avoid
-          # serializing the (large) webhook payload multiple times, as with normal pubsub.
-          Webhookdb::Async::AuditLogger.new.perform(event_json)
-          queue = svc.upsert_has_deps? ? "netout" : "webhook"
-          Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
-        end
-
-        s_headers.each { |k, v| header k, v }
-        if s_headers["Content-Type"] == "application/json"
-          body JSON.parse(s_body)
-        else
-          env["api.format"] = :binary
-          body s_body
-        end
-        status s_status
-      ensure
-        log_webhook(params[:opaque_id], sint, s_status)
+      if s_status >= 400
+        logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
+                                        webhook_body: env["api.request.body"]
+        header "Whdb-Rejected-Reason", whresp.reason
+      else
+        event_json = Webhookdb::Event.create(
+          "webhookdb.serviceintegration.webhook",
+          [
+            sint.id,
+            {
+              headers: request.headers,
+              body: env["api.request.body"] || {},
+              request_path: request.path_info,
+              request_method: request.request_method,
+            },
+          ],
+        ).as_json
+        # Audit Log this synchronously.
+        # It should be fast enough. We may as well log here so we can avoid
+        # serializing the (large) webhook payload multiple times, as with normal pubsub.
+        Webhookdb::Async::AuditLogger.new.perform(event_json)
+        queue = svc.upsert_has_deps? ? "netout" : "webhook"
+        Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
       end
+
+      s_headers.each { |k, v| header k, v }
+      if s_headers["Content-Type"] == "application/json"
+        body JSON.parse(s_body)
+      else
+        env["api.format"] = :binary
+        body s_body
+      end
+      status s_status
+    ensure
+      log_webhook(params[:opaque_id], sint, s_status)
     end
   end
 
