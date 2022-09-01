@@ -314,7 +314,29 @@ class Webhookdb::Services::Base
     return result
   end
 
-  def upsert_webhook(body:)
+  # A given HTTP request may not be handled by the service integration it was sent to,
+  # for example where the service integration is part of some 'root' hierarchy.
+  # This method is called in the webhook endpoint, and should return the service instance
+  # used to handle the webhook request. The request is validated by the returned instance,
+  # and it is enqueued for processing.
+  #
+  # By default, the service called by the webhook is the one we want to use,
+  # so return self.
+  #
+  # @param request [Rack::Request]
+  # @return [Webhookdb::Services::Base]
+  def dispatch_request_to(request)
+    return self
+  end
+
+  # Upsert webhook using only a body.
+  # This is not valid for the rare integration which does not rely on request info,
+  # like when we have to take different action based on a request method.
+  def upsert_webhook_body(body)
+    return self.upsert_webhook(body:, headers: nil, request_path: nil, request_method: nil)
+  end
+
+  def upsert_webhook(body:, headers:, request_path:, request_method:)
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(body)
     return nil if resource.nil?
@@ -563,7 +585,7 @@ class Webhookdb::Services::Base
     end
 
     def handle_item(item)
-      return @svc.upsert_webhook(body: item)
+      return @svc.upsert_webhook_body(item)
     end
 
     def fetch_backfill_page(pagination_token, last_backfilled:)

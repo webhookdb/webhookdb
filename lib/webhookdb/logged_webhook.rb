@@ -79,7 +79,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   # or pass in (truncate_successful: true).
   def self.retry_logs(instances, truncate_successful: false)
     successes, failures = instances.partition do |lw|
-      uri = URI(Webhookdb.api_url + "/v1/service_integrations/#{lw.service_integration_opaque_id}")
+      uri = URI(Webhookdb.api_url + lw.request_path)
       req = Net::HTTP::Post.new(uri.path, {"Content-Type" => "application/json"})
       req.body = lw.request_body
       # This is going to have these headers:

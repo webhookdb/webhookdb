@@ -24,7 +24,7 @@ module Webhookdb::Tasks
             svc = sint.service_instance
             svc.create_table
             Array.new(5000) do |i|
-              svc.upsert_webhook(body: {"my_id" => i.to_s, "at" => (now - i.seconds).iso8601})
+              svc.upsert_webhook_body({"my_id" => i.to_s, "at" => (now - i.seconds).iso8601})
             end
           end
           puts "Created Webhookdb::Organization[#{org.id}]"

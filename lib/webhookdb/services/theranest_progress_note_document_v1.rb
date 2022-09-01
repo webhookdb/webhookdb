@@ -88,7 +88,7 @@ class Webhookdb::Services::TheranestProgressNoteDocumentV1 < Webhookdb::Services
 
     def handle_item(body)
       body["external_progress_note_id"] = @theranest_progress_note_id
-      @progress_note_document_svc.upsert_webhook(body:)
+      @progress_note_document_svc.upsert_webhook_body(body)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)

@@ -31,7 +31,8 @@ class Webhookdb::Jobs::ProcessWebhook
     ) do
       kwargs = event.payload[1].symbolize_keys
       svc = Webhookdb::Services.service_instance(@sint)
-      svc.upsert_webhook(body: kwargs.fetch(:body))
+      # kwargs contains: :headers, :body, :request_path, :request_method
+      svc.upsert_webhook(**kwargs)
     end
   end
 

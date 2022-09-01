@@ -252,12 +252,12 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
     describe "when there is no Plaid Item for the item id" do
       it "errors" do
         expect do
-          svc.upsert_webhook(body: create_body)
+          svc.upsert_webhook_body(create_body)
         end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
       end
 
       it "noops in regression mode", :regression_mode do
-        expect { svc.upsert_webhook(body: create_body) }.to_not raise_error
+        expect { svc.upsert_webhook_body(create_body) }.to_not raise_error
       end
     end
 
@@ -281,7 +281,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       R
       resp = stub_service_request(resp_body, cursor: nil)
 
-      svc.upsert_webhook(body: create_body)
+      svc.upsert_webhook_body(create_body)
 
       expect(resp).to have_been_made
       rows = svc.readonly_dataset(&:all)
@@ -299,7 +299,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
       insert_item_row
-      transaction_svc.upsert_webhook(body: create_body)
+      transaction_svc.upsert_webhook_body(create_body)
       expect(responses).to all(have_been_made)
       rows = transaction_svc.readonly_dataset(&:all)
       expect(rows).to have_length(2)
@@ -316,7 +316,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
       insert_item_row
-      transaction_svc.upsert_webhook(body: create_body)
+      transaction_svc.upsert_webhook_body(create_body)
       expect(responses[0]).to have_been_made
       expect(responses[1]).to have_been_made
       expect(responses[2]).to have_been_made
@@ -327,7 +327,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         stub_service_request(page2_response, cursor: "cursor1"),
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
-      transaction_svc.upsert_webhook(body: create_body)
+      transaction_svc.upsert_webhook_body(create_body)
       expect(responses).to all(have_been_made)
 
       rows = transaction_svc.readonly_dataset(&:all)
@@ -342,7 +342,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       item_sint.update(backfill_key: "")
       insert_item_row
       expect do
-        transaction_svc.upsert_webhook(body: create_body)
+        transaction_svc.upsert_webhook_body(create_body)
       end.to raise_error(Webhookdb::Services::CredentialsMissing)
     end
 
@@ -351,7 +351,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       response = stub_service_request_error
       insert_item_row
       expect do
-        transaction_svc.upsert_webhook(body: create_body)
+        transaction_svc.upsert_webhook_body(create_body)
       end.to raise_error(Webhookdb::Http::Error)
       expect(response).to have_been_made.times(3)
     end
@@ -370,7 +370,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       response = stub_request(:post, "https://sandbox.plaid.com/transactions/sync").
         to_return(status: 400, body: plaid_body, headers: {"Content-Type" => "application/json"})
       insert_item_row
-      transaction_svc.upsert_webhook(body: create_body)
+      transaction_svc.upsert_webhook_body(create_body)
       expect(response).to have_been_made
     end
 
@@ -383,7 +383,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         stub_service_request(page2_response, cursor: "cursor1"),
         stub_service_request(page3_response, cursor: "cursor2"),
       ]
-      transaction_svc.upsert_webhook(body: create_body)
+      transaction_svc.upsert_webhook_body(create_body)
       expect(responses).to all(have_been_made)
       expect(transaction_svc.readonly_dataset(&:all)).to have_length(4) # 2 backfilled, 2 existed
       dep_svc.admin_dataset do |ds|
@@ -406,7 +406,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
         to_return(status: 429, body: rate_limit_body, headers: {"Content-Type" => "application/json"})
       insert_item_row
       expect do
-        transaction_svc.upsert_webhook(body: create_body)
+        transaction_svc.upsert_webhook_body(create_body)
       end.to raise_error(Webhookdb::Async::Job::Retry)
       expect(req).to have_been_made.twice
 
@@ -424,7 +424,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
           stub_service_request(page3_response, cursor: "cursor2"),
         ]
         insert_item_row
-        transaction_svc.upsert_webhook(body: create_body)
+        transaction_svc.upsert_webhook_body(create_body)
         expect(responses).to all(have_been_made)
         rows = transaction_svc.readonly_dataset(&:all)
         expect(rows).to have_length(2)
@@ -441,7 +441,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
           stub_service_request(page3_response, cursor: "cursor2"),
         ]
         insert_item_row
-        transaction_svc.upsert_webhook(body: create_body)
+        transaction_svc.upsert_webhook_body(create_body)
         rows = transaction_svc.readonly_dataset(&:all)
         expect(responses).to all(have_been_made)
         expect(rows).to have_length(2)

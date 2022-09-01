@@ -195,6 +195,8 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           {
             headers: {},
             body: {"my_id" => "xyz", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
+            request_path: "/abc",
+            request_method: "POST",
           },
         )
       end.to perform_async_job(Webhookdb::Jobs::ProcessWebhook)

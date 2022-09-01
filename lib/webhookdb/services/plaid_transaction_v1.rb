@@ -60,7 +60,7 @@ class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   # Normally we'd do something like be backfill-only,
   # but we MUST handle Plaid Transaction webhooks because we do not
   # want to initiate our own backfills, as they cost customers money.
-  def upsert_webhook(body:)
+  def upsert_webhook(body:, **_kwargs)
     return unless body.fetch("webhook_type") == "TRANSACTIONS"
     item_id = body.fetch("item_id")
     plaid_item_service = self.service_integration.depends_on.service_instance
