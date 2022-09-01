@@ -81,10 +81,10 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     return {"item_id" => body.fetch("item_id")}, body
   end
 
-  def upsert_webhook(body:)
+  def upsert_webhook(body:, **kwargs)
     if body.fetch("webhook_type") != "ITEM"
       self.service_integration.dependents.each do |d|
-        d.service_instance.upsert_webhook(body:)
+        d.service_instance.upsert_webhook(body:, **kwargs)
       end
       return
     end

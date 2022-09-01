@@ -111,7 +111,7 @@ When your Transistor Episodes get added or updated, their stats will be updated 
 
     def handle_item(item)
       item["episode_id"] = @episode_id
-      @episode_stats_svc.upsert_webhook(body: item)
+      @episode_stats_svc.upsert_webhook_body(item)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)

@@ -220,7 +220,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             svc = Webhookdb::Services.service_instance(sint)
             body = env["api.request.body"]
             begin
-              svc.upsert_webhook(body:)
+              svc.upsert_webhook_body(body)
             rescue KeyError, TypeError => e
               self.logger.error "immediate_upsert", error: e
               err_msg = "Sorry! Looks like something has gone wrong. " \

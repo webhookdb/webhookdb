@@ -79,7 +79,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "item_id": "gAXlMgVEw5uEGoQnnXZ6tn9E7Mn3LBc4PJVKZ"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(include(:error))
       expect(svc.readonly_dataset(&:all).first[:error].to_h).to include("error_code" => "USER_PERMISSION_REVOKED")
     end
@@ -93,7 +93,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "consent_expiration_time": "2020-01-15T13:25:17.766Z"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(
           consent_expiration_time: match_time("2020-01-15T13:25:17.766Z"),
@@ -147,7 +147,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "access_token": "atok"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(
           plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
@@ -199,7 +199,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(req).to have_been_made
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(
@@ -222,12 +222,12 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       J
       it "errors on refreshed webhooks" do
         expect do
-          svc.upsert_webhook(body:)
+          svc.upsert_webhook_body(body)
         end.to raise_error(Webhookdb::InvalidPrecondition, /could not find Plaid item/)
       end
 
       it "noops if in regression mode", :regression_mode do
-        expect { svc.upsert_webhook(body:) }.to_not raise_error
+        expect { svc.upsert_webhook_body(body) }.to_not raise_error
       end
     end
 
@@ -262,7 +262,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "access_token": "atok"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(
           plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb",
@@ -298,7 +298,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "access_token": "atok"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", encrypted_access_token: "amIg507BPydo1vl3B3Tn9g=="),
       )
@@ -329,7 +329,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
           "access_token": "atok"
         }
       J
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", encrypted_access_token: "amIg507BPydo1vl3B3Tn9g=="),
       )
@@ -356,9 +356,9 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       dep_svc = sint.dependents.first.service_instance
       dep_svc.create_table
       expect(sint.dependents.first).to receive(:service_instance).and_return(dep_svc)
-      expect(dep_svc).to receive(:upsert_webhook).with(body:)
+      expect(dep_svc).to receive(:upsert_webhook).with(body:, headers: nil, request_method: nil, request_path: nil)
 
-      svc.upsert_webhook(body:)
+      svc.upsert_webhook_body(body)
     end
 
     describe "created and updated timestamps" do
@@ -374,7 +374,7 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       end
 
       it "are set on insert" do
-        svc.upsert_webhook(body: resource_json)
+        svc.upsert_webhook_body(resource_json)
         svc.readonly_dataset do |ds|
           expect(ds.all).to have_length(1)
           expect(ds.first).to include(row_created_at: match_time(:now), row_updated_at: match_time(:now))
@@ -384,9 +384,9 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       it "does not modify created at on update" do
         t = 1.day.ago
         Timecop.travel(t) do
-          svc.upsert_webhook(body: resource_json)
+          svc.upsert_webhook_body(resource_json)
         end
-        svc.upsert_webhook(body: resource_json)
+        svc.upsert_webhook_body(resource_json)
         svc.readonly_dataset do |ds|
           expect(ds.all).to have_length(1)
           expect(ds.first).to include(row_created_at: match_time(t).within(1), row_updated_at: match_time(:now))

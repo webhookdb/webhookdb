@@ -80,7 +80,7 @@ class Webhookdb::Services::TheranestAppointmentServiceTypeV1 < Webhookdb::Servic
     end
 
     def handle_item(item)
-      @appointment_service_type_svc.upsert_webhook(body: item)
+      @appointment_service_type_svc.upsert_webhook_body(item)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)

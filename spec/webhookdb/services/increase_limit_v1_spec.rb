@@ -433,7 +433,7 @@ RSpec.describe Webhookdb::Services::IncreaseLimitV1, :db do
     end
 
     it "is set to created_at of the event payload" do
-      svc.upsert_webhook(body: event_json)
+      svc.upsert_webhook_body(event_json)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first[:row_created_at]).to match_time("2020-01-31T23:59:59Z")
@@ -442,7 +442,7 @@ RSpec.describe Webhookdb::Services::IncreaseLimitV1, :db do
     end
 
     it "is set to now on insert of a non-event payload" do
-      svc.upsert_webhook(body: resource_json)
+      svc.upsert_webhook_body(resource_json)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first[:row_created_at]).to be_within(5).of(Time.now)
@@ -451,8 +451,8 @@ RSpec.describe Webhookdb::Services::IncreaseLimitV1, :db do
     end
 
     it "is not modified on update" do
-      svc.upsert_webhook(body: event_json)
-      svc.upsert_webhook(body: resource_json)
+      svc.upsert_webhook_body(event_json)
+      svc.upsert_webhook_body(resource_json)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(1)
         expect(ds.first[:row_created_at]).to match_time("2020-01-31T23:59:59Z")

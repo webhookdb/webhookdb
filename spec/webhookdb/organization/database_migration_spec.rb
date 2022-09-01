@@ -93,8 +93,8 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
       sint2.service_instance.create_table
       Array.new(52) do |i|
         t = (t0 + i.days).iso8601
-        sint1.service_instance.upsert_webhook(body: {"my_id" => i.to_s, "at" => t})
-        sint2.service_instance.upsert_webhook(body: {"my_id" => i.to_s, "at" => t})
+        sint1.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
+        sint2.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
       end
       dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
       @dbmigration = described_class.enqueue(
@@ -140,7 +140,7 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
     it "does not overwrite newer rows in the desetination database (conditional upsert)" do
       sint1.service_instance.create_table
       body = {"my_id" => "5", "at" => (t0 + 100.days).iso8601, "extra" => 1}
-      sint1.service_instance.upsert_webhook(body:)
+      sint1.service_instance.upsert_webhook_body(body)
       dbmigration.migrate
       expect(sint1.service_instance.readonly_dataset(&:all)).to have_length(52)
       expect(sint1.service_instance.readonly_dataset { |ds| ds[my_id: "5"] }[:data]).to eq(body)

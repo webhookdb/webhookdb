@@ -329,7 +329,14 @@ class Webhookdb::Services::Base
     return self
   end
 
-  def upsert_webhook(body:)
+  # Upsert webhook using only a body.
+  # This is not valid for the rare integration which does not rely on request info,
+  # like when we have to take different action based on a request method.
+  def upsert_webhook_body(body)
+    return self.upsert_webhook(body:, headers: nil, request_path: nil, request_method: nil)
+  end
+
+  def upsert_webhook(body:, headers:, request_path:, request_method:)
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(body)
     return nil if resource.nil?
@@ -578,7 +585,7 @@ class Webhookdb::Services::Base
     end
 
     def handle_item(item)
-      return @svc.upsert_webhook(body: item)
+      return @svc.upsert_webhook_body(item)
     end
 
     def fetch_backfill_page(pagination_token, last_backfilled:)

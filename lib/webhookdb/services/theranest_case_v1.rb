@@ -85,7 +85,7 @@ class Webhookdb::Services::TheranestCaseV1 < Webhookdb::Services::Base
               end
       body["external_client_id"] = @theranest_client_id
       body["state"] = state
-      @case_svc.upsert_webhook(body:)
+      @case_svc.upsert_webhook_body(body)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)
