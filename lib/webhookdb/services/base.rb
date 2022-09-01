@@ -314,6 +314,21 @@ class Webhookdb::Services::Base
     return result
   end
 
+  # A given HTTP request may not be handled by the service integration it was sent to,
+  # for example where the service integration is part of some 'root' hierarchy.
+  # This method is called in the webhook endpoint, and should return the service instance
+  # used to handle the webhook request. The request is validated by the returned instance,
+  # and it is enqueued for processing.
+  #
+  # By default, the service called by the webhook is the one we want to use,
+  # so return self.
+  #
+  # @param request [Rack::Request]
+  # @return [Webhookdb::Services::Base]
+  def dispatch_request_to(request)
+    return self
+  end
+
   def upsert_webhook(body:)
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(body)

@@ -6,6 +6,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :webhook_response
   singleton_attr_accessor :upsert_has_deps
   singleton_attr_accessor :resource_and_event_hook
+  singleton_attr_accessor :dispatch_request_to_hook
 
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -20,6 +21,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     self.webhook_response = Webhookdb::WebhookResponse.ok
     self.upsert_has_deps = false
     self.resource_and_event_hook = nil
+    self.dispatch_request_to_hook = nil
   end
 
   def self.stub_backfill_request(items, status: 200)
@@ -92,6 +94,11 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def _update_where_expr
     return Sequel[self.qualified_table_sequel_identifier][:at] < Sequel[:excluded][:at]
+  end
+
+  def dispatch_request_to(request)
+    return self.class.dispatch_request_to_hook.call(request) if self.class.dispatch_request_to_hook
+    return super
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)

@@ -363,6 +363,34 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       )
     end
 
+    it "can dispatch to a specified service integration" do
+      other_sint = Webhookdb::Fixtures.service_integration.create(organization: org)
+      Webhookdb::Services::Fake.dispatch_request_to_hook = lambda { |req|
+        expect(req).to be_a(Rack::Request)
+        other_sint.service_instance
+      }
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
+        include(
+          "args" => match_array(
+            [
+              include(
+                "payload" => match_array(
+                  [
+                    other_sint.id,
+                    hash_including,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      )
+
+      put "/v1/service_integrations/xyz/sub"
+
+      expect(last_response).to have_status(202)
+    end
+
     it "db logs on success" do
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
       post "/v1/service_integrations/xyz", a: 1
