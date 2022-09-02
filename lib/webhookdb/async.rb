@@ -209,6 +209,14 @@ module Webhookdb::Async
   singleton_attr_reader :jobs
   @jobs = []
 
+  def self.open_web
+    u = URI(Webhookdb.api_url)
+    u.user = self.web_username
+    u.password = self.web_password
+    u.path = "/sidekiq"
+    `open #{u}`
+  end
+
   # Return an array of all Job subclasses that respond to event publishing (have patterns).
   def self.event_jobs
     return self.jobs.select(&:event_job?)
