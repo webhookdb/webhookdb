@@ -416,6 +416,15 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       )
     end
 
+    it "raises a special error for timeouts" do
+      req = stub_request(:post, "https://sandbox.plaid.com/transactions/sync").and_raise(Net::ReadTimeout)
+      insert_item_row
+      expect do
+        transaction_svc.upsert_webhook_body(create_body)
+      end.to raise_error(described_class::PlaidAtItAgain)
+      expect(req).to have_been_made
+    end
+
     describe "created and updated timestamps" do
       it "are set on insert" do
         responses = [

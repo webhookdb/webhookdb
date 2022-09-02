@@ -8,6 +8,16 @@ require "webhookdb/plaid"
 class Webhookdb::Services::PlaidTransactionV1 < Webhookdb::Services::Base
   include Appydays::Loggable
 
+  class PlaidAtItAgain < StandardError
+    attr_reader :timeout, :item_id
+
+    def initialize(timeout:, item_id:)
+      @timeout = timeout
+      @item_id = item_id
+      super("/transactions/sync timed out")
+    end
+  end
+
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -282,6 +292,8 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
           timeout: Webhookdb::Plaid.sync_timeout,
           logger: @transaction_svc.logger,
         )
+      rescue Net::ReadTimeout
+        raise PlaidAtItAgain.new(timeout: Webhookdb::Plaid.sync_timeout, item_id: @plaid_item_id)
       rescue Webhookdb::Http::Error => e
         errtype = e.response.parsed_response["error_type"]
         return [], nil if Webhookdb::Services::PlaidItemV1::STORABLE_ERROR_TYPES.include?(errtype)
