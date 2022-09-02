@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/retry"
 require "amigo/durable_job"
 require "amigo/rate_limited_error_handler"
 require "appydays/configurable"
@@ -192,10 +193,15 @@ module Webhookdb::Async
           ttl: self.error_reporting_ttl,
         )
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
+        config.server_middleware.add(Amigo::DurableJob::ServerMiddleware)
+        # We use the dead set to move jobs that we need to retry manually
+        config.options[:dead_max_jobs] = 999_999_999
+        config.server_middleware.add(Amigo::Retry::ServerMiddleware)
       end
 
       Sidekiq.configure_client do |config|
         config.redis = redis_params
+        config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
       end
     end
   end
@@ -208,6 +214,14 @@ module Webhookdb::Async
   # Array of all Job subclasses.
   singleton_attr_reader :jobs
   @jobs = []
+
+  def self.open_web
+    u = URI(Webhookdb.api_url)
+    u.user = self.web_username
+    u.password = self.web_password
+    u.path = "/sidekiq"
+    `open #{u}`
+  end
 
   # Return an array of all Job subclasses that respond to event publishing (have patterns).
   def self.event_jobs

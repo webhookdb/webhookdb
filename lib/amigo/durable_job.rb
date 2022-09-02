@@ -18,7 +18,7 @@ end
 #
 # - Connections to a series of database servers are held.
 #   These servers act as the 'durable stores' for Redis.
-# - Directly after a job is enqueued (perform_async, etc),
+# - In client middleware,
 #   a row is written into the first available durable store database.
 #   Every row records when it should be considered "dead";
 #   that is, after this time,
@@ -26,7 +26,7 @@ end
 #   as explained below.
 #   This is known as the "assume dead at" time; the difference between when a job is enqueued/runs,
 #   and when it can be assumed dead, is known as the "heartbeat extension".
-# - Whenever the job runs (Worker#perform), it takes a lock on the durable store row,
+# - Whenever the job runs, server middleware takes a lock on the durable store row,
 #   and updates assume_dead_at to be "now plus heartbeat_extension".
 #   This is true when the job runs the first time, but also during any retry.
 # - Any long-running jobs should be sure to call DurableJob.heartbeat
@@ -49,7 +49,7 @@ end
 # - If the job is currently in the retry set, we update the assume_dead_at of the row
 #   so it's after the time the job will be retried. That way we won't try and process
 #   the job again until after it's been retried.
-# - If the job is in the DeadSet, we delete the row since we should nto re-enqueue it.
+# - If the job is in the DeadSet, we delete the row since we should not re-enqueue it.
 # - If the job cannot be found in any of these places,
 #   we re-enqueue the job.
 #
@@ -65,11 +65,7 @@ module Amigo::DurableJob
   extend Sidekiq::Component
 
   def self.included(cls)
-    cls.prepend PrependedMethods
     cls.extend ClassMethods
-    class << cls
-      prepend PrependedClassMethods
-    end
   end
 
   class << self
@@ -143,21 +139,20 @@ module Amigo::DurableJob
       return self.storage_databases.map { |db| db[self.table_fqn] }
     end
 
-    def insert_job(job, job_id, item, more: {})
+    def insert_job(job_class, job_id, item, more: {})
       raise Webhookdb::InvalidPrecondition, "not enabled" unless  self.enabled?
-      job_class = item.fetch("class").to_s
       item = item.dup
-      item["class"] = job_class
+      item["class"] = job_class.to_s
       job_run_at = item.key?("at") ? Time.at(item["at"]) : Time.now
-      assume_dead_at = job_run_at + job.heartbeat_extension
+      assume_dead_at = job_run_at + job_class.heartbeat_extension
       inserted = self.storage_datasets.any? do |ds|
         begin
           ds.insert(
             job_id:,
-            job_class:,
+            job_class: job_class.to_s,
             job_item_json: item.to_json,
             assume_dead_at:,
-            queue: job.get_sidekiq_options["queue"],
+            queue: job_class.get_sidekiq_options["queue"],
             **more,
           )
         rescue Sequel::DatabaseConnectionError => e
@@ -200,10 +195,10 @@ module Amigo::DurableJob
     def heartbeat(now: nil)
       return unless self.enabled?
       now ||= Time.now
-      active_job, ds = Thread.current[:durable_job_active_job]
-      return nil if active_job.nil?
-      assume_dead_at = now + active_job.class.heartbeat_extension
-      ds.where(job_id: active_job.jid).update(assume_dead_at:)
+      active_worker, ds = Thread.current[:durable_job_active_job]
+      return nil if active_worker.nil?
+      assume_dead_at = now + active_worker.class.heartbeat_extension
+      ds.where(job_id: active_worker.jid).update(assume_dead_at:)
       return assume_dead_at
     end
 
@@ -338,46 +333,36 @@ module Amigo::DurableJob
     end
   end
 
-  module PrependedMethods
-    def perform(*)
-      return super unless Amigo::DurableJob.enabled?
+  class ClientMiddleware
+    def call(worker_class, job, _queue, _redis_pool)
+      return job unless Amigo::DurableJob.enabled?
+      (worker_class = worker_class.constantize) if worker_class.is_a?(String)
+      return job unless worker_class.respond_to?(:heartbeat_extension)
+      Amigo::DurableJob.insert_job(worker_class, job.fetch("jid"), job) unless job["durable_reenqueued_at"]
+      return job
+    end
+  end
 
-      ds, row = Amigo::DurableJob.lock_job(self.jid, self.class.heartbeat_extension)
+  class ServerMiddleware
+    def call(worker, _job, _queue)
+      return yield unless Amigo::DurableJob.enabled? && worker.class.respond_to?(:heartbeat_extension)
+      ds, row = Amigo::DurableJob.lock_job(worker.jid, worker.class.heartbeat_extension)
       if row.nil?
-        Sidekiq.logger.error "DurableJob: #{self.class}[#{self.jid}]: no row found in database"
-        return super
+        Sidekiq.logger.error "DurableJob: #{worker.class}[#{worker.jid}]: no row found in database"
+        return yield
       end
-      Thread.current[:durable_job_active_job] = self, ds
+      Thread.current[:durable_job_active_job] = worker, ds
       # rubocop:disable Lint/RescueException
       begin
-        result = super
+        yield
       rescue Exception
-        Amigo::DurableJob.unlock_job(ds, self.jid, self.class.heartbeat_extension)
+        Amigo::DurableJob.unlock_job(ds, worker.jid, worker.class.heartbeat_extension)
         raise
       ensure
         Thread.current[:durable_job_active_job] = nil
       end
       # rubocop:enable Lint/RescueException
       ds.where(job_id: row[:job_id]).delete
-      return result
-    end
-  end
-
-  module PrependedClassMethods
-    def client_push(item)
-      return super unless Amigo::DurableJob.enabled?
-
-      # We need to set the job id ahead of time, since we need to use it.
-      # We must insert the row into storage **BEFORE** we enqueue the job in Sidekiq;
-      # otherwise, the job can run before the insert even finishes, which results in
-      # an enqueued durable job that will be a duplicate when it runs.
-      item["jid"] ||= SecureRandom.hex(12)
-      Amigo::DurableJob.insert_job(self, item["jid"], item) unless item["durable_reenqueued_at"]
-      jid = super
-      if jid != item["jid"]
-        raise "Sidekiq generated jid #{jid} but we generated jid #{item['jid']}. Should never have happened."
-      end
-      return jid
     end
   end
 end

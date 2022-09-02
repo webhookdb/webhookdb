@@ -145,11 +145,8 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
       )
     rescue Webhookdb::Http::Error => e
       errtype = e.response.parsed_response["error_type"]
-      if STORABLE_ERROR_TYPES.include?(errtype)
-        return {
-          "error" => e.response.body,
-        }
-      end
+      return {"error" => e.response.body} if STORABLE_ERROR_TYPES.include?(errtype)
+      raise Amigo::Retry::Retry, rand(20..59) if errtype == "RATE_LIMIT_EXCEEDED"
       raise e
     end
     body = resp.parsed_response
