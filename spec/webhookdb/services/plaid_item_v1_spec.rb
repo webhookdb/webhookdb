@@ -337,6 +337,31 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       expect(req).to have_been_made
     end
 
+    it "raises a retry on a 429" do
+      plaid_body = <<~J
+        {
+          "error_type": "RATE_LIMIT_EXCEEDED",
+          "error_code": "ITEM_GET_LIMIT",
+          "error_message": "rate limit exceeded for attempts to access this item. please try again later",
+          "display_message": null,
+          "request_id": "HNTDNrA8F1shFEW"
+        }
+      J
+      req = stub_request(:post, "https://fake-url.com/item/get").
+        to_return(status: 400, body: plaid_body, headers: {"Content-Type" => "application/json"})
+
+      body = JSON.parse(<<~J)
+        {
+          "webhook_type": "ITEM",
+          "webhook_code": "CREATED",
+          "item_id": "wz666MBjYWTp2PDzzggYhM6oWWmBb",
+          "access_token": "atok"
+        }
+      J
+      expect { svc.upsert_webhook_body(body) }.to raise_error(Amigo::Retry::Retry)
+      expect(req).to have_been_made
+    end
+
     it "notifies dependents on non-item webhook types" do
       svc.admin_dataset do |ds|
         ds.insert(plaid_id: "wz666MBjYWTp2PDzzggYhM6oWWmBb", data: "{}")
