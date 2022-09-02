@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/retry"
 require "amigo/durable_job"
 require "amigo/rate_limited_error_handler"
 require "appydays/configurable"
@@ -192,6 +193,9 @@ module Webhookdb::Async
           ttl: self.error_reporting_ttl,
         )
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
+        # We use the dead set to move jobs that we need to retry manually
+        config.options[:dead_max_jobs] = 999_999_999
+        config.server_middleware.add(Amigo::Retry::ServerMiddleware)
       end
 
       Sidekiq.configure_client do |config|

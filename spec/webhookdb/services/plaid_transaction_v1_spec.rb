@@ -407,7 +407,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       insert_item_row
       expect do
         transaction_svc.upsert_webhook_body(create_body)
-      end.to raise_error(Webhookdb::Async::Job::Retry)
+      end.to raise_error(Amigo::Retry::Retry)
       expect(req).to have_been_made.twice
 
       rows = transaction_svc.readonly_dataset(&:all)
@@ -433,7 +433,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       insert_item_row
       expect do
         transaction_svc.upsert_webhook_body(create_body)
-      end.to raise_error(Webhookdb::Async::Job::Retry)
+      end.to raise_error(Amigo::Retry::Retry)
       expect(req).to have_been_made.twice
       expect(transaction_svc.readonly_dataset(&:all)).to be_empty
     end
@@ -443,7 +443,7 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       insert_item_row
       expect do
         transaction_svc.upsert_webhook_body(create_body)
-      end.to raise_error(described_class::PlaidAtItAgain)
+      end.to raise_error(described_class::SyncTimeout)
       expect(req).to have_been_made
     end
 

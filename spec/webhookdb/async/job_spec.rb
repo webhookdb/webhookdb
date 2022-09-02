@@ -385,11 +385,27 @@ RSpec.describe Webhookdb::Async::Job, :async, :db do
       ev = Webhookdb::Event.new("id1", "evname", [1, 2])
       expect(instance.perform(ev.as_json)).to have_attributes(id: "id1", name: "evname")
     end
+  end
 
-    it "catches retry exceptions and reschedules with the given interval" do
-      expect(subclass).to receive(:perform_in).with(30)
-      instance.callback = ->(*) { raise described_class::Retry, 30 }
-      instance.perform
+  describe "retry system" do
+    before(:each) do
+      Sidekiq::Testing.fake!
+      Sidekiq.redis(&:flushdb)
+    end
+
+    after(:each) do
+      Sidekiq::Worker.drain_all
+    end
+
+    let(:subclass) do
+      Class.new do
+        extend Webhookdb::Async::Job
+        attr_accessor :ex
+
+        def _perform(*)
+          raise self.ex if self.ex
+        end
+      end
     end
   end
 end

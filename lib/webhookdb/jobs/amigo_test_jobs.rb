@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/retry"
 require "amigo/queue_backoff_job"
 require "amigo/durable_job"
 require "sidekiq"
@@ -57,5 +58,20 @@ class Webhookdb::Jobs::BackoffShouldRun
 
   def perform(duration=0.1)
     sleep(duration)
+  end
+end
+
+class Webhookdb::Jobs::RetryChecker
+  include Sidekiq::Job
+
+  def perform(action, interval, attempts)
+    case action
+      when "retry"
+        raise Amigo::Retry::Retry, interval
+      when "die"
+        raise Amigo::Retry::Die
+    else
+        raise Amigo::Retry::Die.new(attempts, interval)
+    end
   end
 end
