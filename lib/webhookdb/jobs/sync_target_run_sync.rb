@@ -15,7 +15,7 @@ class Webhookdb::Jobs::SyncTargetRunSync
 
   def perform(sync_target_id)
     (stgt = Webhookdb::SyncTarget[sync_target_id]) or raise "no sync target with id #{sync_target_id}"
-    Webhookdb::Async::JobLogger.with_log_tags(
+    self.with_log_tags(
       sync_target_id: stgt.id,
       sync_target_connection_url: stgt.displaysafe_connection_url,
       sync_target_service_integration_service: stgt.service_integration.service_name,
