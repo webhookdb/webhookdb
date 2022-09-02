@@ -56,6 +56,9 @@ RSpec.configure do |config|
     require "webhookdb/spec_helpers/integration"
     config.include(Webhookdb::IntegrationSpecHelpers)
   else
+    require "amigo/spec_helpers"
+    config.include(Amigo::SpecHelpers)
+
     config.include(Webhookdb::SpecHelpers)
     require "webhookdb/spec_helpers/async"
     config.include(Webhookdb::SpecHelpers::Async)

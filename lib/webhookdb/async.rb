@@ -193,6 +193,7 @@ module Webhookdb::Async
           ttl: self.error_reporting_ttl,
         )
         config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
+        config.server_middleware.add(Amigo::DurableJob::ServerMiddleware)
         # We use the dead set to move jobs that we need to retry manually
         config.options[:dead_max_jobs] = 999_999_999
         config.server_middleware.add(Amigo::Retry::ServerMiddleware)
@@ -200,6 +201,7 @@ module Webhookdb::Async
 
       Sidekiq.configure_client do |config|
         config.redis = redis_params
+        config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
       end
     end
   end

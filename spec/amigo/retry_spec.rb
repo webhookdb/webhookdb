@@ -2,17 +2,6 @@
 
 require "amigo/retry"
 
-class Sidekiq::Worker::Setter
-  class << self
-    attr_accessor :override_item
-  end
-  def normalize_item(item)
-    result = super
-    result.merge!(self.class.override_item || {})
-    return result
-  end
-end
-
 RSpec.describe Amigo::Retry do
   before(:each) do
     Sidekiq.redis(&:flushdb)
@@ -47,33 +36,14 @@ RSpec.describe Amigo::Retry do
     cls
   end
 
-  def runjobs(q)
-    alljobs(q).each do |job|
-      klass = job.item["class"].constantize
-      Sidekiq::Worker::Setter.override_item = job.item
-      begin
-        klass.perform_inline(*job.item["args"])
-      ensure
-        Sidekiq::Worker::Setter.override_item = nil
-      end
-      job.delete
-    end
-  end
-
-  def alljobs(q)
-    arr = []
-    q.each { |j| arr << j }
-    return arr
-  end
-
   it "catches retry exceptions and reschedules with the given interval" do
     kls = create_job_class(ex: Amigo::Retry::Retry.new(30))
     kls.perform_async(1)
 
-    expect(alljobs(Sidekiq::Queue.new)).to have_length(1)
-    runjobs(Sidekiq::Queue.new)
+    expect(all_jobs(Sidekiq::Queue.new)).to have_length(1)
+    drain_jobs(Sidekiq::Queue.new)
 
-    expect(alljobs(Sidekiq::ScheduledSet.new)).to contain_exactly(
+    expect(all_jobs(Sidekiq::ScheduledSet.new)).to contain_exactly(
       have_attributes(
         score: match_time(30.seconds.from_now).within(5),
         item: include("retry_count" => 1),
@@ -81,8 +51,8 @@ RSpec.describe Amigo::Retry do
     )
 
     # Continue to retry
-    runjobs(Sidekiq::ScheduledSet.new)
-    sched2 = alljobs(Sidekiq::ScheduledSet.new)
+    drain_jobs(Sidekiq::ScheduledSet.new)
+    sched2 = all_jobs(Sidekiq::ScheduledSet.new)
     expect(sched2).to have_length(1)
     expect(sched2.first).to have_attributes(
       score: match_time(30.seconds.from_now).within(5),
@@ -96,12 +66,12 @@ RSpec.describe Amigo::Retry do
     end
     kls.perform_async(1)
 
-    jobs = alljobs(Sidekiq::Queue.new("otherq"))
+    jobs = all_jobs(Sidekiq::Queue.new("otherq"))
     expect(jobs).to have_length(1)
-    runjobs(Sidekiq::Queue.new("otherq"))
+    drain_jobs(Sidekiq::Queue.new("otherq"))
 
     # Should have moved to retry set
-    sched = alljobs(Sidekiq::ScheduledSet.new)
+    sched = all_jobs(Sidekiq::ScheduledSet.new)
     expect(sched).to have_length(1)
     expect(sched.first).to have_attributes(queue: "otherq")
   end
@@ -110,11 +80,11 @@ RSpec.describe Amigo::Retry do
     kls = create_job_class(ex: Amigo::Retry::Die.new)
     kls.perform_async(1)
 
-    runjobs(Sidekiq::Queue.new)
+    drain_jobs(Sidekiq::Queue.new)
 
     # Ends up in dead set, not scheduled set
-    expect(alljobs(Sidekiq::ScheduledSet.new)).to be_empty
-    dead = alljobs(Sidekiq::DeadSet.new)
+    expect(all_jobs(Sidekiq::ScheduledSet.new)).to be_empty
+    dead = all_jobs(Sidekiq::DeadSet.new)
     expect(dead).to have_length(1)
     expect(dead.first).to have_attributes(klass: kls.name, args: [1])
   end
@@ -123,13 +93,13 @@ RSpec.describe Amigo::Retry do
     kls = create_job_class(ex: Amigo::Retry::OrDie.new(2, 30))
     kls.perform_async(1)
 
-    runjobs(Sidekiq::Queue.new) # will go to be retried
-    expect(alljobs(Sidekiq::ScheduledSet.new)).to have_length(1)
-    runjobs(Sidekiq::ScheduledSet.new) # retry once
-    expect(alljobs(Sidekiq::ScheduledSet.new)).to have_length(1)
-    runjobs(Sidekiq::ScheduledSet.new) # retry twice
-    expect(alljobs(Sidekiq::ScheduledSet.new)).to have_length(1)
-    runjobs(Sidekiq::ScheduledSet.new) # the third retry moves to the dead set
-    expect(alljobs(Sidekiq::DeadSet.new)).to have_length(1)
+    drain_jobs(Sidekiq::Queue.new) # will go to be retried
+    expect(all_jobs(Sidekiq::ScheduledSet.new)).to have_length(1)
+    drain_jobs(Sidekiq::ScheduledSet.new) # retry once
+    expect(all_jobs(Sidekiq::ScheduledSet.new)).to have_length(1)
+    drain_jobs(Sidekiq::ScheduledSet.new) # retry twice
+    expect(all_jobs(Sidekiq::ScheduledSet.new)).to have_length(1)
+    drain_jobs(Sidekiq::ScheduledSet.new) # the third retry moves to the dead set
+    expect(all_jobs(Sidekiq::DeadSet.new)).to have_length(1)
   end
 end
