@@ -279,6 +279,7 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
             cursor: @cursor,
             count:,
           },
+          timeout: Webhookdb::Plaid.sync_timeout,
           logger: @transaction_svc.logger,
         )
       rescue Webhookdb::Http::Error => e

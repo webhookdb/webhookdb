@@ -7,6 +7,7 @@ module Webhookdb::Plaid
 
   configurable(:plaid) do
     setting :page_size, 100
+    setting :sync_timeout, 10
   end
 
   def self.webhook_response(request, webhook_secret)
