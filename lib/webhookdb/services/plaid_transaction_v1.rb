@@ -301,6 +301,12 @@ Please refer to https://webhookdb.com/docs/plaid#backfill-history for more detai
           backoff = rand(20..59)
           @retry_error = Webhookdb::Async::Job::Retry.new(backoff)
           return [], nil
+        elsif e.response.parsed_response["error_code"] == "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION"
+          # This is a weird error. We need to make sure we throw away the cursor that
+          # we're using for pagination, and restart from the last-known-good cursor.
+          # We just need to retry with that cursor to fix the issue,
+          # but it's important we do NOT commit any changes. So roll it all back.
+          raise Webhookdb::Async::Job::Retry, 5
         end
         raise e
       end

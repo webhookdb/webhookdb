@@ -416,6 +416,28 @@ RSpec.describe Webhookdb::Services::PlaidTransactionV1, :db do
       )
     end
 
+    it "aborts and retries for a transaction mutation error" do
+      rate_limit_body = <<~J
+        {
+          "display_message": null,
+          "error_code": "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION",
+          "error_message": "Underlying transaction data changed since last page was fetched. Please restart pagination from last update.",
+          "error_type": "TRANSACTIONS_ERROR",
+          "request_id": "V47ZG7AC0MQZbFu",
+          "suggested_action": null
+        }
+      J
+      req = stub_request(:post, "https://sandbox.plaid.com/transactions/sync").
+        to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}).
+        to_return(status: 429, body: rate_limit_body, headers: {"Content-Type" => "application/json"})
+      insert_item_row
+      expect do
+        transaction_svc.upsert_webhook_body(create_body)
+      end.to raise_error(Webhookdb::Async::Job::Retry)
+      expect(req).to have_been_made.twice
+      expect(transaction_svc.readonly_dataset(&:all)).to be_empty
+    end
+
     it "raises a special error for timeouts" do
       req = stub_request(:post, "https://sandbox.plaid.com/transactions/sync").and_raise(Net::ReadTimeout)
       insert_item_row
