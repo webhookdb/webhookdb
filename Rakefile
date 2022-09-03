@@ -10,6 +10,8 @@ require "sentry-ruby"
 
 require "webhookdb/tasks/annotate"
 Webhookdb::Tasks::Annotate.new
+require "webhookdb/tasks/bootstrap"
+Webhookdb::Tasks::Bootstrap.new
 require "webhookdb/tasks/db"
 Webhookdb::Tasks::DB.new
 require "webhookdb/tasks/fixture"
@@ -24,5 +26,3 @@ require "webhookdb/tasks/sidekiq"
 Webhookdb::Tasks::Sidekiq.new
 require "webhookdb/tasks/specs"
 Webhookdb::Tasks::Specs.new
-require "webhookdb/tasks/theranest"
-Webhookdb::Tasks::Theranest.new

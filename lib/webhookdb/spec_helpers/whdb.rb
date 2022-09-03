@@ -71,4 +71,12 @@ module Webhookdb::SpecHelpers::Whdb
       dependency_descriptor = sint.present? ? sint.service_instance.descriptor.dependency_descriptor : nil
     end
   end
+
+  module_function def setup_dependency(service_integration, insert_required_data_callback=nil)
+    return if service_integration.depends_on.nil?
+    dependency_svc = service_integration.depends_on.service_instance
+    dependency_svc.create_table
+    insert_required_data_callback&.call(dependency_svc)
+    return dependency_svc
+  end
 end

@@ -114,6 +114,11 @@ require "webhookdb/services/plaid_item_v1"
 require "webhookdb/services/plaid_transaction_v1"
 require "webhookdb/services/shopify_customer_v1"
 require "webhookdb/services/shopify_order_v1"
+require "webhookdb/services/sponsy_customer_v1"
+require "webhookdb/services/sponsy_placement_v1"
+require "webhookdb/services/sponsy_publication_v1"
+require "webhookdb/services/sponsy_slot_v1"
+require "webhookdb/services/sponsy_status_v1"
 require "webhookdb/services/stripe_charge_v1"
 require "webhookdb/services/stripe_coupon_v1"
 require "webhookdb/services/stripe_customer_v1"
@@ -159,6 +164,11 @@ Webhookdb::Services.register(Webhookdb::Services::PlaidItemV1)
 Webhookdb::Services.register(Webhookdb::Services::PlaidTransactionV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
 Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
+Webhookdb::Services.register(Webhookdb::Services::SponsyCustomerV1)
+Webhookdb::Services.register(Webhookdb::Services::SponsyPlacementV1)
+Webhookdb::Services.register(Webhookdb::Services::SponsyPublicationV1)
+Webhookdb::Services.register(Webhookdb::Services::SponsySlotV1)
+Webhookdb::Services.register(Webhookdb::Services::SponsyStatusV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeCouponV1)
 Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)

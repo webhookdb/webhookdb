@@ -175,7 +175,11 @@ class Webhookdb::Services::Column
         self._dig(resource, self.data_key, self.optional)
       end
       (v = self.defaulter.ruby.call(resource)) if self.defaulter && v.nil?
-      v = self.converter.ruby.call(v, resource) if self.converter
+      if self.converter
+        v = self.converter.ruby.call(v, resource)
+      elsif (self.type == INTEGER_ARRAY) && !v.nil?
+        v = Sequel.pg_array(v, "integer")
+      end
       # pg_json doesn't handle thie ssuper well in our situation,
       # so JSON must be inserted as a string.
       if (_stringify_json = self.type == OBJECT && !v.nil? && !v.is_a?(String))

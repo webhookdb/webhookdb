@@ -557,7 +557,7 @@ class Webhookdb::Services::Base
     return unless cascade
     sint.dependents.each do |dep|
       Webhookdb.publish(
-        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true},
+        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true, incremental:},
       )
     end
   end

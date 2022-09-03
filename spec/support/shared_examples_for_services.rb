@@ -288,11 +288,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   it "upsert records for pages of results" do
     svc.create_table
     create_all_dependencies(sint)
-    unless sint.depends_on.nil?
-      dependency_svc = sint.depends_on.service_instance
-      dependency_svc.create_table
-      insert_required_data_callback.call(dependency_svc)
-    end
+    setup_dependency(sint, insert_required_data_callback)
     responses = stub_service_requests
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -302,11 +298,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   it "retries the page fetch" do
     svc.create_table
     create_all_dependencies(sint)
-    unless sint.depends_on.nil?
-      dependency_svc = sint.depends_on.service_instance
-      dependency_svc.create_table
-      insert_required_data_callback.call(dependency_svc)
-    end
+    setup_dependency(sint, insert_required_data_callback)
     backfillers = svc._backfillers
     expect(svc).to receive(:_backfillers).and_return(backfillers)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).
@@ -334,11 +326,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   it "errors if fetching page errors" do
     svc.create_table
     create_all_dependencies(sint)
-    unless sint.depends_on.nil?
-      dependency_svc = sint.depends_on.service_instance
-      dependency_svc.create_table
-      insert_required_data_callback.call(dependency_svc)
-    end
+    setup_dependency(sint, insert_required_data_callback)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     response = stub_service_request_error
     expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
@@ -347,7 +335,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
 end
 
 RSpec.shared_examples "a service implementation that can backfill incrementally" do |name|
-  let(:last_backfilled) { raise NotImplementedError, "what should the last_backfilled_at value be?" }
+  let(:last_backfilled) { raise NotImplementedError, "what should the last_backfilled_at value be to start?" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name: name,
@@ -361,12 +349,18 @@ RSpec.shared_examples "a service implementation that can backfill incrementally"
   let(:expected_new_items_count) { raise NotImplementedError, "how many newer items do we insert?" }
   let(:expected_old_items_count) { raise NotImplementedError, "how many older items do we insert?" }
 
-  def stub_service_requests_new_records
-    raise NotImplementedError, "return stub_requests that return newer records for service"
+  def insert_required_data_callback
+    # See backfiller example
+    return ->(_dep_svc) { return }
   end
 
-  def stub_service_requests_old_records
-    raise NotImplementedError, "return stub_requests that return older records for service"
+  def stub_service_requests(partial:)
+    msg = if partial
+            "return only the stub_requests called in an incremental situation"
+    else
+      "return all stub_requests for a full backfill"
+    end
+    raise NotImplementedError, msg
   end
 
   before(:each) do
@@ -377,35 +371,94 @@ RSpec.shared_examples "a service implementation that can backfill incrementally"
     sint.organization.remove_related_database
   end
 
-  it "upserts records created since last backfill" do
+  it "upserts records created since last backfill if incremental is true" do
     svc.create_table
-    newer_responses = stub_service_requests_new_records
-    older_responses = stub_service_requests_old_records
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+    responses = stub_service_requests(partial: true)
     svc.backfill(incremental: true)
-    expect(newer_responses).to all(have_been_made)
-    expect(older_responses).to_not include(have_been_made)
+    expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count) }
   end
 
-  it "upserts all records unless incremental is set to true" do
+  it "upserts all records if incremental is not true" do
     svc.create_table
-    newer_responses = stub_service_requests_new_records
-    older_responses = stub_service_requests_old_records
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+    responses = stub_service_requests(partial: false)
     svc.backfill
-    expect(newer_responses).to all(have_been_made)
-    expect(older_responses).to all(have_been_made)
+    expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
   end
 
   it "upserts all records if last_backfilled_at == nil" do
     sint.update(last_backfilled_at: nil)
     svc.create_table
-    newer_responses = stub_service_requests_new_records
-    older_responses = stub_service_requests_old_records
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+    responses = stub_service_requests(partial: false)
     svc.backfill
-    expect(newer_responses).to all(have_been_made)
-    expect(older_responses).to all(have_been_made)
+    expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
+  end
+end
+
+RSpec.shared_examples "a service implementation backfilling against the table of its dependency" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:dep_svc) { @dep_svc }
+  let(:external_id_col) { raise NotImplementedError }
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+    svc.create_table
+    create_all_dependencies(sint)
+    @dep_svc = setup_dependency(sint)
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  def create_dependency_row(_external_id, _timestamp)
+    raise NotImplementedError, "upsert a row"
+  end
+
+  it "upserts records created since last backfill if incremental is true" do
+    dep_svc.admin_dataset do |ds|
+      ds.insert(create_dependency_row("dep1", 1.hours.ago))
+      ds.insert(create_dependency_row("dep2", 2.hours.ago))
+      ds.insert(create_dependency_row("dep3", 3.hours.ago))
+    end
+    sint.update(last_backfilled_at: 2.5.hours.ago)
+    svc.backfill(incremental: true)
+    expect(svc.readonly_dataset(&:all)).to contain_exactly(
+      include(external_id_col => "dep1"),
+      include(external_id_col => "dep2"),
+      # dep3 is too old so wasn't seen
+    )
+  end
+
+  it "upserts all records if incremental is not true" do
+    dep_svc.admin_dataset do |ds|
+      ds.insert(create_dependency_row("dep1", 1.hours.ago))
+      ds.insert(create_dependency_row("dep2", 2.hours.ago))
+      ds.insert(create_dependency_row("dep3", 3.hours.ago))
+    end
+    sint.update(last_backfilled_at: 2.5.hours.ago)
+    svc.backfill
+    expect(svc.readonly_dataset(&:all)).to have_length(3)
+  end
+
+  it "upserts all records if last_backfilled_at is nil" do
+    dep_svc.admin_dataset do |ds|
+      ds.insert(create_dependency_row("dep1", 1.hours.ago))
+      ds.insert(create_dependency_row("dep2", 2.hours.ago))
+      ds.insert(create_dependency_row("dep3", 3.hours.ago))
+    end
+    sint.update(last_backfilled_at: nil)
+    svc.backfill(incremental: true)
+    expect(svc.readonly_dataset(&:all)).to have_length(3)
   end
 end
 

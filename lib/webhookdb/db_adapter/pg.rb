@@ -72,6 +72,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     DOUBLE => "double precision",
     FLOAT => "float",
     INTEGER => "integer",
+    INTEGER_ARRAY => "integer[]",
     OBJECT => "jsonb",
     TEXT => "text",
     TIMESTAMP => "timestamptz",

@@ -146,6 +146,7 @@ module Webhookdb::Async
     "webhookdb/jobs/sync_target_enqueue_scheduled",
     "webhookdb/jobs/sync_target_run_sync",
     "webhookdb/jobs/reset_code_create_dispatch",
+    "webhookdb/jobs/sponsy_scheduled_backfill",
     "webhookdb/jobs/theranest_scheduled_backfill",
     "webhookdb/jobs/transistor_episode_backfill",
     "webhookdb/jobs/trim_logged_webhooks",

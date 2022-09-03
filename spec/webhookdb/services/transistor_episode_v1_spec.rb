@@ -433,20 +433,19 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeV1, :db do
     let(:last_backfilled) { "2021-03-31T10:06:08.582-07:00" }
     let(:expected_new_items_count) { 2 }
     let(:expected_old_items_count) { 1 }
-    def stub_service_requests_new_records
-      return [
+    def stub_service_requests(partial:)
+      new_reqs = [
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-            with(body: "pagination%5Bpage%5D=1").
-            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          with(body: "pagination%5Bpage%5D=1").
+          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
       ]
-    end
-
-    def stub_service_requests_old_records
-      return [
+      return new_reqs if partial
+      old_reqs = [
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-            with(body: "pagination%5Bpage%5D=2").
-            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+          with(body: "pagination%5Bpage%5D=2").
+          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
+      return old_reqs + new_reqs
     end
   end
 

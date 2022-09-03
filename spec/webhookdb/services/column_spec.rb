@@ -111,6 +111,31 @@ RSpec.describe Webhookdb::Services::Column, :db do
         expect(v).to eq("bonus info")
       end
     end
+
+    describe "with a column type INTEGER_ARRAY" do
+      let(:col) { described_class.new(:intarr, described_class::INTEGER_ARRAY) }
+
+      def to_sql(pgarr)
+        ds = Webhookdb::Postgres::Model.db[:x]
+        s = +""
+        pgarr.sql_literal_append(ds, s)
+        return s
+      end
+      it "handles an array with values" do
+        v = col.to_ruby_converter.call({"intarr" => [1, 2, 3]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1,2,3]::integer[]")
+      end
+
+      it "handles an empty array" do
+        v = col.to_ruby_converter.call({"intarr" => []}, nil, nil)
+        expect(to_sql(v)).to eq("'{}'::integer[]")
+      end
+
+      it "uses null if null" do
+        v = col.to_ruby_converter.call({"intarr" => nil}, nil, nil)
+        expect(v).to be_nil
+      end
+    end
   end
 
   describe "to_sql_expr" do

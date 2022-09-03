@@ -423,27 +423,27 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
 
     let(:expected_new_items_count) { 2 }
     let(:expected_old_items_count) { 1 }
+
     around(:each) do |example|
       Timecop.travel(today) do
         example.run
       end
     end
 
-    def stub_service_requests_new_records
-      return [
+    def stub_service_requests(partial:)
+      new_reqs = [
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
-            with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
-            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
+          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
       ]
-    end
-
-    def stub_service_requests_old_records
-      return [
+      return new_reqs if partial
+      old_reqs = [
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
-            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
-            to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+          to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
+      return old_reqs + new_reqs
     end
   end
 

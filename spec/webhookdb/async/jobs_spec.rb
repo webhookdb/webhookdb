@@ -460,6 +460,18 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "SponsyScheduledBackfill" do
+    it "enqueues cascading backfill job for all theranest auth integrations" do
+      auth_sint = Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1")
+      expect do
+        Webhookdb::Jobs::SponsyScheduledBackfill.new.perform
+      end.to publish(
+        "webhookdb.serviceintegration.backfill",
+        [auth_sint.id, {"cascade" => true, "incremental" => true}],
+      )
+    end
+  end
+
   describe "TheranestScheduledBackfill" do
     it "enqueues cascading backfill job for all theranest auth integrations" do
       auth_sint = Webhookdb::Fixtures.service_integration.create(

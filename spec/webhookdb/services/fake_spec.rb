@@ -123,7 +123,8 @@ RSpec.describe "fake implementations", :db do
 
       expect do
         svc.backfill(cascade: true)
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([dependent_sint.id, {"cascade" => true}])
+      end.to publish("webhookdb.serviceintegration.backfill").
+        with_payload([dependent_sint.id, {"cascade" => true, "incremental" => false}])
       expect(backfill_req).to have_been_made
     end
 
