@@ -7,7 +7,7 @@ require "webhookdb"
 Webhookdb.load_app
 
 require "webhookdb/apps"
-Webhookdb::Async.register_subscriber
+Webhookdb::Async.setup_web
 
 map "/admin" do
   run Webhookdb::Apps::AdminAPI.build_app

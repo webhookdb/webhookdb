@@ -29,10 +29,10 @@ module Webhookdb::IntegrationSpecHelpers
   end
 
   module_function def with_async_publisher
-    sub = Webhookdb::Async.register_subscriber
+    Amigo.install_amigo_jobs
     yield
   ensure
-    Webhookdb.unregister_subscriber(sub) if sub
+    Amigo.subscribers.clear
   end
 
   module_function def url(more)

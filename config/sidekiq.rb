@@ -15,6 +15,4 @@ Sentry.configure_scope do |scope|
 end
 
 require "webhookdb/async"
-Webhookdb::Async.require_jobs
-Webhookdb::Async.register_subscriber
-Webhookdb::Async.start_scheduler
+Webhookdb::Async.setup_workers
