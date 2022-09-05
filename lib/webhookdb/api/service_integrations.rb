@@ -60,7 +60,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
                                         webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
-        event_json = Webhookdb::Event.create(
+        event_json = Amigo::Event.create(
           "webhookdb.serviceintegration.webhook",
           [
             handling_sint.id,
@@ -241,7 +241,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               state_machine = svc.calculate_backfill_state_machine
               if state_machine.complete
-                Webhookdb.publish(
+                Amigo.publish(
                   "webhookdb.serviceintegration.backfill", sint.id,
                 )
               end

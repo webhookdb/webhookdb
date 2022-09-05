@@ -1,12 +1,10 @@
 # frozen_string_literal: true
 
+require "amigo/audit_logger"
 require "appydays/loggable"
 
-require "webhookdb/async/job"
-
-class Webhookdb::Async::AuditLogger
+class Webhookdb::Async::AuditLogger < Amigo::AuditLogger
   include Appydays::Loggable
-  include Sidekiq::Worker
 
   sidekiq_options queue: "critical"
 
@@ -14,11 +12,9 @@ class Webhookdb::Async::AuditLogger
   STR_PREFIX_LEN = 12
 
   def perform(event_json)
-    payload = self.trim_long_strings(event_json["payload"], max_str_len: MAX_STR_LEN, str_prefix_len: STR_PREFIX_LEN)
-    self.class.logger.info "async_job_audit",
-                           event_id: event_json["id"],
-                           event_name: event_json["name"],
-                           event_payload: payload
+    j2 = event_json.dup
+    j2["payload"] = self.trim_long_strings(j2["payload"], max_str_len: MAX_STR_LEN, str_prefix_len: STR_PREFIX_LEN)
+    super(j2)
   end
 
   def trim_long_strings(v, max_str_len:, str_prefix_len:)

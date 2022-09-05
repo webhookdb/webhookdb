@@ -76,7 +76,17 @@ module Webhookdb::Message
     )
 
     content_tmpl = Liquid::Template.parse(template_file.read)
-    content = content_tmpl.render!(drops, strict_variables: true, registers: {})
+    # The 'expose' drop smashes data into the register.
+    # We need to keep track of the register to get the subject back out,
+    # so we need to make our own context.
+    lctx = Liquid::Context.new(
+      [drops, content_tmpl.assigns],
+      content_tmpl.instance_assigns,
+      content_tmpl.registers,
+      true,
+      content_tmpl.resource_limits,
+    )
+    content = content_tmpl.render!(lctx, strict_variables: true)
 
     transport = Webhookdb::Message::Transport.for(transport_type)
     if transport.supports_layout?
@@ -89,7 +99,7 @@ module Webhookdb::Message
       end
     end
 
-    return Rendering.new(content, content_tmpl.registers)
+    return Rendering.new(content, lctx.registers)
   end
 
   def self.send_unsent

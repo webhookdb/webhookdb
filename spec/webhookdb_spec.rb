@@ -52,52 +52,6 @@ RSpec.describe Webhookdb do
     end
   end
 
-  describe "publish", :async do
-    it "publishes an event" do
-      expect do
-        described_class.publish("some-event")
-      end.to publish("some-event")
-    end
-
-    it "converts all payload values into JSON native types" do
-      t = Time.at(500.05).in_time_zone("America/Los_Angeles")
-      expect do
-        described_class.publish("some-event", "arg1", 5, {key: {subkey: "subvalue", t:}}, t, [5, {t:}])
-      end.to publish("some-event").with_payload(
-        [
-          "arg1",
-          5,
-          {"key" => {"subkey" => "subvalue", "t" => "1970-01-01T00:08:20.050Z"}},
-          "1970-01-01T00:08:20.050Z",
-          [5, {"t" => "1970-01-01T00:08:20.050Z"}],
-        ],
-      )
-    end
-  end
-
-  describe "subscribers" do
-    it "can register and unregister" do
-      calls = []
-      sub = described_class.register_subscriber { |e| calls << e }
-      described_class.publish("hi")
-      described_class.publish("hi")
-      expect(calls).to have_length(2)
-      described_class.unregister_subscriber(sub)
-      described_class.publish("hi")
-      expect(calls).to have_length(2)
-    end
-  end
-
-  describe "Event" do
-    it "can convert to/from json" do
-      e = Webhookdb::Event.new("event-id", "event-name", [1, 2, 3])
-      j = e.to_json
-      o = JSON.parse(j)
-      e2 = Webhookdb::Event.from_json(o)
-      expect(e2).to have_attributes(id: "event-id", name: "event-name", payload: [1, 2, 3])
-    end
-  end
-
   describe "idempotency keys" do
     before(:each) do
       @bust_idem = described_class.bust_idempotency

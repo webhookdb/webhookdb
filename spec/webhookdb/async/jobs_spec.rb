@@ -7,7 +7,8 @@ require "rspec/eventually"
 
 RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_transaction_check do
   before(:all) do
-    Webhookdb::Async.require_jobs
+    Webhookdb::Async.setup_tests
+    Sidekiq::Testing.inline!
   end
 
   describe "Backfill" do
@@ -24,7 +25,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       req = Webhookdb::Services::Fake.stub_backfill_request(page1_items)
       Webhookdb::Services.service_instance(sint).create_table
       expect do
-        Webhookdb.publish(
+        Amigo.publish(
           "webhookdb.serviceintegration.backfill", sint.id,
         )
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
@@ -42,7 +43,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       req = Webhookdb::Services::Fake.stub_backfill_request(page1_items)
       Webhookdb::Services.service_instance(sint).create_table
       expect do
-        Webhookdb.publish(
+        Amigo.publish(
           "webhookdb.serviceintegration.backfill", sint.id, {incremental: true},
         )
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
@@ -85,13 +86,9 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "deprecated jobs" do
-    it "exist as job classes, and noop" do
+    it "exist as job classes" do
       expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
-
-      logs = capture_logs_from(Webhookdb::Async::JobLogger.logger, level: :info) do
-        Webhookdb::Jobs::Test::DeprecatedJob.new.perform
-      end
-      expect(logs.to_s).to include("deprecated job, remove in the future")
+      expect(Webhookdb::Jobs::Test::DeprecatedJob).to respond_to(:perform_async)
     end
   end
 
@@ -189,7 +186,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint.organization.prepare_database_connections
       Webhookdb::Services.service_instance(sint).create_table
       expect do
-        Webhookdb.publish(
+        Amigo.publish(
           "webhookdb.serviceintegration.webhook",
           sint.id,
           {
@@ -352,7 +349,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         code("join-abcxyz").
         create
       expect do
-        Webhookdb.publish(
+        Amigo.publish(
           "webhookdb.organizationmembership.invite", membership.id,
         )
       end.to perform_async_job(Webhookdb::Jobs::SendInvite)
@@ -416,7 +413,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     describe "SendWebhook" do
       it "sends request to correct endpoint" do
         req = stub_request(:post, webhook_sub.deliver_to_url).to_return(status: 200, body: "", headers: {})
-        Webhookdb::Jobs::SendWebhook.new.perform(Webhookdb::Event.create(
+        Webhookdb::Jobs::SendWebhook.new.perform(Amigo::Event.create(
           "",
           [
             sint.id,
@@ -433,7 +430,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       it "does not query for deactivated subscriptions" do
         webhook_sub.deactivate.save_changes
         expect do
-          Webhookdb.publish(
+          Amigo.publish(
             "webhookdb.serviceintegration.rowupsert",
             sint.id,
             {
@@ -451,7 +448,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       it "sends request to correct endpoint" do
         req = stub_request(:post, webhook_sub.deliver_to_url).to_return(status: 200, body: "", headers: {})
         expect do
-          Webhookdb.publish(
+          Amigo.publish(
             "webhookdb.webhooksubscription.test", webhook_sub.id,
           )
         end.to perform_async_job(Webhookdb::Jobs::SendTestWebhook)

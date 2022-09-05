@@ -19,7 +19,7 @@ class Webhookdb::Jobs::ProcessWebhook
   end
 
   def before_perform(*args)
-    event = Webhookdb::Event.from_json(args[0])
+    event = Amigo::Event.from_json(args[0])
     @sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
   end
 

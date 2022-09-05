@@ -16,7 +16,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   let!(:member_role) { Webhookdb::Role.non_admin_role }
 
   before(:all) do
-    Webhookdb::Async.require_jobs
+    Webhookdb::Async.setup_tests
   end
 
   before(:each) do

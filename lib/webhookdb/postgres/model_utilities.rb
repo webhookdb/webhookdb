@@ -245,7 +245,7 @@ module Webhookdb::Postgres::ModelUtilities
     # any model changes in the database. You probably want to use published_deferred.
     def publish_immediate(type, *payload)
       prefix = self.event_prefix or return
-      Webhookdb.publish(prefix + "." + type.to_s, *payload)
+      Amigo.publish(prefix + "." + type.to_s, *payload)
     end
 
     # Publish an event in the current db's/transaction's +after_commit+ hook.

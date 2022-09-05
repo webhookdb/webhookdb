@@ -376,7 +376,7 @@ class Webhookdb::Services::Base
     return unless check_for_subscriptions && self._any_subscriptions_to_notify?
     # We AVOID pubsub here because we do NOT want to go through the router
     # and audit logger for this.
-    event = Webhookdb::Event.create(
+    event = Amigo::Event.create(
       "webhookdb.serviceintegration.rowupsert",
       [self.service_integration.id,
        {
@@ -556,7 +556,7 @@ class Webhookdb::Services::Base
     sint.update(last_backfilled_at: new_last_backfilled) if incremental
     return unless cascade
     sint.dependents.each do |dep|
-      Webhookdb.publish(
+      Amigo.publish(
         "webhookdb.serviceintegration.backfill", dep.id, {cascade: true, incremental:},
       )
     end

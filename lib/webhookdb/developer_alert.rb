@@ -30,7 +30,7 @@ class Webhookdb::DeveloperAlert
   end
 
   def emit
-    Webhookdb.publish("webhookdb.developeralert.emitted", self.as_json)
+    Amigo.publish("webhookdb.developeralert.emitted", self.as_json)
   end
 
   def handle

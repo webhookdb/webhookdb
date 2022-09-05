@@ -135,7 +135,7 @@ RSpec.describe Amigo::DurableJob do
     it "does standard behavior if not enabled" do
       described_class.enabled = false
       cls = create_job_class
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
   end
 
@@ -147,7 +147,7 @@ RSpec.describe Amigo::DurableJob do
           locked_by: be_present,
         )
       end)
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
 
     it "deletes the job after performing" do
@@ -156,7 +156,7 @@ RSpec.describe Amigo::DurableJob do
         expect(ds1.where(job_id: w.jid).all).to have_length(1)
         jid = w.jid
       end)
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
       expect(ds1.where(job_id: jid).all).to be_empty
     end
 
@@ -166,7 +166,7 @@ RSpec.describe Amigo::DurableJob do
         jid = w.jid
         raise NotImplementedError
       end)
-      expect { perform_inline(cls, []) }.to raise_error(NotImplementedError)
+      expect { sidekiq_perform_inline(cls, []) }.to raise_error(NotImplementedError)
       expect(ds1[job_id: jid]).to include(locked_by: nil, locked_at: nil)
     end
 
@@ -174,14 +174,14 @@ RSpec.describe Amigo::DurableJob do
       cls = create_job_class
       @before_server_mw.callback = ->(*) { ds1.delete }
       expect(Sidekiq.logger).to receive(:error).with(/no row found in database/)
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
 
     it "does standard behavior if not enabled" do
       described_class.enabled = false
       expect(described_class).to_not receive(:insert_job)
       cls = create_job_class
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
 
     it "does standard behavior if the job is not a durable job" do
@@ -190,7 +190,7 @@ RSpec.describe Amigo::DurableJob do
       cls.instance_exec do
         undef heartbeat_extension
       end
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
   end
 
@@ -204,7 +204,7 @@ RSpec.describe Amigo::DurableJob do
         end
         expect(ds1[job_id: w.jid]).to include(assume_dead_at: match_time(35.minutes.from_now).within(10))
       end)
-      perform_inline(cls, [])
+      sidekiq_perform_inline(cls, [])
     end
 
     it "errors if there is no job in TLS" do

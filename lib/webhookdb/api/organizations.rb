@@ -92,7 +92,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           membership.invitation_code = "join-" + SecureRandom.hex(4)
           membership.save_changes
 
-          Webhookdb.publish("webhookdb.organizationmembership.invite", membership.id)
+          Amigo.publish("webhookdb.organizationmembership.invite", membership.id)
           message = "An invitation to organization #{org.name} has been sent to #{email}.\n" \
                     "Their invite code is:\n  #{membership.invitation_code}"
           status 200

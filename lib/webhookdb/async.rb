@@ -13,107 +13,6 @@ Sidekiq.strict_args!
 
 require "webhookdb"
 
-# Host module and namespace for the Webhookdb async jobs system.
-#
-# The async job system is mostly decoupled into a few parts,
-# so we can understand them in pieces.
-# Those pieces are: Publish, Model Events, Subscribe, Event Jobs, Routing, and Scheduled Jobs.
-#
-# Under the hood, the async job system uses Sidekiq.
-# Sidekiq is a background job system that persists its data in Redis.
-# Worker processes process the jobs off the queue.
-#
-# Publish
-#
-# The Webhookdb module has a very basic pub/sub system.
-# You can use `Webhookdb.publish` to broadcast an event (event name and payload),
-# and register subscribers to listen to the event.
-# The actual event exchanged is a Webhookdb::Event, which is a simple wrapper object.
-#
-#   Webhookdb.publish('webhookdb.auth.failed', email: params[:email])
-#
-# Model Events
-#
-# Webhookdb::Postgres::Model types will automatically emit events on create, update, and destroy.
-# Most jobs should respond to these events.
-#
-# It's relatively rare to publish events directly.
-#
-# Subscribe
-#
-# Calling Webhookdb::Async.register_subscriber registers a hook that listens for events published
-# via Webhookdb.publish. All the subscriber does is send the events to the Router job.
-#
-# The subscriber should be enabled on clients that should emit events (so all web processes,
-# console work that should have side effects like sending emails, and worker processes).
-#
-# Note that enabling the subscriber on worker processes means that it would be possible
-# for a job to end up in an infinite loop
-# (imagine if the audit logger, which records all published events, published an event).
-# This is expected; be careful of infinite loops!
-#
-# Event Jobs
-#
-# The webhookdb/async package contains the actual jobs,
-# which must `include Webhookdb::Async::Job`.
-# As per best-practices when writing works, keep them as simple as possible,
-# and put the business logic elsewhere.
-#
-# Standard jobs, which we call event-based jobs, generally respond to published events.
-# Use the `on` method to define a glob pattern that is matched against event names:
-#
-#   class Webhookdb::Async::CustomerMailer
-#     include Webhookdb::Async::Job
-#     on 'webhookdb.customer.created'
-#     def _perform(event)
-#       customer_id = event.payload.first
-#       # Send welcome email
-#     end
-#   end
-#
-# The 'on' pattern can be 'webhookdb.customer.*' to match all customer events for example,
-# or '*' to match all events. The rules of matching follow File.fnmatch.
-#
-# Jobs must implement a `_perform` method, which takes a Webhookdb::Event.
-# Note that normal Sidekiq workers use a 'perform' method that takes a variable number of arguments;
-# the base Async::Job class has this method and delegates its business logic to the subclass _perform method.
-#
-# Routing
-#
-# There are two special workers that are important for the overall functioning of the system
-# (and do not inherit from Job but rather than Sidekiq::Worker so they are not classified and treated as 'Jobs').
-#
-# The first is the AuditLogger, which is a basic job that logs all async events.
-# This acts as a useful change log for the state of the database.
-#
-# The second special worker is the Router, which calls `perform` on the event Jobs
-# that match the routing information, as explained in Jobs.
-# It does this by filtering through all event-based jobs and performing the ones with a route match.
-#
-# Scheduled Jobs
-#
-# Scheduled jobs use the sidekiq-cron package: https://github.com/ondrejbartas/sidekiq-cron
-# There is a separate base class, Webhookdb::Async::ScheduledJob, that takes care of some standard job setup.
-#
-# To implement a scheduled job, `include Webhookdb::Async::ScheduledJob`,
-# call the `cron` method, and provide a `_perform` method.
-# You can also use an optional `splay` method:
-#
-#   class Webhookdb::Async::CacheBuster
-#     include Webhookdb::Async::ScheduledJob
-#     cron '*/10 * * * *'
-#     splay 60.seconds
-#     def _perform
-#       # Bust the cache
-#     end
-#   end
-#
-# This code will run once every 10 minutes or so (check out https://crontab.guru/ for testing cron expressions).
-# The "or so" refers to the _splay_, which is a 'fuzz factor' of how close to the target interval
-# the job may run. So in reality, this job will run every 9 to 11 minutes, due to the 60 second splay.
-# Splay exists to avoid a "thundering herd" issue.
-# Splay defaults to 30s; you may wish to always provide splay, whatever you think for your job.
-#
 module Webhookdb::Async
   include Appydays::Configurable
   include Appydays::Loggable
@@ -156,7 +55,6 @@ module Webhookdb::Async
 
   require "webhookdb/async/job_logger"
   require "webhookdb/async/audit_logger"
-  require "webhookdb/async/router"
 
   configurable(:async) do
     # The number of (Float) seconds that should be considered "slow" for a job.
@@ -207,15 +105,6 @@ module Webhookdb::Async
     end
   end
 
-  # If true, perform event work synchronously rather than asynchronously.
-  # Only useful for testing.
-  singleton_predicate_accessor :synchronous_mode
-  @synchronous_mode = false
-
-  # Array of all Job subclasses.
-  singleton_attr_reader :jobs
-  @jobs = []
-
   def self.open_web
     u = URI(Webhookdb.api_url)
     u.user = self.web_username
@@ -224,17 +113,42 @@ module Webhookdb::Async
     `open #{u}`
   end
 
-  # Return an array of all Job subclasses that respond to event publishing (have patterns).
-  def self.event_jobs
-    return self.jobs.select(&:event_job?)
+  # Set up async for the web/client side of things.
+  # This performs common Amigo config,
+  # and sets up the routing/auditing jobs.
+  # It does not require in the actual jobs,
+  # since invoking them is the responsibility of the router.
+  def self.setup_web
+    self._setup_common
+    Amigo.install_amigo_jobs
+    return true
   end
 
-  # Return an array of all Job subclasses that are scheduled (have intervals).
-  def self.scheduled_jobs
-    return self.jobs.select(&:scheduled_job?)
+  # Set up the worker process.
+  # This peforms common Amigo config,
+  # sets up the routing/audit jobs (since jobs may publish to other jobs),
+  # requires the actual jobs,
+  # and starts the cron.
+  def self.setup_workers
+    self._setup_common
+    Amigo.install_amigo_jobs
+    self._require_jobs
+    Amigo.start_scheduler
+    return true
   end
 
-  def self.require_jobs
+  # Set up for tests.
+  # This performs common config and requires the jobs.
+  # It does not install the routing/auditing jobs,
+  # since those should only be installed at specific times.
+  def self.setup_tests
+    return if Amigo.structured_logging # assume we are set up
+    self._setup_common
+    self._require_jobs
+    return true
+  end
+
+  def self._require_jobs
     Amigo::DurableJob.replace_database_settings(
       loggers: [Webhookdb.logger],
       **Webhookdb::Dbutil.configured_connection_options,
@@ -242,32 +156,15 @@ module Webhookdb::Async
     JOBS.each { |j| require(j) }
   end
 
-  # Register a Webhookdb subscriber that will publish events to Sidekiq/Redis,
-  # for future routing.
-  def self.register_subscriber
-    return Webhookdb.register_subscriber do |ev|
-      self._subscriber(ev)
-    end
-  end
-
-  def self._subscriber(event)
-    event_json = event.as_json
-    Webhookdb::Async::AuditLogger.perform_async(event_json)
-    Webhookdb::Async::Router.perform_async(event_json)
-  end
-
-  # Start the scheduler.
-  # This should generally be run in the Sidekiq worker process,
-  # not a webserver process.
-  def self.start_scheduler
-    hash = self.scheduled_jobs.each_with_object({}) do |job, memo|
-      self.logger.info "Scheduling %s every %p" % [job.name, job.cron_expr]
-      memo[job.name] = {
-        "class" => job.name,
-        "cron" => job.cron_expr,
-      }
-    end
-    load_errs = Sidekiq::Cron::Job.load_from_hash hash
-    raise "Errors loading sidekiq-cron jobs: %p" % [load_errs] if load_errs.present?
+  def self._setup_common
+    raise "Async already setup, only call this once" if Amigo.structured_logging
+    Amigo.structured_logging = true
+    Amigo.log_callback = lambda { |j, lvl, msg, o|
+      lg = j ? Appydays::Loggable[j] : Webhookdb::Async::JobLogger.logger
+      lg.send(lvl, msg, o)
+    }
   end
 end
+
+require "webhookdb/async/audit_logger"
+Amigo.audit_logger_class = Webhookdb::Async::AuditLogger
