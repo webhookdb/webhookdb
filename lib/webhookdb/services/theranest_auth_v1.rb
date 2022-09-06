@@ -29,6 +29,10 @@ class Webhookdb::Services::TheranestAuthV1 < Webhookdb::Services::Base
     raise NotImplementedError("This is a stub integration only for auth purposes.")
   end
 
+  def _fetch_backfill_page(*)
+    return [], nil
+  end
+
   def webhook_response(_request)
     raise NotImplementedError("This is a stub integration only for auth purposes.")
   end

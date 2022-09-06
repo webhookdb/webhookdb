@@ -19,6 +19,12 @@ RSpec.describe Webhookdb::Services::TheranestAuthV1, :db do
     sint.organization.remove_related_database
   end
 
+  describe "backfill" do
+    it "noops" do
+      sint.service_instance.backfill
+    end
+  end
+
   describe "state machine calculation" do
     # `calculate_backfill_state_machine` just calls `calculate_create_state_machine`,
     # so it doesn't need to be tested
