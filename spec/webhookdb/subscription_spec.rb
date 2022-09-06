@@ -5,6 +5,10 @@ require "webhookdb/subscription"
 RSpec.describe "Webhookdb::Subscription", :db do
   let(:described_class) { Webhookdb::Subscription }
 
+  before(:each) do
+    described_class.reset_configuration
+  end
+
   it "can find its organization" do
     sub = Webhookdb::Fixtures.subscription.create(stripe_customer_id: "sub_abc")
     expect(sub).to have_attributes(organization: nil)
@@ -15,6 +19,16 @@ RSpec.describe "Webhookdb::Subscription", :db do
     org.update(stripe_customer_id: "sub_abc")
     expect(org.refresh).to have_attributes(subscription: be === sub)
     expect(sub.refresh).to have_attributes(organization: be === org)
+  end
+
+  it "uses a high max free integrations if billing is disabled" do
+    expect(described_class).to_not be_billing_disabled
+    expect(described_class.max_free_integrations).to eq(2)
+
+    described_class.disable_billing = true
+    described_class.run_after_configured_hooks
+    expect(described_class).to be_billing_disabled
+    expect(described_class.max_free_integrations).to eq(9999)
   end
 
   describe "list_plans" do
@@ -31,6 +45,11 @@ RSpec.describe "Webhookdb::Subscription", :db do
       )
 
       expect(req).to have_been_made
+    end
+
+    it "returns empty list if subscription billing is disabled" do
+      described_class.disable_billing = true
+      expect(described_class.list_plans).to be_empty
     end
   end
 

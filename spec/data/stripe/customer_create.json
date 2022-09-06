@@ -1,0 +1,29 @@
+{
+  "id": "cus_MNfUZylqDB2oa0",
+  "object": "customer",
+  "address": null,
+  "balance": 0,
+  "created": 1662441428,
+  "currency": "usd",
+  "default_source": null,
+  "delinquent": false,
+  "description": "My First Test Customer (created for API docs at https://www.stripe.com/docs/api)",
+  "discount": null,
+  "email": null,
+  "invoice_prefix": "342CADB",
+  "invoice_settings": {
+    "custom_fields": null,
+    "default_payment_method": null,
+    "footer": null,
+    "rendering_options": null
+  },
+  "livemode": false,
+  "metadata": {},
+  "name": null,
+  "next_invoice_sequence": 1,
+  "phone": null,
+  "preferred_locales": [],
+  "shipping": null,
+  "tax_exempt": "none",
+  "test_clock": null
+}
