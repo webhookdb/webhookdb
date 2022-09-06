@@ -41,7 +41,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
             "DateOfBirthDMY": "07/04/2007",
             "MobilePhone": "-",
             "HomePhone": "-",
-            "Email": "luke@daybreakhealth.com",
+            "Email": "luke@ourclient.com",
             "RegistrationDateTimeMDY": "07/06/2021",
             "RegistrationDateTimeYMD": "2021/07/06",
             "RegistrationDateTimeDMY": "06/07/2021",
@@ -50,7 +50,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
             "IntakeDateDMY": "05/07/2021",
             "PrimaryPayer": "-",
             "SecondaryPayer": "-",
-            "AssignedStaffString": "Luke Mercado",
+            "AssignedStaffString": "Luke Merc",
             "AssignedStaffIds": [
                 "5f5d22fd4f3e2c0b1c358c4f"
             ],
@@ -118,7 +118,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
                     "IntakeDateDMY": "12/09/2020",
                     "PrimaryPayer": "-",
                     "SecondaryPayer": "-",
-                    "AssignedStaffString": "Luke Mercado",
+                    "AssignedStaffString": "Luke Merc",
                     "AssignedStaffIds": [
                         "5f5d22fd4f3e2c0b1c358c4f"
                     ],
@@ -207,7 +207,7 @@ RSpec.describe Webhookdb::Services::TheranestClientV1, :db do
                     "IntakeDateDMY": "12/09/2020",
                     "PrimaryPayer": "-",
                     "SecondaryPayer": "-",
-                    "AssignedStaffString": "Luke Mercado",
+                    "AssignedStaffString": "Luke Merc",
                     "AssignedStaffIds": [
                         "5f5d22fd4f3e2c0b1c358c4f"
                     ],
