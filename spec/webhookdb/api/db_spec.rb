@@ -54,6 +54,27 @@ RSpec.describe Webhookdb::API::Db, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(tables: contain_exactly("fake_v1"))
     end
+
+    it "shows a message if there are no tables" do
+      get "/v1/db/#{org.key}/tables"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(tables: [], message: /have not set up/)
+    end
+
+    it "looks at tables in the org replication schema" do
+      org.admin_connection do |db|
+        db << "CREATE SCHEMA otherschema"
+      end
+      org.update(replication_schema: "otherschema")
+      svc = Webhookdb::Services.service_instance(sint)
+      svc.create_table
+
+      get "/v1/db/#{org.key}/tables"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(tables: contain_exactly("fake_v1"))
+    end
   end
 
   describe "POST /v1/db/:organization_key/migrate_database" do
