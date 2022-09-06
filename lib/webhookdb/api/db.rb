@@ -51,7 +51,9 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       get :tables do
         _customer = current_customer
         org = lookup_org!
-        tables = org.readonly_connection(&:tables)
+        tables = org.readonly_connection do |db|
+          db.tables(schema: org.replication_schema)
+        end
         message = ""
         if tables.empty?
           message = "You have not set up any service integrations.\n" \

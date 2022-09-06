@@ -12,7 +12,7 @@ class Webhookdb::Services::TheranestAppointmentServiceTypeV1 < Webhookdb::Servic
     return Webhookdb::Services::Descriptor.new(
       name: "theranest_appointment_service_type_v1",
       ctor: ->(sint) { Webhookdb::Services::TheranestAppointmentServiceTypeV1.new(sint) },
-      feature_roles: [],
+      feature_roles: ["theranest"],
       resource_name_singular: "Theranest Appointment Service Types",
       resource_name_plural: "Theranest Appointment Service Types",
       dependency_descriptor: Webhookdb::Services::TheranestAppointmentV1.descriptor,

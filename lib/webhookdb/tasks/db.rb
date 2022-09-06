@@ -35,10 +35,7 @@ module Webhookdb::Tasks
         task :migrate, [:version] do |_, args|
           require "webhookdb/postgres"
           Webhookdb::Postgres.load_superclasses
-          Webhookdb::Postgres.run_all_migrations(
-            target: args[:version]&.to_i,
-            install_extensions: ENV.fetch("DATABASE_NO_EXTENSIONS", "").blank?,
-          )
+          Webhookdb::Postgres.run_all_migrations(target: args[:version]&.to_i)
         end
 
         desc "Re-create the database tables. Drop tables and migrate."

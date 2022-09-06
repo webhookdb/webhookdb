@@ -74,6 +74,26 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "CreateStripeCustomer" do
+    it "registers the customer" do
+      req = stub_request(:post, "https://api.stripe.com/v1/customers").
+        to_return(body: load_fixture_data("stripe/customer_create", raw: true))
+      expect do
+        Webhookdb::Fixtures.organization.create(stripe_customer_id: "")
+      end.to perform_async_job(Webhookdb::Jobs::CreateStripeCustomer)
+      expect(req).to have_been_made
+    end
+
+    it "noops if billing is disabled" do
+      Webhookdb::Subscription.disable_billing = true
+      expect do
+        Webhookdb::Fixtures.organization.create(stripe_customer_id: "")
+      end.to perform_async_job(Webhookdb::Jobs::CreateStripeCustomer)
+    ensure
+      Webhookdb::Subscription.reset_configuration
+    end
+  end
+
   describe "CustomerCreatedNotifyInternal" do
     it "publishes a developer alert" do
       expect do

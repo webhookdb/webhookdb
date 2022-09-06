@@ -116,11 +116,14 @@ module Webhookdb::Async
   # Set up async for the web/client side of things.
   # This performs common Amigo config,
   # and sets up the routing/auditing jobs.
-  # It does not require in the actual jobs,
-  # since invoking them is the responsibility of the router.
+  #
+  # Note that we must also require all async jobs,
+  # since in some cases we may have sidekiq middleware that needs
+  # access to the actual job class, so it must be available.
   def self.setup_web
     self._setup_common
     Amigo.install_amigo_jobs
+    self._require_jobs
     return true
   end
 

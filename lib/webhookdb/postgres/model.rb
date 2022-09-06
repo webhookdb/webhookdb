@@ -30,6 +30,8 @@ class Webhookdb::Postgres::Model
     setting :encryption_key_0, "Tc3X6zkxXgZfHE81MFz2EILStV++BuQY"
     # rubocop:enable Naming/VariableNumber
 
+    setting :extension_schema, "public"
+
     after_configured do
       self.connect(self.uri)
     end

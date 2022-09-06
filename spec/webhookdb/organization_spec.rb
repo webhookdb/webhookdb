@@ -130,6 +130,26 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
+  describe "register_in_stripe" do
+    it "calls stripe" do
+      req = stub_request(:post, "https://api.stripe.com/v1/customers").
+        with(
+          body: {"email" => "", "metadata" => {"org_id" => o.id.to_s}, "name" => o.name},
+          headers: {"Authorization" => "Bearer lithic_stripe_api_key"},
+        ).
+        to_return(body: load_fixture_data("stripe/customer_create", raw: true))
+      o.stripe_customer_id = ""
+      o.register_in_stripe
+      expect(req).to have_been_made
+      expect(o).to have_attributes(stripe_customer_id: "cus_MNfUZylqDB2oa0")
+    end
+
+    it "raises if already registered" do
+      o.stripe_customer_id = "cus_xyz"
+      expect { o.register_in_stripe }.to raise_error(Webhookdb::InvalidPrecondition)
+    end
+  end
+
   describe "get_stripe_billing_portal_url" do
     it "raises error if org has no stripe customer ID" do
       o.update(stripe_customer_id: "")

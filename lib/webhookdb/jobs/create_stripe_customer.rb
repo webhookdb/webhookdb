@@ -11,6 +11,7 @@ class Webhookdb::Jobs::CreateStripeCustomer
 
   def _perform(event)
     org = self.lookup_model(Webhookdb::Organization, event)
+    return if Webhookdb::Subscription.billing_disabled?
     org.register_in_stripe
   end
 end

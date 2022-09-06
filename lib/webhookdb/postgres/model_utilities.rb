@@ -130,6 +130,23 @@ module Webhookdb::Postgres::ModelUtilities
       return Webhookdb::Postgres.now_sql
     end
 
+    def extension_schema
+      return "public"
+    end
+
+    def install_all_extensions
+      extensions = [
+        "citext",
+        "pg_stat_statements",
+        "pgcrypto",
+        "btree_gist",
+        "pg_trgm",
+      ]
+      extensions.each do |ext|
+        self.db.execute("CREATE EXTENSION IF NOT EXISTS #{ext} WITH SCHEMA #{self.extension_schema}")
+      end
+    end
+
     # TSort API -- yield each model class.
     def tsort_each_node(&)
       self.descendents.select(&:name).each(&)

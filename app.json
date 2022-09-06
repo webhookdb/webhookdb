@@ -50,7 +50,10 @@
   "environments": {
     "test": {
       "env" : {
-        "RACK_ENV": "development"
+        "RACK_ENV": "development",
+        "WEBHOOKDB_DB_EXTENSION_SCHEMA": {
+          "required": "heroku_ext"
+        }
       },
       "scripts": {
         "test-setup": "bundle install",

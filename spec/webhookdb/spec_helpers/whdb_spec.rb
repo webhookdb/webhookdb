@@ -2,7 +2,7 @@
 
 require "webhookdb/spec_helpers/whdb"
 
-RSpec.describe Webhookdb::SpecHelpers::Whdb do
+RSpec.describe Webhookdb::SpecHelpers::Whdb, :db do
   describe "create_dependency" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_dependent_v1", organization: org) }
