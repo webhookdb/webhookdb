@@ -75,3 +75,12 @@ class Webhookdb::Jobs::RetryChecker
     end
   end
 end
+
+class Webhookdb::Jobs::Erroring
+  include Sidekiq::Job
+
+  def perform(succeed: false)
+    return if succeed
+    raise "erroring as asked!"
+  end
+end
