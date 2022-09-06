@@ -137,7 +137,6 @@ module Webhookdb::Postgres::ModelUtilities
     def install_all_extensions
       extensions = [
         "citext",
-        "pg_stat_statements",
         "pgcrypto",
         "btree_gist",
         "pg_trgm",
