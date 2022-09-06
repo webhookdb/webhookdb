@@ -68,7 +68,7 @@ module Webhookdb::SpecHelpers::Postgres
     end
 
     wrapped_proc.call
-    return if !SNIFF_LEAKY_TESTS || Webhookdb::Customer.empty?
+    return if !SNIFF_LEAKY_TESTS || (Webhookdb::Customer.empty? && Webhookdb::Organization.empty?)
     puts "Customer is not cleaned up, failing for diagnosis."
     puts "Check the spec that ran before: #{example.metadata[:full_description]}"
     exit
