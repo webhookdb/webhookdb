@@ -35,7 +35,11 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     post do
       guard_logged_in!
       if params[:token].blank?
-        step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
+        begin
+          step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
+        rescue Webhookdb::Customer::SignupDisabled
+          merror!(402, "Sorry, new signups are currently disabled.", code: "signup_disabled")
+        end
         extras = {}
         status 202
       else

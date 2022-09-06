@@ -12,6 +12,10 @@ RSpec.describe Webhookdb::API::Auth, :db do
     {email:}
   end
 
+  before(:each) do
+    Webhookdb::Customer.reset_configuration
+  end
+
   describe "POST /v1/auth" do
     it "errors if a customer is logged in" do
       login_as(Webhookdb::Fixtures.customer.create)
@@ -36,6 +40,14 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(output: /Sorry, no one with that/)
+      end
+
+      it "errors if signups are disabled" do
+        Webhookdb::Customer.disable_signup = true
+        post "/v1/auth", email: email
+        expect(last_response).to have_status(402)
+        expect(last_response).to have_json_body.
+          that_includes(error: include(code: "signup_disabled"))
       end
     end
 
@@ -79,6 +91,12 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(last_response).to have_json_body.that_includes(output: /Sorry, that token is invalid/)
         expect(existing_code.refresh).to_not be_expired
         expect(customer.refresh.reset_codes).to contain_exactly(be === existing_code) # No new token
+      end
+
+      it "succeeds even if signup is disabled" do
+        Webhookdb::Customer.disable_signup = true
+        post "/v1/auth", email: email
+        expect(last_response).to have_status(202)
       end
     end
   end
