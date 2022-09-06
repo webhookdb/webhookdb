@@ -25,8 +25,7 @@ end
 def connect
   require "webhookdb"
   Webhookdb.load_app
-
-  Webhookdb::Async.register_subscriber if Webhookdb.subscribers.empty?
+  Webhookdb::Async.setup_web if Amigo.subscribers.empty?
   return
 end
 
@@ -54,7 +53,7 @@ def console
   require "webhookdb/console"
   Webhookdb::Console.enable_safe_mode
   self.extend Webhookdb::Console::MainMethods
-  Webhookdb.register_subscriber do |ev|
+  Amigo.register_subscriber do |ev|
     Webhookdb::Console.console_logger(ev)
   end
   return
