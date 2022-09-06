@@ -8,6 +8,8 @@ Appydays::Dotenviable.load
 
 require "sentry-ruby"
 
+require "webhookdb/tasks/admin"
+Webhookdb::Tasks::Admin.new
 require "webhookdb/tasks/annotate"
 Webhookdb::Tasks::Annotate.new
 require "webhookdb/tasks/bootstrap"
