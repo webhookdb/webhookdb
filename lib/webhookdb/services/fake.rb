@@ -7,6 +7,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :upsert_has_deps
   singleton_attr_accessor :resource_and_event_hook
   singleton_attr_accessor :dispatch_request_to_hook
+  singleton_attr_accessor :process_webhooks_synchronously
 
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -22,11 +23,21 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     self.upsert_has_deps = false
     self.resource_and_event_hook = nil
     self.dispatch_request_to_hook = nil
+    self.process_webhooks_synchronously = nil
   end
 
   def self.stub_backfill_request(items, status: 200)
     return WebMock::API.stub_request(:get, "https://fake-integration/?token=").
         to_return(status:, body: [items, nil].to_json, headers: {"Content-Type" => "application/json"})
+  end
+
+  def process_webhooks_synchronously?
+    return self.class.process_webhooks_synchronously ? true : false
+  end
+
+  def synchronous_processing_response(_inserted)
+    super unless self.process_webhooks_synchronously?
+    return self.class.process_webhooks_synchronously
   end
 
   def calculate_create_state_machine

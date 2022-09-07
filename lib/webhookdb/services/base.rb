@@ -37,6 +37,23 @@ class Webhookdb::Services::Base
     return @resource_name_plural ||= self.descriptor.resource_name_plural
   end
 
+  # Return true if the service should process webhooks in the actual endpoint,
+  # rather than asynchronously through the job system.
+  # This should ONLY be used where we have important order-of-operations
+  # in webhook processing and/or need to return data to the webhook sender.
+  #
+  # NOTE: You MUST implement +synchronous_processing_response+ if this returns true.
+  def process_webhooks_synchronously?
+    return false
+  end
+
+  # Call with the value that was inserted by synchronous processing.
+  # Return the body string to respond back with.
+  # @return [String]
+  def synchronous_processing_response(_inserted)
+    raise NotImplementedError, "must be implemented if process_webhooks_synchronously? is true"
+  end
+
   # @return [Array<Symbol>]
   def schema_and_table_symbols
     sch = self.service_integration.organization&.replication_schema&.to_sym || :public
@@ -358,8 +375,8 @@ class Webhookdb::Services::Base
     end
     row_changed = upserted_rows.present?
     self._notify_dependents(inserting, row_changed)
-    return unless row_changed
-    self._publish_rowupsert(inserting)
+    self._publish_rowupsert(inserting) if row_changed
+    return inserting
   end
 
   def _notify_dependents(inserting, changed)

@@ -60,29 +60,31 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
                                         webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
+        process_kwargs = {
+          headers: request.headers,
+          body: env["api.request.body"] || {},
+          request_path: request.path_info,
+          request_method: request.request_method,
+        }
         event_json = Amigo::Event.create(
-          "webhookdb.serviceintegration.webhook",
-          [
-            handling_sint.id,
-            {
-              headers: request.headers,
-              body: env["api.request.body"] || {},
-              request_path: request.path_info,
-              request_method: request.request_method,
-            },
-          ],
+          "webhookdb.serviceintegration.webhook", [handling_sint.id, process_kwargs],
         ).as_json
         # Audit Log this synchronously.
         # It should be fast enough. We may as well log here so we can avoid
         # serializing the (large) webhook payload multiple times, as with normal pubsub.
         Webhookdb::Async::AuditLogger.new.perform(event_json)
-        queue = svc.upsert_has_deps? ? "netout" : "webhook"
-        Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
+        if svc.process_webhooks_synchronously?
+          inserted = svc.upsert_webhook(**process_kwargs)
+          s_body = svc.synchronous_processing_response(inserted)
+        else
+          queue = svc.upsert_has_deps? ? "netout" : "webhook"
+          Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
+        end
       end
 
       s_headers.each { |k, v| header k, v }
       if s_headers["Content-Type"] == "application/json"
-        body JSON.parse(s_body)
+        body Yajl::Parser.parse(s_body)
       else
         env["api.format"] = :binary
         body s_body

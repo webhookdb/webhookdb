@@ -194,6 +194,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       # this endpoint should be unauthed, so we will test it unauthed
       logout
       _ = sint
+      Sidekiq::Testing.fake! # We don't want to process the jobs
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
@@ -225,6 +226,20 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       post "/v1/service_integrations/xyz", foo: 1
 
       expect(last_response).to have_status(202)
+    end
+
+    it "performs ProcessWebhook synchronously if specified by the service" do
+      org.prepare_database_connections
+      sint.service_instance.create_table
+      Webhookdb::Services::Fake.process_webhooks_synchronously = {x: 1}.to_json
+      header "X-My-Test", "abc"
+      post "/v1/service_integrations/xyz", my_id: "myid", at: Time.at(5)
+
+      expect(last_response).to have_status(202)
+      expect(sint.service_instance.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
+      expect(last_response).to have_json_body.that_includes(x: 1)
+    ensure
+      org.remove_related_database
     end
 
     it "uses netout queue for ProcessWebhook job if integration has deps", :async do
