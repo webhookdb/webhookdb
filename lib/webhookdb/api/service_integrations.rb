@@ -22,7 +22,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         return sint
       end
 
-      def log_webhook(opaque_id, organization_id, sstatus)
+      def log_webhook(opaque_id, organization_id, sstatus, request_headers)
         return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
         # Status can be set from:
         # - the 'status' method, which will be 201 if it hasn't been set,
@@ -37,7 +37,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         request.body.rewind
         Webhookdb::LoggedWebhook.dataset.insert(
           request_body: request.body.read,
-          request_headers: request.headers.to_json,
+          request_headers: request_headers.to_json,
           request_method: request.request_method,
           request_path: request.path_info,
           response_status: rstatus,
@@ -48,8 +48,10 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
     end
 
     route [:post, :put, :delete, :patch], "/:opaque_id*" do
+      request_headers = request.headers.dup
       sint = lookup_unauthed!(params[:opaque_id])
       svc = Webhookdb::Services.service_instance(sint).dispatch_request_to(request)
+      svc.preprocess_headers_for_logging(request_headers)
       handling_sint = svc.service_integration
       whresp = svc.webhook_response(request)
       s_status, s_headers, s_body = whresp.to_rack
@@ -91,7 +93,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       end
       status s_status
     ensure
-      log_webhook(params[:opaque_id], sint&.organization_id, s_status)
+      log_webhook(params[:opaque_id], sint&.organization_id, s_status, request_headers)
     end
   end
 

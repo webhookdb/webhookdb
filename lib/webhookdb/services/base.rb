@@ -54,6 +54,11 @@ class Webhookdb::Services::Base
     raise NotImplementedError, "must be implemented if process_webhooks_synchronously? is true"
   end
 
+  # In some cases, services may send us sensitive headers we do not want to log.
+  # This should be very rare but some services are designed really badly and send auth info in the webhook.
+  # Remove or obfuscate the passed header hash.
+  def preprocess_headers_for_logging(_headers); end
+
   # @return [Array<Symbol>]
   def schema_and_table_symbols
     sch = self.service_integration.organization&.replication_schema&.to_sym || :public

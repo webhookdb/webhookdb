@@ -378,6 +378,23 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       )
     end
 
+    it "can exclude headers from logged webhook if defined by the integration" do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
+      Webhookdb::Services::Fake.obfuscate_headers_for_logging = ["X-Foo"]
+      header "X-Bar", "1"
+      header "X-Foo", "2"
+      post "/v1/service_integrations/xyz", a: 1
+      expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.first.request_headers.to_h).to match(
+        "Cookie" => "",
+        "Host" => "example.org",
+        "Trace-Id" => be_a(String),
+        "Version" => "HTTP/1.0",
+        "X-Bar" => "1",
+        "X-Foo" => "***",
+      )
+    end
+
     it "can dispatch to a specified service integration" do
       other_sint = Webhookdb::Fixtures.service_integration.create(organization: org)
       Webhookdb::Services::Fake.dispatch_request_to_hook = lambda { |req|

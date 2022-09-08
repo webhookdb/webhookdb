@@ -8,6 +8,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :resource_and_event_hook
   singleton_attr_accessor :dispatch_request_to_hook
   singleton_attr_accessor :process_webhooks_synchronously
+  singleton_attr_accessor :obfuscate_headers_for_logging
 
   def self.descriptor
     return Webhookdb::Services::Descriptor.new(
@@ -24,6 +25,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
     self.resource_and_event_hook = nil
     self.dispatch_request_to_hook = nil
     self.process_webhooks_synchronously = nil
+    self.obfuscate_headers_for_logging = []
   end
 
   def self.stub_backfill_request(items, status: 200)
@@ -33,6 +35,10 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
 
   def process_webhooks_synchronously?
     return self.class.process_webhooks_synchronously ? true : false
+  end
+
+  def preprocess_headers_for_logging(headers)
+    self.class.obfuscate_headers_for_logging.each { |h| headers[h] = "***" }
   end
 
   def synchronous_processing_response(_inserted)
