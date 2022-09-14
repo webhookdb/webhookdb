@@ -73,6 +73,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     let(:fake) { fake_sint.service_instance }
 
     before(:each) do
+      Webhookdb::Services::Fake.reset
       o.prepare_database_connections
       fake.create_table
     end
@@ -127,6 +128,21 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       fake.admin_dataset do |ds|
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data, :enrichment)
       end
+    end
+
+    it "creates a sequence if the integration requires it" do
+      Webhookdb::Services::Fake.requires_sequence = true
+      _ = fake_sint
+      o.migrate_replication_tables
+      expect(o.db.select(Sequel.function(:nextval, fake_sint.sequence_name)).single_value).to eq(1)
+      expect(o.db.select(Sequel.function(:nextval, fake_sint.sequence_name)).single_value).to eq(2)
+    end
+
+    it "does not create a sequence once created" do
+      Webhookdb::Services::Fake.requires_sequence = true
+      _ = fake_sint
+      o.migrate_replication_tables
+      o.migrate_replication_tables
     end
   end
 

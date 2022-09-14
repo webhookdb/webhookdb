@@ -34,8 +34,8 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return :created_at
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

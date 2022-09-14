@@ -220,6 +220,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   # Ensure all columns for those integrations/tables.
   def migrate_replication_tables
     tables = self.service_integrations.map(&:table_name)
+    sequences = self.db[Sequel[:information_schema][:sequences]].
+      grep(:sequence_name, "replicator_seq_org_#{self.id}_%").
+      select_map(:sequence_name).
+      to_set
     cols_in_db = self.admin_connection do |db|
       db[Sequel[:information_schema][:columns]].
         where(table_schema: self.replication_schema, table_name: tables).
@@ -238,6 +242,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       all_col_names = svc.storable_columns.map(&:name).map(&:to_s)
       all_cols_exist_in_db = (all_col_names - existing_columns).empty?
       svc.ensure_all_columns unless all_cols_exist_in_db
+      sint.ensure_sequence(skip_check: true) if svc.requires_sequence? && !sequences.include?(sint.sequence_name)
     end
   end
 

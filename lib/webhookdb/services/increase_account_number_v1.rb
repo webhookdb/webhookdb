@@ -57,8 +57,8 @@ class Webhookdb::Services::IncreaseAccountNumberV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
   end
 
-  def _resource_and_event(body)
-    return self._find_resource_and_event(body, "account_number")
+  def _resource_and_event(request)
+    return self._find_resource_and_event(request.body, "account_number")
   end
 
   def _upsert_update_expr(inserting, **_kwargs)

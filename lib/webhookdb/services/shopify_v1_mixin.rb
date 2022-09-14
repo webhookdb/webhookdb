@@ -20,8 +20,8 @@ module Webhookdb::Services::ShopifyV1Mixin
   end
 
   # For Shopify endpoints the object and webhook have the same shape—the webhook is simply the updated object
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _webhook_response(request)

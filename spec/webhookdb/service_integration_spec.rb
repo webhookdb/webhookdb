@@ -146,4 +146,24 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       end.to raise_error(Webhookdb::Organization::DatabaseMigration::MigrationInProgress)
     end
   end
+
+  describe "sequence creation" do
+    after(:each) do
+      Webhookdb::Services::Fake.reset
+    end
+
+    it "creates a sequence if needed" do
+      Webhookdb::Services::Fake.requires_sequence = true
+      sint = Webhookdb::Fixtures.service_integration.create
+      sint.ensure_sequence
+      expect(sint.db.select(Sequel.function(:nextval, sint.sequence_name)).single_value).to eq(1)
+      expect(sint.db.select(Sequel.function(:nextval, sint.sequence_name)).single_value).to eq(2)
+      expect(sint.sequence_nextval).to eq(3)
+    end
+
+    it "errors if trying to create a sequence when it's not needed" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      expect { sint.ensure_sequence }.to raise_error(Webhookdb::InvalidPrecondition)
+    end
+  end
 end

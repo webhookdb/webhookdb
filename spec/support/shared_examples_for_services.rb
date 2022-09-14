@@ -6,6 +6,7 @@ RSpec.shared_examples "a service implementation" do |name|
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
   let(:supports_row_diff) { true }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -33,7 +34,7 @@ RSpec.shared_examples "a service implementation" do |name|
 
   it "can insert into its table" do
     svc.create_table
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_data)
@@ -43,7 +44,7 @@ RSpec.shared_examples "a service implementation" do |name|
   it "can insert into a custom table when the org has a replication schema set" do
     svc.service_integration.organization.migrate_replication_schema("xyz")
     svc.create_table
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     svc.admin_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_data)
@@ -63,7 +64,7 @@ RSpec.shared_examples "a service implementation" do |name|
       with(include(
              "payload" => match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
            ))
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
   end
 
   it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events do
@@ -71,9 +72,9 @@ RSpec.shared_examples "a service implementation" do |name|
       Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
       expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).once
       svc.create_table
-      svc.upsert_webhook_body(body) # Upsert and make sure the next does not run
+      upsert_webhook(svc, body:) # Upsert and make sure the next does not run
       expect do
-        svc.upsert_webhook_body(body)
+        upsert_webhook(svc, body:)
       end.to_not publish("webhookdb.serviceintegration.rowupsert")
     end
   end
@@ -82,7 +83,7 @@ RSpec.shared_examples "a service implementation" do |name|
     # No subscription is created so should not publish
     svc.create_table
     expect do
-      svc.upsert_webhook_body(body)
+      upsert_webhook(svc, body:)
     end.to_not publish("webhookdb.serviceintegration.rowupsert")
   end
 
@@ -116,6 +117,7 @@ RSpec.shared_examples "a service implementation that upserts webhooks only under
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:incorrect_webhook) { raise NotImplementedError }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -127,7 +129,7 @@ RSpec.shared_examples "a service implementation that upserts webhooks only under
 
   it "won't insert webhook if resource_and_event returns nil" do
     svc.create_table
-    svc.upsert_webhook_body(incorrect_webhook)
+    upsert_webhook(svc, body: incorrect_webhook)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(0)
     end
@@ -141,6 +143,7 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   let(:new_body) { raise NotImplementedError }
   let(:expected_old_data) { old_body }
   let(:expected_new_data) { new_body }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -153,11 +156,11 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   it "will override older rows with newer ones" do
     svc.create_table
     svc.readonly_dataset do |ds|
-      svc.upsert_webhook_body(old_body)
+      upsert_webhook(svc, body: old_body)
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_old_data)
 
-      svc.upsert_webhook_body(new_body)
+      upsert_webhook(svc, body: new_body)
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_new_data)
     end
@@ -167,11 +170,11 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
     svc.create_table
 
     svc.readonly_dataset do |ds|
-      svc.upsert_webhook_body(new_body)
+      upsert_webhook(svc, body: new_body)
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_new_data)
 
-      svc.upsert_webhook_body(old_body)
+      upsert_webhook(svc, body: old_body)
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(expected_new_data)
     end
@@ -183,6 +186,7 @@ RSpec.shared_examples "a service implementation that deals with resources and wr
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:resource_json) { raise NotImplementedError }
   let(:resource_in_envelope_json) { raise NotImplementedError }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -194,7 +198,7 @@ RSpec.shared_examples "a service implementation that deals with resources and wr
 
   it "puts the raw resource in the data column" do
     svc.create_table
-    svc.upsert_webhook_body(resource_json)
+    upsert_webhook(svc, body: resource_json)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)
@@ -203,7 +207,7 @@ RSpec.shared_examples "a service implementation that deals with resources and wr
 
   it "puts the enveloped resource in the data column" do
     svc.create_table
-    svc.upsert_webhook_body(resource_in_envelope_json)
+    upsert_webhook(svc, body: resource_in_envelope_json)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)
@@ -467,6 +471,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   let(:svc) { Webhookdb::Services.service_instance(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_enrichment_data) { raise NotImplementedError }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
     sint.organization.prepare_database_connections
@@ -495,7 +500,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   it "adds enrichment column to main table" do
     req = stub_service_request
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     expect(req).to have_been_made unless req.nil?
     row = svc.readonly_dataset(&:first)
     expect(row[:enrichment]).to eq(expected_enrichment_data)
@@ -503,7 +508,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
 
   it "can use enriched data when inserting" do
     req = stub_service_request
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     expect(req).to have_been_made unless req.nil?
     row = svc.readonly_dataset(&:first)
     assert_is_enriched(row)
@@ -512,7 +517,7 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   it "errors if fetching enrichment errors" do
     req = stub_service_request_error
     unless req.nil?
-      expect { svc.upsert_webhook_body(body) }.to raise_error(Webhookdb::Http::Error)
+      expect { upsert_webhook(svc, body:) }.to raise_error(Webhookdb::Http::Error)
       expect(req).to have_been_made
     end
   end
@@ -524,6 +529,8 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
   let(:body) { raise NotImplementedError }
   let(:expected_insert) { raise NotImplementedError }
   let(:can_track_row_changes) { true }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
   before(:each) do
     sint.organization.prepare_database_connections
   end
@@ -553,9 +560,9 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
         end
       end
     end
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     expect(calls).to have_length(1)
-    svc.upsert_webhook_body(body)
+    upsert_webhook(svc, body:)
     expect(calls).to have_length(2)
   end
 end

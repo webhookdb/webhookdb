@@ -29,8 +29,8 @@ module Webhookdb::Services::TheranestV1Mixin
     return self.find_auth_integration.service_instance.get_auth_headers
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr
@@ -76,7 +76,7 @@ module Webhookdb::Services::TheranestV1Mixin
 
   # Converters for use with the denormalized columns
   CONV_PARSE_MDY_SLASH = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: lambda do |s, _|
+    ruby: lambda do |s, **_|
       return Date.strptime(s, "%m/%d/%Y")
     rescue TypeError, Date::Error
       return nil
@@ -93,7 +93,7 @@ module Webhookdb::Services::TheranestV1Mixin
     end,
   )
   CONV_PARSE_YMD_SLASH = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: lambda do |s, _|
+    ruby: lambda do |s, **_|
       return Date.strptime(s, "%Y/%m/%d")
     rescue TypeError, Date::Error
       return nil
@@ -110,7 +110,7 @@ module Webhookdb::Services::TheranestV1Mixin
     end,
   )
   CONV_PARSE_DATETIME = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: lambda do |s, _|
+    ruby: lambda do |s, **_|
       return Date.strptime(s, "%m/%d/%Y %H:%M %p")
     rescue TypeError, Date::Error
       return nil

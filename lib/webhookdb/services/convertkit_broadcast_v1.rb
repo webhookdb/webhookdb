@@ -37,8 +37,8 @@ class Webhookdb::Services::ConvertkitBroadcastV1 < Webhookdb::Services::Base
     ]
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _timestamp_column_name

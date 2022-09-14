@@ -47,7 +47,7 @@ and they will show up in your database momentarily.
 
   # Converter for use with the denormalized columns
   CONV_FIND_CANCELED_AT = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: lambda do |_value, resource|
+    ruby: lambda do |_, resource:, **_|
       # Subscribers do not store a cancelation time (nor an updated at time),
       # so we derive and store it based on their state.
       # When they become inactive state, we set canceled_at,

@@ -58,13 +58,13 @@ Which will be received by this running instance, so there's nothing else you hav
         :updated_at,
         TIMESTAMP,
         index: true,
-        defaulter: Webhookdb::Services::Column::DEFAULTER_FROM_CREATED_AT,
+        defaulter: Webhookdb::Services::Column.defaulter_from_resource_field(:created_at),
       ),
     ]
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

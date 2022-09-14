@@ -29,10 +29,16 @@ class Webhookdb::Jobs::ProcessWebhook
       service_integration_name: @sint.service_name,
       service_integration_table: @sint.table_name,
     ) do
-      kwargs = event.payload[1].symbolize_keys
+      kw = event.payload[1].symbolize_keys
       svc = Webhookdb::Services.service_instance(@sint)
       # kwargs contains: :headers, :body, :request_path, :request_method
-      svc.upsert_webhook(**kwargs)
+      req = Webhookdb::Services::WebhookRequest.new(
+        body: kw.fetch(:body),
+        headers: kw.fetch(:headers),
+        path: kw.fetch(:request_path),
+        method: kw.fetch(:request_method),
+      )
+      svc.upsert_webhook(req)
     end
   end
 

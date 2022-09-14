@@ -3,48 +3,52 @@
 require "support/shared_examples_for_columns"
 
 RSpec.describe Webhookdb::Services::Column, :db do
-  describe "to_ruby_converter" do
+  describe "to_ruby_value" do
+    def to_ruby_value(col, resource=nil, event=nil, enrichment=nil, service_integration=nil)
+      col.to_ruby_value(resource:, event:, enrichment:, service_integration:)
+    end
+
     it "fetches the data key from the enrichment if from_enrichment is true" do
       col = described_class.new(:enrichment_val, described_class::TEXT, data_key: "note", from_enrichment: true)
-      v = col.to_ruby_converter.call({}, nil, {"note" => "apple banana"})
+      v = to_ruby_value(col, {}, nil, {"note" => "apple banana"})
       expect(v).to eq("apple banana")
     end
 
     it "can optionally fetch from the enrichment" do
       col = described_class.new(:canceled_at, described_class::TIMESTAMP, from_enrichment: true, optional: true)
-      v = col.to_ruby_converter.call({}, nil, {})
+      v = to_ruby_value(col, {}, nil, {})
       expect(v).to be_nil
     end
 
     it "fetches the event key from the event if there is an event and event key" do
       col = described_class.new(:event_type, described_class::TEXT, event_key: "type")
-      v = col.to_ruby_converter.call({}, {"type" => "note_updated"}, nil)
+      v = to_ruby_value(col, {}, {"type" => "note_updated"}, nil)
       expect(v).to eq("note_updated")
     end
 
     it "always treats event keys as required" do
       col = described_class.new(:quantity, described_class::INTEGER, event_key: "new_quantity", optional: true)
       expect do
-        col.to_ruby_converter.call({}, {}, nil)
+        to_ruby_value(col, {}, {}, nil)
       end.to raise_error(KeyError, /key not found: 'new_quantity/)
     end
 
     it "falls back to fetching the data key from the resource" do
       col = described_class.new(:status, described_class::TEXT, event_key: "status")
-      v = col.to_ruby_converter.call({"status" => "inactive"}, nil, nil)
+      v = to_ruby_value(col, {"status" => "inactive"}, nil, nil)
       expect(v).to eq("inactive")
     end
 
     it "errors if a key is missing and required" do
       col = described_class.new(:id, described_class::BIGINT)
       expect do
-        col.to_ruby_converter.call({}, nil, nil)
+        to_ruby_value(col, {}, nil, nil)
       end.to raise_error(KeyError, /key not found: 'id'/)
     end
 
     it "returns nil if a key is missing and optional" do
       col = described_class.new(:discounted_price, described_class::FLOAT, optional: true)
-      v = col.to_ruby_converter.call({}, nil, nil)
+      v = to_ruby_value(col, {}, nil, nil)
       expect(v).to be_nil
     end
 
@@ -54,7 +58,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
         described_class::BOOLEAN,
         data_key: ["membership", "is_active"],
       )
-      v = col.to_ruby_converter.call({"membership" => {"is_active" => true}}, nil, nil)
+      v = to_ruby_value(col, {"membership" => {"is_active" => true}}, nil, nil)
       expect(v).to be(true)
     end
 
@@ -65,7 +69,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
         data_key: ["vacation", "duration", "end_date"],
         optional: true,
       )
-      v = col.to_ruby_converter.call({"vacation" => {}}, nil, nil)
+      v = to_ruby_value(col, {"vacation" => {}}, nil, nil)
       expect(v).to be_nil
     end
 
@@ -75,9 +79,9 @@ RSpec.describe Webhookdb::Services::Column, :db do
         :updated_at,
         described_class::TIMESTAMP,
         optional: true,
-        defaulter: Webhookdb::Services::Column::DEFAULTER_FROM_CREATED_AT,
+        defaulter: described_class.defaulter_from_resource_field(:created_at),
       )
-      v = col.to_ruby_converter.call({"created_at" => DateTime.new(1992, 4, 7)}, nil, nil)
+      v = to_ruby_value(col, {"created_at" => DateTime.new(1992, 4, 7)}, nil, nil)
       expect(v).to eq(DateTime.new(1992, 4, 7))
     end
 
@@ -88,7 +92,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
         described_class::INTEGER,
         converter: Webhookdb::Services::Column::CONV_TO_I,
       )
-      v = col.to_ruby_converter.call({"number" => "15367"}, nil, nil)
+      v = to_ruby_value(col, {"number" => "15367"}, nil, nil)
       expect(v).to eq(15_367)
     end
 
@@ -97,17 +101,17 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
       it "calls to_json if the value is not a string or nil" do
         obj = {"first_letter" => "a", "last_letter" => "z"}
-        v = col.to_ruby_converter.call({"extra" => obj}, nil, nil)
+        v = to_ruby_value(col, {"extra" => obj}, nil, nil)
         expect(v).to eq(obj.to_json)
       end
 
       it "uses nil if the value is nil" do
-        v = col.to_ruby_converter.call({"extra" => nil}, nil, nil)
+        v = to_ruby_value(col, {"extra" => nil}, nil, nil)
         expect(v).to be_nil
       end
 
       it "uses the value if the value is a string" do
-        v = col.to_ruby_converter.call({"extra" => "bonus info"}, nil, nil)
+        v = to_ruby_value(col, {"extra" => "bonus info"}, nil, nil)
         expect(v).to eq("bonus info")
       end
     end
@@ -122,17 +126,17 @@ RSpec.describe Webhookdb::Services::Column, :db do
         return s
       end
       it "handles an array with values" do
-        v = col.to_ruby_converter.call({"intarr" => [1, 2, 3]}, nil, nil)
+        v = to_ruby_value(col, {"intarr" => [1, 2, 3]}, nil, nil)
         expect(to_sql(v)).to eq("ARRAY[1,2,3]::integer[]")
       end
 
       it "handles an empty array" do
-        v = col.to_ruby_converter.call({"intarr" => []}, nil, nil)
+        v = to_ruby_value(col, {"intarr" => []}, nil, nil)
         expect(to_sql(v)).to eq("'{}'::integer[]")
       end
 
       it "uses null if null" do
-        v = col.to_ruby_converter.call({"intarr" => nil}, nil, nil)
+        v = to_ruby_value(col, {"intarr" => nil}, nil, nil)
         expect(v).to be_nil
       end
     end
@@ -316,7 +320,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
       describe "ruby proc" do
         it "handles TypeError" do
-          v = described_class::CONV_UNIX_TS.ruby.call("John Smith", nil)
+          v = described_class::CONV_UNIX_TS.ruby.call("John Smith")
           expect(v).to be_nil
         end
       end
@@ -352,22 +356,49 @@ RSpec.describe Webhookdb::Services::Column, :db do
       it_behaves_like "a service column converter", described_class::CONV_TO_UTC_DATE
     end
 
+    describe "converter_from_regex" do
+      it "always uses the only group" do
+        conv = described_class.converter_from_regex(%r{/[a-z]+/\d+/[a-z]+/(\d+)/[a-z]+})
+        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("45")
+      end
+
+      it "returns the specified group index" do
+        conv = described_class.converter_from_regex(%r{/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+})
+        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("45")
+
+        conv = described_class.converter_from_regex(%r{/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+}, index: 0)
+        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("xy")
+      end
+
+      it "returns nil if no match" do
+        conv = described_class.converter_from_regex(%r{/abc/(\d+)+}, coerce: :to_i)
+        expect(conv.ruby.call("/abc/xyz")).to be_nil
+      end
+
+      it "can call the given additional method" do
+        conv = described_class.converter_from_regex(%r{/\d+/(\d+)+}, coerce: :to_i)
+        expect(conv.ruby.call("/xy/123/45/z")).to eq(45)
+      end
+    end
+
     describe "Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT" do
+      let(:conv) { Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT }
+
       describe "ruby proc" do
         it "returns nil when state is active" do
-          v = Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT.ruby.call(nil, {"state" => "active"})
+          v = conv.ruby.call(nil, resource: {"state" => "active"})
           expect(v).to be_nil
         end
 
         it "returns now when state is not active" do
-          v = Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT.ruby.call(nil, {"state" => "inactive"})
+          v = conv.ruby.call(nil, resource: {"state" => "inactive"})
           expect(v).to be_within(10).of(Time.now)
         end
       end
 
       describe "sql proc" do
         it "is nil because this has external dependencies" do
-          expect(Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT.sql).to be_nil
+          expect(conv.sql).to be_nil
         end
       end
     end
@@ -380,12 +411,12 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call("John Smith", nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call(100, nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call(100)
           expect(v).to be_nil
         end
       end
@@ -411,12 +442,12 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call("John Smith", nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call(100, nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call(100)
           expect(v).to be_nil
         end
       end
@@ -442,12 +473,12 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call("John Smith", nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call(100, nil)
+          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call(100)
           expect(v).to be_nil
         end
       end
@@ -479,7 +510,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
       let(:expected_value) { "abc-2022-06-13" }
 
       it "returns expected value using ruby proc" do
-        v = converter.ruby.call(initial_value, resource)
+        v = converter.ruby.call(initial_value, resource:)
         expect(v).to eq(expected_value)
       end
 
@@ -504,11 +535,24 @@ RSpec.describe Webhookdb::Services::Column, :db do
       end
     end
 
-    describe "DEFAULTER_FROM_CREATED_AT" do
-      it_behaves_like "a service column defaulter", Webhookdb::Services::Column::DEFAULTER_FROM_CREATED_AT do
-        let(:resource) { {"created_at" => "2022-06-13T14:21:04.123Z"} }
+    describe "defaulter_from_resource_field" do
+      it_behaves_like "a service column defaulter", described_class.defaulter_from_resource_field(:x) do
+        let(:resource) { {"x" => "2022-06-13T14:21:04.123Z"} }
         let(:expected_value) { "2022-06-13T14:21:04.123Z" }
-        let(:expected_query) { 'SELECT "created_at"' }
+        let(:expected_query) { 'SELECT "x"' }
+      end
+    end
+
+    describe "DEFAULTER_FROM_INTEGRATION_SEQUENCE" do
+      it_behaves_like "a service column defaulter", described_class::DEFAULTER_FROM_INTEGRATION_SEQUENCE do
+        let(:resource) { {} }
+        let(:service_integration) do
+          sint = Webhookdb::Fixtures.service_integration.create
+          sint.ensure_sequence(skip_check: true)
+          sint
+        end
+        let(:expected_value) { 1 }
+        let(:expected_query) { /SELECT nextval\('replicator_seq_org_/ }
       end
     end
   end

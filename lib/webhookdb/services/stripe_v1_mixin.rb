@@ -3,7 +3,8 @@
 require "webhookdb/stripe"
 
 module Webhookdb::Services::StripeV1Mixin
-  def _resource_and_event(body)
+  def _resource_and_event(request)
+    body = request.body
     return body.fetch("data").fetch("object"), body if body.fetch("object") == "event"
     return body, nil
   end

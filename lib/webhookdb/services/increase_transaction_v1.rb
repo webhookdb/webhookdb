@@ -61,8 +61,8 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _resource_and_event(body)
-    return self._find_resource_and_event(body, "transaction")
+  def _resource_and_event(request)
+    return self._find_resource_and_event(request.body, "transaction")
   end
 
   def _mixin_backfill_url

@@ -44,8 +44,8 @@ class Webhookdb::Services::IncreaseWireTransferV1 < Webhookdb::Services::Base
     ]
   end
 
-  def _resource_and_event(body)
-    return self._find_resource_and_event(body, "wire_transfer")
+  def _resource_and_event(request)
+    return self._find_resource_and_event(request.body, "wire_transfer")
   end
 
   def _update_where_expr

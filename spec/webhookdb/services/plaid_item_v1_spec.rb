@@ -381,9 +381,9 @@ RSpec.describe Webhookdb::Services::PlaidItemV1, :db do
       dep_svc = sint.dependents.first.service_instance
       dep_svc.create_table
       expect(sint.dependents.first).to receive(:service_instance).and_return(dep_svc)
-      expect(dep_svc).to receive(:upsert_webhook).with(body:, headers: nil, request_method: nil, request_path: nil)
-
-      svc.upsert_webhook_body(body)
+      req = Webhookdb::Services::WebhookRequest.new(body:)
+      expect(dep_svc).to receive(:upsert_webhook).with(req)
+      svc.upsert_webhook(req)
     end
 
     describe "created and updated timestamps" do

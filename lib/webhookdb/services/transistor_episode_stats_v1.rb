@@ -19,7 +19,7 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
   end
 
   CONV_PARSE_DMY_DASH = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: lambda do |s, _|
+    ruby: lambda do |s, **_|
       return Date.strptime(s, "%d-%m-%Y")
     rescue TypeError, Date::Error
       return nil
@@ -28,7 +28,7 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
   )
 
   CONV_REMOTE_KEY = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: ->(_, item) { "#{item.fetch('episode_id')}-#{item.fetch('date')}" },
+    ruby: ->(_, resource:, **_) { "#{resource.fetch('episode_id')}-#{resource.fetch('date')}" },
     # Because this is a non-nullable key, we never need this in SQL
     sql: ->(_) { Sequel.lit("'do not use'") },
   )
@@ -57,8 +57,8 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
     return :row_updated_at
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

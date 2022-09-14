@@ -117,8 +117,8 @@ Both of these values should be visible from the homepage of your Twilio admin Da
     return :date_updated
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

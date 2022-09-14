@@ -73,7 +73,8 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     return true
   end
 
-  def _resource_and_event(body)
+  def _resource_and_event(request)
+    body = request.body
     # Remember Plaid webhooks are very different from what is normally meant by 'webhook',
     # more like 'here is information about a thing that happened to an item with this id'.
     # So 'resource' for Plaid Items is ONLY {'item_id' => <id>}.
@@ -81,10 +82,10 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     return {"item_id" => body.fetch("item_id")}, body
   end
 
-  def upsert_webhook(body:, **kwargs)
-    if body.fetch("webhook_type") != "ITEM"
+  def upsert_webhook(request)
+    if request.body.fetch("webhook_type") != "ITEM"
       self.service_integration.dependents.each do |d|
-        d.service_instance.upsert_webhook(body:, **kwargs)
+        d.service_instance.upsert_webhook(request)
       end
       return
     end

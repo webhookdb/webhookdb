@@ -129,7 +129,8 @@ your database will be populated.
     return :created_at
   end
 
-  def _resource_and_event(body)
+  def _resource_and_event(request)
+    body = request.body
     return body["subscriber"], body if body.key?("subscriber").present?
     return body, nil
   end

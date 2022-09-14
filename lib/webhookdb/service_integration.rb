@@ -174,6 +174,32 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
   end
 
+  # Some integrations require sequences, like when upserting rows with numerical unique ids
+  # (if they were random values like UUIDs we could generate them and not use a sequence).
+  # In those cases, the integrations can mark themselves as requiring a sequence.
+  #
+  # The sequence will be created in the *application database*,
+  # but it used primarily when inserting rows into the *organization/replication database*.
+  # This is necessary because things like sequences are not possible to migrate
+  # when moving replication databases.
+  def requires_sequence?
+    return self.service_instance.requires_sequence?
+  end
+
+  def sequence_name
+    return "replicator_seq_org_#{self.organization_id}_#{self.service_name}_#{self.id}_seq"
+  end
+
+  def ensure_sequence(skip_check: false)
+    raise Webhookdb::InvalidPrecondition, "#{self.service_name} does not require sequence" if
+      !skip_check && !self.requires_sequence?
+    self.db << "CREATE SEQUENCE IF NOT EXISTS #{self.sequence_name}"
+  end
+
+  def sequence_nextval
+    return self.db.select(Sequel.function(:nextval, self.sequence_name)).single_value
+  end
+
   #
   # :Sequel Hooks:
   #

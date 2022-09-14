@@ -76,8 +76,14 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         # serializing the (large) webhook payload multiple times, as with normal pubsub.
         Webhookdb::Async::AuditLogger.new.perform(event_json)
         if svc.process_webhooks_synchronously?
-          inserted = svc.upsert_webhook(**process_kwargs)
-          s_body = svc.synchronous_processing_response(inserted)
+          whreq = Webhookdb::Services::WebhookRequest.new(
+            method: process_kwargs[:request_method],
+            path: process_kwargs[:request_path],
+            headers: process_kwargs[:headers],
+            body: process_kwargs[:body],
+          )
+          inserted = svc.upsert_webhook(whreq)
+          s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)
         else
           queue = svc.upsert_has_deps? ? "netout" : "webhook"
           Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)

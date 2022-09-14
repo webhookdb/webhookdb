@@ -11,7 +11,7 @@ class Webhookdb::Services::Column
 
   # Convert a Unix timestamp (fractional seconds) to a Datetime.
   CONV_UNIX_TS = IsomorphicProc.new(
-    ruby: lambda do |i, _|
+    ruby: lambda do |i, **_|
       return Time.at(i)
     rescue TypeError
       return nil
@@ -24,12 +24,12 @@ class Webhookdb::Services::Column
     end,
   )
   CONV_TO_I = IsomorphicProc.new(
-    ruby: ->(i, _) { i.delete_prefix('"').delete_suffix('"').to_i },
+    ruby: ->(i, **_) { i.delete_prefix('"').delete_suffix('"').to_i },
     sql: ->(i) { Sequel.cast(i, :integer) },
   )
   # Given a Datetime, convert it to UTC and truncate to a Date.
   CONV_TO_UTC_DATE = IsomorphicProc.new(
-    ruby: ->(t, _) { t.in_time_zone("UTC").to_date },
+    ruby: ->(t, **_) { t.in_time_zone("UTC").to_date },
     sql: lambda do |i|
       ts = Sequel.cast(i, :timestamptz)
       in_utc = Sequel.function(:timezone, "UTC", ts)
@@ -37,17 +37,37 @@ class Webhookdb::Services::Column
     end,
   )
   CONV_PARSE_TIME = IsomorphicProc.new(
-    ruby: ->(s, _) { Time.parse(s) },
+    ruby: ->(value, **_) { Time.parse(value) },
     sql: ->(i) { Sequel.cast(i, :timestamptz) },
   )
+  def self.converter_from_regex(re, coerce: nil, index: -1)
+    return IsomorphicProc.new(
+      ruby: lambda do |value, **_|
+        matched = value.match(re) do |md|
+          md.captures ? md.captures[index] : nil
+        end
+        (matched = matched.send(coerce)) if !matched.nil? && coerce
+        matched
+      end,
+      sql: ->(*) { raise "not yet supported" },
+    )
+  end
+
   KNOWN_CONVERTERS = {tsat: CONV_UNIX_TS}.freeze
 
-  DEFAULTER_NOW = IsomorphicProc.new(ruby: ->(_) { Time.now }, sql: -> { Sequel.function(:now) })
-  DEFAULTER_FALSE = IsomorphicProc.new(ruby: ->(_) { false }, sql: -> { false })
-  DEFAULTER_FROM_CREATED_AT = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: ->(resource) { resource.fetch("created_at") },
-    sql: -> { :created_at },
+  DEFAULTER_NOW = IsomorphicProc.new(ruby: ->(*) { Time.now }, sql: ->(*) { Sequel.function(:now) })
+  DEFAULTER_FALSE = IsomorphicProc.new(ruby: ->(*) { false }, sql: ->(*) { false })
+  DEFAULTER_FROM_INTEGRATION_SEQUENCE = IsomorphicProc.new(
+    ruby: ->(service_integration:, **_) { service_integration.sequence_nextval },
+    sql: ->(service_integration:) { Sequel.function(:nextval, service_integration.sequence_name) },
   )
+
+  def self.defaulter_from_resource_field(key)
+    return Webhookdb::Services::Column::IsomorphicProc.new(
+      ruby: ->(resource:, **_) { resource.fetch(key.to_s) },
+      sql: ->(*) { key.to_sym },
+    )
+  end
   KNOWN_DEFAULTERS = {now: DEFAULTER_NOW}.freeze
 
   # @return [Symbol]
@@ -93,14 +113,20 @@ class Webhookdb::Services::Column
   # desired timestamp format. In these cases, we use a `converter`, which is an `IsomorphicProc` where both
   # procs take the value retrieved from the external service and the resource object and return a value
   # consistent with the column's type attribute.
+  #
   # @return [IsomorphicProc]
+  #   The 'ruby' proc accepts (value, resource:, event:, enrichment:, service_integration:) and returns a value.
+  #   The 'sql' proc takes an expression and returns a new expression.
   attr_reader :converter
 
   # If the value we retrieve from the data provided by the external service is nil, we often want to use
   # a default value instead of nil. The `defaulter` is an `IsomorphicProc` where both procs take the resource
   # object and return a default value that is used in the upsert. A common example is the `now` defaulter,
   # which uses the current time as the default value.
+  #
   # @return [IsomorphicProc]
+  #   The 'ruby' proc accepts (resource:, event:, enrichment:, service_integration:) and returns a value.
+  #   The 'sql' proc accepts (service_integration:) and returns an sql expression.
   attr_reader :defaulter
 
   # If `skip_nil` is set to true, we only add the described value to the hash that gets upserted if it is not
@@ -164,29 +190,27 @@ class Webhookdb::Services::Column
     return expr
   end
 
-  def to_ruby_converter
-    return lambda do |resource, event, enrichment|
-      v = if self.from_enrichment
-            self._dig(enrichment, self.data_key, self.optional)
-      elsif event && self.event_key
-        # Event keys are never optional since any API using them is going to have fixed keys
-        self._dig(event, self.event_key, false)
-      else
-        self._dig(resource, self.data_key, self.optional)
-      end
-      (v = self.defaulter.ruby.call(resource)) if self.defaulter && v.nil?
-      if self.converter
-        v = self.converter.ruby.call(v, resource)
-      elsif (self.type == INTEGER_ARRAY) && !v.nil?
-        v = Sequel.pg_array(v, "integer")
-      end
-      # pg_json doesn't handle thie ssuper well in our situation,
-      # so JSON must be inserted as a string.
-      if (_stringify_json = self.type == OBJECT && !v.nil? && !v.is_a?(String))
-        v = v.to_json
-      end
-      return v
+  def to_ruby_value(resource:, event:, enrichment:, service_integration:)
+    v = if self.from_enrichment
+          self._dig(enrichment, self.data_key, self.optional)
+    elsif event && self.event_key
+      # Event keys are never optional since any API using them is going to have fixed keys
+      self._dig(event, self.event_key, false)
+    else
+      self._dig(resource, self.data_key, self.optional)
     end
+    (v = self.defaulter.ruby.call(resource:, event:, enrichment:, service_integration:)) if self.defaulter && v.nil?
+    if self.converter
+      v = self.converter.ruby.call(v, resource:, event:, enrichment:, service_integration:)
+    elsif (self.type == INTEGER_ARRAY) && !v.nil?
+      v = Sequel.pg_array(v, "integer")
+    end
+    # pg_json doesn't handle thie ssuper well in our situation,
+    # so JSON must be inserted as a string.
+    if (_stringify_json = self.type == OBJECT && !v.nil? && !v.is_a?(String))
+      v = v.to_json
+    end
+    return v
   end
 
   def _dig(h, keys, optional)

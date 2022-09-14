@@ -5,6 +5,7 @@ require "webhookdb/db_adapter"
 require "webhookdb/connection_cache"
 require "webhookdb/services/column"
 require "webhookdb/services/schema_modification"
+require "webhookdb/services/webhook_request"
 require "webhookdb/typed_struct"
 
 require "webhookdb/jobs/send_webhook"
@@ -42,15 +43,19 @@ class Webhookdb::Services::Base
   # This should ONLY be used where we have important order-of-operations
   # in webhook processing and/or need to return data to the webhook sender.
   #
-  # NOTE: You MUST implement +synchronous_processing_response+ if this returns true.
+  # NOTE: You MUST implement +synchronous_processing_response_body+ if this returns true.
   def process_webhooks_synchronously?
     return false
   end
 
   # Call with the value that was inserted by synchronous processing.
-  # Return the body string to respond back with.
+  # Takes the row values being upserted (result upsert_webhook),
+  # and the arguments used to upsert it (arguments to upsert_webhook),
+  # and should return the body string to respond back with.
+  # @param [Hash] upserted
+  # @param [Webhookdb::Services::WebhookRequest] request
   # @return [String]
-  def synchronous_processing_response(_inserted)
+  def synchronous_processing_response_body(upserted:, request:)
     raise NotImplementedError, "must be implemented if process_webhooks_synchronously? is true"
   end
 
@@ -336,6 +341,10 @@ class Webhookdb::Services::Base
     return result
   end
 
+  def requires_sequence?
+    return false
+  end
+
   # A given HTTP request may not be handled by the service integration it was sent to,
   # for example where the service integration is part of some 'root' hierarchy.
   # This method is called in the webhook endpoint, and should return the service instance
@@ -355,12 +364,13 @@ class Webhookdb::Services::Base
   # This is not valid for the rare integration which does not rely on request info,
   # like when we have to take different action based on a request method.
   def upsert_webhook_body(body)
-    return self.upsert_webhook(body:, headers: nil, request_path: nil, request_method: nil)
+    return self.upsert_webhook(Webhookdb::Services::WebhookRequest.new(body:))
   end
 
-  def upsert_webhook(body:, headers:, request_path:, request_method:)
+  # @param [Webhookdb::Services::WebhookRequest] request
+  def upsert_webhook(request)
     remote_key_col = self._remote_key_column
-    resource, event = self._resource_and_event(body)
+    resource, event = self._resource_and_event(request)
     return nil if resource.nil?
     enrichment = self._fetch_enrichment(resource, event)
     prepared = self._prepare_for_insert(resource, event, enrichment)
@@ -449,9 +459,11 @@ class Webhookdb::Services::Base
   #
   # For example, a Stripe customer backfill upsert would be `{id: 'cus_123'}`
   # when we backfill, but `{type: 'event', data: {id: 'cus_123'}}` when handling an event.
+  #
   # @abstract
+  # @param [Webhookdb::Services::WebhookRequest] request
   # @return [Array<Hash>]
-  def _resource_and_event(_body)
+  def _resource_and_event(request)
     raise NotImplementedError
   end
 
@@ -460,7 +472,7 @@ class Webhookdb::Services::Base
   # @return [Hash]
   def _prepare_for_insert(resource, event, enrichment)
     h = [self._remote_key_column].concat(self._denormalized_columns).each_with_object({}) do |col, memo|
-      value = col.to_ruby_converter[resource, event, enrichment]
+      value = col.to_ruby_value(resource:, event:, enrichment:, service_integration:)
       skip = value.nil? && col.skip_nil?
       memo[col.name] = value unless skip
     end

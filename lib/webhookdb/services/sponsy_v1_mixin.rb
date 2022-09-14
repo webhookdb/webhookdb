@@ -19,7 +19,7 @@ module Webhookdb::Services::SponsyV1Mixin
       Webhookdb::Services::Column.new(
         :updated_at, TIMESTAMP,
         data_key: "updatedAt",
-        defaulter: Webhookdb::Services::Column::DEFAULTER_FROM_CREATED_AT,
+        defaulter: Webhookdb::Services::Column.defaulter_from_resource_field(:created_at),
       ),
     ]
   end
@@ -50,8 +50,8 @@ module Webhookdb::Services::SponsyV1Mixin
     raise Webhookdb::Services::CredentialsMissing, "This Sponsy integration is missing its dependency"
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

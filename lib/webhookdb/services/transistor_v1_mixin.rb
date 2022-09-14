@@ -16,7 +16,8 @@ module Webhookdb::Services::TransistorV1Mixin
     return :updated_at
   end
 
-  def _resource_and_event(body)
+  def _resource_and_event(request)
+    body = request.body
     return body["data"], body if body.key?("data")
     return body, nil
   end

@@ -20,7 +20,7 @@ class Webhookdb::Services::TheranestAppointmentServiceTypeV1 < Webhookdb::Servic
   end
 
   CONV_REMOTE_KEY = Webhookdb::Services::Column::IsomorphicProc.new(
-    ruby: ->(_, item) { "#{item.fetch('appointment_id')}-#{item.fetch('service_type_id')}" },
+    ruby: ->(_, resource:, **_) { "#{resource.fetch('appointment_id')}-#{resource.fetch('service_type_id')}" },
     # Because this is a non-nullable key, we never need this in SQL
     sql: ->(_) { Sequel.lit("'do not use'") },
   )
@@ -48,8 +48,8 @@ class Webhookdb::Services::TheranestAppointmentServiceTypeV1 < Webhookdb::Servic
     return :row_updated_at
   end
 
-  def _resource_and_event(body)
-    return body, nil
+  def _resource_and_event(request)
+    return request.body, nil
   end
 
   def _update_where_expr

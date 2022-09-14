@@ -51,8 +51,8 @@ class Webhookdb::Services::IncreaseCheckTransferV1 < Webhookdb::Services::Base
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _resource_and_event(body)
-    return self._find_resource_and_event(body, "check_transfer")
+  def _resource_and_event(request)
+    return self._find_resource_and_event(request.body, "check_transfer")
   end
 
   def _mixin_backfill_url
