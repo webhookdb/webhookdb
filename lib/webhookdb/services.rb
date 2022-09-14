@@ -98,6 +98,11 @@ end
 require "webhookdb/services/state_machine_step"
 require "webhookdb/services/column"
 require "webhookdb/services/base"
+require "webhookdb/services/bookingpal_listing_photo_v1"
+require "webhookdb/services/bookingpal_listing_policy_v1"
+require "webhookdb/services/bookingpal_listing_room_setting_v1"
+require "webhookdb/services/bookingpal_listing_status_v1"
+require "webhookdb/services/bookingpal_listing_v1"
 require "webhookdb/services/convertkit_broadcast_v1"
 require "webhookdb/services/convertkit_subscriber_v1"
 require "webhookdb/services/convertkit_tag_v1"
@@ -145,6 +150,11 @@ require "webhookdb/services/transistor_episode_v1"
 require "webhookdb/services/transistor_show_v1"
 require "webhookdb/services/twilio_sms_v1"
 require "webhookdb/services/webhookdb_customer_v1"
+Webhookdb::Services.register(Webhookdb::Services::BookingpalListingPhotoV1)
+Webhookdb::Services.register(Webhookdb::Services::BookingpalListingPolicyV1)
+Webhookdb::Services.register(Webhookdb::Services::BookingpalListingRoomSettingV1)
+Webhookdb::Services.register(Webhookdb::Services::BookingpalListingStatusV1)
+Webhookdb::Services.register(Webhookdb::Services::BookingpalListingV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitBroadcastV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitSubscriberV1)
 Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)

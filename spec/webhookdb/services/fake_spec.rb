@@ -248,6 +248,7 @@ RSpec.describe "fake implementations", :db do
 
       after(:each) do
         sint.organization.remove_related_database
+        Webhookdb::Services::Fake.reset
       end
 
       it "uses create_table modification if the table does not exist" do
@@ -356,6 +357,22 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from"
           expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from])
           expect(ds.first).to include({c2: 14, from: "Canada", my_id: "abc123", at: be_within(5.seconds).of(Time.now)})
         end
+      end
+
+      it "handles sequences during create" do
+        expect(fake.create_table_modification.application_database_statements).to be_empty
+        fake.class.requires_sequence = true
+        expect(fake.create_table_modification.application_database_statements).to contain_exactly(
+          /CREATE SEQUENCE IF NOT EXISTS replicator_seq_org_/,
+        )
+      end
+
+      it "handles sequences during modification" do
+        expect(fake.ensure_all_columns_modification.application_database_statements).to be_empty
+        fake.class.requires_sequence = true
+        expect(fake.ensure_all_columns_modification.application_database_statements).to contain_exactly(
+          /CREATE SEQUENCE IF NOT EXISTS replicator_seq_org_/,
+        )
       end
     end
 

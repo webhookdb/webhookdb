@@ -598,3 +598,24 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
     )
   end
 end
+
+RSpec.shared_examples "a service implementation that processes webhooks synchronously" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:expected_synchronous_response) { raise NotImplementedError }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+  it "is set to process webhooks synchronously" do
+    expect(svc).to be_process_webhooks_synchronously
+  end
+
+  it "returns expected response from `synchronous_processing_response`" do
+    sint.organization.prepare_database_connections
+    svc.create_table
+    inserting = upsert_webhook(svc)
+    synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: webhook_request)
+    expected = expected_synchronous_response
+    expect(expected).to be_a(String)
+    expect(synch_resp).to eq(expected)
+  end
+end

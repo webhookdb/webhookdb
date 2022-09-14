@@ -24,12 +24,12 @@ class Webhookdb::Services::Column
     end,
   )
   CONV_TO_I = IsomorphicProc.new(
-    ruby: ->(i, **_) { i.delete_prefix('"').delete_suffix('"').to_i },
+    ruby: ->(i, **_) { i.nil? ? nil : i.delete_prefix('"').delete_suffix('"').to_i },
     sql: ->(i) { Sequel.cast(i, :integer) },
   )
   # Given a Datetime, convert it to UTC and truncate to a Date.
   CONV_TO_UTC_DATE = IsomorphicProc.new(
-    ruby: ->(t, **_) { t.in_time_zone("UTC").to_date },
+    ruby: ->(t, **_) { t.nil? ? nil : t.in_time_zone("UTC").to_date },
     sql: lambda do |i|
       ts = Sequel.cast(i, :timestamptz)
       in_utc = Sequel.function(:timezone, "UTC", ts)
@@ -37,19 +37,30 @@ class Webhookdb::Services::Column
     end,
   )
   CONV_PARSE_TIME = IsomorphicProc.new(
-    ruby: ->(value, **_) { Time.parse(value) },
+    ruby: ->(value, **_) { value.nil? ? nil : Time.parse(value) },
     sql: ->(i) { Sequel.cast(i, :timestamptz) },
   )
   def self.converter_from_regex(re, coerce: nil, index: -1)
     return IsomorphicProc.new(
       ruby: lambda do |value, **_|
-        matched = value.match(re) do |md|
+        matched = value&.match(re) do |md|
           md.captures ? md.captures[index] : nil
         end
         (matched = matched.send(coerce)) if !matched.nil? && coerce
         matched
       end,
       sql: ->(*) { raise "not yet supported" },
+    )
+  end
+
+  def self.converter_int_or_sequence_from_regex(re, index: -1)
+    return Webhookdb::Services::Column::IsomorphicProc.new(
+      ruby: lambda do |value, service_integration:, **kw|
+        url_id = Webhookdb::Services::Column.converter_from_regex(re, coerce: :to_i, index:).
+          ruby.call(value, service_integration:, **kw)
+        url_id || service_integration.sequence_nextval
+      end,
+      sql: ->(*) { raise NotImplementedError },
     )
   end
 
@@ -215,11 +226,14 @@ class Webhookdb::Services::Column
 
   def _dig(h, keys, optional)
     v = h
-    Array(keys).each do |key|
+    karr = Array(keys)
+    karr.each do |key|
       begin
         v = optional ? v[key] : v.fetch(key)
       rescue KeyError
         raise KeyError, "key not found: '#{key}' in: #{v.keys}"
+      rescue NoMethodError => e
+        raise NoMethodError, "Element #{key} of #{karr}\n#{e}"
       end
       # allow optional nested values by returning nil as soon as key not found
       # the problem here is that you effectively set all keys in the sequence as optional

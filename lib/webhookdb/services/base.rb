@@ -199,6 +199,7 @@ class Webhookdb::Services::Base
       dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(col).to_sym, table:, targets: [col])
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
+    result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
     return result
   end
 
@@ -301,10 +302,10 @@ class Webhookdb::Services::Base
   # @return [Webhookdb::Services::SchemaModification]
   def ensure_all_columns_modification
     existing_cols, existing_indices = nil
+    sint = self.service_integration
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns.to_set
-      sint = self.service_integration
       existing_indices = ds.db[:pg_indexes].where(
         schemaname: sint.organization.replication_schema,
         tablename: sint.table_name,
@@ -338,6 +339,8 @@ class Webhookdb::Services::Base
       index = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
       result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
     end
+
+    result.application_database_statements << sint.ensure_sequence_sql if self.requires_sequence?
     return result
   end
 
@@ -372,7 +375,7 @@ class Webhookdb::Services::Base
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(request)
     return nil if resource.nil?
-    enrichment = self._fetch_enrichment(resource, event)
+    enrichment = self._fetch_enrichment(resource, event, request)
     prepared = self._prepare_for_insert(resource, event, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
@@ -431,8 +434,11 @@ class Webhookdb::Services::Base
   # Given the resource that is going to be inserted and an optional event,
   # make an API call to enrich it with further data if needed.
   # The result of this is passed to _prepare_for_insert.
+  # @param [Hash,nil] resource
+  # @param [Hash,nil] event
+  # @param [Webhookdb::Services::WebhookRequest] request
   # @return [*]
-  def _fetch_enrichment(_resource, _event)
+  def _fetch_enrichment(resource, event, request)
     return nil
   end
 

@@ -191,9 +191,13 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   end
 
   def ensure_sequence(skip_check: false)
+    self.db << self.ensure_sequence_sql(skip_check:)
+  end
+
+  def ensure_sequence_sql(skip_check: false)
     raise Webhookdb::InvalidPrecondition, "#{self.service_name} does not require sequence" if
       !skip_check && !self.requires_sequence?
-    self.db << "CREATE SEQUENCE IF NOT EXISTS #{self.sequence_name}"
+    return "CREATE SEQUENCE IF NOT EXISTS #{self.sequence_name}"
   end
 
   def sequence_nextval

@@ -214,6 +214,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
   end
 
   describe "_fetch_enrichment" do
+    whreq = Webhookdb::Services::WebhookRequest.new
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_broadcast_v1") }
     let(:svc) { Webhookdb::Services.service_instance(sint) }
     let(:body) do
@@ -233,7 +234,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           headers: {"Content-Type" => "application/json"},
           body: {broadcast: {id: 10_000_000, stats: {x: 1}}}.to_json,
         )
-      svc._fetch_enrichment(body, nil)
+      svc._fetch_enrichment(body, nil, whreq)
       expect(req).to have_been_made
     end
 
@@ -244,7 +245,7 @@ RSpec.describe Webhookdb::Services::ConvertkitBroadcastV1, :db do
           headers: {"Content-Type" => "application/json"},
           body: {broadcast: {id: 5}}.to_json,
         )
-      expect(svc._fetch_enrichment(body, nil)).to eq({})
+      expect(svc._fetch_enrichment(body, nil, whreq)).to eq({})
       expect(req).to have_been_made
     end
   end

@@ -96,7 +96,7 @@ class Webhookdb::Services::PlaidItemV1 < Webhookdb::Services::Base
     end
   end
 
-  def _fetch_enrichment(_resource, event)
+  def _fetch_enrichment(_resource, event, _request)
     # Ignore 'resource' which is just {item_id: ''}, the 'event' contains the real webhook.
     case event.fetch("webhook_code")
       when "ERROR", "USER_PERMISSION_REVOKED"

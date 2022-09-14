@@ -375,9 +375,28 @@ RSpec.describe Webhookdb::Services::Column, :db do
         expect(conv.ruby.call("/abc/xyz")).to be_nil
       end
 
+      it "returns nil if given nil" do
+        conv = described_class.converter_from_regex(%r{/abc/(\d+)+}, coerce: :to_i)
+        expect(conv.ruby.call(nil)).to be_nil
+      end
+
       it "can call the given additional method" do
         conv = described_class.converter_from_regex(%r{/\d+/(\d+)+}, coerce: :to_i)
         expect(conv.ruby.call("/xy/123/45/z")).to eq(45)
+      end
+    end
+
+    describe "converter_int_or_sequence_from_regex" do
+      it "uses the regex value if captured" do
+        conv = described_class.converter_int_or_sequence_from_regex(%r{/a/(\d+)/b})
+        expect(conv.ruby.call("/a/123/b", service_integration: nil)).to eq(123)
+      end
+
+      it "uses the service integration sequence if not captured" do
+        conv = described_class.converter_int_or_sequence_from_regex(%r{/a/(\d+)/b})
+        sint = Webhookdb::Fixtures.service_integration.create
+        sint.ensure_sequence(skip_check: true)
+        expect(conv.ruby.call("/ab", service_integration: sint)).to eq(1)
       end
     end
 
@@ -553,6 +572,32 @@ RSpec.describe Webhookdb::Services::Column, :db do
         end
         let(:expected_value) { 1 }
         let(:expected_query) { /SELECT nextval\('replicator_seq_org_/ }
+      end
+    end
+
+    describe "Webhookdb::Services::BookingpalV1Mixin::DEFAULTER_DELETED_AT" do
+      let(:described_class) { Webhookdb::Services::BookingpalV1Mixin::DEFAULTER_DELETED_AT }
+      let(:resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "POST"} }
+      let(:delete_resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "DELETE"} }
+
+      describe "ruby defaulter" do
+        it "returns Time.now if request method is 'DELETE'" do
+          v = described_class.ruby.call(delete_resource)
+          expect(v).to be_within(10).of(Time.now)
+        end
+
+        it "returns nil if request method is not 'DELETE'" do
+          v = described_class.ruby.call(resource)
+          expect(v).to be_nil
+        end
+      end
+
+      describe "sql defaulter" do
+        it "returns nil'" do
+          e = described_class.sql.call
+          v = Webhookdb::Postgres::Model.db.select(e).first.to_a[0][1]
+          expect(v).to be_nil
+        end
       end
     end
   end

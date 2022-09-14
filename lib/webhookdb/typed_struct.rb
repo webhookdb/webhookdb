@@ -27,6 +27,10 @@ class Webhookdb::TypedStruct
     return c
   end
 
+  def as_json
+    return self.instance_values.as_json
+  end
+
   protected def typecheck!(field, type, nullable: false)
     value = self.send(field)
     return if nullable && value.nil?

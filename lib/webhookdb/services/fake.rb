@@ -154,7 +154,7 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
     return true
   end
 
-  def _fetch_enrichment(resource, _event)
+  def _fetch_enrichment(resource, _event, _request)
     r = Webhookdb::Http.get("https://fake-integration/enrichment/" + resource["my_id"], logger: nil)
     return r.parsed_response
   end

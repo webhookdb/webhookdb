@@ -14,6 +14,12 @@ RSpec.shared_examples "a service column converter" do |isomorphic_proc|
     expect(v).to eq(expected_value)
   end
 
+  it "handles nil as the value to its ruby proc without erroring" do
+    expect do
+      isomorphic_proc.ruby.call(nil, resource:, event:, enrichment:, service_integration:)
+    end.to_not raise_error
+  end
+
   it "returns expected value using sql proc" do
     e = isomorphic_proc.sql.call(initial_value)
     v = db.select(e).first.to_a[0][1]

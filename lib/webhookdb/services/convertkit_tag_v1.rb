@@ -50,7 +50,7 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
     return true
   end
 
-  def _fetch_enrichment(resource, _event)
+  def _fetch_enrichment(resource, _event, _request)
     tag_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/tags/#{tag_id}/subscriptions?api_secret=#{self.service_integration.backfill_secret}"
     response = Webhookdb::Http.get(url, logger: self.logger)
