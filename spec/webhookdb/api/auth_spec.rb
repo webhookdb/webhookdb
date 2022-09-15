@@ -43,7 +43,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       end
 
       it "errors if signups are disabled" do
-        Webhookdb::Customer.disable_signup = true
+        Webhookdb::Customer.signup_email_allowlist = ["nomatch"]
         post "/v1/auth", email: email
         expect(last_response).to have_status(402)
         expect(last_response).to have_json_body.
@@ -94,7 +94,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       end
 
       it "succeeds even if signup is disabled" do
-        Webhookdb::Customer.disable_signup = true
+        Webhookdb::Customer.signup_email_allowlist = ["nomatch"]
         post "/v1/auth", email: email
         expect(last_response).to have_status(202)
       end
