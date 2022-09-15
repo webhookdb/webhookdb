@@ -11,6 +11,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   plugin :timestamps
   plugin :column_encryption do |enc|
     enc.column :data_encryption_secret
+    enc.column :webhook_secret
+    enc.column :backfill_key
+    enc.column :backfill_secret
   end
 
   many_to_one :organization, class: "Webhookdb::Organization"

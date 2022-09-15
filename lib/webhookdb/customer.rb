@@ -14,7 +14,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   class SignupDisabled < StandardError; end
 
   configurable(:customer) do
-    setting :disable_signup, false
+    setting :signup_email_allowlist, ["*"], convert: ->(s) { s.split }
     setting :skip_authentication, false
     setting :skip_authentication_allowlist, [], convert: ->(s) { s.split }
   end
@@ -69,7 +69,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
       new_customer = false
       # If there is no Customer object associated with the email, create one
       unless (me = Webhookdb::Customer[email:])
-        raise SignupDisabled if self.disable_signup
+        signup_allowed = self.signup_email_allowlist.any? { |pattern| File.fnmatch(pattern, email) }
+        raise SignupDisabled unless signup_allowed
         me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
       end
       # This accounts for the case where a user has been invited to an org and is logging in to WebhookDB

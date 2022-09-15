@@ -251,9 +251,15 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               state_machine = svc.calculate_backfill_state_machine
               if state_machine.complete
+                # We should always cascade manual backfills.
+                # In the future we may need a way to trigger a full backfill.
                 Amigo.publish(
-                  "webhookdb.serviceintegration.backfill", sint.id,
+                  "webhookdb.serviceintegration.backfill", sint.id, cascade: true,
                 )
+                state_machine.output = "You have triggered a backfill of #{sint.service_name} (#{sint.opaque_id}). " \
+                                       "Data will appear in your database momentarily. " \
+                                       "If you need your database credentials, " \
+                                       "you can run `webhookdb db connection`."
               end
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
