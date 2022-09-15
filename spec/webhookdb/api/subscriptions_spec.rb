@@ -12,6 +12,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
 
   before(:each) do
     login_as(customer)
+    Webhookdb::Subscription.reset_configuration
   end
 
   describe "GET /v1/organizations/:identifier/subscriptions/plans" do
