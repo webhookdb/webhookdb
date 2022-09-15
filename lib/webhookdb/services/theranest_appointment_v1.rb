@@ -48,17 +48,34 @@ class Webhookdb::Services::TheranestAppointmentV1 < Webhookdb::Services::Base
     return "Looks like your auth cookie has expired."
   end
 
-  def _fetch_backfill_page(_pagination_token, **_kwargs)
+  # Appointments are a pretty weird resource.
+  # We 'paginate' by looking at dates.
+  # Incremental backfills paginate from this month forward to the configured 'look ahead' date;
+  # full backfills paginate from a 'look back' date forward to the configured 'look ahead' date.
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
+    now = Time.now
+    if pagination_token.nil?
+      # We are starting our backfill. If it's complete, go far back.
+      # If it's incremental, start last month, not this month, so we don't miss anything
+      # at month boundaries.
+      complete_backfill = last_backfilled.nil?
+      months_back = complete_backfill ? Webhookdb::Theranest.appointment_look_back_months : 1
+      pagination_token = (now - months_back.months).utc.beginning_of_month
+    end
+    start_of_query_month = pagination_token
+    end_of_query_month = start_of_query_month + 1.month # end is exclusive
     url = self.find_auth_integration.api_url + "/api/appointments/getAppointments"
     headers = theranest_auth_headers.merge({"accept-encoding" => "none"})
-
     response = Webhookdb::Http.post(
       url,
-      {},
+      {"From" => start_of_query_month, "To" => end_of_query_month},
       headers:,
       logger: self.logger,
     )
     data = response.parsed_response
-    return data, nil
+    forward_cutoff = now + Webhookdb::Theranest.appointment_look_forward_months.months
+    # If the next month we'd query for is after our cutoff month, stop querying.
+    next_token = end_of_query_month > forward_cutoff ? nil : end_of_query_month
+    return data, next_token
   end
 end
