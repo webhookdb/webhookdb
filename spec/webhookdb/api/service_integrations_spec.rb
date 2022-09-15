@@ -606,7 +606,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       sint.update(backfill_secret: "sek")
       expect do
         post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill"
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id])
+      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id, {"cascade" => true}])
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(output: /backfill of fake_v1 \(xyz\)\. Data/)
     end
 
     it "fails if service integration is not supported by subscription plan" do
