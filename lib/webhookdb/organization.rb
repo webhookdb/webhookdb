@@ -11,6 +11,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :column_encryption do |enc|
+    enc.column :readonly_connection_url_raw
+    enc.column :admin_connection_url_raw
+  end
 
   configurable(:organization) do
     setting :max_query_rows, 1000

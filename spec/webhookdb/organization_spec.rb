@@ -215,7 +215,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     it "requires all of the connections to be present, or none" do
       expect do
         o.db.transaction do
-          o.readonly_connection_url_raw = ""
+          o.readonly_connection_url_raw = nil
           o.admin_connection_url_raw = "postgres://xyz/abc"
           o.save_changes
         end
