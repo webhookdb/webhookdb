@@ -6,6 +6,7 @@ require "sidekiq/web"
 
 require "webhookdb/api"
 require "webhookdb/async"
+require "webhookdb/sentry"
 require "webhookdb/service"
 
 require "webhookdb/api/auth"
@@ -54,6 +55,7 @@ module Webhookdb::Apps
   end
 
   SidekiqWeb = Rack::Builder.new do
+    use Sentry::Rack::CaptureExceptions if Webhookdb::Sentry.enabled?
     use Rack::Auth::Basic, "Protected Area" do |username, password|
       # Protect against timing attacks: (https://codahale.com/a-lesson-in-timing-attacks/)
       # - Use & (do not use &&) so that it doesn't short circuit.
