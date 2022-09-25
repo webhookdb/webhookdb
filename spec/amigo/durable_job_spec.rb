@@ -194,6 +194,42 @@ RSpec.describe Amigo::DurableJob do
     end
   end
 
+  describe "insert_job" do
+    let(:cls) { create_job_class }
+
+    it "inserts the job" do
+      described_class.insert_job(cls, "abc", {})
+      expect(ds1).to contain_exactly(
+        include(
+          assume_dead_at: match_time(cls.heartbeat_extension.from_now).within(5),
+          job_class: "DurableJob::TestWorker",
+          job_id: "abc", job_item_json: "{\"class\":\"DurableJob::TestWorker\"}",
+          locked_at: nil, locked_by: nil,
+          queue: "default",
+        ),
+      )
+    end
+
+    it "uses the job 'at' as when the job ran, if present" do
+      described_class.insert_job(cls, "abc", {"at" => Time.at(100)})
+      expect(ds1).to contain_exactly(
+        include(assume_dead_at: match_time("1970-01-01T00:06:40Z")),
+      )
+    end
+
+    # it "ignores database connection errors" do
+    #   # Not sure how ot test this yet
+    # end
+
+    it "updates assume_dead_at on insert conflict" do
+      described_class.insert_job(cls, "abc", {"at" => Time.at(100)})
+      described_class.insert_job(cls, "abc", {"at" => Time.at(10_000)})
+      expect(ds1).to contain_exactly(
+        include(assume_dead_at: match_time("1970-01-01 02:51:40Z")),
+      )
+    end
+  end
+
   describe "heartbeat" do
     it "touches the assume_dead_at timestamp" do
       cls = create_job_class(lambda do |w, _args|

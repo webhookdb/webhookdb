@@ -147,14 +147,18 @@ module Amigo::DurableJob
       assume_dead_at = job_run_at + job_class.heartbeat_extension
       inserted = self.storage_datasets.any? do |ds|
         begin
-          ds.insert(
-            job_id:,
-            job_class: job_class.to_s,
-            job_item_json: item.to_json,
-            assume_dead_at:,
-            queue: job_class.get_sidekiq_options["queue"],
-            **more,
-          )
+          ds.
+            insert_conflict(
+              target: :job_id,
+              update: {assume_dead_at:},
+            ).insert(
+              job_id:,
+              job_class: job_class.to_s,
+              job_item_json: item.to_json,
+              assume_dead_at:,
+              queue: job_class.get_sidekiq_options["queue"],
+              **more,
+            )
         rescue Sequel::DatabaseConnectionError => e
           # Once this is in Amigo, use its logging system
           Sidekiq.logger.warn "DurableJob: #{job_class}: insert failed: #{e}"
