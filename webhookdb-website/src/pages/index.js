@@ -93,7 +93,12 @@ export default function IndexPage() {
           </Lead>
           <CenteredDiv>
             <Link to="/docs/api-reservoir">
-              <Image src={Reservoir} fluid height={300} style={{ maxHeight: 400 }} />
+              <Image
+                src={Reservoir}
+                fluid
+                height={300}
+                style={{ maxHeight: 400, marginTop: "1rem" }}
+              />
             </Link>
           </CenteredDiv>
           <h2 className="mt-5">Introducing {API2SQL}</h2>
