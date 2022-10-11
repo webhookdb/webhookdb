@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
+set -e
 
 osascript -e "display notification \"$1\" with title \"WEBHOOKDB\""

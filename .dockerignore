@@ -1,0 +1,8 @@
+*.local
+webhookdb-website/
+vendor/
+temp/
+spec/
+coverage/
+.bundle/
+.github/
