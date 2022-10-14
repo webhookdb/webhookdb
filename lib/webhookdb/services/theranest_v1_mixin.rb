@@ -111,8 +111,8 @@ module Webhookdb::Services::TheranestV1Mixin
   )
   CONV_PARSE_DATETIME = Webhookdb::Services::Column::IsomorphicProc.new(
     ruby: lambda do |s, **_|
-      return Date.strptime(s, "%m/%d/%Y %H:%M %p")
-    rescue TypeError, Date::Error
+      return Time.strptime(s, "%m/%d/%Y %H:%M %p")
+    rescue TypeError, ArgumentError
       return nil
     end,
     sql: lambda do |e|
@@ -120,7 +120,7 @@ module Webhookdb::Services::TheranestV1Mixin
         {
           {Sequel.cast(Sequel.function(:pg_typeof, e), :text) => "integer"} => nil,
           {Sequel.cast(e, :text) => %r{\d\d/\d\d/\d\d\d\d}} =>
-            Sequel.function(:to_date, Sequel.cast(e, :text), "MM/DD/YYYY HH24:MI AM"),
+            Sequel.function(:to_timestamp, Sequel.cast(e, :text), "MM/DD/YYYY HH24:MI AM"),
         },
         nil,
       )
