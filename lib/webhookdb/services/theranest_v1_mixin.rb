@@ -1,6 +1,16 @@
 # frozen_string_literal: true
 
 module Webhookdb::Services::TheranestV1Mixin
+  # Theranest times are local to the 'tenant' timezone.
+  # Since we only need one tenant for now, let's hard-code their tenant timezone.
+  # If we need to support multiple Theranest instances, we will need
+  # to store this on the Theranest Auth integration.
+  TIMEZONE = "America/Los_Angeles"
+
+  def self.localtz(s)
+    return s.asctime.in_time_zone(TIMEZONE)
+  end
+
   # @return [Webhookdb::Services::TheranestAuthV1]
   def find_auth_integration
     return @auth if @auth
@@ -111,16 +121,19 @@ module Webhookdb::Services::TheranestV1Mixin
   )
   CONV_PARSE_DATETIME = Webhookdb::Services::Column::IsomorphicProc.new(
     ruby: lambda do |s, **_|
-      return Date.strptime(s, "%m/%d/%Y %H:%M %p")
-    rescue TypeError, Date::Error
+      return Webhookdb::Services::TheranestV1Mixin.localtz(Time.strptime(s, "%m/%d/%Y %H:%M %p"))
+    rescue TypeError, ArgumentError
       return nil
     end,
     sql: lambda do |e|
+      # We are producing this:
+      # SELECT timezone(<tz>, to_timestamp(<value>, <format>)::timestamp)
+      timestamp = Sequel.function(:to_timestamp, Sequel.cast(e, :text), "MM/DD/YYYY HH24:MI AM")
       Sequel.case(
         {
           {Sequel.cast(Sequel.function(:pg_typeof, e), :text) => "integer"} => nil,
           {Sequel.cast(e, :text) => %r{\d\d/\d\d/\d\d\d\d}} =>
-            Sequel.function(:to_date, Sequel.cast(e, :text), "MM/DD/YYYY HH24:MI AM"),
+            Sequel.function(:timezone, TIMEZONE, Sequel.cast(timestamp, :timestamp)),
         },
         nil,
       )

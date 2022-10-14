@@ -486,7 +486,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
     describe "Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME" do
       let(:initial_value) { "04/07/1992 12:04 AM" }
-      let(:expected_value) { Date.new(1992, 4, 7) }
+      let(:expected_value) { Time.parse("1992-04-07T00:04:00-0700") }
 
       it_behaves_like "a service column converter", Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME
 
