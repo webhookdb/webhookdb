@@ -36,20 +36,12 @@ class Webhookdb::Services::TheranestProgressNoteV1 < Webhookdb::Services::Base
         optional: true, # Not actually optional but we hard-code the columns in the converter
         converter: Webhookdb::Services::Column::IsomorphicProc.new(
           ruby: lambda do |_, resource:, **|
-                  s = resource.fetch("CreationDate") + " " + resource.fetch("CreationTime")
-                  return Time.strptime(s, "%m/%d/%Y %H:%M %p")
-                end,
-          sql: lambda do |_e|
-                 creation_str_expr = Sequel.function(
-                   :concat,
-                   Sequel.pg_json(:data).get_text("CreationDate"),
-                   " ",
-                   Sequel.pg_json(:data).get_text("CreationTime"),
-                 )
-                 Sequel.function(:to_timestamp,
-                                 creation_str_expr,
-                                 "MM/DD/YYYY HH24:MI AM",)
-               end,
+            s = resource.fetch("CreationDate") + " " + resource.fetch("CreationTime")
+            CONV_PARSE_DATETIME.ruby.call(s)
+          end,
+          # We don't use this, or test this explicitly, and it's really gnarly, so leave it out
+          # unless we have another use case for Theranest in the future.
+          sql: nil,
         ),
       ),
     ]
