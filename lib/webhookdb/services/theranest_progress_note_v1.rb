@@ -28,16 +28,30 @@ class Webhookdb::Services::TheranestProgressNoteV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      # We will populate these "external" values with values from the Backfiller Class in `handle_item`
-      Webhookdb::Services::Column.new(:external_case_id, TEXT),
-      Webhookdb::Services::Column.new(:external_client_id, TEXT, optional: true),
+      Webhookdb::Services::Column.new(:external_case_id, TEXT, data_key: "CaseId"),
+      Webhookdb::Services::Column.new(:external_client_id, TEXT, data_key: "ClientId"),
       Webhookdb::Services::Column.new(
         :theranest_created_at,
-        DATE,
-        data_key: "Date",
-        converter: CONV_PARSE_DATETIME,
+        TIMESTAMP,
+        optional: true, # Not actually optional but we hard-code the columns in the converter
+        converter: Webhookdb::Services::Column::IsomorphicProc.new(
+          ruby: lambda do |_, resource:, **|
+                  s = resource.fetch("CreationDate") + " " + resource.fetch("CreationTime")
+                  return Time.strptime(s, "%m/%d/%Y %H:%M %p")
+                end,
+          sql: lambda do |_e|
+                 creation_str_expr = Sequel.function(
+                   :concat,
+                   Sequel.pg_json(:data).get_text("CreationDate"),
+                   " ",
+                   Sequel.pg_json(:data).get_text("CreationTime"),
+                 )
+                 Sequel.function(:to_timestamp,
+                                 creation_str_expr,
+                                 "MM/DD/YYYY HH24:MI AM",)
+               end,
+        ),
       ),
-      Webhookdb::Services::Column.new(:theranest_is_signed_by_staff, BOOLEAN, data_key: "IsSignedByStaff"),
     ]
   end
 
@@ -74,14 +88,21 @@ class Webhookdb::Services::TheranestProgressNoteV1 < Webhookdb::Services::Base
     end
 
     def handle_item(body)
-      body["external_case_id"] = @theranest_case_id
-      body["external_client_id"] = @theranest_client_id
-      @progress_note_svc.upsert_webhook_body(body)
+      url = @progress_note_svc.theranest_api_url +
+        "/api/cases/get-progress-note?" \
+        "caseId=#{@theranest_case_id}&clientId=#{@theranest_client_id}&noteId=#{body.fetch('NoteId')}" \
+        "&appointmentId=&templateId=" # You NEED this or you get a 404
+      response = Webhookdb::Http.get(
+        url,
+        headers: @progress_note_svc.theranest_auth_headers,
+        logger: @progress_note_svc.logger,
+      )
+      note_body = response.parsed_response
+      @progress_note_svc.upsert_webhook_body(note_body)
     end
 
     def fetch_backfill_page(_pagination_token, **_kwargs)
       url = @progress_note_svc.theranest_api_url + "/api/cases/get-progress-notes-list?caseId=#{@theranest_case_id}"
-
       response = Webhookdb::Http.get(
         url,
         headers: @progress_note_svc.theranest_auth_headers,
