@@ -5,6 +5,9 @@ require "webhookdb/typed_struct"
 class Webhookdb::Services
   extend Webhookdb::MethodUtilities
 
+  SERVICES_DIR = Pathname(__FILE__).dirname + "services"
+  PLUGIN_DIR = Pathname(__FILE__).dirname + "services_ext"
+
   class InvalidService < StandardError; end
 
   class CredentialsMissing < StandardError; end
@@ -92,116 +95,28 @@ class Webhookdb::Services
       return r if r
       raise InvalidService, name
     end
-  end
-end
 
-require "webhookdb/services/state_machine_step"
-require "webhookdb/services/column"
-require "webhookdb/services/base"
-require "webhookdb/services/bookingpal_listing_photo_v1"
-require "webhookdb/services/bookingpal_listing_policy_v1"
-require "webhookdb/services/bookingpal_listing_room_setting_v1"
-require "webhookdb/services/bookingpal_listing_status_v1"
-require "webhookdb/services/bookingpal_listing_v1"
-require "webhookdb/services/convertkit_broadcast_v1"
-require "webhookdb/services/convertkit_subscriber_v1"
-require "webhookdb/services/convertkit_tag_v1"
-require "webhookdb/services/fake"
-require "webhookdb/services/increase_account_v1"
-require "webhookdb/services/increase_account_transfer_v1"
-require "webhookdb/services/increase_account_number_v1"
-require "webhookdb/services/increase_ach_transfer_v1"
-require "webhookdb/services/increase_check_transfer_v1"
-require "webhookdb/services/increase_limit_v1"
-require "webhookdb/services/increase_transaction_v1"
-require "webhookdb/services/increase_wire_transfer_v1"
-require "webhookdb/services/plaid_item_v1"
-require "webhookdb/services/plaid_transaction_v1"
-require "webhookdb/services/shopify_customer_v1"
-require "webhookdb/services/shopify_order_v1"
-require "webhookdb/services/sponsy_customer_v1"
-require "webhookdb/services/sponsy_placement_v1"
-require "webhookdb/services/sponsy_publication_v1"
-require "webhookdb/services/sponsy_slot_v1"
-require "webhookdb/services/sponsy_status_v1"
-require "webhookdb/services/stripe_charge_v1"
-require "webhookdb/services/stripe_coupon_v1"
-require "webhookdb/services/stripe_customer_v1"
-require "webhookdb/services/stripe_dispute_v1"
-require "webhookdb/services/stripe_invoice_item_v1"
-require "webhookdb/services/stripe_invoice_v1"
-require "webhookdb/services/stripe_payout_v1"
-require "webhookdb/services/stripe_price_v1"
-require "webhookdb/services/stripe_product_v1"
-require "webhookdb/services/stripe_refund_v1"
-require "webhookdb/services/stripe_subscription_v1"
-require "webhookdb/services/stripe_subscription_item_v1"
-require "webhookdb/services/theranest_appointment_service_type_v1"
-require "webhookdb/services/theranest_appointment_v1"
-require "webhookdb/services/theranest_auth_v1"
-require "webhookdb/services/theranest_case_v1"
-require "webhookdb/services/theranest_client_v1"
-require "webhookdb/services/theranest_progress_note_document_v1"
-require "webhookdb/services/theranest_progress_note_v1"
-require "webhookdb/services/theranest_service_type_v1"
-require "webhookdb/services/theranest_staff_v1"
-require "webhookdb/services/transistor_episode_stats_v1"
-require "webhookdb/services/transistor_episode_v1"
-require "webhookdb/services/transistor_show_v1"
-require "webhookdb/services/twilio_sms_v1"
-require "webhookdb/services/webhookdb_customer_v1"
-Webhookdb::Services.register(Webhookdb::Services::BookingpalListingPhotoV1)
-Webhookdb::Services.register(Webhookdb::Services::BookingpalListingPolicyV1)
-Webhookdb::Services.register(Webhookdb::Services::BookingpalListingRoomSettingV1)
-Webhookdb::Services.register(Webhookdb::Services::BookingpalListingStatusV1)
-Webhookdb::Services.register(Webhookdb::Services::BookingpalListingV1)
-Webhookdb::Services.register(Webhookdb::Services::ConvertkitBroadcastV1)
-Webhookdb::Services.register(Webhookdb::Services::ConvertkitSubscriberV1)
-Webhookdb::Services.register(Webhookdb::Services::ConvertkitTagV1)
-Webhookdb::Services.register(Webhookdb::Services::Fake)
-Webhookdb::Services.register(Webhookdb::Services::FakeDependent)
-Webhookdb::Services.register(Webhookdb::Services::FakeDependentDependent)
-Webhookdb::Services.register(Webhookdb::Services::FakeWithEnrichments)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountTransferV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseAccountNumberV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseACHTransferV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseCheckTransferV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseLimitV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseTransactionV1)
-Webhookdb::Services.register(Webhookdb::Services::IncreaseWireTransferV1)
-Webhookdb::Services.register(Webhookdb::Services::PlaidItemV1)
-Webhookdb::Services.register(Webhookdb::Services::PlaidTransactionV1)
-Webhookdb::Services.register(Webhookdb::Services::ShopifyCustomerV1)
-Webhookdb::Services.register(Webhookdb::Services::ShopifyOrderV1)
-Webhookdb::Services.register(Webhookdb::Services::SponsyCustomerV1)
-Webhookdb::Services.register(Webhookdb::Services::SponsyPlacementV1)
-Webhookdb::Services.register(Webhookdb::Services::SponsyPublicationV1)
-Webhookdb::Services.register(Webhookdb::Services::SponsySlotV1)
-Webhookdb::Services.register(Webhookdb::Services::SponsyStatusV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeChargeV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeCouponV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeCustomerV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeDisputeV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceItemV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeInvoiceV1)
-Webhookdb::Services.register(Webhookdb::Services::StripePayoutV1)
-Webhookdb::Services.register(Webhookdb::Services::StripePriceV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeProductV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeRefundV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionV1)
-Webhookdb::Services.register(Webhookdb::Services::StripeSubscriptionItemV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestAppointmentServiceTypeV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestAppointmentV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestAuthV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestCaseV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestClientV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteDocumentV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestProgressNoteV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestServiceTypeV1)
-Webhookdb::Services.register(Webhookdb::Services::TheranestStaffV1)
-Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeStatsV1)
-Webhookdb::Services.register(Webhookdb::Services::TransistorEpisodeV1)
-Webhookdb::Services.register(Webhookdb::Services::TransistorShowV1)
-Webhookdb::Services.register(Webhookdb::Services::TwilioSmsV1)
-Webhookdb::Services.register(Webhookdb::Services::WebhookdbCustomerV1)
+    def load_services
+      existing_descendants = Webhookdb::Services::Base.descendants
+      self._require_files(SERVICES_DIR)
+      self._require_files(PLUGIN_DIR)
+      new_descendants = Webhookdb::Services::Base.descendants
+      newly_registered = new_descendants - existing_descendants
+      newly_registered.each { |cls| self.register(cls) }
+      return newly_registered
+    end
+
+    def _require_files(dir)
+      splitter = "webhookdb/" + dir.to_s.rpartition("/").last
+      dir.glob("*.rb").each do |path|
+        base = path.basename.to_s[..-4]
+        require("#{splitter}/#{base}")
+      end
+    end
+  end
+
+  require "webhookdb/services/state_machine_step"
+  require "webhookdb/services/column"
+  require "webhookdb/services/base"
+  load_services
+end

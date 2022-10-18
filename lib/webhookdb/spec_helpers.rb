@@ -26,6 +26,10 @@ module Webhookdb::SpecHelpers
     super
   end
 
+  module_function def test_data_dir
+    return TEST_DATA_DIR
+  end
+
   module_function def json_headers(**more)
     return {"Content-Type" => "application/json"}.merge(**more)
   end
