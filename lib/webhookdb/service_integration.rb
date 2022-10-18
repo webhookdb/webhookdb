@@ -177,14 +177,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
   end
 
-  # Some integrations require sequences, like when upserting rows with numerical unique ids
-  # (if they were random values like UUIDs we could generate them and not use a sequence).
-  # In those cases, the integrations can mark themselves as requiring a sequence.
-  #
-  # The sequence will be created in the *application database*,
-  # but it used primarily when inserting rows into the *organization/replication database*.
-  # This is necessary because things like sequences are not possible to migrate
-  # when moving replication databases.
   def requires_sequence?
     return self.service_instance.requires_sequence?
   end

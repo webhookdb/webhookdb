@@ -13,9 +13,11 @@ require "webhookdb/jobs/send_webhook"
 class Webhookdb::Services::Base
   include Webhookdb::DBAdapter::ColumnTypes
 
+  # Return the descriptor for this service.
+  # @abstract
   # @return [Webhookdb::Services::Descriptor]
   def self.descriptor
-    raise NotImplementedError, "each service must return a descriptor that is used for registration purposes"
+    raise NotImplementedError, "#{self.class}: must return a descriptor that is used for registration purposes"
   end
 
   # @return [Webhookdb::ServiceIntegration]
@@ -44,6 +46,8 @@ class Webhookdb::Services::Base
   # in webhook processing and/or need to return data to the webhook sender.
   #
   # NOTE: You MUST implement +synchronous_processing_response_body+ if this returns true.
+  #
+  # @return [Boolean]
   def process_webhooks_synchronously?
     return false
   end
@@ -52,6 +56,7 @@ class Webhookdb::Services::Base
   # Takes the row values being upserted (result upsert_webhook),
   # and the arguments used to upsert it (arguments to upsert_webhook),
   # and should return the body string to respond back with.
+  #
   # @param [Hash] upserted
   # @param [Webhookdb::Services::WebhookRequest] request
   # @return [String]
@@ -64,6 +69,9 @@ class Webhookdb::Services::Base
   # Remove or obfuscate the passed header hash.
   def preprocess_headers_for_logging(_headers); end
 
+  # Return a tuple of (schema, table) based on the organization's replication schema,
+  # and the service integration's table name.
+  #
   # @return [Array<Symbol>]
   def schema_and_table_symbols
     sch = self.service_integration.organization&.replication_schema&.to_sym || :public
@@ -73,12 +81,14 @@ class Webhookdb::Services::Base
 
   # Return a Sequel identifier using +schema_and_table_symbols+,
   # or +schema+ or +table+ as overrides if given.
+  #
   # @return [Sequel::SQL::QualifiedIdentifier]
   def qualified_table_sequel_identifier(schema: nil, table: nil)
     sch, tbl = self.schema_and_table_symbols
     return Sequel[schema || sch][table || tbl]
   end
 
+  # Return a DBAdapter table based on the +schema_and_table_symbols+.
   # @return [Webhookdb::DBAdapter::Table]
   def dbadapter_table
     sch, tbl = self.schema_and_table_symbols
@@ -87,7 +97,7 @@ class Webhookdb::Services::Base
     return table
   end
 
-  # Time.at(t), but nil if t is nil.
+  # +Time.at(t)+, but nil if t is nil.
   # Use when we have 'nullable' integer timestamps.
   # @return [Time]
   protected def tsat(t)
@@ -95,6 +105,13 @@ class Webhookdb::Services::Base
     return Time.at(t)
   end
 
+  # Given a Rack request, return the webhook response object.
+  # Usually this performs verification of the request based on the webhook secret
+  # configured on the service integration.
+  # Note that if +skip_webhook_verification+ is true on the service integration,
+  # this method always returns 201.
+  #
+  # @param [Rack::Request] request
   # @return [Webhookdb::WebhookResponse]
   def webhook_response(request)
     return Webhookdb::WebhookResponse.ok(status: 201) if self.service_integration.skip_webhook_verification
@@ -105,6 +122,7 @@ class Webhookdb::Services::Base
   # We must do this immediately in the endpoint itself,
   # since verification may include info specific to the request content
   # (like, it can be whitespace sensitive).
+  # @abstract
   # @return [Webhookdb::WebhookResponse]
   def _webhook_response(request)
     raise NotImplementedError
@@ -116,8 +134,8 @@ class Webhookdb::Services::Base
   # Subclasses can override this method and then super,
   # to change the field or value.
   #
-  # @param field [String]
-  # @param value [String]
+  # @param field [String] Like 'webhook_secret', 'backfill_key', etc.
+  # @param value [String] The value of the field.
   # @return [Webhookdb::Services::StateMachineStep]
   def process_state_change(field, value)
     case field
@@ -150,12 +168,23 @@ class Webhookdb::Services::Base
     return dep_candidates[idx]
   end
 
+  # Return the state machine that is used when setting up this integration.
+  # Usually this entails providing the user the webhook url,
+  # and providing or asking for a webhook secret. In some cases,
+  # this can be a lot more complex though.
+  #
+  # NOTE: For backfill-only integrations, the create and backfill state machine
+  # may be the same. In this cases, have one method call and return the other.
+  #
+  # @abstract
   # @return [Webhookdb::Services::StateMachineStep]
   def calculate_create_state_machine
-    # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
     raise NotImplementedError
   end
 
+  # Return the state machine that is used when adding backfill support to an integration.
+  # Usually this sets one or both of the backfill key and secret.
+  #
   # @return [Webhookdb::Services::StateMachineStep]
   def calculate_backfill_state_machine
     # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
@@ -185,6 +214,7 @@ class Webhookdb::Services::Base
     end
   end
 
+  # Return the schema modification used to create the table where it does nto exist.
   # @return [Webhookdb::Services::SchemaModification]
   def create_table_modification(if_not_exists: false)
     table = self.dbadapter_table
@@ -205,7 +235,8 @@ class Webhookdb::Services::Base
 
   # We need to give indices a persistent name, unique across the schema,
   # since multiple indices within a schema cannot share a name.
-  # @param column DBAdapter or Services Column (must have :name).
+  # @param [Webhookdb::DBAdapter::Column, Webhookdb::Services::Column] column
+  #   Must have a :name
   # @return [String]
   protected def index_name(column)
     raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
@@ -228,7 +259,7 @@ class Webhookdb::Services::Base
   end
 
   # Column used to store enrichments. Return nil if the service does not use enrichments.
-  # @return [Webhookdb::DBAdapter::Column]
+  # @return [Webhookdb::DBAdapter::Column,nil]
   def enrichment_column
     return nil unless self._store_enrichment_body?
     return Webhookdb::DBAdapter::Column.new(name: :enrichment, type: OBJECT, nullable: true)
@@ -260,12 +291,16 @@ class Webhookdb::Services::Base
     return got.to_dbadapter
   end
 
+  # The name of the timestamp column in the schema. This column is used primarily for conditional upserts
+  # (ie to know if a row has changed), but also as a general way of auditing changes.
+  # @abstract
+  # @return [Symbol]
   def _timestamp_column_name
     raise NotImplementedError
   end
 
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
-  # or sid for Twilio resources. This column must be unique for the table.
+  # or sid for Twilio resources. This column must be unique for the table, like a primary key.
   #
   # @abstract
   # @return [Webhookdb::Services::Column]
@@ -276,6 +311,7 @@ class Webhookdb::Services::Base
   # When an integration needs denormalized columns, specify them here.
   # Indices are created for each column.
   # Modifiers can be used if columns should have a default or whatever.
+  # See +Webhookdb::Services::Column+ for more details about column fields.
   #
   # @return [Array<Webhookdb::Services::Column]
   def _denormalized_columns
@@ -344,6 +380,14 @@ class Webhookdb::Services::Base
     return result
   end
 
+  # Some integrations require sequences, like when upserting rows with numerical unique ids
+  # (if they were random values like UUIDs we could generate them and not use a sequence).
+  # In those cases, the integrations can mark themselves as requiring a sequence.
+  #
+  # The sequence will be created in the *application database*,
+  # but it used primarily when inserting rows into the *organization/replication database*.
+  # This is necessary because things like sequences are not possible to migrate
+  # when moving replication databases.
   def requires_sequence?
     return false
   end
@@ -366,10 +410,15 @@ class Webhookdb::Services::Base
   # Upsert webhook using only a body.
   # This is not valid for the rare integration which does not rely on request info,
   # like when we have to take different action based on a request method.
+  #
+  # @param body [Hash]
   def upsert_webhook_body(body)
     return self.upsert_webhook(Webhookdb::Services::WebhookRequest.new(body:))
   end
 
+  # Upsert a webhook request into the database. Note this is a WebhookRequest,
+  # NOT a Rack::Request.
+  #
   # @param [Webhookdb::Services::WebhookRequest] request
   def upsert_webhook(request)
     remote_key_col = self._remote_key_column
@@ -427,6 +476,7 @@ class Webhookdb::Services::Base
   # This puts the sync into a lower-priority queue
   # so it is less likely to block other processing.
   # This is usually true if enrichments are involved.
+  # @return [Boolean]
   def upsert_has_deps?
     return false
   end
@@ -434,6 +484,7 @@ class Webhookdb::Services::Base
   # Given the resource that is going to be inserted and an optional event,
   # make an API call to enrich it with further data if needed.
   # The result of this is passed to _prepare_for_insert.
+  #
   # @param [Hash,nil] resource
   # @param [Hash,nil] event
   # @param [Webhookdb::Services::WebhookRequest] request
@@ -445,8 +496,18 @@ class Webhookdb::Services::Base
   # The argument for insert_conflict update_where clause.
   # Used to conditionally update, like updating only if a row is newer than what's stored.
   # We must always have an 'update where' because we never want to overwrite with the same data
-  # as exists. If an integration does not have any way to detect if a resource changed,
+  # as exists.
+  #
+  # @example With a meaningful timestmap
+  #   self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
+  #
+  # If an integration does not have any way to detect if a resource changed,
   # it can compare data columns.
+  #
+  # @example Without a meaingful timestamp
+  #   self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
+  #
+  # @abstract
   # @return [Sequel::SQL::Expression]
   def _update_where_expr
     raise NotImplementedError
@@ -468,7 +529,7 @@ class Webhookdb::Services::Base
   #
   # @abstract
   # @param [Webhookdb::Services::WebhookRequest] request
-  # @return [Array<Hash>]
+  # @return [Array<Hash>,nil]
   def _resource_and_event(request)
     raise NotImplementedError
   end
@@ -488,9 +549,14 @@ class Webhookdb::Services::Base
   # Given the hash that is passed to the Sequel insert
   # (so contains all columns, including those from _prepare_for_insert),
   # return the hash used for the insert_conflict(update:) keyword args.
-  # This should be used when the service requires different values for inserting
-  # vs. updating, such as when a column's update value
+  #
+  # This should be used when the service requires different values
+  # for inserting vs. updating, such as when a column's update value
   # must use the EXCLUDED table in the upsert expression.
+  #
+  # Most commonly, the use case for this is when you want to provide a row a value,
+  # but ONLY on insert, OR on update by ONLY if the column is nil.
+  # See +_coalesce_excluded_on_update+ for more context in this common case.
   #
   # By default, this just returns inserting, and insert/update use the same values.
   def _upsert_update_expr(inserting, enrichment: nil)
@@ -523,11 +589,13 @@ class Webhookdb::Services::Base
     return result
   end
 
+  # Yield to a dataset using the admin connection.
   # @return [Sequel::Dataset]
   def admin_dataset(**kw, &)
     self.with_dataset(self.service_integration.organization.admin_connection_url_raw, **kw, &)
   end
 
+  # Yield to a dataset using the readonly connection.
   # @return [Sequel::Dataset]
   def readonly_dataset(**kw, &)
     self.with_dataset(self.service_integration.organization.readonly_connection_url_raw, **kw, &)
@@ -544,6 +612,14 @@ class Webhookdb::Services::Base
     attr_reader :verified, :message
   end
 
+  # Try to verify backfill credentials, by fetching the first page of items.
+  # Only relevant for integrations supporting backfilling.
+  #
+  # If an error is received, return `_verify_backfill_<http status>_err_msg`
+  # as the error message, if defined. So for example, a 401 will call the method
+  # +_verify_backfill_401_err_msg+ if defined. If such a method is not defined,
+  # call and return +_verify_backfill_err_msg+.
+  #
   # @return [Webhookdb::CredentialVerificationResult]
   def verify_backfill_credentials
     backfiller = self._backfillers.first
@@ -614,6 +690,7 @@ class Webhookdb::Services::Base
     return [ServiceBackfiller.new(self)]
   end
 
+  # Basic backfiller that calls +_fetch_backfill_page+ on the given service instance.
   class ServiceBackfiller < Webhookdb::Backfiller
     # @!attribute svc
     #   @return [Webhookdb::Services::Base]
@@ -633,6 +710,12 @@ class Webhookdb::Services::Base
     end
   end
 
+  # Called when the upstream dependency upserts. In most cases, you can noop;
+  # but in some cases, you may want to update or fetch rows.
+  # One example would be a 'db only' integration, where values are taken from the parent service
+  # and added to this service's table. We may want to upsert rows in our table
+  # whenever a row in our parent table changes.
+  #
   # @param service_instance [Webhookdb::Services::Base]
   # @param payload [Hash]
   # @param changed [Boolean]

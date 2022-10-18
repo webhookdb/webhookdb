@@ -8,35 +8,50 @@ class Webhookdb::Services
   SERVICES_DIR = Pathname(__FILE__).dirname + "services"
   PLUGIN_DIR = Pathname(__FILE__).dirname + "services_ext"
 
+  # Raised when there is no service registered for a name.
   class InvalidService < StandardError; end
 
+  # Raised when credentials to interact with a service are not set up.
+  # Usually this is due to a missing dependency.
   class CredentialsMissing < StandardError; end
 
-  # In the Descriptor struct, the value for :feature_roles is used in
-  # our feature flagging functionality. It should default to [],
-  # but other possible values to be included in the array are:
-  #    -'internal' e.g. our fake integration
-  #    -'unreleased' for works in progress
-  #    -'beta' if we don't want most people to have access
+  # Statically describe a service integration.
   class Descriptor < Webhookdb::TypedStruct
     # @!attribute name
+    # Name of the service, like 'stripe_charge_v1'.
+    # Appears externally in many places, so must be meaningful.
     #   @return [String]
+    attr_reader :name
+
     # @!attribute ctor
+    # Method invoked with the +Webhookdb::ServiceIntegration+, and should return a new instance
+    # of the integration. Can also be an object that responds to `new`.
     #   @return [Proc]
+    attr_reader :ctor
+
     # @!attribute feature_roles
+    # Used for feature flagging functionality.
+    # Usually will be [], but other possible values are:
+    # -'internal' e.g. our fake integration
+    # -'unreleased' for works in progress
+    # -'beta' if we don't want most people to have access
     #   @return [Array<String>]
+    attr_reader :feature_roles
+
     # @!attribute resource_name_singular
+    # Name of the resource, like "Acme Sprocket"
     #   @return [String]
+    attr_reader :resource_name_singular
+
     # @!attribute resource_name_plural
+    # Defaults to resource_name_singular+s.
     #   @return [String]
+    attr_reader :resource_name_plural
+
     # @!attribute dependency_descriptor
+    # The descriptor for the service this one depends on (the parent).
     #   @return [Webhookdb::Services::Descriptor]
-    attr_reader :name,
-                :ctor,
-                :resource_name_singular,
-                :resource_name_plural,
-                :feature_roles,
-                :dependency_descriptor
+    attr_reader :dependency_descriptor
 
     def initialize(
       name:,
@@ -49,6 +64,7 @@ class Webhookdb::Services
       super(name:, resource_name_singular:, feature_roles:, dependency_descriptor:)
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
       @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
+      self.feature_roles
     end
 
     def inspect
@@ -84,11 +100,13 @@ class Webhookdb::Services
       return descr.ctor.call(service_integration)
     end
 
+    # Returns the service with the given name, or +nil+ if none is registered.
     # @return [Webhookdb::Services::Descriptor]
     def registered_service(name)
       return @registered[name]
     end
 
+    # @raise [Webhookdb::Services::InvalidService] When the name is invalid.
     # @return [Webhookdb::Services::Descriptor]
     def registered_service!(name)
       r = self.registered_service(name)
