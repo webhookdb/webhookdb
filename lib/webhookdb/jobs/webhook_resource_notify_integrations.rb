@@ -19,7 +19,7 @@ class Webhookdb::Jobs::WebhookdbResourceNotifyIntegrations
     cu = self.lookup_model(Webhookdb::Customer, event)
     Webhookdb::ServiceIntegration.where(service_name: "webhookdb_customer_v1").each do |sint|
       Webhookdb::Http.post(
-        sint.service_instance.webhook_endpoint,
+        sint.replicator.webhook_endpoint,
         cu.values,
         headers: {"Whdb-Secret" => sint.webhook_secret},
         logger: self.logger,

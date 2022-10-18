@@ -241,7 +241,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
 
     self.service_integrations.each do |sint|
-      svc = sint.service_instance
+      svc = sint.replicator
       existing_columns = cols_in_db.fetch(sint.table_name) { [] }
       all_col_names = svc.storable_columns.map(&:name).map(&:to_s)
       all_cols_exist_in_db = (all_col_names - existing_columns).empty?
@@ -354,8 +354,8 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
   end
 
-  def available_service_names
-    available = Webhookdb::Services.registered.values.filter do |desc|
+  def available_replicator_names
+    available = Webhookdb::Replicator.registry.values.filter do |desc|
       # The org must have any of the flags required for the service. In other words,
       # the intersection of desc[:feature_roles] & org.feature_roles must
       # not be empty

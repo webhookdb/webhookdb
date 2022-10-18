@@ -26,7 +26,7 @@ RSpec.describe "service integrations", :integration do
     sint = org.service_integrations.first
 
     expect do
-      catch_missing_db(["default"]) { sint.service_instance.readonly_dataset(&:all) }
+      catch_missing_db(["default"]) { sint.replicator.readonly_dataset(&:all) }
     end.to eventually(be_empty)
 
     with_async_publisher do
@@ -34,7 +34,7 @@ RSpec.describe "service integrations", :integration do
     end
 
     expect do
-      catch_missing_db(["default"]) { sint.service_instance.readonly_dataset(&:all) }
+      catch_missing_db(["default"]) { sint.replicator.readonly_dataset(&:all) }
     end.to eventually(have_attributes(length: 1)).pause_for(1).within(30)
   end
 
@@ -45,7 +45,7 @@ RSpec.describe "service integrations", :integration do
     expect { org.refresh }.to eventually(have_attributes(readonly_connection_url: be_present))
     org.add_feature_role(Webhookdb::Role.find_or_create(name: "internal"))
     sint = Webhookdb::Fixtures.service_integration(organization: org).create
-    sint.service_instance.create_table
+    sint.replicator.create_table
 
     resp = post(
       "/v1/organizations/#{org.id}/service_integrations/#{sint.opaque_id}/upsert",
@@ -55,6 +55,6 @@ RSpec.describe "service integrations", :integration do
     expect(resp).to party_status(200)
     expect(resp).to party_response(match(hash_including(message: /You have upserted/)))
 
-    expect(sint.service_instance.readonly_dataset(&:all)).to contain_exactly(include(my_id: "id"))
+    expect(sint.replicator.readonly_dataset(&:all)).to contain_exactly(include(my_id: "id"))
   end
 end

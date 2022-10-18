@@ -2,7 +2,7 @@
 
 require "webhookdb/stripe"
 
-module Webhookdb::Services::StripeV1Mixin
+module Webhookdb::Replicator::StripeV1Mixin
   def _resource_and_event(request)
     body = request.body
     return body.fetch("data").fetch("object"), body if body.fetch("object") == "event"
@@ -28,7 +28,7 @@ module Webhookdb::Services::StripeV1Mixin
   end
 
   def calculate_create_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
       step.output = %{You are about to start reflecting #{self.resource_name_singular} info into webhookdb.
 We've made an endpoint available for #{self.resource_name_singular} webhooks:
@@ -56,7 +56,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
 From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
@@ -67,7 +67,7 @@ Submit, then copy the key when Stripe shows it to you:
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
     end

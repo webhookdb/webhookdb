@@ -139,7 +139,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
       return self._run_sync_http(at) if self.connection_url.start_with?("https://")
 
-      svc = self.service_integration.service_instance
+      svc = self.service_integration.replicator
       schema_name = self.schema.present? ? self.schema : self.class.default_schema
       table_name = self.table.present? ? self.table : self.service_integration.table_name
       adapter = self.adapter
@@ -212,7 +212,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   def _dataset_to_sync(at)
-    svc = self.service_integration.service_instance
+    svc = self.service_integration.replicator
     tscol = Sequel[svc.timestamp_column.name]
     svc.readonly_dataset do |ds|
       tscond = (tscol <= at)

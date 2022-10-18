@@ -1,34 +1,34 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeCustomerV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripeCustomerV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_customer_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeCustomerV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripeCustomerV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Customer",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:balance, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, event_key: "created", converter: :tsat),
-      Webhookdb::Services::Column.new(:email, TEXT, index: true),
-      Webhookdb::Services::Column.new(:name, TEXT),
-      Webhookdb::Services::Column.new(:phone, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:balance, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(:created, TIMESTAMP, index: true, event_key: "created", converter: :tsat),
+      Webhookdb::Replicator::Column.new(:email, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:name, TEXT),
+      Webhookdb::Replicator::Column.new(:phone, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

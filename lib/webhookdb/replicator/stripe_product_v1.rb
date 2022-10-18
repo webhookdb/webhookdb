@@ -1,34 +1,34 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeProductV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripeProductV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_product_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeProductV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripeProductV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Product",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
-      Webhookdb::Services::Column.new(:name, TEXT),
-      Webhookdb::Services::Column.new(:package_dimensions, TEXT),
-      Webhookdb::Services::Column.new(:statement_descriptor, TEXT),
-      Webhookdb::Services::Column.new(:unit_label, TEXT),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:name, TEXT),
+      Webhookdb::Replicator::Column.new(:package_dimensions, TEXT),
+      Webhookdb::Replicator::Column.new(:statement_descriptor, TEXT),
+      Webhookdb::Replicator::Column.new(:unit_label, TEXT),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

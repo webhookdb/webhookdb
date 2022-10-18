@@ -1,24 +1,24 @@
 # frozen_string_literal: true
 
-require "webhookdb/services/transistor_v1_mixin"
+require "webhookdb/replicator/transistor_v1_mixin"
 
-class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::TransistorEpisodeStatsV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::TransistorV1Mixin
+  include Webhookdb::Replicator::TransistorV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "transistor_episode_stats_v1",
-      ctor: ->(sint) { Webhookdb::Services::TransistorEpisodeStatsV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::TransistorEpisodeStatsV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Transistor Episode Stats",
       resource_name_plural: "Transistor Episode Stats",
-      dependency_descriptor: Webhookdb::Services::TransistorEpisodeV1.descriptor,
+      dependency_descriptor: Webhookdb::Replicator::TransistorEpisodeV1.descriptor,
     )
   end
 
-  CONV_PARSE_DMY_DASH = Webhookdb::Services::Column::IsomorphicProc.new(
+  CONV_PARSE_DMY_DASH = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |s, **_|
       return Date.strptime(s, "%d-%m-%Y")
     rescue TypeError, Date::Error
@@ -27,14 +27,14 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
     sql: ->(e) { Sequel.function(:to_date, e, "DD-MM-YYYY") },
   )
 
-  CONV_REMOTE_KEY = Webhookdb::Services::Column::IsomorphicProc.new(
+  CONV_REMOTE_KEY = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: ->(_, resource:, **_) { "#{resource.fetch('episode_id')}-#{resource.fetch('date')}" },
     # Because this is a non-nullable key, we never need this in SQL
     sql: ->(_) { Sequel.lit("'do not use'") },
   )
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(
+    return Webhookdb::Replicator::Column.new(
       :compound_identity,
       TEXT,
       data_key: "<compound key, see converter>",
@@ -46,10 +46,10 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:episode_id, TEXT),
-      Webhookdb::Services::Column.new(:date, DATE, converter: CONV_PARSE_DMY_DASH),
-      Webhookdb::Services::Column.new(:downloads, INTEGER),
-      Webhookdb::Services::Column.new(:row_updated_at, TIMESTAMP, defaulter: :now, optional: true),
+      Webhookdb::Replicator::Column.new(:episode_id, TEXT),
+      Webhookdb::Replicator::Column.new(:date, DATE, converter: CONV_PARSE_DMY_DASH),
+      Webhookdb::Replicator::Column.new(:downloads, INTEGER),
+      Webhookdb::Replicator::Column.new(:row_updated_at, TIMESTAMP, defaulter: :now, optional: true),
     ]
   end
 
@@ -66,7 +66,7 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(We will start backfilling #{self.resource_name_singular} information into your WebhookDB database.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
@@ -77,7 +77,7 @@ class Webhookdb::Services::TransistorEpisodeStatsV1 < Webhookdb::Services::Base
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! That's all the information we need.
 When your Transistor Episodes get added or updated, their stats will be updated in WebhookDB too.
 
@@ -86,7 +86,7 @@ When your Transistor Episodes get added or updated, their stats will be updated 
   end
 
   def _backfillers
-    episode_svc = self.service_integration.depends_on.service_instance
+    episode_svc = self.service_integration.depends_on.replicator
     backfillers = episode_svc.admin_dataset(timeout: :fast) do |episode_ds|
       episode_ds.select(:transistor_id, :created_at).map do |episode|
         EpisodeStatsBackfiller.new(

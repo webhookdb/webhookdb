@@ -1,47 +1,47 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeChargeV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripeChargeV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_charge_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeChargeV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripeChargeV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Charge",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:balance_transaction, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(:balance_transaction, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :billing_email, TEXT,
         index: true,
         data_key: ["billing_details", "email"],
         optional: true,
       ),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
-      Webhookdb::Services::Column.new(:customer, TEXT, index: true, optional: true),
-      Webhookdb::Services::Column.new(:invoice, TEXT, index: true, optional: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:customer, TEXT, index: true, optional: true),
+      Webhookdb::Replicator::Column.new(:invoice, TEXT, index: true, optional: true),
+      Webhookdb::Replicator::Column.new(
         :payment_type, TEXT,
         data_key: ["payment_method_details", "type"],
         optional: true,
       ),
-      Webhookdb::Services::Column.new(:receipt_email, TEXT, index: true, optional: true),
-      Webhookdb::Services::Column.new(:status, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:receipt_email, TEXT, index: true, optional: true),
+      Webhookdb::Replicator::Column.new(:status, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

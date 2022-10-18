@@ -2,7 +2,7 @@
 
 require "webhookdb/db_adapter"
 
-class Webhookdb::Services::Column
+class Webhookdb::Replicator::Column
   include Webhookdb::DBAdapter::ColumnTypes
 
   class IsomorphicProc < Webhookdb::TypedStruct
@@ -54,9 +54,9 @@ class Webhookdb::Services::Column
   end
 
   def self.converter_int_or_sequence_from_regex(re, index: -1)
-    return Webhookdb::Services::Column::IsomorphicProc.new(
+    return Webhookdb::Replicator::Column::IsomorphicProc.new(
       ruby: lambda do |value, service_integration:, **kw|
-        url_id = Webhookdb::Services::Column.converter_from_regex(re, coerce: :to_i, index:).
+        url_id = Webhookdb::Replicator::Column.converter_from_regex(re, coerce: :to_i, index:).
           ruby.call(value, service_integration:, **kw)
         url_id || service_integration.sequence_nextval
       end,
@@ -74,7 +74,7 @@ class Webhookdb::Services::Column
   )
 
   def self.defaulter_from_resource_field(key)
-    return Webhookdb::Services::Column::IsomorphicProc.new(
+    return Webhookdb::Replicator::Column::IsomorphicProc.new(
       ruby: ->(resource:, **_) { resource.fetch(key.to_s) },
       sql: ->(*) { key.to_sym },
     )

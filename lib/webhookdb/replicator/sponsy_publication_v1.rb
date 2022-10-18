@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "webhookdb/services/sponsy_v1_mixin"
+require "webhookdb/replicator/sponsy_v1_mixin"
 
-class Webhookdb::Services::SponsyPublicationV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::SponsyV1Mixin
+  include Webhookdb::Replicator::SponsyV1Mixin
 
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "sponsy_publication_v1",
       ctor: self,
       feature_roles: ["beta"],
@@ -17,10 +17,10 @@ class Webhookdb::Services::SponsyPublicationV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:name, TEXT),
-      Webhookdb::Services::Column.new(:slug, TEXT),
-      Webhookdb::Services::Column.new(:type, TEXT),
-      Webhookdb::Services::Column.new(:days, INTEGER_ARRAY),
+      Webhookdb::Replicator::Column.new(:name, TEXT),
+      Webhookdb::Replicator::Column.new(:slug, TEXT),
+      Webhookdb::Replicator::Column.new(:type, TEXT),
+      Webhookdb::Replicator::Column.new(:days, INTEGER_ARRAY),
     ].concat(self._ts_columns)
   end
 
@@ -33,7 +33,7 @@ class Webhookdb::Services::SponsyPublicationV1 < Webhookdb::Services::Base
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_secret.present?
       step.needs_input = true
       step.output = %(Great! Let's work on your Sponsy Publications integration.
@@ -46,7 +46,7 @@ https://getsponsy.com/settings/workspace
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("API Key").backfill_secret(self.service_integration)
     end

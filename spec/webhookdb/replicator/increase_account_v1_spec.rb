@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
-  it_behaves_like "a service implementation", "increase_account_v1" do
+RSpec.describe Webhookdb::Replicator::IncreaseAccountV1, :db do
+  it_behaves_like "a replicator", "increase_account_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -28,7 +28,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old",
+  it_behaves_like "a replicator that prevents overwriting new data with old",
                   "increase_account_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
@@ -76,7 +76,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
     let(:expected_new_data) { new_body["data"] }
   end
 
-  it_behaves_like "a service implementation that deals with resources and wrapped events",
+  it_behaves_like "a replicator that deals with resources and wrapped events",
                   "increase_account_v1" do |_name|
     let(:resource_json) { resource_in_envelope_json.fetch("data") }
     let(:resource_in_envelope_json) do
@@ -102,7 +102,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "increase_account_v1",
@@ -139,7 +139,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "increase_account_v1" do
+  it_behaves_like "a replicator that can backfill", "increase_account_v1" do
     # We are specifying the :api_url value because it gets used in the backfill process
     let(:api_url) { "https://api.increase.com" }
     let(:page1_response) do
@@ -283,7 +283,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
       req = fake_request
@@ -318,7 +318,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
       # Set api url to empty string so that backfill flow works correctly for testing purposes
       Webhookdb::Fixtures.service_integration.create(service_name: "increase_account_v1", api_url: "")
     end
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "process_state_change" do
       it "uses a default api url if value is blank" do
@@ -413,7 +413,7 @@ RSpec.describe Webhookdb::Services::IncreaseAccountV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that upserts webhooks only under specific conditions",
+  it_behaves_like "a replicator that upserts webhooks only under specific conditions",
                   "increase_account_v1" do
     let(:incorrect_webhook) do
       JSON.parse(<<~J)

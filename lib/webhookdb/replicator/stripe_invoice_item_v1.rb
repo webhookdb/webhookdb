@@ -1,34 +1,34 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeInvoiceItemV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripeInvoiceItemV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_invoice_item_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeInvoiceItemV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripeInvoiceItemV1.new(sint) },
       feature_roles: ["beta"],
       resource_name_singular: "Stripe Invoice Item",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:customer, TEXT, index: true),
-      Webhookdb::Services::Column.new(:date, TIMESTAMP, index: true, data_key: "date", converter: :tsat),
-      Webhookdb::Services::Column.new(:description, TEXT),
-      Webhookdb::Services::Column.new(:invoice, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(:customer, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:date, TIMESTAMP, index: true, data_key: "date", converter: :tsat),
+      Webhookdb::Replicator::Column.new(:description, TEXT),
+      Webhookdb::Replicator::Column.new(:invoice, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :period_end,
         TIMESTAMP,
         index: true,
@@ -36,7 +36,7 @@ class Webhookdb::Services::StripeInvoiceItemV1 < Webhookdb::Services::Base
         optional: true,
         converter: :tsat,
       ),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :period_start,
         TIMESTAMP,
         index: true,
@@ -44,13 +44,13 @@ class Webhookdb::Services::StripeInvoiceItemV1 < Webhookdb::Services::Base
         optional: true,
         converter: :tsat,
       ),
-      Webhookdb::Services::Column.new(:price, TEXT, index: true, data_key: ["price", "id"], optional: true),
-      Webhookdb::Services::Column.new(:product, TEXT, index: true, data_key: ["price", "product"], optional: true),
-      Webhookdb::Services::Column.new(:quantity, INTEGER),
-      Webhookdb::Services::Column.new(:subscription, TEXT, index: true),
-      Webhookdb::Services::Column.new(:subscription_item, TEXT, index: true, optional: true),
-      Webhookdb::Services::Column.new(:unit_amount, INTEGER),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:price, TEXT, index: true, data_key: ["price", "id"], optional: true),
+      Webhookdb::Replicator::Column.new(:product, TEXT, index: true, data_key: ["price", "product"], optional: true),
+      Webhookdb::Replicator::Column.new(:quantity, INTEGER),
+      Webhookdb::Replicator::Column.new(:subscription, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:subscription_item, TEXT, index: true, optional: true),
+      Webhookdb::Replicator::Column.new(:unit_amount, INTEGER),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

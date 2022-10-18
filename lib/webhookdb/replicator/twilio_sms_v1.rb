@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "twilio_sms_v1",
-      ctor: ->(sint) { Webhookdb::Services::TwilioSmsV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::TwilioSmsV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Twilio SMS Message",
     )
@@ -44,7 +44,7 @@ class Webhookdb::Services::TwilioSmsV1 < Webhookdb::Services::Base
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.needs_input = true
       step.output = %(Great! We've created your Twilio SMS integration.
@@ -63,7 +63,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
@@ -83,33 +83,33 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:twilio_id, TEXT, data_key: "sid")
+    return Webhookdb::Replicator::Column.new(:twilio_id, TEXT, data_key: "sid")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :date_created,
         TIMESTAMP,
         index: true,
-        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+        converter: Webhookdb::Replicator::Column::CONV_PARSE_TIME,
       ),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :date_sent,
         TIMESTAMP,
         index: true,
-        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+        converter: Webhookdb::Replicator::Column::CONV_PARSE_TIME,
       ),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :date_updated,
         TIMESTAMP,
         index: true,
-        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+        converter: Webhookdb::Replicator::Column::CONV_PARSE_TIME,
       ),
-      Webhookdb::Services::Column.new(:direction, TEXT),
-      Webhookdb::Services::Column.new(:from, TEXT, index: true),
-      Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:to, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:direction, TEXT),
+      Webhookdb::Replicator::Column.new(:from, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(:to, TEXT, index: true),
     ]
   end
 

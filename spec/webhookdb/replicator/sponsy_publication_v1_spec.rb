@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
-  it_behaves_like "a service implementation", "sponsy_publication_v1" do
+RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
+  it_behaves_like "a replicator", "sponsy_publication_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -22,7 +22,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_publication_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -57,7 +57,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1", backfill_secret: "right")
     end
@@ -78,7 +78,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that can backfill", "sponsy_publication_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -170,7 +170,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill incrementally", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that can backfill incrementally", "sponsy_publication_v1" do
     let(:last_backfilled) { "2022-09-01T18:00:00Z" }
     let(:expected_new_items_count) { 2 }
     let(:expected_old_items_count) { 1 }
@@ -214,7 +214,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns ok" do
       req = Rack::Request.new({})
@@ -227,7 +227,7 @@ RSpec.describe Webhookdb::Services::SponsyPublicationV1, :db do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1", backfill_secret: "")
     end
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "returns a backfill state machine" do

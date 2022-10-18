@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Webhookdb::Services::SchemaModification
+class Webhookdb::Replicator::SchemaModification
   # All of these statements can be sent to the server at once.
   # @return [Array<String>]
   attr_reader :transaction_statements

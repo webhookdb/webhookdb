@@ -3,19 +3,19 @@
 require "webhookdb/backfiller"
 require "webhookdb/db_adapter"
 require "webhookdb/connection_cache"
-require "webhookdb/services/column"
-require "webhookdb/services/schema_modification"
-require "webhookdb/services/webhook_request"
+require "webhookdb/replicator/column"
+require "webhookdb/replicator/schema_modification"
+require "webhookdb/replicator/webhook_request"
 require "webhookdb/typed_struct"
 
 require "webhookdb/jobs/send_webhook"
 
-class Webhookdb::Services::Base
+class Webhookdb::Replicator::Base
   include Webhookdb::DBAdapter::ColumnTypes
 
   # Return the descriptor for this service.
   # @abstract
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
     raise NotImplementedError, "#{self.class}: must return a descriptor that is used for registration purposes"
   end
@@ -27,7 +27,7 @@ class Webhookdb::Services::Base
     @service_integration = service_integration
   end
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def descriptor
     return @descriptor ||= self.class.descriptor
   end
@@ -58,7 +58,7 @@ class Webhookdb::Services::Base
   # and should return the body string to respond back with.
   #
   # @param [Hash] upserted
-  # @param [Webhookdb::Services::WebhookRequest] request
+  # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [String]
   def synchronous_processing_response_body(upserted:, request:)
     raise NotImplementedError, "must be implemented if process_webhooks_synchronously? is true"
@@ -136,7 +136,7 @@ class Webhookdb::Services::Base
   #
   # @param field [String] Like 'webhook_secret', 'backfill_key', etc.
   # @param value [String] The value of the field.
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def process_state_change(field, value)
     case field
       when "webhook_secret"
@@ -177,7 +177,7 @@ class Webhookdb::Services::Base
   # may be the same. In this cases, have one method call and return the other.
   #
   # @abstract
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_create_state_machine
     raise NotImplementedError
   end
@@ -185,7 +185,7 @@ class Webhookdb::Services::Base
   # Return the state machine that is used when adding backfill support to an integration.
   # Usually this sets one or both of the backfill key and secret.
   #
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_backfill_state_machine
     # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
     raise NotImplementedError
@@ -215,7 +215,7 @@ class Webhookdb::Services::Base
   end
 
   # Return the schema modification used to create the table where it does nto exist.
-  # @return [Webhookdb::Services::SchemaModification]
+  # @return [Webhookdb::Replicator::SchemaModification]
   def create_table_modification(if_not_exists: false)
     table = self.dbadapter_table
     columns = [self.primary_key_column, self.remote_key_column]
@@ -223,7 +223,7 @@ class Webhookdb::Services::Base
     # 'data' column should be last, since it's very large, we want to see other columns in psql/pgcli first
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
-    result = Webhookdb::Services::SchemaModification.new
+    result = Webhookdb::Replicator::SchemaModification.new
     result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
     columns.select(&:index?).each do |col|
       dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(col).to_sym, table:, targets: [col])
@@ -235,7 +235,7 @@ class Webhookdb::Services::Base
 
   # We need to give indices a persistent name, unique across the schema,
   # since multiple indices within a schema cannot share a name.
-  # @param [Webhookdb::DBAdapter::Column, Webhookdb::Services::Column] column
+  # @param [Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column] column
   #   Must have a :name
   # @return [String]
   protected def index_name(column)
@@ -303,7 +303,7 @@ class Webhookdb::Services::Base
   # or sid for Twilio resources. This column must be unique for the table, like a primary key.
   #
   # @abstract
-  # @return [Webhookdb::Services::Column]
+  # @return [Webhookdb::Replicator::Column]
   def _remote_key_column
     raise NotImplementedError
   end
@@ -311,9 +311,9 @@ class Webhookdb::Services::Base
   # When an integration needs denormalized columns, specify them here.
   # Indices are created for each column.
   # Modifiers can be used if columns should have a default or whatever.
-  # See +Webhookdb::Services::Column+ for more details about column fields.
+  # See +Webhookdb::Replicator::Column+ for more details about column fields.
   #
-  # @return [Array<Webhookdb::Services::Column]
+  # @return [Array<Webhookdb::Replicator::Column]
   def _denormalized_columns
     return []
   end
@@ -335,7 +335,7 @@ class Webhookdb::Services::Base
     self.readonly_dataset { |ds| ds.send(:clear_columns_cache) }
   end
 
-  # @return [Webhookdb::Services::SchemaModification]
+  # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
     existing_cols, existing_indices = nil
     sint = self.service_integration
@@ -349,7 +349,7 @@ class Webhookdb::Services::Base
     end
     adapter = Webhookdb::DBAdapter::PG.new
     table = self.dbadapter_table
-    result = Webhookdb::Services::SchemaModification.new
+    result = Webhookdb::Replicator::SchemaModification.new
 
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
     unless missing_columns.empty?
@@ -394,7 +394,7 @@ class Webhookdb::Services::Base
 
   # A given HTTP request may not be handled by the service integration it was sent to,
   # for example where the service integration is part of some 'root' hierarchy.
-  # This method is called in the webhook endpoint, and should return the service instance
+  # This method is called in the webhook endpoint, and should return the replicator
   # used to handle the webhook request. The request is validated by the returned instance,
   # and it is enqueued for processing.
   #
@@ -402,8 +402,8 @@ class Webhookdb::Services::Base
   # so return self.
   #
   # @param request [Rack::Request]
-  # @return [Webhookdb::Services::Base]
-  def dispatch_request_to(request)
+  # @return [Webhookdb::Replicator::Base]
+  def dispatch_request_to(_request)
     return self
   end
 
@@ -413,13 +413,13 @@ class Webhookdb::Services::Base
   #
   # @param body [Hash]
   def upsert_webhook_body(body)
-    return self.upsert_webhook(Webhookdb::Services::WebhookRequest.new(body:))
+    return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:))
   end
 
   # Upsert a webhook request into the database. Note this is a WebhookRequest,
   # NOT a Rack::Request.
   #
-  # @param [Webhookdb::Services::WebhookRequest] request
+  # @param [Webhookdb::Replicator::WebhookRequest] request
   def upsert_webhook(request)
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(request)
@@ -448,7 +448,7 @@ class Webhookdb::Services::Base
 
   def _notify_dependents(inserting, changed)
     self.service_integration.dependents.each do |d|
-      d.service_instance.on_dependency_webhook_upsert(self, inserting, changed:)
+      d.replicator.on_dependency_webhook_upsert(self, inserting, changed:)
     end
   end
 
@@ -487,9 +487,9 @@ class Webhookdb::Services::Base
   #
   # @param [Hash,nil] resource
   # @param [Hash,nil] event
-  # @param [Webhookdb::Services::WebhookRequest] request
+  # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [*]
-  def _fetch_enrichment(resource, event, request)
+  def _fetch_enrichment(_resource, _event, _request)
     return nil
   end
 
@@ -528,7 +528,7 @@ class Webhookdb::Services::Base
   # when we backfill, but `{type: 'event', data: {id: 'cus_123'}}` when handling an event.
   #
   # @abstract
-  # @param [Webhookdb::Services::WebhookRequest] request
+  # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [Array<Hash>,nil]
   def _resource_and_event(request)
     raise NotImplementedError
@@ -661,7 +661,7 @@ class Webhookdb::Services::Base
   def backfill(incremental: false, cascade: false)
     sint = self.service_integration
     last_backfilled = incremental ? sint.last_backfilled_at : nil
-    raise Webhookdb::Services::CredentialsMissing if
+    raise Webhookdb::Replicator::CredentialsMissing if
       sint.backfill_key.blank? && sint.backfill_secret.blank? && sint.depends_on.blank?
     new_last_backfilled = Time.now
 
@@ -690,10 +690,10 @@ class Webhookdb::Services::Base
     return [ServiceBackfiller.new(self)]
   end
 
-  # Basic backfiller that calls +_fetch_backfill_page+ on the given service instance.
+  # Basic backfiller that calls +_fetch_backfill_page+ on the given replicator.
   class ServiceBackfiller < Webhookdb::Backfiller
     # @!attribute svc
-    #   @return [Webhookdb::Services::Base]
+    #   @return [Webhookdb::Replicator::Base]
 
     def initialize(svc)
       @svc = svc
@@ -716,18 +716,18 @@ class Webhookdb::Services::Base
   # and added to this service's table. We may want to upsert rows in our table
   # whenever a row in our parent table changes.
   #
-  # @param service_instance [Webhookdb::Services::Base]
+  # @param replicator [Webhookdb::Replicator::Base]
   # @param payload [Hash]
   # @param changed [Boolean]
-  def on_dependency_webhook_upsert(service_instance, payload, changed:)
-    raise NotImplementedError, "this must be overridden for services that have dependencies"
+  def on_dependency_webhook_upsert(replicator, payload, changed:)
+    raise NotImplementedError, "this must be overridden for replicators that have dependencies"
   end
 
   def calculate_dependency_state_machine_step(dependency_help:)
     raise Webhookdb::InvalidPrecondition, "#{self.descriptor.name} does not have a dependency" if
       self.class.descriptor.dependency_descriptor.nil?
     return nil if self.service_integration.depends_on_id
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     dep_descr = self.descriptor.dependency_descriptor
     candidates = self.service_integration.dependency_candidates
     if candidates.empty?

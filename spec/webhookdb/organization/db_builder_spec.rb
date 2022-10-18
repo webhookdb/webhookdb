@@ -561,8 +561,8 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
         sint2 = Webhookdb::Fixtures.service_integration(organization: org).create
         sint3_notable = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
-        sint2.service_instance.create_table
+        sint1.replicator.create_table
+        sint2.replicator.create_table
         org.admin_connection { |db| db << "CREATE TABLE abc.sometable();" }
         org.readonly_connection do |db|
           db << "SELECT 1 FROM abc.sometable"
@@ -572,44 +572,44 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         # Assert the schema field was updated
         expect(org).to have_attributes(replication_schema: "xyz")
         # Assert admin and readonly can hit the new schema
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
         # Also assert that new service integrations go into the correct place and are readable by admin and readonly
         sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint4.service_instance.create_table
-        expect(sint4.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint4.service_instance.readonly_dataset(&:all)).to be_empty
+        sint4.replicator.create_table
+        expect(sint4.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint4.replicator.readonly_dataset(&:all)).to be_empty
         # And that readonly can't modify the new schema
         expect do
-          sint4.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
+          sint4.replicator.readonly_dataset { |ds| ds.insert(at: Time.now) }
         end.to raise_error(/permission denied for table fake_v1_/)
       end
 
       it "handles single database user organizations" do
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
+        sint1.replicator.create_table
         org.update(readonly_connection_url_raw: org.admin_connection_url_raw)
 
         org.migrate_replication_schema("xyz")
         expect(org).to have_attributes(replication_schema: "xyz")
         # Expect that readonly mutations will succeed because 1) the tables were migrated and 2) it's the same as admin
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
         sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint4.service_instance.create_table
+        sint4.replicator.create_table
         expect do
-          sint4.service_instance.readonly_dataset { |ds| ds.update(at: Time.now) }
+          sint4.replicator.readonly_dataset { |ds| ds.update(at: Time.now) }
         end.to_not raise_error
       end
 
       it "ensures readonly still cannot access the public schema when migrating from it" do
         org.update(replication_schema: "public")
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
+        sint1.replicator.create_table
 
         org.migrate_replication_schema("xyz")
         # Assert admin and readonly can hit the new schema
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
         # Assert readonly cannot hit the public schema
         org.admin_connection { |db| db << "CREATE TABLE public.foo();" }
         org.readonly_connection do |db|
@@ -619,17 +619,17 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
       it "can migrate to the public schema" do
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
+        sint1.replicator.create_table
 
         org.migrate_replication_schema("public")
         # Assert the schema field was updated
         expect(org).to have_attributes(replication_schema: "public")
         # Assert admin and readonly can hit the new schema
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
         # Readonly can't modify the new schema
         expect do
-          sint1.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
+          sint1.replicator.readonly_dataset { |ds| ds.insert(at: Time.now) }
         end.to raise_error(/permission denied for table fake_v1_/)
       end
     end
@@ -644,17 +644,17 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
       it "creates the schema if needed, moves all tables, grants and revokes SELECT on the readonly user" do
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
+        sint1.replicator.create_table
         org.migrate_replication_schema("xyz")
         expect(org).to have_attributes(replication_schema: "xyz")
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
         sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint4.service_instance.create_table
-        expect(sint4.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint4.service_instance.readonly_dataset(&:all)).to be_empty
+        sint4.replicator.create_table
+        expect(sint4.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint4.replicator.readonly_dataset(&:all)).to be_empty
         expect do
-          sint4.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now) }
+          sint4.replicator.readonly_dataset { |ds| ds.insert(at: Time.now) }
         end.to raise_error(/permission denied for table fake_v1_/)
       end
 
@@ -673,17 +673,17 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
       it "creates the schema if needed and moves all tables (does not modify user)" do
         sint1 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint1.service_instance.create_table
+        sint1.replicator.create_table
         org.migrate_replication_schema("xyz")
         expect(org).to have_attributes(replication_schema: "xyz")
-        expect(sint1.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+        expect(sint1.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
         sint4 = Webhookdb::Fixtures.service_integration(organization: org).create
-        sint4.service_instance.create_table
-        expect(sint4.service_instance.admin_dataset(&:all)).to be_empty
-        expect(sint4.service_instance.readonly_dataset(&:all)).to be_empty
+        sint4.replicator.create_table
+        expect(sint4.replicator.admin_dataset(&:all)).to be_empty
+        expect(sint4.replicator.readonly_dataset(&:all)).to be_empty
         # Readonly should be able to insert
-        sint4.service_instance.readonly_dataset { |ds| ds.insert(at: Time.now, my_id: "123", data: "{}") }
+        sint4.replicator.readonly_dataset { |ds| ds.insert(at: Time.now, my_id: "123", data: "{}") }
       end
 
       it "errors if migrating to the public schema" do

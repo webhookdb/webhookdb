@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require "webhookdb/services/transistor_v1_mixin"
+require "webhookdb/replicator/transistor_v1_mixin"
 
-class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::TransistorV1Mixin
+  include Webhookdb::Replicator::TransistorV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "transistor_episode_v1",
-      ctor: ->(sint) { Webhookdb::Services::TransistorEpisodeV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::TransistorEpisodeV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Transistor Episode",
     )
@@ -22,33 +22,33 @@ class Webhookdb::Services::TransistorEpisodeV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:author, TEXT, data_key: ["attributes", "author"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:author, TEXT, data_key: ["attributes", "author"]),
+      Webhookdb::Replicator::Column.new(
         :created_at,
         TIMESTAMP,
         index: true,
         data_key: ["attributes", "created_at"],
       ),
-      Webhookdb::Services::Column.new(:duration, INTEGER, data_key: ["attributes", "duration"]),
-      Webhookdb::Services::Column.new(:keywords, TEXT, data_key: ["attributes", "keywords"]),
-      Webhookdb::Services::Column.new(:number, INTEGER, index: true, data_key: ["attributes", "number"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:duration, INTEGER, data_key: ["attributes", "duration"]),
+      Webhookdb::Replicator::Column.new(:keywords, TEXT, data_key: ["attributes", "keywords"]),
+      Webhookdb::Replicator::Column.new(:number, INTEGER, index: true, data_key: ["attributes", "number"]),
+      Webhookdb::Replicator::Column.new(
         :published_at,
         TIMESTAMP,
         index: true,
         data_key: ["attributes", "published_at"],
       ),
-      Webhookdb::Services::Column.new(:season, INTEGER, index: true, data_key: ["attributes", "season"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:season, INTEGER, index: true, data_key: ["attributes", "season"]),
+      Webhookdb::Replicator::Column.new(
         :show_id,
         TEXT,
         index: true,
         data_key: ["relationships", "show", "data", "id"],
       ),
-      Webhookdb::Services::Column.new(:status, TEXT, data_key: ["attributes", "status"]),
-      Webhookdb::Services::Column.new(:title, TEXT, data_key: ["attributes", "title"]),
-      Webhookdb::Services::Column.new(:type, TEXT, data_key: ["attributes", "type"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:status, TEXT, data_key: ["attributes", "status"]),
+      Webhookdb::Replicator::Column.new(:title, TEXT, data_key: ["attributes", "title"]),
+      Webhookdb::Replicator::Column.new(:type, TEXT, data_key: ["attributes", "type"]),
+      Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
         index: true,

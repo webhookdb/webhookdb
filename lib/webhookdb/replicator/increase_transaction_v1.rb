@@ -1,31 +1,31 @@
 # frozen_string_literal: true
 
 require "webhookdb/increase"
-require "webhookdb/services/increase_v1_mixin"
+require "webhookdb/replicator/increase_v1_mixin"
 
-class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::IncreaseTransactionV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::IncreaseV1Mixin
+  include Webhookdb::Replicator::IncreaseV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "increase_transaction_v1",
-      ctor: ->(sint) { Webhookdb::Services::IncreaseTransactionV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::IncreaseTransactionV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Transaction",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:increase_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(
         :created_at,
         TIMESTAMP,
         data_key: "created_at",
@@ -36,16 +36,16 @@ class Webhookdb::Services::IncreaseTransactionV1 < Webhookdb::Services::Base
       # but is still sent with transactions as of April 2022.
       # We need to support the v1 schema, but do not want to depend
       # on Increase continuing to send a transaction resource 'date' field.
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :date,
         DATE,
         index: true,
         data_key: "created_at",
         optional: true,
-        converter: Webhookdb::Services::Column::CONV_TO_UTC_DATE,
+        converter: Webhookdb::Replicator::Column::CONV_TO_UTC_DATE,
       ),
-      Webhookdb::Services::Column.new(:route_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:route_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
         data_key: "created_at",

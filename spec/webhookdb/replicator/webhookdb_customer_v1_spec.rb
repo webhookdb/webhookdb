@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
-  it_behaves_like "a service implementation", "webhookdb_customer_v1" do
+RSpec.describe Webhookdb::Replicator::WebhookdbCustomerV1, :db do
+  it_behaves_like "a replicator", "webhookdb_customer_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -16,7 +16,7 @@ RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "webhookdb_customer_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "webhookdb_customer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -41,7 +41,7 @@ RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 401 for a missing header" do
       sint.update(webhook_secret: "abc")
@@ -71,7 +71,7 @@ RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "sets the secret and confirms the result" do
@@ -90,7 +90,7 @@ RSpec.describe Webhookdb::Services::WebhookdbCustomerV1, :db do
 
   describe "_prepare_for_insert" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     let(:resource) do
       JSON.parse(<<~J)

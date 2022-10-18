@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
+RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
   before(:each) do
     stub_request(:get, %r{^https://api\.convertkit\.com/v3/tags/\d+/subscriptions}).
       to_return(
@@ -17,7 +17,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
       )
   end
 
-  it_behaves_like "a service implementation", "convertkit_tag_v1" do
+  it_behaves_like "a replicator", "convertkit_tag_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -29,7 +29,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "convertkit_tag_v1",
@@ -61,7 +61,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "convertkit_tag_v1" do
+  it_behaves_like "a replicator that can backfill", "convertkit_tag_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -96,7 +96,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_tag_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 202 no matter what" do
       req = fake_request
@@ -107,7 +107,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_tag_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "returns a backfill state" do
@@ -153,7 +153,7 @@ RSpec.describe Webhookdb::Services::ConvertkitTagV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that uses enrichments", "convertkit_tag_v1" do
+  it_behaves_like "a replicator that uses enrichments", "convertkit_tag_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {

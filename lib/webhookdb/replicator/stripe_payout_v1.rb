@@ -1,39 +1,39 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripePayoutV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripePayoutV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_payout_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripePayoutV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripePayoutV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Payout",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:arrival_date, TIMESTAMP, index: true, converter: :tsat),
-      Webhookdb::Services::Column.new(:balance_transaction, TEXT, index: true),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
-      Webhookdb::Services::Column.new(:destination, TEXT, index: true),
-      Webhookdb::Services::Column.new(:failure_balance_transaction, TEXT, index: true),
-      Webhookdb::Services::Column.new(:original_payout, TEXT, index: true),
-      Webhookdb::Services::Column.new(:reversed_by, TEXT, index: true),
-      Webhookdb::Services::Column.new(:statement_descriptor, TEXT),
-      Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(:arrival_date, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:balance_transaction, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:destination, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:failure_balance_transaction, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:original_payout, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:reversed_by, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:statement_descriptor, TEXT),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

@@ -2,11 +2,11 @@
 
 require "webhookdb/sponsy"
 
-module Webhookdb::Services::SponsyV1Mixin
+module Webhookdb::Replicator::SponsyV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:sponsy_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:sponsy_id, TEXT, data_key: "id")
   end
 
   def _timestamp_column_name
@@ -15,11 +15,11 @@ module Webhookdb::Services::SponsyV1Mixin
 
   def _ts_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, data_key: "createdAt"),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, data_key: "createdAt"),
+      Webhookdb::Replicator::Column.new(
         :updated_at, TIMESTAMP,
         data_key: "updatedAt",
-        defaulter: Webhookdb::Services::Column.defaulter_from_resource_field(:created_at),
+        defaulter: Webhookdb::Replicator::Column.defaulter_from_resource_field(:created_at),
       ),
     ]
   end
@@ -47,7 +47,7 @@ module Webhookdb::Services::SponsyV1Mixin
       checking_sint = checking_sint.depends_on
       break if checking_sint.nil?
     end
-    raise Webhookdb::Services::CredentialsMissing, "This Sponsy integration is missing its dependency"
+    raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing its dependency"
   end
 
   def _resource_and_event(request)
@@ -63,30 +63,30 @@ module Webhookdb::Services::SponsyV1Mixin
     return Webhookdb::WebhookResponse.ok
   end
 
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_create_state_machine
     raise Webhookdb::InvalidPrecondition, "#{self} has no dependency so should override this method" unless
       self.class.descriptor.dependency_descriptor
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! You are all set.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
     return step.completed
   end
 
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(We will start backfilling #{self.resource_name_plural} into your WebhookDB database.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
     return step.completed
   end
 
-  def on_dependency_webhook_upsert(_service_instance, _payload, *)
+  def on_dependency_webhook_upsert(_replicator, _payload, *)
     return
   end
 
@@ -118,9 +118,9 @@ module Webhookdb::Services::SponsyV1Mixin
   end
 
   def _publication_backfillers(tail)
-    raise Webhookdb::Services::CredentialsMissing if self.find_api_key.blank?
+    raise Webhookdb::Replicator::CredentialsMissing if self.find_api_key.blank?
 
-    publications_svc = self.service_integration.depends_on.service_instance
+    publications_svc = self.service_integration.depends_on.replicator
     backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|
       pub_ds.select(:sponsy_id).map do |publication|
         PublicationChildBackfiller.new(

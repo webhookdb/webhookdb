@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::TransistorEpisodeStatsV1, :db do
+RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:episode_id_one) { SecureRandom.hex(5) }
   let(:episode_id_two) { SecureRandom.hex(5) }
   let(:episode_sint) { fac.create(service_name: "transistor_episode_v1") }
-  let(:episode_svc) { episode_sint.service_instance }
+  let(:episode_svc) { episode_sint.replicator }
   let(:sint) { fac.depending_on(episode_sint).create(service_name: "transistor_episode_stats_v1").refresh }
-  let(:svc) { sint.service_instance }
+  let(:svc) { sint.replicator }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
 
   def insert_episode_rows(dependency_svc)
@@ -30,7 +30,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeStatsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation", "transistor_episode_stats_v1" do
+  it_behaves_like "a replicator", "transistor_episode_stats_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -42,12 +42,12 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeStatsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation dependent on another", "transistor_episode_stats_v1",
+  it_behaves_like "a replicator dependent on another", "transistor_episode_stats_v1",
                   "transistor_episode_v1" do
     let(:no_dependencies_message) { "This integration requires Transistor Episodes to sync" }
   end
 
-  it_behaves_like "a service implementation that can backfill", "transistor_episode_stats_v1" do
+  it_behaves_like "a replicator that can backfill", "transistor_episode_stats_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -219,7 +219,7 @@ RSpec.describe Webhookdb::Services::TransistorEpisodeStatsV1, :db do
       insert_episode_rows(episode_svc)
       svc.create_table
 
-      backfiller = Webhookdb::Services::TransistorEpisodeStatsV1::EpisodeStatsBackfiller.new(
+      backfiller = Webhookdb::Replicator::TransistorEpisodeStatsV1::EpisodeStatsBackfiller.new(
         episode_svc:,
         episode_stats_svc: svc,
         episode_id: episode_id_one,

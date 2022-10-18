@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::SponsyCustomerV1, :db do
+RSpec.describe Webhookdb::Replicator::SponsyCustomerV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:slot_sint) { fac.create(service_name: "sponsy_slot_v1") }
   let(:sint) { fac.depending_on(slot_sint).create(service_name: "sponsy_customer_v1").refresh }
-  let(:svc) { sint.service_instance }
+  let(:svc) { sint.replicator }
 
-  it_behaves_like "a service implementation", "sponsy_customer_v1" do
+  it_behaves_like "a replicator", "sponsy_customer_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -26,7 +26,7 @@ RSpec.describe Webhookdb::Services::SponsyCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "sponsy_customer_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_customer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -57,11 +57,11 @@ RSpec.describe Webhookdb::Services::SponsyCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation dependent on another", "sponsy_customer_v1", "sponsy_slot_v1" do
+  it_behaves_like "a replicator dependent on another", "sponsy_customer_v1", "sponsy_slot_v1" do
     let(:no_dependencies_message) { "This integration requires Sponsy Slots to sync" }
   end
 
-  it_behaves_like "a service implementation backfilling against the table of its dependency", "sponsy_customer_v1" do
+  it_behaves_like "a replicator backfilling against the table of its dependency", "sponsy_customer_v1" do
     let(:external_id_col) { :sponsy_id }
     def create_dependency_row(external_id, ts)
       return {

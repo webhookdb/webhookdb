@@ -54,7 +54,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         get do
           _customer = current_customer
           org = lookup_org!
-          fake_entities = org.available_service_names.map { |name| {name:} }
+          fake_entities = org.available_replicator_names.map { |name| {name:} }
           message = "Run `webhookdb integrations create <service name>` to start mirroring webhooks to your database."
           present_collection fake_entities, with: Webhookdb::API::ServiceEntity, message:
         end
@@ -194,7 +194,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         org = lookup_org!
         ensure_admin!
         Sentry.capture_message("Org #{org.key} requested removal")
-        step = Webhookdb::Services::StateMachineStep.new.completed
+        step = Webhookdb::Replicator::StateMachineStep.new.completed
         step.output = "Thanks! We've received the request to close your #{org.name} organization. " \
                       "We'll be in touch within 2 business days confirming removal."
         status 200

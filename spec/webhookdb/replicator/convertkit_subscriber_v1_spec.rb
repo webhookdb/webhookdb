@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
-  it_behaves_like "a service implementation", "convertkit_subscriber_v1" do
+RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
+  it_behaves_like "a replicator", "convertkit_subscriber_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -23,7 +23,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:expected_data) { body.fetch("subscriber") }
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "convertkit_subscriber_v1",
@@ -58,7 +58,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "convertkit_subscriber_v1" do
+  it_behaves_like "a replicator that can backfill", "convertkit_subscriber_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -176,7 +176,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill incrementally", "convertkit_subscriber_v1" do
+  it_behaves_like "a replicator that can backfill incrementally", "convertkit_subscriber_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -276,7 +276,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
       }
     end
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     before(:each) do
       sint.organization.prepare_database_connections
@@ -344,7 +344,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1")
     end
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     let(:verify_creds_request) do
       stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=mysecret&page=1&sort_order=desc").
@@ -409,7 +409,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 202 no matter what" do
       req = fake_request
@@ -420,7 +420,7 @@ RSpec.describe Webhookdb::Services::ConvertkitSubscriberV1, :db do
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "returns the expected step" do

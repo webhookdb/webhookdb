@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Webhookdb::Services::ConvertkitV1Mixin
+module Webhookdb::Replicator::ConvertkitV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
   def _webhook_response(_request)
@@ -9,11 +9,11 @@ module Webhookdb::Services::ConvertkitV1Mixin
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:convertkit_id, BIGINT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:convertkit_id, BIGINT, data_key: "id")
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.backfill_secret.blank?
       step.output = %(Great! We've created your #{self.resource_name_plural} integration.
 
@@ -25,7 +25,7 @@ we need to use the API to make requests, which requires your API Secret.
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
@@ -46,7 +46,7 @@ and they will show up in your database momentarily.
   end
 
   # Converter for use with the denormalized columns
-  CONV_FIND_CANCELED_AT = Webhookdb::Services::Column::IsomorphicProc.new(
+  CONV_FIND_CANCELED_AT = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |_, resource:, **_|
       # Subscribers do not store a cancelation time (nor an updated at time),
       # so we derive and store it based on their state.

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-class Webhookdb::Services::WebhookdbCustomerV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::WebhookdbCustomerV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "webhookdb_customer_v1",
-      ctor: ->(sint) { Webhookdb::Services::WebhookdbCustomerV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::WebhookdbCustomerV1.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "WebookDB Customer",
     )
@@ -25,7 +25,7 @@ class Webhookdb::Services::WebhookdbCustomerV1 < Webhookdb::Services::Base
   end
 
   def calculate_create_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     self.service_integration.update(webhook_secret: Webhookdb::Id.rand_enc(16)) if
       self.service_integration.webhook_secret.blank?
     step.output = %(WebhookDB is now listening for changes to #{self.resource_name_plural}
@@ -47,18 +47,18 @@ Which will be received by this running instance, so there's nothing else you hav
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:webhookdb_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:webhookdb_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Services::Column.new(:email, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Replicator::Column.new(:email, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
         index: true,
-        defaulter: Webhookdb::Services::Column.defaulter_from_resource_field(:created_at),
+        defaulter: Webhookdb::Replicator::Column.defaulter_from_resource_field(:created_at),
       ),
     ]
   end

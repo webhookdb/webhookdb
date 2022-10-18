@@ -46,7 +46,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "returns a list of all tables in org" do
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
 
       get "/v1/db/#{org.key}/tables"
@@ -67,7 +67,7 @@ RSpec.describe Webhookdb::API::Db, :db do
         db << "CREATE SCHEMA otherschema"
       end
       org.update(replication_schema: "otherschema")
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
 
       get "/v1/db/#{org.key}/tables"
@@ -231,7 +231,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "returns results of sql query" do
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
       svc.admin_dataset do |ds|
         ds.db << insert_query
@@ -256,7 +256,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "errors for a query for which permissions are missing" do
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
 
       post "/v1/db/#{org.key}/sql", query: insert_query
@@ -268,7 +268,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
 
     it "otherwise presents the raw Postgres error message" do
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
 
       post "/v1/db/#{org.key}/sql", query: "this is invalid"

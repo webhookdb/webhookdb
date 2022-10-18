@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Webhookdb::Services::Fake < Webhookdb::Services::Base
+class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   extend Webhookdb::MethodUtilities
 
   singleton_attr_accessor :webhook_response
@@ -12,9 +12,9 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   singleton_attr_accessor :requires_sequence
 
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "fake_v1",
-      ctor: ->(sint) { Webhookdb::Services::Fake.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::Fake.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "Fake",
     )
@@ -49,7 +49,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def calculate_create_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
       step.output = "You're creating a fake_v1 service integration."
@@ -63,7 +63,7 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.backfill_secret.present?
       step.needs_input = true
@@ -88,16 +88,16 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:my_id, TEXT)
+    return Webhookdb::Replicator::Column.new(:my_id, TEXT)
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :at,
         TIMESTAMP,
         index: true,
-        converter: Webhookdb::Services::Column::CONV_PARSE_TIME,
+        converter: Webhookdb::Replicator::Column::CONV_PARSE_TIME,
       ),
     ]
   end
@@ -136,18 +136,18 @@ class Webhookdb::Services::Fake < Webhookdb::Services::Base
   end
 end
 
-class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
+class Webhookdb::Replicator::FakeWithEnrichments < Webhookdb::Replicator::Fake
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "fake_with_enrichments_v1",
-      ctor: ->(sint) { Webhookdb::Services::FakeWithEnrichments.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::FakeWithEnrichments.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "Enriched Fake",
     )
   end
 
   def _denormalized_columns
-    return super << Webhookdb::Services::Column.new(:extra, TEXT, from_enrichment: true)
+    return super << Webhookdb::Replicator::Column.new(:extra, TEXT, from_enrichment: true)
   end
 
   def _store_enrichment_body?
@@ -160,21 +160,21 @@ class Webhookdb::Services::FakeWithEnrichments < Webhookdb::Services::Fake
   end
 end
 
-class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
+class Webhookdb::Replicator::FakeDependent < Webhookdb::Replicator::Fake
   singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "fake_dependent_v1",
-      ctor: ->(sint) { Webhookdb::Services::FakeDependent.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::FakeDependent.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "FakeDependent",
-      dependency_descriptor: Webhookdb::Services::Fake.descriptor,
+      dependency_descriptor: Webhookdb::Replicator::Fake.descriptor,
     )
   end
 
-  def on_dependency_webhook_upsert(service_instance, payload, changed:)
-    self.class.on_dependency_webhook_upsert_callback&.call(service_instance, payload, changed:)
+  def on_dependency_webhook_upsert(replicator, payload, changed:)
+    self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
   end
 
   def calculate_create_state_machine
@@ -186,21 +186,21 @@ class Webhookdb::Services::FakeDependent < Webhookdb::Services::Fake
   end
 end
 
-class Webhookdb::Services::FakeDependentDependent < Webhookdb::Services::Fake
+class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fake
   singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "fake_dependent_dependent_v1",
-      ctor: ->(sint) { Webhookdb::Services::FakeDependentDependent.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::FakeDependentDependent.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "FakeDependentDependent",
-      dependency_descriptor: Webhookdb::Services::FakeDependent.descriptor,
+      dependency_descriptor: Webhookdb::Replicator::FakeDependent.descriptor,
     )
   end
 
-  def on_dependency_webhook_upsert(service_instance, payload, changed:)
-    self.class.on_dependency_webhook_upsert_callback&.call(service_instance, payload, changed:)
+  def on_dependency_webhook_upsert(replicator, payload, changed:)
+    self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
   end
 
   def calculate_create_state_machine

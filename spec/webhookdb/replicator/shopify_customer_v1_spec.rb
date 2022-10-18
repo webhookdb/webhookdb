@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
-  it_behaves_like "a service implementation", "shopify_customer_v1" do
+RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
+  it_behaves_like "a replicator", "shopify_customer_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -36,7 +36,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "shopify_customer_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "shopify_customer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -99,7 +99,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "shopify_customer_v1",
@@ -137,7 +137,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "shopify_customer_v1" do
+  it_behaves_like "a replicator that can backfill", "shopify_customer_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -400,7 +400,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
   end
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "shopify_customer_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
       status, headers, body = svc.webhook_response(fake_request).to_rack
@@ -435,7 +435,7 @@ RSpec.describe Webhookdb::Services::ShopifyCustomerV1, :db do
       Webhookdb::Fixtures.service_integration.create(service_name: "shopify_customer_v1", backfill_secret: "",
                                                      backfill_key: "", api_url: "",)
     end
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "process_state_change" do
       it "converts a shop name into an api url and updates the object" do

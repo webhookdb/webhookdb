@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
+RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:publication_sint) { fac.create(service_name: "sponsy_publication_v1", backfill_secret: "apikey") }
-  let(:publication_svc) { publication_sint.service_instance }
+  let(:publication_svc) { publication_sint.replicator }
   let(:sint) { fac.depending_on(publication_sint).create(service_name: "sponsy_slot_v1").refresh }
-  let(:svc) { sint.service_instance }
+  let(:svc) { sint.replicator }
   let(:publication_id1) { "pubid1" }
   let(:publication_id2) { "pubid2" }
   let(:headers) { {"Content-Type" => "application/json"} }
@@ -55,7 +55,7 @@ RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
     return {data:, cursor: {afterCursor: cursor}}.to_json
   end
 
-  it_behaves_like "a service implementation", "sponsy_slot_v1" do
+  it_behaves_like "a replicator", "sponsy_slot_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -104,7 +104,7 @@ RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "sponsy_slot_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_slot_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -143,11 +143,11 @@ RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation dependent on another", "sponsy_slot_v1", "sponsy_publication_v1" do
+  it_behaves_like "a replicator dependent on another", "sponsy_slot_v1", "sponsy_publication_v1" do
     let(:no_dependencies_message) { "This integration requires Sponsy Publications to sync" }
   end
 
-  it_behaves_like "a service implementation that can backfill", "sponsy_slot_v1" do
+  it_behaves_like "a replicator that can backfill", "sponsy_slot_v1" do
     let(:expected_items_count) { 8 }
 
     def insert_required_data_callback
@@ -179,7 +179,7 @@ RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill incrementally", "sponsy_slot_v1" do
+  it_behaves_like "a replicator that can backfill incrementally", "sponsy_slot_v1" do
     let(:last_backfilled) { "2022-09-01T18:00:00Z" }
     let(:expected_new_items_count) { 4 }
     let(:expected_old_items_count) { 2 }
@@ -223,7 +223,7 @@ RSpec.describe Webhookdb::Services::SponsySlotV1, :db do
       publication_sint.update(backfill_secret: "")
       expect do
         svc.backfill
-      end.to raise_error(Webhookdb::Services::CredentialsMissing).with_message(/This Sponsy/)
+      end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(/This Sponsy/)
     end
 
     it "inserts the publication id into the body before upsert" do

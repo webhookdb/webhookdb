@@ -2,17 +2,17 @@
 
 require "time"
 require "webhookdb/convertkit"
-require "webhookdb/services/convertkit_v1_mixin"
+require "webhookdb/replicator/convertkit_v1_mixin"
 
-class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::ConvertkitTagV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::ConvertkitV1Mixin
+  include Webhookdb::Replicator::ConvertkitV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "convertkit_tag_v1",
-      ctor: ->(sint) { Webhookdb::Services::ConvertkitTagV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::ConvertkitTagV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "ConvertKit Tag",
     )
@@ -24,9 +24,9 @@ class Webhookdb::Services::ConvertkitTagV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
-      Webhookdb::Services::Column.new(:name, TEXT, index: true),
-      Webhookdb::Services::Column.new(:total_subscriptions, INTEGER, from_enrichment: true),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
+      Webhookdb::Replicator::Column.new(:name, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:total_subscriptions, INTEGER, from_enrichment: true),
     ]
   end
 

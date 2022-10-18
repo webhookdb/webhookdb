@@ -1,49 +1,49 @@
 # frozen_string_literal: true
 
 require "stripe"
-require "webhookdb/services/stripe_v1_mixin"
+require "webhookdb/replicator/stripe_v1_mixin"
 
-class Webhookdb::Services::StripeDisputeV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::StripeDisputeV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::StripeV1Mixin
+  include Webhookdb::Replicator::StripeV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_dispute_v1",
-      ctor: ->(sint) { Webhookdb::Services::StripeDisputeV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::StripeDisputeV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Dispute",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:stripe_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:stripe_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:amount, INTEGER),
-      Webhookdb::Services::Column.new(:charge, TEXT),
-      Webhookdb::Services::Column.new(:cancellation_policy, TEXT, data_key: ["evidence", "cancellation_policy"]),
-      Webhookdb::Services::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:amount, INTEGER),
+      Webhookdb::Replicator::Column.new(:charge, TEXT),
+      Webhookdb::Replicator::Column.new(:cancellation_policy, TEXT, data_key: ["evidence", "cancellation_policy"]),
+      Webhookdb::Replicator::Column.new(:created, TIMESTAMP, index: true, converter: :tsat),
+      Webhookdb::Replicator::Column.new(
         :due_by,
         TIMESTAMP,
         data_key: ["evidence_details", "due_by"],
         converter: :tsat,
       ),
-      Webhookdb::Services::Column.new(:is_charge_refundable, TEXT),
-      Webhookdb::Services::Column.new(:receipt, TEXT, data_key: ["evidence", "receipt"]),
-      Webhookdb::Services::Column.new(:refund_policy, TEXT, data_key: ["evidence", "refund_policy"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:is_charge_refundable, TEXT),
+      Webhookdb::Replicator::Column.new(:receipt, TEXT, data_key: ["evidence", "receipt"]),
+      Webhookdb::Replicator::Column.new(:refund_policy, TEXT, data_key: ["evidence", "refund_policy"]),
+      Webhookdb::Replicator::Column.new(
         :service_date,
         TIMESTAMP,
         data_key: ["evidence", "service_date"],
         converter: :tsat,
       ),
-      Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(
         :updated,
         TIMESTAMP,
         index: true,

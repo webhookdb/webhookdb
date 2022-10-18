@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
-require "webhookdb/services/transistor_v1_mixin"
+require "webhookdb/replicator/transistor_v1_mixin"
 
-class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::TransistorShowV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::TransistorV1Mixin
+  include Webhookdb::Replicator::TransistorV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "transistor_show_v1",
-      ctor: ->(sint) { Webhookdb::Services::TransistorShowV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::TransistorShowV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Transistor Show",
     )
@@ -18,21 +18,21 @@ class Webhookdb::Services::TransistorShowV1 < Webhookdb::Services::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:author, TEXT, data_key: ["attributes", "author"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:author, TEXT, data_key: ["attributes", "author"]),
+      Webhookdb::Replicator::Column.new(
         :created_at, TIMESTAMP,
         index: true,
         data_key: ["attributes", "created_at"],
       ),
-      Webhookdb::Services::Column.new(:description, TEXT, data_key: ["attributes", "description"]),
-      Webhookdb::Services::Column.new(:title, TEXT, data_key: ["attributes", "title"]),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:description, TEXT, data_key: ["attributes", "description"]),
+      Webhookdb::Replicator::Column.new(:title, TEXT, data_key: ["attributes", "title"]),
+      Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
         index: true,
         data_key: ["attributes", "updated_at"],
       ),
-      Webhookdb::Services::Column.new(:website, TEXT, data_key: ["attributes", "website"]),
+      Webhookdb::Replicator::Column.new(:website, TEXT, data_key: ["attributes", "website"]),
     ]
   end
 

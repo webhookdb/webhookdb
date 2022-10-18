@@ -2,23 +2,23 @@
 
 require "webhookdb/typed_struct"
 
-class Webhookdb::Services
+class Webhookdb::Replicator
   extend Webhookdb::MethodUtilities
 
-  SERVICES_DIR = Pathname(__FILE__).dirname + "services"
-  PLUGIN_DIR = Pathname(__FILE__).dirname + "services_ext"
+  REPLICATORS_DIR = Pathname(__FILE__).dirname + "replicator"
+  PLUGIN_DIR = Pathname(__FILE__).dirname + "replicator_ext"
 
   # Raised when there is no service registered for a name.
-  class InvalidService < StandardError; end
+  class Invalid < StandardError; end
 
   # Raised when credentials to interact with a service are not set up.
   # Usually this is due to a missing dependency.
   class CredentialsMissing < StandardError; end
 
-  # Statically describe a service integration.
+  # Statically describe a replicator.
   class Descriptor < Webhookdb::TypedStruct
     # @!attribute name
-    # Name of the service, like 'stripe_charge_v1'.
+    # Name of the replicator, like 'stripe_charge_v1'.
     # Appears externally in many places, so must be meaningful.
     #   @return [String]
     attr_reader :name
@@ -50,7 +50,7 @@ class Webhookdb::Services
 
     # @!attribute dependency_descriptor
     # The descriptor for the service this one depends on (the parent).
-    #   @return [Webhookdb::Services::Descriptor]
+    #   @return [Webhookdb::Replicator::Descriptor]
     attr_reader :dependency_descriptor
 
     def initialize(
@@ -79,46 +79,47 @@ class Webhookdb::Services
   end
 
   class << self
-    # @return [Hash{String => Webhookdb::Services::Descriptor}]
-    def registered
-      return @registered ||= {}
+    # @return [Hash{String => Webhookdb::Replicator::Descriptor}]
+    def registry
+      return @registry ||= {}
     end
 
     def register(cls)
       desc = cls.descriptor
       raise TypeError, "descriptor must be a Descriptor, got #{desc.class.name}" unless desc.is_a?(Descriptor)
-      self.registered[desc.name] = desc
+      self.registry[desc.name] = desc
     end
 
-    # Return a new service instance for the given integration.
+    # Return a new replicator for the given integration.
     #
     # @param service_integration [Webhookdb::ServiceIntegration]
-    # @return [Webhookdb::Services::Base]
-    def service_instance(service_integration)
+    # @return [Webhookdb::Replicator::Base]
+    def create(service_integration)
       name = service_integration.service_name
-      descr = self.registered_service!(name)
+      descr = self.registered!(name)
       return descr.ctor.call(service_integration)
     end
 
     # Returns the service with the given name, or +nil+ if none is registered.
-    # @return [Webhookdb::Services::Descriptor]
-    def registered_service(name)
-      return @registered[name]
+    # @return [Webhookdb::Replicator::Descriptor]
+    def registered(name)
+      return @registry[name]
     end
 
-    # @raise [Webhookdb::Services::InvalidService] When the name is invalid.
-    # @return [Webhookdb::Services::Descriptor]
-    def registered_service!(name)
-      r = self.registered_service(name)
+    # @raise [Webhookdb::Replicator::Invalid] When the name is invalid.
+    # @return [Webhookdb::Replicator::Descriptor]
+    def registered!(name)
+      raise ArgumentError, "name cannot be blank" if name.blank?
+      r = self.registered(name)
       return r if r
-      raise InvalidService, name
+      raise Invalid, name
     end
 
-    def load_services
-      existing_descendants = Webhookdb::Services::Base.descendants
-      self._require_files(SERVICES_DIR)
+    def load_replicators
+      existing_descendants = Webhookdb::Replicator::Base.descendants
+      self._require_files(REPLICATORS_DIR)
       self._require_files(PLUGIN_DIR)
-      new_descendants = Webhookdb::Services::Base.descendants
+      new_descendants = Webhookdb::Replicator::Base.descendants
       newly_registered = new_descendants - existing_descendants
       newly_registered.each { |cls| self.register(cls) }
       return newly_registered
@@ -133,8 +134,8 @@ class Webhookdb::Services
     end
   end
 
-  require "webhookdb/services/state_machine_step"
-  require "webhookdb/services/column"
-  require "webhookdb/services/base"
-  load_services
+  require "webhookdb/replicator/state_machine_step"
+  require "webhookdb/replicator/column"
+  require "webhookdb/replicator/base"
+  load_replicators
 end

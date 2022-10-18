@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Webhookdb::Services::SchemaModification do
+RSpec.describe Webhookdb::Replicator::SchemaModification do
   fake_db = Class.new do
     attr_reader :calls
 

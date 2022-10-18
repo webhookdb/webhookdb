@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-RSpec.shared_examples "a service implementation" do |name|
+RSpec.shared_examples "a replicator" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
   let(:supports_row_diff) { true }
@@ -113,9 +113,9 @@ RSpec.shared_examples "a service implementation" do |name|
   end
 end
 
-RSpec.shared_examples "a service implementation that upserts webhooks only under specific conditions" do |name|
+RSpec.shared_examples "a replicator that upserts webhooks only under specific conditions" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:incorrect_webhook) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
@@ -136,9 +136,9 @@ RSpec.shared_examples "a service implementation that upserts webhooks only under
   end
 end
 
-RSpec.shared_examples "a service implementation that prevents overwriting new data with old" do |name|
+RSpec.shared_examples "a replicator that prevents overwriting new data with old" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:old_body) { raise NotImplementedError }
   let(:new_body) { raise NotImplementedError }
   let(:expected_old_data) { old_body }
@@ -181,9 +181,9 @@ RSpec.shared_examples "a service implementation that prevents overwriting new da
   end
 end
 
-RSpec.shared_examples "a service implementation that deals with resources and wrapped events" do |name|
+RSpec.shared_examples "a replicator that deals with resources and wrapped events" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:resource_json) { raise NotImplementedError }
   let(:resource_in_envelope_json) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
@@ -215,7 +215,7 @@ RSpec.shared_examples "a service implementation that deals with resources and wr
   end
 end
 
-RSpec.shared_examples "a service implementation that verifies backfill secrets" do
+RSpec.shared_examples "a replicator that verifies backfill secrets" do
   let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
   let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }
 
@@ -229,7 +229,7 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
 
   it "returns a positive result if backfill info is correct" do
     res = stub_service_request
-    svc = Webhookdb::Services.service_instance(correct_creds_sint)
+    svc = Webhookdb::Replicator.create(correct_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
     expect(result).to have_attributes(verified: true, message: "")
@@ -237,7 +237,7 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
 
   it "if backfill info is incorrect for some other reason, return the a negative result and error message" do
     res = stub_service_request_error
-    svc = Webhookdb::Services.service_instance(incorrect_creds_sint)
+    svc = Webhookdb::Replicator.create(incorrect_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
     expect(result).to have_attributes(verified: false, message: be_a(String).and(be_present))
@@ -245,14 +245,14 @@ RSpec.shared_examples "a service implementation that verifies backfill secrets" 
 
   it "returns a failed backfill message if the credentials aren't verified when building the state machine" do
     res = stub_service_request_error
-    svc = Webhookdb::Services.service_instance(incorrect_creds_sint)
+    svc = Webhookdb::Replicator.create(incorrect_creds_sint)
     result = svc.calculate_backfill_state_machine
     expect(res).to have_been_made
     expect(result).to have_attributes(needs_input: true, output: include("It looks like "), prompt_is_secret: true)
   end
 end
 
-RSpec.shared_examples "a service implementation that can backfill" do |name|
+RSpec.shared_examples "a replicator that can backfill" do |name|
   let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
@@ -262,13 +262,13 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
       api_url:,
     )
   end
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:backfiller_class) { Webhookdb::Backfiller }
   let(:expected_items_count) { raise NotImplementedError, "how many items do we insert?" }
 
   def insert_required_data_callback
     # For instances where our custom backfillers use info from rows in the dependency table to make requests.
-    # The function should take a service instance of the dependency.
+    # The function should take a replicator of the dependency.
     # Something like: `return ->(dep_svc) { insert_some_info }`
     return ->(_dep_svc) { return }
   end
@@ -324,7 +324,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
     svc.service_integration.backfill_key = ""
     svc.service_integration.backfill_secret = ""
     # `depends_on` is nil because we haven't created dependencies in this test
-    expect { svc.backfill }.to raise_error(Webhookdb::Services::CredentialsMissing)
+    expect { svc.backfill }.to raise_error(Webhookdb::Replicator::CredentialsMissing)
   end
 
   it "errors if fetching page errors" do
@@ -338,7 +338,7 @@ RSpec.shared_examples "a service implementation that can backfill" do |name|
   end
 end
 
-RSpec.shared_examples "a service implementation that can backfill incrementally" do |name|
+RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   let(:last_backfilled) { raise NotImplementedError, "what should the last_backfilled_at value be to start?" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
@@ -349,7 +349,7 @@ RSpec.shared_examples "a service implementation that can backfill incrementally"
       last_backfilled_at: last_backfilled,
     )
   end
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:expected_new_items_count) { raise NotImplementedError, "how many newer items do we insert?" }
   let(:expected_old_items_count) { raise NotImplementedError, "how many older items do we insert?" }
 
@@ -407,9 +407,9 @@ RSpec.shared_examples "a service implementation that can backfill incrementally"
   end
 end
 
-RSpec.shared_examples "a service implementation backfilling against the table of its dependency" do |name|
+RSpec.shared_examples "a replicator backfilling against the table of its dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:dep_svc) { @dep_svc }
   let(:external_id_col) { raise NotImplementedError }
 
@@ -466,9 +466,9 @@ RSpec.shared_examples "a service implementation backfilling against the table of
   end
 end
 
-RSpec.shared_examples "a service implementation that uses enrichments" do |name|
+RSpec.shared_examples "a replicator that uses enrichments" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_enrichment_data) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
@@ -523,9 +523,9 @@ RSpec.shared_examples "a service implementation that uses enrichments" do |name|
   end
 end
 
-RSpec.shared_examples "a service implementation with dependents" do |service_name, dependent_service_name|
+RSpec.shared_examples "a replicator with dependents" do |service_name, dependent_service_name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_insert) { raise NotImplementedError }
   let(:can_track_row_changes) { true }
@@ -547,8 +547,8 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
 
     calls = []
     svc.service_integration.dependents.each do |dep|
-      dep_svc = dep.service_instance
-      expect(dep).to receive(:service_instance).at_least(:once).and_return(dep_svc)
+      dep_svc = dep.replicator
+      expect(dep).to receive(:replicator).at_least(:once).and_return(dep_svc)
       expect(dep_svc).to receive(:on_dependency_webhook_upsert).twice do |inst, payload, changed:|
         calls << 0
         expect(inst).to eq(svc)
@@ -567,13 +567,13 @@ RSpec.shared_examples "a service implementation with dependents" do |service_nam
   end
 end
 
-RSpec.shared_examples "a service implementation dependent on another" do |service_name, dependency_service_name|
+RSpec.shared_examples "a replicator dependent on another" do |service_name, dependency_service_name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
 
-  it "can list and describe the services used as dependencies" do
-    this_descriptor = Webhookdb::Services.registered_service!(service_name)
-    dep_descriptor = Webhookdb::Services.registered_service!(dependency_service_name)
+  it "can list and describe the replicators used as dependencies" do
+    this_descriptor = Webhookdb::Replicator.registered!(service_name)
+    dep_descriptor = Webhookdb::Replicator.registered!(dependency_service_name)
     expect(this_descriptor.dependency_descriptor).to eq(dep_descriptor)
     expect(sint.dependency_candidates).to be_empty
     Webhookdb::Fixtures.service_integration(service_name: dependency_service_name).create
@@ -583,7 +583,7 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
   end
 
   it "errors if there are no dependency candidates" do
-    step = sint.service_instance.calculate_create_state_machine
+    step = sint.replicator.calculate_create_state_machine
     expect(step).to have_attributes(
       output: match(no_dependencies_message),
     )
@@ -592,16 +592,16 @@ RSpec.shared_examples "a service implementation dependent on another" do |servic
   it "asks for the dependency as the first step of its state machine" do
     create_dependency(sint)
     sint.depends_on = nil
-    step = sint.service_instance.calculate_create_state_machine
+    step = sint.replicator.calculate_create_state_machine
     expect(step).to have_attributes(
       output: match("Enter the number for the"),
     )
   end
 end
 
-RSpec.shared_examples "a service implementation that processes webhooks synchronously" do |name|
+RSpec.shared_examples "a replicator that processes webhooks synchronously" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Services.service_instance(sint) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:expected_synchronous_response) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 

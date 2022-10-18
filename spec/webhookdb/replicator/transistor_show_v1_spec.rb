@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
-  it_behaves_like "a service implementation", "transistor_show_v1" do
+RSpec.describe Webhookdb::Replicator::TransistorShowV1, :db do
+  it_behaves_like "a replicator", "transistor_show_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -65,7 +65,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "transistor_show_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "transistor_show_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -186,7 +186,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     let(:expected_new_data) { new_body["data"] }
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "transistor_show_v1",
@@ -221,7 +221,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "transistor_show_v1" do
+  it_behaves_like "a replicator that can backfill", "transistor_show_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -352,7 +352,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_show_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 202 no matter what" do
       req = fake_request
@@ -363,7 +363,7 @@ RSpec.describe Webhookdb::Services::TransistorShowV1, :db do
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_show_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "returns a backfill step" do

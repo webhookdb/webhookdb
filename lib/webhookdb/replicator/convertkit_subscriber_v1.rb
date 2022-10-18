@@ -2,17 +2,17 @@
 
 require "time"
 require "webhookdb/convertkit"
-require "webhookdb/services/convertkit_v1_mixin"
+require "webhookdb/replicator/convertkit_v1_mixin"
 
-class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::ConvertkitV1Mixin
+  include Webhookdb::Replicator::ConvertkitV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "convertkit_subscriber_v1",
-      ctor: ->(sint) { Webhookdb::Services::ConvertkitSubscriberV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::ConvertkitSubscriberV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "ConvertKit Subscriber",
     )
@@ -74,7 +74,7 @@ class Webhookdb::Services::ConvertkitSubscriberV1 < Webhookdb::Services::Base
   end
 
   def calculate_create_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(
 Great! We've created your ConvertKit Subscribers integration.
 
@@ -110,18 +110,18 @@ your database will be populated.
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :canceled_at,
         TIMESTAMP,
         index: true,
         optional: true,
         converter: CONV_FIND_CANCELED_AT,
       ),
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
-      Webhookdb::Services::Column.new(:email_address, TEXT, index: true),
-      Webhookdb::Services::Column.new(:first_name, TEXT),
-      Webhookdb::Services::Column.new(:last_name, TEXT, data_key: ["fields", "last_name"], optional: true),
-      Webhookdb::Services::Column.new(:state, TEXT),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
+      Webhookdb::Replicator::Column.new(:email_address, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:first_name, TEXT),
+      Webhookdb::Replicator::Column.new(:last_name, TEXT, data_key: ["fields", "last_name"], optional: true),
+      Webhookdb::Replicator::Column.new(:state, TEXT),
     ]
   end
 

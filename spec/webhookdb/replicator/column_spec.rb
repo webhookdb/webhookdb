@@ -2,7 +2,7 @@
 
 require "support/shared_examples_for_columns"
 
-RSpec.describe Webhookdb::Services::Column, :db do
+RSpec.describe Webhookdb::Replicator::Column, :db do
   describe "to_ruby_value" do
     def to_ruby_value(col, resource=nil, event=nil, enrichment=nil, service_integration=nil)
       col.to_ruby_value(resource:, event:, enrichment:, service_integration:)
@@ -90,7 +90,7 @@ RSpec.describe Webhookdb::Services::Column, :db do
       col = described_class.new(
         :number,
         described_class::INTEGER,
-        converter: Webhookdb::Services::Column::CONV_TO_I,
+        converter: Webhookdb::Replicator::Column::CONV_TO_I,
       )
       v = to_ruby_value(col, {"number" => "15367"}, nil, nil)
       expect(v).to eq(15_367)
@@ -400,8 +400,8 @@ RSpec.describe Webhookdb::Services::Column, :db do
       end
     end
 
-    describe "Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT" do
-      let(:conv) { Webhookdb::Services::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT }
+    describe "Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT" do
+      let(:conv) { Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT }
 
       describe "ruby proc" do
         it "returns nil when state is active" do
@@ -422,108 +422,108 @@ RSpec.describe Webhookdb::Services::Column, :db do
       end
     end
 
-    describe "Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH" do
+    describe "Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH" do
       let(:initial_value) { "04/07/1992" }
       let(:expected_value) { Date.new(1992, 4, 7) }
 
-      it_behaves_like "a service column converter", Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH
+      it_behaves_like "a service column converter", Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.ruby.call(100)
           expect(v).to be_nil
         end
       end
 
       describe "sql proc" do
         it "ignores invalid strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.sql.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.sql.call("John Smith")
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
 
         it "ignores non-strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.sql.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_MDY_SLASH.sql.call(100)
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
       end
     end
 
-    describe "Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH" do
+    describe "Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH" do
       let(:initial_value) { "1992/04/07" }
       let(:expected_value) { Date.new(1992, 4, 7) }
 
-      it_behaves_like "a service column converter", Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH
+      it_behaves_like "a service column converter", Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.ruby.call(100)
           expect(v).to be_nil
         end
       end
 
       describe "sql proc" do
         it "ignores invalid strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.sql.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.sql.call("John Smith")
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
 
         it "ignores non-strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.sql.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_YMD_SLASH.sql.call(100)
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
       end
     end
 
-    describe "Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME" do
+    describe "Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME" do
       let(:initial_value) { "04/07/1992 12:04 AM" }
       let(:expected_value) { Time.parse("1992-04-07T00:04:00-0700") }
 
-      it_behaves_like "a service column converter", Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME
+      it_behaves_like "a service column converter", Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME
 
       describe "ruby proc" do
         it "handles Date::Error" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call("John Smith")
           expect(v).to be_nil
         end
 
         it "handles TypeError" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME.ruby.call(100)
           expect(v).to be_nil
         end
       end
 
       describe "sql proc" do
         it "ignores invalid strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.sql.call("John Smith")
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME.sql.call("John Smith")
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
 
         it "ignores non-strings" do
-          v = Webhookdb::Services::TheranestV1Mixin::CONV_PARSE_DATETIME.sql.call(100)
+          v = Webhookdb::Replicator::TheranestV1Mixin::CONV_PARSE_DATETIME.sql.call(100)
           expect(Webhookdb::Postgres::Model.db.select(v).first).to include(case: nil)
         end
       end
     end
 
-    describe "Webhookdb::Services::TransistorEpisodeStatsV1::CONV_PARSE_DMY_DASH" do
+    describe "Webhookdb::Replicator::TransistorEpisodeStatsV1::CONV_PARSE_DMY_DASH" do
       let(:initial_value) { "07-04-1992" }
       let(:expected_value) { Date.new(1992, 4, 7) }
 
-      it_behaves_like "a service column converter", Webhookdb::Services::TransistorEpisodeStatsV1::CONV_PARSE_DMY_DASH
+      it_behaves_like "a service column converter", Webhookdb::Replicator::TransistorEpisodeStatsV1::CONV_PARSE_DMY_DASH
     end
 
-    describe "Webhookdb::Services::TransistorEpisodeStatsV1::CONV_REMOTE_KEY" do
-      let(:converter) { Webhookdb::Services::TransistorEpisodeStatsV1::CONV_REMOTE_KEY }
+    describe "Webhookdb::Replicator::TransistorEpisodeStatsV1::CONV_REMOTE_KEY" do
+      let(:converter) { Webhookdb::Replicator::TransistorEpisodeStatsV1::CONV_REMOTE_KEY }
       let(:initial_value) { "2022-06-13" }
       let(:resource) { {"date" => "2022-06-13", "episode_id" => "abc", "downloads" => 2} }
       let(:expected_value) { "abc-2022-06-13" }
@@ -543,13 +543,13 @@ RSpec.describe Webhookdb::Services::Column, :db do
 
   describe "defaulters" do
     describe "DEFAULTER_NOW" do
-      it_behaves_like "a service column defaulter", Webhookdb::Services::Column::DEFAULTER_NOW do
+      it_behaves_like "a service column defaulter", Webhookdb::Replicator::Column::DEFAULTER_NOW do
         let(:expected) { be_within(10).of(Time.now) }
       end
     end
 
     describe "DEFAULTER_FALSE" do
-      it_behaves_like "a service column defaulter", Webhookdb::Services::Column::DEFAULTER_FALSE do
+      it_behaves_like "a service column defaulter", Webhookdb::Replicator::Column::DEFAULTER_FALSE do
         let(:expected_value) { false }
       end
     end
@@ -575,8 +575,8 @@ RSpec.describe Webhookdb::Services::Column, :db do
       end
     end
 
-    describe "Webhookdb::Services::BookingpalV1Mixin::DEFAULTER_DELETED_AT" do
-      let(:described_class) { Webhookdb::Services::BookingpalV1Mixin::DEFAULTER_DELETED_AT }
+    describe "Webhookdb::Replicator::BookingpalV1Mixin::DEFAULTER_DELETED_AT" do
+      let(:described_class) { Webhookdb::Replicator::BookingpalV1Mixin::DEFAULTER_DELETED_AT }
       let(:resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "POST"} }
       let(:delete_resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "DELETE"} }
 

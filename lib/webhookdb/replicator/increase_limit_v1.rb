@@ -1,33 +1,33 @@
 # frozen_string_literal: true
 
 require "webhookdb/increase"
-require "webhookdb/services/increase_v1_mixin"
+require "webhookdb/replicator/increase_v1_mixin"
 
-class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::IncreaseV1Mixin
+  include Webhookdb::Replicator::IncreaseV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "increase_limit_v1",
-      ctor: ->(sint) { Webhookdb::Services::IncreaseLimitV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::IncreaseLimitV1.new(sint) },
       feature_roles: ["beta"],
       resource_name_singular: "Increase Limit",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:increase_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:interval, TEXT),
-      Webhookdb::Services::Column.new(:metric, TEXT),
-      Webhookdb::Services::Column.new(:model_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(:model_type, TEXT),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:interval, TEXT),
+      Webhookdb::Replicator::Column.new(:metric, TEXT),
+      Webhookdb::Replicator::Column.new(:model_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:model_type, TEXT),
+      Webhookdb::Replicator::Column.new(
         :row_created_at,
         TIMESTAMP,
         data_key: "created_at",
@@ -36,7 +36,7 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
         optional: true,
         index: true,
       ),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(
         :row_updated_at,
         TIMESTAMP,
         data_key: "created_at",
@@ -45,8 +45,8 @@ class Webhookdb::Services::IncreaseLimitV1 < Webhookdb::Services::Base
         optional: true,
         index: true,
       ),
-      Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:value, INTEGER),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(:value, INTEGER),
     ]
   end
 

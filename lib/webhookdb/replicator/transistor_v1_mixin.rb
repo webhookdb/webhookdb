@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Webhookdb::Services::TransistorV1Mixin
+module Webhookdb::Replicator::TransistorV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
   def _webhook_response(_request)
@@ -9,7 +9,7 @@ module Webhookdb::Services::TransistorV1Mixin
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:transistor_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:transistor_id, TEXT, data_key: "id")
   end
 
   def _timestamp_column_name
@@ -31,7 +31,7 @@ module Webhookdb::Services::TransistorV1Mixin
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.backfill_key.blank?
       step.output = %(Great! We've created your #{self.resource_name_plural} integration.
 
@@ -48,7 +48,7 @@ Copy that API key.
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end

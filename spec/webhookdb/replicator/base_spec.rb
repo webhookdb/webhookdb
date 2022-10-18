@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-RSpec.describe Webhookdb::Services::Base, :db do
+RSpec.describe Webhookdb::Replicator::Base, :db do
   describe "create_tables_modification" do
     svc_cls = Class.new(described_class) do
       def _remote_key_column
-        return Webhookdb::Services::Column.new(:remotecol, Webhookdb::DBAdapter::ColumnTypes::TEXT)
+        return Webhookdb::Replicator::Column.new(:remotecol, Webhookdb::DBAdapter::ColumnTypes::TEXT)
       end
     end
     let(:sint_fac) { Webhookdb::Fixtures.service_integration(table_name: "mytbl") }
@@ -25,7 +25,7 @@ RSpec.describe Webhookdb::Services::Base, :db do
         attr_accessor :store_enrichment_body
 
         def _remote_key_column
-          return Webhookdb::Services::Column.new(:remotecol, Webhookdb::DBAdapter::ColumnTypes::TEXT)
+          return Webhookdb::Replicator::Column.new(:remotecol, Webhookdb::DBAdapter::ColumnTypes::TEXT)
         end
 
         def _store_enrichment_body? = self.store_enrichment_body
@@ -66,10 +66,10 @@ RSpec.describe Webhookdb::Services::Base, :db do
       test_svc_cls = Class.new(svc_cls) do
         def _denormalized_columns
           return [
-            Webhookdb::Services::Column.new(:denorm1, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
-            Webhookdb::Services::Column.new(:denorm2, Webhookdb::DBAdapter::ColumnTypes::INTEGER),
-            Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::INTEGER, index: true),
-            Webhookdb::Services::Column.new(:denorm4, Webhookdb::DBAdapter::ColumnTypes::INTEGER, index: false),
+            Webhookdb::Replicator::Column.new(:denorm1, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+            Webhookdb::Replicator::Column.new(:denorm2, Webhookdb::DBAdapter::ColumnTypes::INTEGER),
+            Webhookdb::Replicator::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::INTEGER, index: true),
+            Webhookdb::Replicator::Column.new(:denorm4, Webhookdb::DBAdapter::ColumnTypes::INTEGER, index: false),
           ]
         end
       end
@@ -95,15 +95,15 @@ RSpec.describe Webhookdb::Services::Base, :db do
   describe "_prepare_for_insert" do
     svc_cls = Class.new(described_class) do
       def _remote_key_column
-        return Webhookdb::Services::Column.new(:id, Webhookdb::DBAdapter::ColumnTypes::TEXT)
+        return Webhookdb::Replicator::Column.new(:id, Webhookdb::DBAdapter::ColumnTypes::TEXT)
       end
 
       def _denormalized_columns
         return [
-          Webhookdb::Services::Column.new(:item, Webhookdb::DBAdapter::ColumnTypes::TEXT, data_key: "product_name"),
-          Webhookdb::Services::Column.new(:quantity, Webhookdb::DBAdapter::ColumnTypes::INTEGER,
-                                          converter: Webhookdb::Services::Column::CONV_TO_I,),
-          Webhookdb::Services::Column.new(:notes, Webhookdb::DBAdapter::ColumnTypes::TEXT, skip_nil: true),
+          Webhookdb::Replicator::Column.new(:item, Webhookdb::DBAdapter::ColumnTypes::TEXT, data_key: "product_name"),
+          Webhookdb::Replicator::Column.new(:quantity, Webhookdb::DBAdapter::ColumnTypes::INTEGER,
+                                            converter: Webhookdb::Replicator::Column::CONV_TO_I,),
+          Webhookdb::Replicator::Column.new(:notes, Webhookdb::DBAdapter::ColumnTypes::TEXT, skip_nil: true),
         ]
       end
     end

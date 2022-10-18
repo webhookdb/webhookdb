@@ -1,38 +1,38 @@
 # frozen_string_literal: true
 
 require "webhookdb/increase"
-require "webhookdb/services/increase_v1_mixin"
+require "webhookdb/replicator/increase_v1_mixin"
 
-class Webhookdb::Services::IncreaseWireTransferV1 < Webhookdb::Services::Base
+class Webhookdb::Replicator::IncreaseWireTransferV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Services::IncreaseV1Mixin
+  include Webhookdb::Replicator::IncreaseV1Mixin
 
-  # @return [Webhookdb::Services::Descriptor]
+  # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
-    return Webhookdb::Services::Descriptor.new(
+    return Webhookdb::Replicator::Descriptor.new(
       name: "increase_wire_transfer_v1",
-      ctor: ->(sint) { Webhookdb::Services::IncreaseWireTransferV1.new(sint) },
+      ctor: ->(sint) { Webhookdb::Replicator::IncreaseWireTransferV1.new(sint) },
       feature_roles: ["beta"],
       resource_name_singular: "Increase Wire Transfer",
     )
   end
 
   def _remote_key_column
-    return Webhookdb::Services::Column.new(:increase_id, TEXT, data_key: "id")
+    return Webhookdb::Replicator::Column.new(:increase_id, TEXT, data_key: "id")
   end
 
   def _denormalized_columns
     return [
-      Webhookdb::Services::Column.new(:account_number, TEXT, index: true),
-      Webhookdb::Services::Column.new(:account_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Services::Column.new(:approved_at, TIMESTAMP, data_key: ["approval", "approved_at"]),
-      Webhookdb::Services::Column.new(:created_at, TIMESTAMP, optional: true, index: true),
-      Webhookdb::Services::Column.new(:routing_number, TEXT, index: true),
-      Webhookdb::Services::Column.new(:status, TEXT),
-      Webhookdb::Services::Column.new(:template_id, TEXT),
-      Webhookdb::Services::Column.new(:transaction_id, TEXT, index: true),
-      Webhookdb::Services::Column.new(
+      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
+      Webhookdb::Replicator::Column.new(:approved_at, TIMESTAMP, data_key: ["approval", "approved_at"]),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, optional: true, index: true),
+      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(:template_id, TEXT),
+      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
         data_key: "created_at",

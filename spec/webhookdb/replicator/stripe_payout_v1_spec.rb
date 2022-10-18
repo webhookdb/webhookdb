@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
-  it_behaves_like "a service implementation", "stripe_payout_v1" do
+RSpec.describe Webhookdb::Replicator::StripePayoutV1, :db do
+  it_behaves_like "a replicator", "stripe_payout_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -49,7 +49,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
     end
     let(:expected_data) { body["data"]["object"] }
   end
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "stripe_payout_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "stripe_payout_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -141,7 +141,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
     let(:expected_new_data) { new_body["data"]["object"] }
   end
 
-  it_behaves_like "a service implementation that deals with resources and wrapped events", "stripe_payout_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_payout_v1" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
@@ -188,7 +188,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "stripe_payout_v1",
@@ -224,7 +224,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
           to_return(status: 403, body: "", headers: {})
     end
   end
-  it_behaves_like "a service implementation that can backfill", "stripe_payout_v1" do
+  it_behaves_like "a replicator that can backfill", "stripe_payout_v1" do
     let(:page1_response) do
       <<~R
         {
@@ -422,7 +422,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_payout_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
       req = fake_request
@@ -457,7 +457,7 @@ RSpec.describe Webhookdb::Services::StripePayoutV1, :db do
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_payout_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "asks for webhook secret" do

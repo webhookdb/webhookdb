@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "support/shared_examples_for_services"
+require "support/shared_examples_for_replicators"
 
-RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
-  it_behaves_like "a service implementation", "twilio_sms_v1" do
+RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
+  it_behaves_like "a replicator", "twilio_sms_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that prevents overwriting new data with old", "twilio_sms_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old", "twilio_sms_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -93,7 +93,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that verifies backfill secrets" do
+  it_behaves_like "a replicator that verifies backfill secrets" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
@@ -146,7 +146,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill", "twilio_sms_v1" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R
@@ -295,7 +295,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a service implementation that can backfill incrementally", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill incrementally", "twilio_sms_v1" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R
@@ -449,7 +449,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
 
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1") }
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "returns a 401 as per spec if there is no Authorization header" do
       req = Rack::Request.new({})
@@ -482,7 +482,7 @@ RSpec.describe Webhookdb::Services::TwilioSmsV1, :db do
         service_name: "twilio_sms_v1", backfill_secret: "", backfill_key: "",
       )
     end
-    let(:svc) { Webhookdb::Services.service_instance(sint) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
 
     describe "calculate_create_state_machine" do
       it "returns a backfill state machine" do

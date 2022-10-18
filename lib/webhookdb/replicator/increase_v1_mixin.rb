@@ -2,7 +2,7 @@
 
 require "webhookdb/increase"
 
-module Webhookdb::Services::IncreaseV1Mixin
+module Webhookdb::Replicator::IncreaseV1Mixin
   def _mixin_backfill_url
     raise NotImplementedError
   end
@@ -28,7 +28,7 @@ module Webhookdb::Services::IncreaseV1Mixin
   end
 
   def calculate_create_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
       step.output = %(You are about to start reflecting #{self.resource_name_plural} info into webhookdb.
@@ -57,7 +57,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
       step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
 From your Increase admin dashboard, go to Settings -> Development -> API Keys.
@@ -83,7 +83,7 @@ Leave blank to use the default or paste the answer into this prompt.
     end
 
     unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.service_instance.clear_backfill_information
+      self.service_integration.replicator.clear_backfill_information
       step.output = result.message
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end

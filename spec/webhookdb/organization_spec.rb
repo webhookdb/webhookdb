@@ -24,7 +24,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
     before(:each) do
       o.prepare_database_connections
-      svc = Webhookdb::Services.service_instance(sint)
+      svc = Webhookdb::Replicator.create(sint)
       svc.create_table
     end
 
@@ -70,10 +70,10 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
 
   describe "migrate_replication_tables" do
     let(:fake_sint) { Webhookdb::Fixtures.service_integration.create(organization: o) }
-    let(:fake) { fake_sint.service_instance }
+    let(:fake) { fake_sint.replicator }
 
     before(:each) do
-      Webhookdb::Services::Fake.reset
+      Webhookdb::Replicator::Fake.reset
       o.prepare_database_connections
       fake.create_table
     end
@@ -92,10 +92,10 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
           ],
         )
       end
-      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      expect(o.service_integrations.first).to receive(:replicator).and_return(fake)
       fake.define_singleton_method(:_denormalized_columns) do
         [
-          Webhookdb::Services::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT),
+          Webhookdb::Replicator::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT),
         ]
       end
       expect(fake).to receive(:ensure_all_columns).and_call_original
@@ -112,7 +112,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
 
     it "does not add columns if none are considered missing" do
-      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      expect(o.service_integrations.first).to receive(:replicator).and_return(fake)
       expect(fake).to_not receive(:ensure_all_columns)
       o.migrate_replication_tables
     end
@@ -121,7 +121,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       fake.admin_dataset do |ds|
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
       end
-      expect(o.service_integrations.first).to receive(:service_instance).and_return(fake)
+      expect(o.service_integrations.first).to receive(:replicator).and_return(fake)
       fake.define_singleton_method(:_store_enrichment_body?) { true }
       expect(fake).to receive(:ensure_all_columns).and_call_original
       o.migrate_replication_tables
@@ -131,7 +131,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
 
     it "creates a sequence if the integration requires it" do
-      Webhookdb::Services::Fake.requires_sequence = true
+      Webhookdb::Replicator::Fake.requires_sequence = true
       _ = fake_sint
       o.migrate_replication_tables
       expect(o.db.select(Sequel.function(:nextval, fake_sint.sequence_name)).single_value).to eq(1)
@@ -139,7 +139,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
 
     it "does not create a sequence once created" do
-      Webhookdb::Services::Fake.requires_sequence = true
+      Webhookdb::Replicator::Fake.requires_sequence = true
       _ = fake_sint
       o.migrate_replication_tables
       o.migrate_replication_tables
@@ -282,17 +282,17 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
-  describe "available services" do
-    it "filters out services that the org should not have access to" do
+  describe "available replicators" do
+    it "filters out replicators that the org should not have access to" do
       # by default the org does not have the "internal" feature role assigned to it,
       # so our "fake" integrations should not show up in this list
-      expect(o.available_service_names).to_not include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicator_names).to_not include("fake_v1", "fake_with_enrichments_v1")
     end
 
-    it "includes services that the org should have access to" do
+    it "includes replicators that the org should have access to" do
       internal_role = Webhookdb::Role.create(name: "internal")
       o.add_feature_role(internal_role)
-      expect(o.available_service_names).to include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicator_names).to include("fake_v1", "fake_with_enrichments_v1")
     end
   end
 end

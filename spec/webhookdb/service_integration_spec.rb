@@ -112,7 +112,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
   describe "rename_table" do
     before(:each) do
       org.prepare_database_connections
-      sint.service_instance.create_table
+      sint.replicator.create_table
     end
 
     after(:each) do
@@ -149,11 +149,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
 
   describe "sequence creation" do
     after(:each) do
-      Webhookdb::Services::Fake.reset
+      Webhookdb::Replicator::Fake.reset
     end
 
     it "creates a sequence if needed" do
-      Webhookdb::Services::Fake.requires_sequence = true
+      Webhookdb::Replicator::Fake.requires_sequence = true
       sint = Webhookdb::Fixtures.service_integration.create
       sint.ensure_sequence
       expect(sint.db.select(Sequel.function(:nextval, sint.sequence_name)).single_value).to eq(1)
