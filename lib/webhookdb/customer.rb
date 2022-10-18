@@ -87,7 +87,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
       me.reset_codes_dataset.usable.each(&:expire!)
       me.add_reset_code(transport: "email")
-      step = Webhookdb::Services::StateMachineStep.new
+      step = Webhookdb::Replicator::StateMachineStep.new
       step.output = if new_customer
                       %(To finish registering, please look for an email we just sent to #{email}.
 It contains a One Time Password code to validate your email.
@@ -116,7 +116,7 @@ It contains a One Time Password used to log in.
   # @return Tuple of <Step, Customer>. Customer is nil if token was invalid.
   def self.finish_otp(me, token:)
     if me.nil?
-      step = Webhookdb::Services::StateMachineStep.new
+      step = Webhookdb::Replicator::StateMachineStep.new
       step.output = %(Sorry, no one with that email exists. Try running:
 
   webhookdb auth login <email>
@@ -135,7 +135,7 @@ It contains a One Time Password used to log in.
           me.refresh
         end
       rescue Webhookdb::Customer::ResetCode::Unusable
-        step = Webhookdb::Services::StateMachineStep.new
+        step = Webhookdb::Replicator::StateMachineStep.new
         step.output = %(Sorry, that token is invalid. Please try again.
 If you have not gotten a code, use Ctrl+C to close this prompt and request a new code:
 
@@ -158,7 +158,7 @@ If you have not gotten a code, use Ctrl+C to close this prompt and request a new
         me.invited_memberships.map { |om| "  #{om.organization.display_string}: #{om.invitation_code}" }.join("\n") +
         "\n\nUse `webhookdb org join <code>` to accept an invitation."
     end
-    step = Webhookdb::Services::StateMachineStep.new
+    step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Welcome! For help getting started, please check out
 our docs at https://webhookdb.com/docs/cli.
 

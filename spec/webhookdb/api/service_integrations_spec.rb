@@ -22,12 +22,12 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do
-    Webhookdb::Services::Fake.reset
+    Webhookdb::Replicator::Fake.reset
     login_as(customer)
   end
 
   after(:each) do
-    Webhookdb::Services::Fake.reset
+    Webhookdb::Replicator::Fake.reset
   end
 
   def max_out_plan_integrations(org)
@@ -71,6 +71,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
+      expect(last_response).to have_status(200)
       new_integration = Webhookdb::ServiceIntegration.where(service_name: "fake_v1", organization: org).first
       expect(new_integration).to_not be_nil
     end
@@ -128,7 +129,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       membership.update(membership_role: admin_role)
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
-      available_services = org.available_service_names.join("\n\t")
+      available_services = org.available_replicator_names.join("\n\t")
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
@@ -143,7 +144,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
 
-      available_services = org.available_service_names.join("\n\t")
+      available_services = org.available_replicator_names.join("\n\t")
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
@@ -230,20 +231,20 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "performs ProcessWebhook synchronously if specified by the service" do
       org.prepare_database_connections
-      sint.service_instance.create_table
-      Webhookdb::Services::Fake.process_webhooks_synchronously = {x: 1}.to_json
+      sint.replicator.create_table
+      Webhookdb::Replicator::Fake.process_webhooks_synchronously = {x: 1}.to_json
       header "X-My-Test", "abc"
       post "/v1/service_integrations/xyz", my_id: "myid", at: Time.at(5)
 
       expect(last_response).to have_status(202)
-      expect(sint.service_instance.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
+      expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
       expect(last_response).to have_json_body.that_includes(x: 1)
     ensure
       org.remove_related_database
     end
 
     it "uses netout queue for ProcessWebhook job if integration has deps", :async do
-      Webhookdb::Services::Fake.upsert_has_deps = true
+      Webhookdb::Replicator::Fake.upsert_has_deps = true
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).
         with(include("queue" => "netout"))
 
@@ -263,7 +264,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns the response from the configured service (not json)" do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.new(
         status: 203, headers: {"Content-Type" => "text/xml"}, body: "<x></x>",
       )
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
@@ -276,7 +277,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "returns the response from the configured service (json)" do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.ok(status: 203)
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.ok(status: 203)
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
 
       post "/v1/service_integrations/xyz"
@@ -287,7 +288,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "adds a rejected reason on error (json)" do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("nope", status: 402)
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.error("nope", status: 402)
 
       post "/v1/service_integrations/xyz"
 
@@ -297,7 +298,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "adds a rejected reason on error (not json)" do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.new(
         status: 402, reason: "erm", body: "<></>", headers: {"Content-Type" => "text/plain"},
       )
 
@@ -315,7 +316,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "runs the job and 200s if in regression mode, even if the webhook is invalid", :regression_mode do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.new(
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.new(
         status: 402, reason: "erm", body: "<></>", headers: {"Content-Type" => "text/plain"},
       )
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
@@ -327,7 +328,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "does not publish if the webhook fails verification", :async do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
 
       expect do
         post "/v1/service_integrations/xyz"
@@ -380,7 +381,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "can exclude headers from logged webhook if defined by the integration" do
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push)
-      Webhookdb::Services::Fake.obfuscate_headers_for_logging = ["X-Foo"]
+      Webhookdb::Replicator::Fake.obfuscate_headers_for_logging = ["X-Foo"]
       header "X-Bar", "1"
       header "X-Foo", "2"
       post "/v1/service_integrations/xyz", a: 1
@@ -397,9 +398,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "can dispatch to a specified service integration" do
       other_sint = Webhookdb::Fixtures.service_integration.create(organization: org)
-      Webhookdb::Services::Fake.dispatch_request_to_hook = lambda { |req|
+      Webhookdb::Replicator::Fake.dispatch_request_to_hook = lambda { |req|
         expect(req).to be_a(Rack::Request)
-        other_sint.service_instance
+        other_sint.replicator
       }
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
@@ -454,7 +455,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on failed validation" do
-      Webhookdb::Services::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
+      Webhookdb::Replicator::Fake.webhook_response = Webhookdb::WebhookResponse.error("no")
       post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(401)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
@@ -467,7 +468,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
     end
 
     it "db logs on exception" do
-      Webhookdb::Services::Fake.webhook_response = RuntimeError.new("foo")
+      Webhookdb::Replicator::Fake.webhook_response = RuntimeError.new("foo")
       post "/v1/service_integrations/xyz"
       expect(last_response).to have_status(500)
       expect(Webhookdb::LoggedWebhook.naked.all).to contain_exactly(
@@ -552,7 +553,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "upserts a webhook synchronously" do
       org.prepare_database_connections
-      svc = sint.service_instance
+      svc = sint.replicator
       svc.create_table
       fake_body = {"my_id" => "id", "at" => Time.now}
       post "/v1/organizations/#{org.key}/service_integrations/#{sint.opaque_id}/upsert", fake_body
@@ -567,7 +568,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "returns a friendly 400 error if error occurs on upsert" do
       org.prepare_database_connections
-      svc = sint.service_instance
+      svc = sint.replicator
       svc.create_table
       post "/v1/organizations/#{org.key}/service_integrations/#{sint.opaque_id}/upsert", {}
 
@@ -715,7 +716,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
 
     it "destroys the integration and drops the table" do
       org.prepare_database_connections
-      sint.service_instance.create_table
+      sint.replicator.create_table
 
       post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
 
@@ -726,7 +727,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       expect(org.service_integrations_dataset.all).to be_empty
 
       expect do
-        sint.service_instance.admin_dataset(&:count)
+        sint.replicator.admin_dataset(&:count)
       end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
     ensure
       org.remove_related_database
@@ -774,7 +775,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   describe "POST /v1/organizations/:key/service_integrations/:opaque_id/rename_table" do
     before(:each) do
       org.prepare_database_connections
-      sint.service_instance.create_table
+      sint.replicator.create_table
     end
 
     after(:each) do

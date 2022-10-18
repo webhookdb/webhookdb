@@ -39,7 +39,7 @@ module Webhookdb::SpecHelpers::Whdb
 
   module_function def create_dependency(service_integration)
     return service_integration.depends_on unless service_integration.depends_on.nil?
-    dependency_descriptor = service_integration.service_instance.descriptor.dependency_descriptor
+    dependency_descriptor = service_integration.replicator.descriptor.dependency_descriptor
     if dependency_descriptor.present?
       dependency = Webhookdb::Fixtures.service_integration.create(
         organization: service_integration.organization,
@@ -64,17 +64,17 @@ module Webhookdb::SpecHelpers::Whdb
   # them recursively until all requirements are satisfied.
   module_function def create_all_dependencies(service_integration)
     sint = service_integration
-    dependency_descriptor = sint.service_instance.descriptor.dependency_descriptor
+    dependency_descriptor = sint.replicator.descriptor.dependency_descriptor
     while dependency_descriptor.present?
       sint = create_dependency(sint)
       # now climb up the ladder
-      dependency_descriptor = sint.present? ? sint.service_instance.descriptor.dependency_descriptor : nil
+      dependency_descriptor = sint.present? ? sint.replicator.descriptor.dependency_descriptor : nil
     end
   end
 
   module_function def setup_dependency(service_integration, insert_required_data_callback=nil)
     return if service_integration.depends_on.nil?
-    dependency_svc = service_integration.depends_on.service_instance
+    dependency_svc = service_integration.depends_on.replicator
     dependency_svc.create_table
     insert_required_data_callback&.call(dependency_svc)
     return dependency_svc
@@ -86,14 +86,14 @@ module Webhookdb::SpecHelpers::Whdb
     this.let(:request_body) { nil }
     this.let(:request_headers) { nil }
     this.let(:webhook_request) do
-      Webhookdb::Services::WebhookRequest.new(
+      Webhookdb::Replicator::WebhookRequest.new(
         body: request_body, method: request_method, path: request_path, headers: request_headers,
       )
     end
     this.define_method(:upsert_webhook) do |svc, **kw|
       params = {body: request_body, headers: request_headers, method: request_method, path: request_path}
       params.merge!(**kw)
-      svc.upsert_webhook(Webhookdb::Services::WebhookRequest.new(**params))
+      svc.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(**params))
     end
   end
 end

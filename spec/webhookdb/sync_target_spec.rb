@@ -130,10 +130,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
   describe "run_sync" do
     before(:each) do
       sint.organization.prepare_database_connections
-      sint.service_instance.create_table
-      sint.service_instance.upsert_webhook_body({"my_id" => "abc", "at" => "Thu, 30 Jul 2016 21:12:33 +0000"})
-      sint.service_instance.upsert_webhook_body({"my_id" => "def", "at" => "Thu, 30 Jul 2017 21:12:33 +0000"})
-      sint.service_instance.upsert_webhook_body({"my_id" => "ghi", "at" => "Thu, 30 Jul 2018 21:12:33 +0000"})
+      sint.replicator.create_table
+      sint.replicator.upsert_webhook_body({"my_id" => "abc", "at" => "Thu, 30 Jul 2016 21:12:33 +0000"})
+      sint.replicator.upsert_webhook_body({"my_id" => "def", "at" => "Thu, 30 Jul 2017 21:12:33 +0000"})
+      sint.replicator.upsert_webhook_body({"my_id" => "ghi", "at" => "Thu, 30 Jul 2018 21:12:33 +0000"})
     end
 
     before(:all) do

@@ -16,7 +16,7 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
   end
 
   after(:each) do
-    Webhookdb::Services::Fake.reset
+    Webhookdb::Replicator::Fake.reset
   end
 
   describe "GET /v1/organizations/:identifier/webhook_subscriptions" do

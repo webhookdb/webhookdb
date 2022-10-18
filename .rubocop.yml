@@ -77,7 +77,7 @@ Lint/UselessAssignment:
     - 'spec/**/*'
 Lint/UnusedMethodArgument:
   Exclude:
-    - 'lib/webhookdb/services/base.rb'
+    - 'lib/webhookdb/replicator/base.rb'
     - 'spec/support/*.rb'
 
 # https://rubocop.readthedocs.io/en/latest/cops_naming/

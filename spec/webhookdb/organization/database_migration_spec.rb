@@ -89,12 +89,12 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
       # 3) Prepare a *new* database
       # 4) In some tests, also insert data into the new database.
       org.prepare_database_connections
-      sint1.service_instance.create_table
-      sint2.service_instance.create_table
+      sint1.replicator.create_table
+      sint2.replicator.create_table
       Array.new(52) do |i|
         t = (t0 + i.days).iso8601
-        sint1.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
-        sint2.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
+        sint1.replicator.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
+        sint2.replicator.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
       end
       dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
       @dbmigration = described_class.enqueue(
@@ -124,8 +124,8 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
 
     it "inserts data from the old connection tables into new connection tables" do
       started = Time.now
-      sint1.service_instance.create_table
-      expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+      sint1.replicator.create_table
+      expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
       dbmigration.migrate
       expect(dbmigration).to have_attributes(
         started_at: be_within(2).of(started),
@@ -134,16 +134,16 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
         last_migrated_timestamp: be_nil,
       )
       expect(dbmigration.refresh).to have_attributes(finished_at: be_present)
-      expect(sint1.service_instance.readonly_dataset(&:all)).to have_length(52)
+      expect(sint1.replicator.readonly_dataset(&:all)).to have_length(52)
     end
 
     it "does not overwrite newer rows in the desetination database (conditional upsert)" do
-      sint1.service_instance.create_table
+      sint1.replicator.create_table
       body = {"my_id" => "5", "at" => (t0 + 100.days).iso8601, "extra" => 1}
-      sint1.service_instance.upsert_webhook_body(body)
+      sint1.replicator.upsert_webhook_body(body)
       dbmigration.migrate
-      expect(sint1.service_instance.readonly_dataset(&:all)).to have_length(52)
-      expect(sint1.service_instance.readonly_dataset { |ds| ds[my_id: "5"] }[:data]).to eq(body)
+      expect(sint1.replicator.readonly_dataset(&:all)).to have_length(52)
+      expect(sint1.replicator.readonly_dataset { |ds| ds[my_id: "5"] }[:data]).to eq(body)
     end
 
     it "keeps track of table and row progress", :async, :do_not_defer_events do
@@ -172,13 +172,13 @@ RSpec.describe "Webhookdb::Organization::DatabaseMigration", :db do
     end
 
     it "can resume where it left off" do
-      sint1.service_instance.create_table # Skipped so need to do this manually
+      sint1.replicator.create_table # Skipped so need to do this manually
       dbmigration.update(last_migrated_service_integration_id: sint1.id, last_migrated_timestamp: t0 + 30.days)
       dbmigration.migrate
       # Should have been skipped due to setting last migrated integration
-      expect(sint1.service_instance.readonly_dataset(&:all)).to be_empty
+      expect(sint1.replicator.readonly_dataset(&:all)).to be_empty
       # Should be shorter due to setting last migrated timestamp
-      expect(sint2.service_instance.readonly_dataset(&:all)).to have_length(21)
+      expect(sint2.replicator.readonly_dataset(&:all)).to have_length(21)
     end
   end
 

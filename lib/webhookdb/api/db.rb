@@ -3,7 +3,7 @@
 require "grape"
 
 require "webhookdb/api"
-require "webhookdb/services"
+require "webhookdb/replicator"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
   helpers do

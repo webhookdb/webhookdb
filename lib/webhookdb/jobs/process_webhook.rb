@@ -30,9 +30,9 @@ class Webhookdb::Jobs::ProcessWebhook
       service_integration_table: @sint.table_name,
     ) do
       kw = event.payload[1].symbolize_keys
-      svc = Webhookdb::Services.service_instance(@sint)
+      svc = Webhookdb::Replicator.create(@sint)
       # kwargs contains: :headers, :body, :request_path, :request_method
-      req = Webhookdb::Services::WebhookRequest.new(
+      req = Webhookdb::Replicator::WebhookRequest.new(
         body: kw.fetch(:body),
         headers: kw.fetch(:headers),
         path: kw.fetch(:request_path),

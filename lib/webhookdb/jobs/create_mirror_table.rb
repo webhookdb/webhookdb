@@ -10,7 +10,7 @@ class Webhookdb::Jobs::CreateMirrorTable
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
-    svc = Webhookdb::Services.service_instance(sint)
+    svc = Webhookdb::Replicator.create(sint)
     svc.create_table
   end
 end

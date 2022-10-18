@@ -82,7 +82,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
 
   # @param [Webhookdb::ServiceIntegration] service_integration
   protected def migrate_service_integration(service_integration, srcdb, dstdb)
-    svc = service_integration.service_instance
+    svc = service_integration.replicator
     # If the service integration was not synced in the old db, skip it
     return unless srcdb.table_exists?(svc.qualified_table_sequel_identifier)
     svc.create_table_modification(if_not_exists: true).execute(dstdb)
@@ -105,7 +105,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   # @param [Webhookdb::ServiceIntegration] service_integration
   protected def upsert_chunk(service_integration, dstdb, chunk)
     return if chunk.empty?
-    svc = service_integration.service_instance
+    svc = service_integration.replicator
     chunk.each { |h| h.delete(svc.primary_key_column.name) }
     tscol = svc.timestamp_column.name
     dstdb[svc.qualified_table_sequel_identifier].

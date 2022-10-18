@@ -5,10 +5,10 @@ RSpec.describe "database", :integration do
     org = Webhookdb::Fixtures.organization.create
     org.prepare_database_connections
     sint = Webhookdb::Fixtures.service_integration(organization: org).create
-    sint.service_instance.create_table
+    sint.replicator.create_table
     Array.new(5) do |i|
       t = (Time.now - i.days).iso8601
-      sint.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
+      sint.replicator.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
     end
     dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
     sync_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint, connection_url: dbinfo.admin_url).create
@@ -24,10 +24,10 @@ RSpec.describe "database", :integration do
     org = Webhookdb::Fixtures.organization.create
     org.prepare_database_connections
     sint = Webhookdb::Fixtures.service_integration(organization: org).create
-    sint.service_instance.create_table
+    sint.replicator.create_table
     Array.new(5) do |i|
       t = (Time.now + i.days).iso8601
-      sint.service_instance.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
+      sint.replicator.upsert_webhook_body({"my_id" => i.to_s, "at" => t})
     end
     dbinfo = Webhookdb::Organization::DbBuilder.new(org).prepare_database_connections
     dbmigration = with_async_publisher do

@@ -27,28 +27,28 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def process_state_change(field, value)
-    return Webhookdb::Services.service_instance(self).process_state_change(field, value)
+    return Webhookdb::Replicator.create(self).process_state_change(field, value)
   end
 
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_create_state_machine
-    return Webhookdb::Services.service_instance(self).calculate_create_state_machine
+    return Webhookdb::Replicator.create(self).calculate_create_state_machine
   end
 
-  # @return [Webhookdb::Services::StateMachineStep]
+  # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_backfill_state_machine
-    return Webhookdb::Services.service_instance(self).calculate_backfill_state_machine
+    return Webhookdb::Replicator.create(self).calculate_backfill_state_machine
   end
 
   def can_be_modified_by?(customer)
     return customer.verified_member_of?(self.organization)
   end
 
-  # @return [Webhookdb::Services::Base]
-  def service_instance
-    return Webhookdb::Services.service_instance(self)
+  # @return [Webhookdb::Replicator::Base]
+  def replicator
+    return Webhookdb::Replicator.create(self)
   end
 
   def authed_api_path
@@ -78,7 +78,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # for this integration.
   # @return [Array<Webhookdb::ServiceIntegration>]
   def dependency_candidates
-    dep_descr = self.service_instance.descriptor.dependency_descriptor
+    dep_descr = self.replicator.descriptor.dependency_descriptor
     return [] if dep_descr.nil?
     return self.organization.service_integrations.
         select { |si| si.service_name == dep_descr.name }
@@ -177,16 +177,8 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     end
   end
 
-  # Some integrations require sequences, like when upserting rows with numerical unique ids
-  # (if they were random values like UUIDs we could generate them and not use a sequence).
-  # In those cases, the integrations can mark themselves as requiring a sequence.
-  #
-  # The sequence will be created in the *application database*,
-  # but it used primarily when inserting rows into the *organization/replication database*.
-  # This is necessary because things like sequences are not possible to migrate
-  # when moving replication databases.
   def requires_sequence?
-    return self.service_instance.requires_sequence?
+    return self.replicator.requires_sequence?
   end
 
   def sequence_name

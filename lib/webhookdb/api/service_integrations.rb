@@ -50,7 +50,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
     route [:post, :put, :delete, :patch], "/:opaque_id*" do
       request_headers = request.headers.dup
       sint = lookup_unauthed!(params[:opaque_id])
-      svc = Webhookdb::Services.service_instance(sint).dispatch_request_to(request)
+      svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
       svc.preprocess_headers_for_logging(request_headers)
       handling_sint = svc.service_integration
       whresp = svc.webhook_response(request)
@@ -76,7 +76,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         # serializing the (large) webhook payload multiple times, as with normal pubsub.
         Webhookdb::Async::AuditLogger.new.perform(event_json)
         if svc.process_webhooks_synchronously?
-          whreq = Webhookdb::Services::WebhookRequest.new(
+          whreq = Webhookdb::Replicator::WebhookRequest.new(
             method: process_kwargs[:request_method],
             path: process_kwargs[:request_path],
             headers: process_kwargs[:headers],
@@ -120,11 +120,11 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         resource :create do
           helpers do
             def create_integration(org, name)
-              available_services_list = org.available_service_names.join("\n\t")
+              available_services_list = org.available_replicator_names.join("\n\t")
 
               # If provided service name is invalid
-              if Webhookdb::Services.registered_service(name).nil?
-                step = Webhookdb::Services::StateMachineStep.new
+              if Webhookdb::Replicator.registered(name).nil?
+                step = Webhookdb::Replicator::StateMachineStep.new
                 step.needs_input = false
                 step.output =
                   %(
@@ -140,8 +140,8 @@ You can run `webhookdb services list` at any time to see our list of available s
               end
 
               # If org does not have access to the given service
-              unless org.available_service_names.include?(name)
-                step = Webhookdb::Services::StateMachineStep.new
+              unless org.available_replicator_names.include?(name)
+                step = Webhookdb::Replicator::StateMachineStep.new
                 step.needs_input = false
                 step.output =
                   %(
@@ -215,7 +215,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             c = current_customer
             org = lookup_org!
             sint = lookup_service_integration!(org, params[:sint_identifier])
-            svc = Webhookdb::Services.service_instance(sint)
+            svc = Webhookdb::Replicator.create(sint)
             merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
             svc.clear_create_information
             state_machine = svc.calculate_create_state_machine
@@ -227,7 +227,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             current_customer
             org = lookup_org!
             sint = lookup_service_integration!(org, params[:sint_identifier])
-            svc = Webhookdb::Services.service_instance(sint)
+            svc = Webhookdb::Replicator.create(sint)
             body = env["api.request.body"]
             begin
               svc.upsert_webhook_body(body)
@@ -247,7 +247,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               c = current_customer
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
-              svc = Webhookdb::Services.service_instance(sint)
+              svc = Webhookdb::Replicator.create(sint)
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               state_machine = svc.calculate_backfill_state_machine
               if state_machine.complete
@@ -270,7 +270,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               c = current_customer
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
-              svc = Webhookdb::Services.service_instance(sint)
+              svc = Webhookdb::Replicator.create(sint)
               merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
               svc.clear_backfill_information
               state_machine = svc.calculate_backfill_state_machine
@@ -324,7 +324,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
 
             begin
-              sint.service_instance.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
+              sint.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
             rescue Sequel::DatabaseError => e
               raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
             end

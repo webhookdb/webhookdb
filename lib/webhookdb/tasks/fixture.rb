@@ -21,7 +21,7 @@ module Webhookdb::Tasks
           sints = Array.new(3) { Webhookdb::Fixtures.service_integration(organization: org).create }
           now = Time.now
           sints.each do |sint|
-            svc = sint.service_instance
+            svc = sint.replicator
             svc.create_table
             Array.new(5000) do |i|
               svc.upsert_webhook_body({"my_id" => i.to_s, "at" => (now - i.seconds).iso8601})

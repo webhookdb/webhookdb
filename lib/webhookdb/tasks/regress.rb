@@ -59,7 +59,7 @@ module Webhookdb::Tasks
           opaque_id = args.fetch(:opaque_id)
           Webhookdb.load_app
           sint = Webhookdb::ServiceIntegration[opaque_id:] or raise "No service integration for #{opaque_id}"
-          sint.service_instance.backfill
+          sint.replicator.backfill
         end
       end
     end
