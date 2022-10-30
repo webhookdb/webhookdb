@@ -25,6 +25,13 @@ module Webhookdb::Tasks
             sint.publish_immediate("backfill", sint.id)
           end
         end
+
+        task :connection, [:org_key, :type] do |_, args|
+          self.setup
+          org = self.find_org(args)
+          type = args.fetch(:type, "readonly")
+          puts org.send("#{type}_connection_url")
+        end
       end
     end
 
