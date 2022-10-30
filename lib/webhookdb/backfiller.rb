@@ -26,7 +26,10 @@ class Webhookdb::Backfiller
       end
       Amigo::DurableJob.heartbeat
       break if pagination_token.blank?
-      break if Webhookdb.regression_mode?
+      if Webhookdb.regression_mode?
+        Webhookdb.logger.warn("regression_mode_backfill_termination", backfiller: self.to_s, pagination_token:)
+        break
+      end
     end
   end
 
