@@ -151,24 +151,36 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
     let(:expected_items_count) { 8 }
 
     def insert_required_data_callback
-      return ->(dep_svc) { insert_publication_rows(dep_svc) }
+      return lambda do |dep_svc|
+        dep_svc.root_integration.update(backfill_secret: "sponsyapitoken")
+        insert_publication_rows(dep_svc)
+      end
     end
 
     def stub_service_requests
       return [
         stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=&#{querystr}").
-            with(headers: {"X-Api-Key" => /.*/}).
+            with(headers: {"X-Api-Key" => "sponsyapitoken"}).
             to_return(status: 200, body: make_body(["2022-04-10", "2022-04-09"], "curs1a"), headers:),
         stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=curs1a&#{querystr}").
             to_return(status: 200, body: make_body(["2022-04-08", "2022-04-07"], "curs1b"), headers:),
         stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=curs1b&#{querystr}").
             to_return(status: 200, body: make_body([], nil), headers:),
         stub_request(:get, "#{root_url}/#{publication_id2}/slots?afterCursor=&#{querystr}").
-            with(headers: {"X-Api-Key" => /.*/}).
+            with(headers: {"X-Api-Key" => "sponsyapitoken"}).
             to_return(status: 200, body: make_body(["2022-04-10", "2022-04-09"], "curs2a"), headers:),
         stub_request(:get, "#{root_url}/#{publication_id2}/slots?afterCursor=curs2a&#{querystr}").
             to_return(status: 200, body: make_body(["2022-04-08", "2022-04-07"], "curs2b"), headers:),
         stub_request(:get, "#{root_url}/#{publication_id2}/slots?afterCursor=curs2b&#{querystr}").
+            to_return(status: 200, body: make_body([], nil), headers:),
+      ]
+    end
+
+    def stub_empty_requests
+      return [
+        stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=&#{querystr}").
+            to_return(status: 200, body: make_body([], nil), headers:),
+        stub_request(:get, "#{root_url}/#{publication_id2}/slots?afterCursor=&#{querystr}").
             to_return(status: 200, body: make_body([], nil), headers:),
       ]
     end
@@ -185,7 +197,10 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
     let(:expected_old_items_count) { 2 }
 
     def insert_required_data_callback
-      return ->(dep_svc) { insert_publication_rows(dep_svc) }
+      return lambda do |dep_svc|
+        dep_svc.root_integration.update(backfill_secret: "sponsyapitoken")
+        insert_publication_rows(dep_svc)
+      end
     end
 
     def stub_service_requests(partial:)
@@ -218,14 +233,14 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
     end
   end
 
-  describe "specialized backfill behavior" do
-    it "returns credentials missing error if creds are missing from corresponding auth integration" do
-      publication_sint.update(backfill_secret: "")
-      expect do
-        svc.backfill
-      end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(/This Sponsy/)
+  it_behaves_like "a replicator that requires credentials from a dependency", "sponsy_slot_v1" do
+    let(:error_message) { /This Sponsy/ }
+    def strip_auth(sint)
+      sint.replicator.root_integration.update(backfill_secret: "")
     end
+  end
 
+  describe "specialized backfill behavior" do
     it "inserts the publication id into the body before upsert" do
       sint.organization.prepare_database_connections
       req = stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=&#{querystr}").

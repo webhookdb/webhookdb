@@ -149,6 +149,15 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
       ]
     end
 
+    def stub_empty_requests
+      return [
+        stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/#{episode_id_one}").
+            to_return(status: 200, body: {data: {attributes: {}}}.to_json, headers: json_headers),
+        stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/#{episode_id_two}").
+            to_return(status: 200, body: {data: {attributes: {}}}.to_json, headers: json_headers),
+      ]
+    end
+
     def stub_service_request_error
       return stub_request(:get, "https://api.transistor.fm/v1/analytics/episodes/#{episode_id_one}").
           to_return(status: 503, body: "whoo")

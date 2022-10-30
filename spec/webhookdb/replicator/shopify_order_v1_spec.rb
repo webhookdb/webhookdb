@@ -4276,6 +4276,20 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
       # rubocop:enable Layout/LineLength
     end
 
+    def stub_empty_requests
+      return [
+        stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
+            to_return(
+              status: 200,
+              body: '{"orders":[]}',
+              headers: {
+                "Content-Type" => "application/json",
+                "Link" => '<irrelevant_link>; rel="previous"',
+              },
+            ),
+      ]
+    end
+
     def stub_service_request_error
       return stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
           to_return(status: 500, body: "eh")

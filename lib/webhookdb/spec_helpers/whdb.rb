@@ -45,16 +45,6 @@ module Webhookdb::SpecHelpers::Whdb
         organization: service_integration.organization,
         service_name: dependency_descriptor.name,
       )
-      # For ease with the theranest tests, automatically populate theranest auth integrations
-      # with username and password info.
-      # TODO: Remove this, use insert_required_data_callback like the nextpax tests
-      if dependency.service_name == "theranest_auth_v1"
-        dependency.update(
-          backfill_key: "username",
-          backfill_secret: "password",
-          api_url: "https://auth-api-url.com",
-        )
-      end
       service_integration.update(depends_on: dependency)
       return dependency
     end

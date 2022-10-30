@@ -132,6 +132,19 @@ class Webhookdb::Replicator
         require("#{splitter}/#{base}")
       end
     end
+
+    # @param sint [Webhookdb::ServiceIntegration]
+    # @return [Webhookdb::ServiceIntegration]
+    def find_root(sint)
+      max_depth = 15
+      parent = sint.depends_on
+      return sint if parent.nil?
+      max_depth.times do
+        return parent if parent.depends_on.nil?
+        parent = parent.depends_on
+      end
+      return nil
+    end
   end
 
   require "webhookdb/replicator/state_machine_step"

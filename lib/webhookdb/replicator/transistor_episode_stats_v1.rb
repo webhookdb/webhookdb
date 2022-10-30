@@ -135,7 +135,7 @@ When your Transistor Episodes get added or updated, their stats will be updated 
         body: request_body,
         logger: @episode_stats_svc.logger,
       )
-      data = response.parsed_response.dig("data", "attributes", "downloads")
+      data = response.parsed_response.dig("data", "attributes", "downloads") || []
       return data, nil
     end
   end

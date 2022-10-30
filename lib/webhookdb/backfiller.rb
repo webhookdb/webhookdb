@@ -20,6 +20,10 @@ class Webhookdb::Backfiller
       page, next_pagination_token = self._fetch_backfill_page_with_retry(
         pagination_token, last_backfilled:,
       )
+      if page.nil?
+        msg = "Fetching a page should return an empty array, not nil. The service response probably is missing a key?"
+        raise TypeError, msg
+      end
       pagination_token = next_pagination_token
       page.each do |item|
         self.handle_item(item)
