@@ -96,13 +96,21 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(described_class.validate_url("https://u@x/db")).to be_nil
     end
 
+    it "returns nil if the url is http and config allows http urls" do
+      Webhookdb::SyncTarget.allow_http = true
+      expect(described_class.validate_url("http://u:p@x/db")).to be_nil
+      expect(described_class.validate_url("http://:p@x/db")).to be_nil
+      expect(described_class.validate_url("http://u@x/db")).to be_nil
+    end
+
     it "returns an error if the url cannot be parsed" do
       expect(described_class.validate_url("this is not ao url")).to eq(
         "The URL is not valid",
       )
     end
 
-    it "returns an error if the http url is http" do
+    it "returns an error if the url is http and config disallows http urls" do
+      Webhookdb::SyncTarget.allow_http = false
       expect(described_class.validate_url("http://u:p@x:5432/db")).to eq(
         "The 'http' protocol is not supported. Supported protocols are: postgres, snowflake, https",
       )

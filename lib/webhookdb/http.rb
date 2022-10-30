@@ -34,6 +34,20 @@ module Webhookdb::Http
     return "WebhookDB/#{Webhookdb::RELEASE} https://webhookdb.com #{Webhookdb::RELEASE_CREATED_AT}"
   end
 
+  def self.extract_url_auth(url)
+    parsed_uri = URI(url)
+    if parsed_uri.userinfo.present?
+      auth_params = {
+        username: URI.decode_www_form_component(parsed_uri.user || ""),
+        password: URI.decode_www_form_component(parsed_uri.password || ""),
+      }
+      parsed_uri.user = parsed_uri.password = nil
+      cleaned_url = parsed_uri.to_s
+      return cleaned_url, auth_params
+    end
+    return url, nil
+  end
+
   def self.check!(response, **options)
     # All oks are ok
     return if response.code < 300

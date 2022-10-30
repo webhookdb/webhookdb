@@ -3,6 +3,20 @@
 require "webhookdb/http"
 
 RSpec.describe Webhookdb::Http do
+  describe "extract_url_auth" do
+    it "returns url and no basic auth params when url has no auth info" do
+      cleaned_url, auth_params = described_class.extract_url_auth("https://a.b")
+      expect(cleaned_url).to eq("https://a.b")
+      expect(auth_params).to be_nil
+    end
+
+    it "returns cleaned url and decoded basic auth params when url has auth info" do
+      cleaned_url, auth_params = described_class.extract_url_auth("https://leonora%40x.com:pw@a.b")
+      expect(cleaned_url).to eq("https://a.b")
+      expect(auth_params).to eq({username: "leonora@x.com", password: "pw"})
+    end
+  end
+
   describe "get" do
     it "calls HTTP GET" do
       req = stub_request(:get, "https://a.b").to_return(status: 200, body: "")

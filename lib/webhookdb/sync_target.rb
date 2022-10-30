@@ -21,19 +21,22 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   class SyncInProgress < StandardError; end
 
-  TIMEOUT = 30.seconds
-
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,
     # but something higher is better as a default.
     # Can be overridden per-organization.
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
+    setting :timeout, 30.seconds
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
     # since it's convenient, but for tests, it could cause conflicts
     # so something else is set instead.
     setting :default_schema, "public"
+    # If we want to sync to a localhost url for development purposes,
+    # we must allow sync targets to use http urls. This should only
+    # be used internally, and never in production.
+    setting :allow_http, false
 
     after_configured do
       if Webhookdb::RACK_ENV == "test"
@@ -80,6 +83,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     rescue URI::InvalidURIError
       return "The URL is not valid"
     end
+    # rubocop:disable Layout/LineLength
+    not_supported_msg = "The '#{url.scheme}' protocol is not supported. Supported protocols are: postgres, snowflake, https"
+    # rubocop:enable Layout/LineLength
     case url.scheme
       when "postgres", "snowflake"
         return nil if url.user.present? && url.password.present?
@@ -91,8 +97,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         url.user = "user"
         url.password = "pass"
         return "https urls must include a Basic Auth username and/or password, like '#{url}'"
+      when "http"
+        # http behavior should be identical to https scheme, except that it should not be supported
+        # unless configuration allows it
+        return not_supported_msg unless Webhookdb::SyncTarget.allow_http
+        return nil if url.user.present? || url.password.present?
+        url.user = "user"
+        url.password = "pass"
+        return "https urls must include a Basic Auth username and/or password, like '#{url}'"
       else
-        return "The '#{url.scheme}' protocol is not supported. Supported protocols are: postgres, snowflake, https"
+        return not_supported_msg
     end
   end
 
@@ -137,7 +151,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" if available.nil?
       self.lock!
 
-      return self._run_sync_http(at) if self.connection_url.start_with?("https://")
+      # Note that http links are not secure and should only be used for development purposes
+      return self._run_sync_http(at) if self.connection_url.start_with?("https://", "http://")
 
       svc = self.service_integration.replicator
       schema_name = self.schema.present? ? self.schema : self.class.default_schema
@@ -202,11 +217,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       table: self.service_integration.table_name,
       sync_timestamp: at,
     }
+    cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.connection_url)
     Webhookdb::Http.post(
-      self.connection_url,
+      cleanurl,
       body,
-      timeout: TIMEOUT,
+      timeout: Webhookdb::SyncTarget.timeout,
       logger: self.logger,
+      basic_auth: authparams,
     )
     chunk.clear
   end
