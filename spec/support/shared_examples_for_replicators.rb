@@ -265,6 +265,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:backfiller_class) { Webhookdb::Backfiller }
   let(:expected_items_count) { raise NotImplementedError, "how many items do we insert?" }
+  let(:has_no_logical_empty_state) { false }
 
   def insert_required_data_callback
     # For instances where our custom backfillers use info from rows in the dependency table to make requests.
@@ -275,6 +276,10 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
 
   def stub_service_requests
     raise NotImplementedError, "return stub_request for service"
+  end
+
+  def stub_empty_requests
+    raise NotImplementedError, "return stub_request that returns no items (or a response with no key if appropriate)"
   end
 
   def stub_service_request_error
@@ -297,6 +302,22 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     svc.backfill
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
+  end
+
+  it "handles empty responses" do
+    # APIs fall into two sets: those that return consistent shapes no matter the set of data available,
+    # and those that remove keys when data is unavailable (there is maybe a third that uses 'nil' instead of '[]'?).
+    # When we have APIs in the second group, we need to test them against missing keys;
+    # APIs in the first group can reuse structured responses. That is, we do not need every replicator
+    # to work against an empty response shape just because we can.
+    next if has_no_logical_empty_state
+    svc.create_table
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+    responses = stub_empty_requests
+    svc.backfill
+    expect(responses).to all(have_been_made)
+    svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
   end
 
   it "retries the page fetch" do
@@ -463,6 +484,26 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
     sint.update(last_backfilled_at: nil)
     svc.backfill(incremental: true)
     expect(svc.readonly_dataset(&:all)).to have_length(3)
+  end
+end
+
+RSpec.shared_examples "a replicator that requires credentials from a dependency" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:error_message) { raise NotImplementedError }
+
+  before(:each) do
+    create_all_dependencies(sint)
+  end
+
+  def strip_auth(_sint)
+    raise NotImplementedError
+  end
+
+  it "raises if credentials are not set" do
+    strip_auth(sint)
+    expect do
+      sint.replicator.backfill
+    end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(error_message)
   end
 end
 

@@ -392,6 +392,20 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
       ]
     end
 
+    def stub_empty_requests
+      return [
+        stub_request(:get, "https://fake-url.com/admin/api/2021-04/customers.json").
+            to_return(
+              status: 200,
+              body: '{"customers":[]}',
+              headers: {
+                "Content-Type" => "application/json",
+                "Link" => '<irrelevant_link>; rel="previous"',
+              },
+            ),
+      ]
+    end
+
     # rubocop:enable Layout/LineLength
     def stub_service_request_error
       return stub_request(:get, "https://fake-url.com/admin/api/2021-04/customers.json").

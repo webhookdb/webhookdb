@@ -344,6 +344,18 @@ RSpec.describe Webhookdb::Replicator::TransistorShowV1, :db do
       ]
     end
 
+    def stub_empty_requests
+      body = {data: [], meta: {totalPages: 1, currentPage: 1}}.to_json
+      return [
+        stub_request(:get, "https://api.transistor.fm/v1/shows").
+            with(body: "pagination%5Bpage%5D=1&private=false").
+            to_return(status: 200, body:, headers: json_headers),
+        stub_request(:get, "https://api.transistor.fm/v1/shows").
+            with(body: "pagination%5Bpage%5D=1&private=true").
+            to_return(status: 200, body:, headers: json_headers),
+      ]
+    end
+
     def stub_service_request_error
       return stub_request(:get, "https://api.transistor.fm/v1/shows").
           to_return(status: 400, body: "try again later")

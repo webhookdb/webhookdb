@@ -170,6 +170,16 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
       ]
     end
 
+    def stub_empty_requests
+      body = {page: 1, total_pages: 1, subscribers: []}.to_json
+      return [
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
+            to_return(status: 200, body:, headers: json_headers),
+        stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc&sort_field=cancelled_at").
+            to_return(status: 200, body:, headers: json_headers),
+      ]
+    end
+
     def stub_service_request_error
       return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
           to_return(status: 503, body: "error")
@@ -235,8 +245,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
           "total_subscribers": 0,
           "page": 1,
           "total_pages": 1,
-          "subscribers": [
-          ]
+          "subscribers": []
         }
       R
     end

@@ -53,10 +53,16 @@ RSpec.describe "fake implementations", :db do
       def stub_service_requests
         return [
           stub_request(:get, "https://fake-integration/?token=").
-              to_return(status: 200, body: [page1_items,
-                                            "p2",].to_json, headers: {"Content-Type" => "application/json"},),
+              to_return(status: 200, body: [page1_items, "p2"].to_json, headers: json_headers),
           stub_request(:get, "https://fake-integration/?token=p2").
-              to_return(status: 200, body: [page2_items, nil].to_json, headers: {"Content-Type" => "application/json"}),
+              to_return(status: 200, body: [page2_items, nil].to_json, headers: json_headers),
+        ]
+      end
+
+      def stub_empty_requests
+        return [
+          stub_request(:get, "https://fake-integration/?token=").
+              to_return(status: 200, body: [[], nil].to_json, headers: json_headers),
         ]
       end
 

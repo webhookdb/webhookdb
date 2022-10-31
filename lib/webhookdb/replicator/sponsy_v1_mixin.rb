@@ -36,18 +36,15 @@ module Webhookdb::Replicator::SponsyV1Mixin
     return {"X-Api-Key" => self.find_api_key}
   end
 
+  def root_integration
+    return @root_integration ||= Webhookdb::Replicator.find_root(self.service_integration)
+  end
+
   def find_api_key
-    return @apikey if @apikey
-    checking_sint = self.service_integration
-    10.times do
-      if checking_sint.backfill_secret.present?
-        @apikey = checking_sint.backfill_secret
-        return @apikey
-      end
-      checking_sint = checking_sint.depends_on
-      break if checking_sint.nil?
-    end
-    raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing its dependency"
+    auth = self.root_integration
+    raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing a dependency with auth" if
+      auth.nil?
+    return auth.backfill_secret
   end
 
   def _resource_and_event(request)
@@ -118,7 +115,8 @@ module Webhookdb::Replicator::SponsyV1Mixin
   end
 
   def _publication_backfillers(tail)
-    raise Webhookdb::Replicator::CredentialsMissing if self.find_api_key.blank?
+    raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing a dependency with auth" if
+      self.find_api_key.blank?
 
     publications_svc = self.service_integration.depends_on.replicator
     backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|

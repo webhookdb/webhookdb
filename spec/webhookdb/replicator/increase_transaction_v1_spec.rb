@@ -346,6 +346,13 @@ RSpec.describe Webhookdb::Replicator::IncreaseTransactionV1, :db do
       ]
     end
 
+    def stub_empty_requests
+      return [
+        stub_request(:get, "https://api.increase.com/transactions").
+            to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+      ]
+    end
+
     def stub_service_request_error
       return stub_request(:get, "https://api.increase.com/transactions").
           to_return(status: 500, body: "gah")
