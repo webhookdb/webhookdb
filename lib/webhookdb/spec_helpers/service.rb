@@ -55,8 +55,8 @@ module Webhookdb::SpecHelpers::Service
     end
   end
 
-  def fake_request(input: "")
-    req = Rack::Request.new({"rack.input" => Rewindable.new(input)})
+  def fake_request(input: "", env: {})
+    req = Rack::Request.new(env.merge({"rack.input" => Rewindable.new(input)}))
     return req
   end
 
