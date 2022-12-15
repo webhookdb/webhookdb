@@ -12,7 +12,7 @@ class Webhookdb::Replicator::ShopifyOrderV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "shopify_order_v1",
       ctor: ->(sint) { Webhookdb::Replicator::ShopifyOrderV1.new(sint) },
-      feature_roles: [],
+      feature_roles: ["beta"],
       resource_name_singular: "Shopify Order",
     )
   end
@@ -29,7 +29,8 @@ class Webhookdb::Replicator::ShopifyOrderV1 < Webhookdb::Replicator::Base
       Webhookdb::Replicator::Column.new(:checkout_token, TEXT),
       Webhookdb::Replicator::Column.new(:closed_at, TIMESTAMP, index: true),
       Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Replicator::Column.new(:customer_id, TEXT, index: true, data_key: ["customer", "id"]),
+      Webhookdb::Replicator::Column.new(:customer_id, TEXT,
+                                        index: true, data_key: ["customer", "id"], optional: true,),
       Webhookdb::Replicator::Column.new(:email, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:name, TEXT),
       Webhookdb::Replicator::Column.new(:order_number, INTEGER, index: true),

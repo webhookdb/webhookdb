@@ -487,6 +487,414 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
     end
   end
 
+  describe "upsert_webhook" do
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration.create(service_name: "shopify_order_v1")
+    end
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "handles a minimal real-world webhook" do
+      body = JSON.parse(<<~J)
+        {
+          "app_id": 1966818,
+          "browser_ip": "216.191.105.146",
+          "buyer_accepts_marketing": false,
+          "cancel_reason": "customer",
+          "cancelled_at": null,
+          "cart_token": "68778783ad298f1c80c3bafcddeea",
+          "checkout_token": "bd5a8aa1ecd019dd3520ff791ee3a24c",
+          "client_details": {
+            "accept_language": "en-US,en;q=0.9",
+            "browser_height": 1320,
+            "browser_ip": "216.191.105.146",
+            "browser_width": 1280,
+            "session_hash": "9ad4d1f4e6a8977b9dd98eed1e477643",
+            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36"
+          },
+          "closed_at": "2008-01-10T11:00:00-05:00",
+          "created_at": "2008-01-10T11:00:00-05:00",
+          "currency": "USD",
+          "current_subtotal_price": "10.00",
+          "current_total_discounts": "10.00",
+          "current_total_price": "10.00",
+          "current_total_tax": "10.00",
+          "customer_locale": "en-CA",
+          "discount_applications": [
+            {
+              "allocation_method": "across",
+              "description": "customer deserved it",
+              "target_selection": "explicit",
+              "target_type": "line_item",
+              "title": "custom discount",
+              "type": "manual",
+              "value": "2.0",
+              "value_type": "fixed_amount"
+            },
+            {
+              "allocation_method": "across",
+              "description": "my scripted discount",
+              "target_selection": "explicit",
+              "target_type": "shipping_line",
+              "type": "script",
+              "value": "5.0",
+              "value_type": "fixed_amount"
+            },
+            {
+              "allocation_method": "across",
+              "code": "SUMMERSALE",
+              "target_selection": "all",
+              "target_type": "line_item",
+              "type": "discount_code",
+              "value": "10.0",
+              "value_type": "fixed_amount"
+            }
+          ],
+          "discount_codes": [
+            {
+              "amount": "30.00",
+              "code": "SPRING30",
+              "type": "fixed_amount"
+            }
+          ],
+          "email": "bob.norman@hostmail.com",
+          "financial_status": "authorized",
+          "fulfillment_status": "partial",
+          "fulfillments": [
+            {
+              "created_at": "2012-03-13T16:09:54-04:00",
+              "id": 255858046,
+              "order_id": 450789469,
+              "status": "failure",
+              "tracking_company": "USPS",
+              "tracking_number": "1Z2345",
+              "updated_at": "2012-05-01T14:22:25-04:00"
+            }
+          ],
+          "gateway": "shopify_payments",
+          "id": 450789469,
+          "landing_site": "http://www.example.com?source=abc",
+          "line_items": [
+            {
+              "discount_allocations": [
+                {
+                  "amount": "5.00",
+                  "amount_set": {
+                    "presentment_money": {
+                      "amount": "3.96",
+                      "currency_code": "EUR"
+                    },
+                    "shop_money": {
+                      "amount": "5.00",
+                      "currency_code": "USD"
+                    }
+                  },
+                  "discount_application_index": 2
+                }
+              ],
+              "duties": [
+                {
+                  "admin_graphql_api_id": "gid://shopify/Duty/2",
+                  "country_code_of_origin": "CA",
+                  "harmonized_system_code": "520300",
+                  "id": "2",
+                  "presentment_money": {
+                    "amount": "105.31",
+                    "currency_code": "EUR"
+                  },
+                  "shop_money": {
+                    "amount": "164.86",
+                    "currency_code": "CAD"
+                  },
+                  "tax_lines": [
+                    {
+                      "price": "16.486",
+                      "price_set": {
+                        "presentment_money": {
+                          "amount": "10.531",
+                          "currency_code": "EUR"
+                        },
+                        "shop_money": {
+                          "amount": "16.486",
+                          "currency_code": "CAD"
+                        }
+                      },
+                      "rate": 0.1,
+                      "title": "VAT"
+                    }
+                  ]
+                }
+              ],
+              "fulfillable_quantity": 1,
+              "fulfillment_service": "amazon",
+              "fulfillment_status": "fulfilled",
+              "gift_card": false,
+              "grams": 500,
+              "id": 669751112,
+              "name": "IPod Nano - Pink",
+              "origin_location": {
+                "address1": "700 West Georgia Street",
+                "address2": "1500",
+                "city": "Toronto",
+                "country_code": "CA",
+                "id": 1390592786454,
+                "name": "Apple",
+                "province_code": "ON",
+                "zip": "V7Y 1G5"
+              },
+              "price": "199.99",
+              "price_set": {
+                "presentment_money": {
+                  "amount": "173.30",
+                  "currency_code": "EUR"
+                },
+                "shop_money": {
+                  "amount": "199.99",
+                  "currency_code": "USD"
+                }
+              },
+              "product_id": 7513594,
+              "properties": [
+                {
+                  "name": "custom engraving",
+                  "value": "Happy Birthday Mom!"
+                }
+              ],
+              "quantity": 1,
+              "requires_shipping": true,
+              "sku": "IPOD-342-N",
+              "tax_lines": [
+                {
+                  "price": "25.81",
+                  "price_set": {
+                    "presentment_money": {
+                      "amount": "20.15",
+                      "currency_code": "EUR"
+                    },
+                    "shop_money": {
+                      "amount": "25.81",
+                      "currency_code": "USD"
+                    }
+                  },
+                  "rate": 0.13,
+                  "title": "HST"
+                }
+              ],
+              "taxable": true,
+              "title": "IPod Nano",
+              "total_discount": "5.00",
+              "total_discount_set": {
+                "presentment_money": {
+                  "amount": "4.30",
+                  "currency_code": "EUR"
+                },
+                "shop_money": {
+                  "amount": "5.00",
+                  "currency_code": "USD"
+                }
+              },
+              "variant_id": 4264112,
+              "variant_title": "Pink",
+              "vendor": "Apple"
+            }
+          ],
+          "location_id": 49202758,
+          "name": "#1001",
+          "note": "Customer changed their mind.",
+          "note_attributes": [
+            {
+              "name": "custom name",
+              "value": "custom value"
+            }
+          ],
+          "number": 1,
+          "order_number": 1001,
+          "order_status_url": "https://checkout.shopify.com/112233/checkouts/4207896aad57dfb159/thank_you_token?key=753621327b9e8a64789651bf221dfe35",
+          "original_total_duties_set": {
+            "presentment_money": {
+              "amount": "105.31",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "164.86",
+              "currency_code": "CAD"
+            }
+          },
+          "payment_details": {
+            "avs_result_code": "Y",
+            "credit_card_bin": "453600",
+            "credit_card_company": "Visa",
+            "credit_card_number": "•••• •••• •••• 4242",
+            "cvv_result_code": "M"
+          },
+          "payment_gateway_names": [
+            "authorize_net",
+            "Cash on Delivery (COD)"
+          ],
+          "phone": "+557734881234",
+          "presentment_currency": "CAD",
+          "processed_at": "2008-01-10T11:00:00-05:00",
+          "processing_method": "direct",
+          "referring_site": "http://www.anexample.com",
+          "refunds": [
+            {
+              "created_at": "2018-03-06T09:35:37-05:00",
+              "id": 18423447608,
+              "note": null,
+              "order_adjustments": [],
+              "order_id": 394481795128,
+              "processed_at": "2018-03-06T09:35:37-05:00",
+              "refund_line_items": [],
+              "transactions": [],
+              "user_id": null
+            }
+          ],
+          "shipping_address": {
+            "address1": "123 Amoebobacterieae St",
+            "address2": "",
+            "city": "Ottawa",
+            "company": null,
+            "country": "Canada",
+            "country_code": "CA",
+            "first_name": "Bob",
+            "last_name": "Bobsen",
+            "latitude": "45.41634",
+            "longitude": "-75.6868",
+            "name": "Bob Bobsen",
+            "phone": "555-625-1199",
+            "province": "Ontario",
+            "province_code": "ON",
+            "zip": "K2P0V6"
+          },
+          "shipping_lines": [
+            {
+              "carrier_identifier": "third_party_carrier_identifier",
+              "code": "INT.TP",
+              "discounted_price": "4.00",
+              "discounted_price_set": {
+                "presentment_money": {
+                  "amount": "3.17",
+                  "currency_code": "EUR"
+                },
+                "shop_money": {
+                  "amount": "4.00",
+                  "currency_code": "USD"
+                }
+              },
+              "price": "4.00",
+              "price_set": {
+                "presentment_money": {
+                  "amount": "3.17",
+                  "currency_code": "EUR"
+                },
+                "shop_money": {
+                  "amount": "4.00",
+                  "currency_code": "USD"
+                }
+              },
+              "requested_fulfillment_service_id": "third_party_fulfillment_service_id",
+              "source": "canada_post",
+              "tax_lines": [],
+              "title": "Small Packet International Air"
+            }
+          ],
+          "source_name": "web",
+          "subtotal_price": 398.0,
+          "subtotal_price_set": {
+            "presentment_money": {
+              "amount": "90.95",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "141.99",
+              "currency_code": "CAD"
+            }
+          },
+          "tags": "imported",
+          "tax_lines": [
+            {
+              "price": 11.94,
+              "rate": 0.06,
+              "title": "State Tax"
+            }
+          ],
+          "taxes_included": false,
+          "test": true,
+          "token": "b1946ac92492d2347c6235b4d2611184",
+          "total_discounts": "0.00",
+          "total_discounts_set": {
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "0.00",
+              "currency_code": "CAD"
+            }
+          },
+          "total_line_items_price": "398.00",
+          "total_line_items_price_set": {
+            "presentment_money": {
+              "amount": "90.95",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "141.99",
+              "currency_code": "CAD"
+            }
+          },
+          "total_outstanding": "5.00",
+          "total_price": "409.94",
+          "total_price_set": {
+            "presentment_money": {
+              "amount": "105.31",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "164.86",
+              "currency_code": "CAD"
+            }
+          },
+          "total_shipping_price_set": {
+            "presentment_money": {
+              "amount": "0.00",
+              "currency_code": "USD"
+            },
+            "shop_money": {
+              "amount": "30.00",
+              "currency_code": "USD"
+            }
+          },
+          "total_tax": "11.94",
+          "total_tax_set": {
+            "presentment_money": {
+              "amount": "11.82",
+              "currency_code": "EUR"
+            },
+            "shop_money": {
+              "amount": "18.87",
+              "currency_code": "CAD"
+            }
+          },
+          "total_tip_received": "4.87",
+          "total_weight": 300,
+          "updated_at": "2012-08-24T14:02:15-04:00",
+          "user_id": 31522279
+        }
+      J
+      svc.upsert_webhook_body(body)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(include(shopify_id: "450789469"))
+    end
+  end
+
   it_behaves_like "a replicator that prevents overwriting new data with old", "shopify_order_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
@@ -4295,6 +4703,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
           to_return(status: 500, body: "eh")
     end
   end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "shopify_order_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }

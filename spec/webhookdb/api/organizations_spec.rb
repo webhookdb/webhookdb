@@ -73,7 +73,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
       get "/v1/organizations/#{org.key}/services"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(items: include(include(name: "shopify_customer_v1")))
+      expect(last_response).to have_json_body.that_includes(items: include(include(name: "stripe_customer_v1")))
     end
   end
 
