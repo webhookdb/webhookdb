@@ -27,7 +27,6 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # Can be overridden per-organization.
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
-    setting :timeout, 30.seconds
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
     # since it's convenient, but for tests, it could cause conflicts
@@ -210,18 +209,19 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   def _flush_http_chunk(at, chunk)
+    sint = self.service_integration
     body = {
       rows: chunk,
-      integration_id: self.service_integration.opaque_id,
-      integration_service: self.service_integration.service_name,
-      table: self.service_integration.table_name,
+      integration_id: sint.opaque_id,
+      integration_service: sint.service_name,
+      table: sint.table_name,
       sync_timestamp: at,
     }
     cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.connection_url)
     Webhookdb::Http.post(
       cleanurl,
       body,
-      timeout: Webhookdb::SyncTarget.timeout,
+      timeout: sint.organization.sync_target_timeout,
       logger: self.logger,
       basic_auth: authparams,
     )
