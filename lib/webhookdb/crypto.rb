@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 module Webhookdb::Crypto
-  CIPHER = OpenSSL::Cipher.new("aes-256-cbc")
+  def self.cipher
+    return OpenSSL::Cipher.new("aes-256-cbc")
+  end
 
   # @return [Boxed]
   def self.encryption_key
-    k = CIPHER.encrypt.random_key
+    k = self.cipher.encrypt.random_key
     return Boxed.from_raw(k)
   end
 
@@ -13,7 +15,7 @@ module Webhookdb::Crypto
   # @param value [Boxed]
   # @return [Boxed]
   def self.encrypt_value(key, value)
-    cipher = CIPHER.encrypt
+    cipher = self.cipher.encrypt
     cipher.key = key.raw
     enc = cipher.update(value.raw) + cipher.final
     return Boxed.from_raw(enc)
@@ -23,7 +25,7 @@ module Webhookdb::Crypto
   # @param value [Boxed]
   # @return [Boxed]
   def self.decrypt_value(key, value)
-    cipher = CIPHER.decrypt
+    cipher = self.cipher.decrypt
     cipher.key = key.raw
     dec = cipher.update(value.raw) + cipher.final
     return Boxed.from_raw(dec)
