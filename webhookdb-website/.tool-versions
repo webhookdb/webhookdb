@@ -1,2 +1,5 @@
+# Update this in Netlify NODE_VERSION
+#
 nodejs 16.13.2
-yarn 1.22.17
+# Update this in package.json
+yarn 1.22.19

@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "webhookdb-website",
-  "author": "ernes7",
-  "keywords": [
-    "gatsby"
-  ],
+  "author": "hello@webhookdb.com",
+  "packageManager": "yarn@1.22.19",
+  "engines" : {
+    "node" : ">=16.0.0 <17.0.0"
+  },
   "scripts": {
     "develop": "gatsby develop -p 18002",
     "develop-network": "gatsby develop -H 0.0.0.0 -p 18002",
