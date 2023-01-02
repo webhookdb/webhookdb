@@ -22,9 +22,10 @@ Please reach out if you like what you see here, and think we can help you build 
 
 ### [How is my data stored?](#how-is-my-data-stored)
 
-Right off the bat, if you are not comfortable with someone else storing data from the APIs you use,
-we totally understand- please check out our [Guide to Self-Hosting WebhookDB](/docs/self-hosting)
-for more information.
+**Note: This applies only to the fully-hosted SaaS version of WebhookDB.
+For more information about self-hosting, check out our
+[Approach to Licensing and Partnering](/licensing/) and
+our [Guide to Self-Hosting WebhookDB](/docs/self-hosting).**
 
 All of your data is stored encrypted in Postgres databases in Amazon Web Services.
 

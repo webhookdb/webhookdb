@@ -23,7 +23,10 @@ export default function FooterSection() {
       <Row className="justify-content-center align-items-center">
         <Col>
           <Centered>
-            <Nav defaultActiveKey="/" className="flex-row justify-content-around">
+            <Nav
+              defaultActiveKey="/"
+              className="flex-row justify-content-start justify-content-sm-around "
+            >
               {[
                 [
                   [
@@ -34,18 +37,24 @@ export default function FooterSection() {
                   ["/terms/", "Terms of Use"],
                   ["/privacy/", "Privacy Policy"],
                   ["/careers", "Careers"],
-                ],
-                [
-                  ["/app-startups/", "For Application Startups"],
-                  ["/digital-transformation/", "For Digital Transformation"],
-                  ["/development-agencies/", "For Development Agencies"],
-                  ["/integrations/", "Supported Integrations"],
+                  ["/licensing/", "Licensing and Partnering"],
                 ],
                 [
                   ["/docs/home/", "Documentation"],
                   ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
                   ["/docs/api2sql/", API2SQL],
                   ["/docs/faq/", "FAQ"],
+                  ["/docs/super-webhooks/", "Super Webhooks"],
+                  ["/integrations/", "Supported Integrations"],
+                ],
+                [
+                  ["/solutions/analytics/", "WHDB Analytics"],
+                  ["/solutions/app-startups", "WHDB Application Startups"],
+                  ["/solutions/development-agencies", "WHDB Development Agencies"],
+                  ["/solutions/digital-transformation", "WHDB Digital Transformation"],
+                  ["/solutions/enterprises", "WHDB Enterprises"],
+                  ["/solutions/fintech", "WHDB Fintech"],
+                  ["/solutions/no-code", "WHDB No Code"],
                 ],
               ].map((navs) => (
                 <div className="d-flex flex-column" key={navs[0][0]}>

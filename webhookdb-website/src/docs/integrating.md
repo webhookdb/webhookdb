@@ -4,6 +4,15 @@ path: /docs/integrating
 order: 70
 ---
 
+There are two ways you will need to access data stored in WebhookDB:
+<a href="#query-access">Query Access</a>, and <a href="#notifications">Notifications</a>.
+Query Access is about accessing data WebhookDB has synced,
+while Notifications are about WebhookDB telling you about data changes.
+
+<a id="query-access"></a>
+
+# Query Access
+
 We have a repository with some example patterns for integrating with WebhookDB.
 
 The different patterns break down roughly as follows:
@@ -57,3 +66,12 @@ to get see how.
 The example also includes an explanation of using Materialized Views,
 which will replicate the data from your WebhookDB database
 directly into your own database.
+
+<a id="notifications"></a>
+
+# Notifications
+
+Whenever a row changes in WebhookDB, you can be notified in one of two ways:
+
+1. Through normal webhooks. Check out the [`webhookdb webhook` command docs](/docs/manual/#webhook) for more details.
+2. Through "super webhooks", which are simple, synchronous, and resilent. This is done through the [`webhookdb sync` command](/docs/manual/#sync) command. [Read what makes these webhooks "super"](/docs/webhooks/).

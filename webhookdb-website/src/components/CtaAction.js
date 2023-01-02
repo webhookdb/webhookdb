@@ -24,9 +24,9 @@ export default function CtaAction({ alt, className, formClassName }) {
         , later.
       </Lead>
       <Lead>
-        We pride ourselves on our <Hilite>partner-focused approach.</Hilite> To discuss
-        licensing WebhookDB for self-hosting, embedded use as OEM, and additional or
-        custom integrations, please use this contact form, or email{" "}
+        We pride ourselves on our <Link to="/licensing">partner-focused approach.</Link>{" "}
+        To discuss licensing WebhookDB for self-hosting, embedded use as OEM, and
+        additional or custom integrations, please use this contact form, or email{" "}
         <a href="mailto:hello@webhookdb.com" className={linkCls}>
           hello@webhookdb.com
         </a>

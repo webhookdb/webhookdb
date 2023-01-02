@@ -3,3 +3,15 @@
   to = "/docs/api2sql"
   status = 302
   force = true
+
+[[redirects]]
+  from = "/app-startups"
+  to = "/solutions/app-startups"
+
+[[redirects]]
+  from = "/digital-transformation"
+  to = "/solutions/digital-transformation"
+
+[[redirects]]
+  from = "/development-agencies"
+  to = "/solutions/development-agencies"

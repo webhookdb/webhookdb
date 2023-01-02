@@ -48,16 +48,20 @@ export default function IndexPage() {
             <h1>Unify. Automate. Build.</h1>
           </CenteredDiv>
           <Lead>
-            WebhookDB is your <Hilite>{API2SQL} Data Reservoir</Hilite> for the age of{" "}
-            <Hilite>Composable Applications Development.</Hilite>
+            WebhookDB accelerates application development and performance by extending
+            your existing database with
+            <Hilite>{API2SQL} data integration superpowers</Hilite>.
           </Lead>
           <Lead>
-            WebhookDB mirrors data from 3rd party APIs into a dedicated Postgres
-            database in realtime. You get the connection string.{" "}
-            <Hilite>Query any API, in real-time, with SQL.</Hilite>
+            WebhookDB syncs, ingests, schematizes, and automates data from 3rd party
+            APIs in realtime, enabling a <Hilite>single source of truth</Hilite> for
+            your application builders and product managers.
           </Lead>
           <Lead>
-            Use this database connection in your applications and analytics systems.
+            <Hilite>Replicate and query any API, in real-time, with SQL</Hilite>, right
+            from your <Hilite>existing database</Hilite>, and see how{" "}
+            <Hilite>fast and simple</Hilite>
+            integration with external APIs becomes.
           </Lead>
           <CenteredDiv className="mb-3">
             <Button
@@ -75,7 +79,100 @@ export default function IndexPage() {
       <Waves />
       <Container className="px-4" fluid>
         <Centered>
-          <h2 className="mt-2">The API Data Reservoir</h2>
+          <h2 className="mt-2">{API2SQL} Spells NO Cloud Middleware</h2>
+          <Lead>
+            WebhookDB acts like a database extension that takes 3rd party API data and
+            syncs it right into your database &mdash; you&rsquo;ll have{" "}
+            <Hilite>fresh API data in heart of your application backend</Hilite>.
+            Instant access, always available, normalized and schematized.
+          </Lead>
+          <Lead>
+            We call our new integration paradigm {API2SQL}. No more wasting key
+            developer cycles on API integration, or staffing to deal with proprietary
+            iPaaS frameworks, or expensive lock-in to cloud middleware.
+          </Lead>
+          <Lead></Lead>
+          <Lead>
+            WebhookDB cuts the Gordion knot of API integration.{" "}
+            <stroneg>Forever.</stroneg>
+          </Lead>
+          <Lead>
+            With {API2SQL}, application developers access 3rd party API data using the same database
+            they use for application data. This unified application
+            data reservoir approach <Hilite>simplifies development</Hilite>, and enables
+            product teams to
+            <Hilite>focus on your core value proposition</Hilite>, not 3rd party API
+            integration.
+          </Lead>
+          <Lead>
+            See it in action! Or try it out{" "}
+            <Link to="/terminal">right from your browser</Link>!
+          </Lead>
+          <CenteredDiv>
+            <div style={{ width: "80%" }}>
+              <WistiaEmbed mediaUrl="https://fast.wistia.com/embed/medias/lrox7uw103" />
+            </div>
+          </CenteredDiv>
+          <h2 className="mt-5">Unbeatable Partnering & Pricing</h2>
+          <Lead>
+            We know that a paradigm shift from REST or GraphQL is no simple thing.
+            That&rsquo;s why WebhookDB&rsquo;s {API2SQL} reservoir-based integration
+            approach comes equipped with a <Hilite>partner-first business model</Hilite>
+            .
+          </Lead>
+          <Lead>
+            Take advantage of our pre-built integrations for leading API providers, from
+            Stripe to Twilio. Most of our partners have us build custom integrations &mdash; we can tackle
+            literally any API, 1st or 3rd party.
+          </Lead>
+          <Lead>
+            License WebhookDB as a fully-hosted SaaS, or for self-hosting, or with a
+            source license for unlimited development.
+          </Lead>
+          <Lead>
+            We&rsquo;re not trying to build the next integration-as-a-service hub to
+            compete with our customers and partners. Instead, we&rsquo;ve built a{" "}
+            <Hilite>next-generation integration capability</Hilite> to empower our
+            partners. It turns out most API integration is a commodity problem;
+            WebhookDB solves it for you so you can move on to more important things.
+          </Lead>
+          <h2 className="mt-5">{API2SQL} Is Better</h2>
+          <Lead>
+            {API2SQL} offers a new, superior paradigm for API integration, replacing
+            legacy patterns like REST, GraphSQL, and WSDL.
+          </Lead>
+          <Lead>What makes {API2SQL} superior?</Lead>
+          <ul className="lead">
+            <li>
+              <span className="font-weight-bold">Fast</span>: Query a local database
+              instead of a remote 3rd party server.
+            </li>
+            <li>
+              <span className="font-weight-bold">Flexible</span>: Use standard SQL tools
+              to inspect schemas, select and filter data, and anything else you can do
+              with SQL.
+            </li>
+            <li>
+              <span className="font-weight-bold">Practical</span>: Integration is a
+              breeze. Get up and running in seconds for any supported API. Unit testing
+              is a lot more fun than using HTTP.
+            </li>
+            <li>
+              <span className="font-weight-bold">Secure</span>: Use standard SQL-based
+              access controls for different parts of your system, rather than
+              rudimentary access control most APIs offer.
+            </li>
+          </ul>
+          <Button
+            href="/docs/api2sql"
+            variant="outline-primary"
+            size="lg"
+            className="cta"
+            as={RLink}
+          >
+            Learn more about {API2SQL}
+          </Button>
+          <h2 className="mt-5">API Data Reservoir</h2>
           <Lead>
             Reservoirs are designed to collect drainage over large area and turn it into{" "}
             <Hilite>clean, safe, and predictable</Hilite> water servicing various
@@ -96,55 +193,10 @@ export default function IndexPage() {
               <Image
                 src={Reservoir}
                 fluid
-                height={300}
-                style={{ maxHeight: 400, marginTop: "1rem" }}
+                height={200}
+                style={{ maxHeight: 300, marginTop: "1rem" }}
               />
             </Link>
-          </CenteredDiv>
-          <h2 className="mt-5">Introducing {API2SQL}</h2>
-          <Lead>
-            Move over REST, GraphSQL, gRPC, and WSDL. Say hello to {API2SQL}, which we
-            believe offers a new, superior paradigm for API integration.
-          </Lead>
-          <Button
-            href="/docs/api2sql"
-            variant="outline-primary"
-            size="lg"
-            className="cta mb-4"
-            as={RLink}
-          >
-            Learn more about {API2SQL}
-          </Button>
-          <Lead>What makes {API2SQL} superior?</Lead>
-          <ul className="lead">
-            <li>
-              <span className="font-weight-bold">Fast</span>: Query a database instead
-              of a remote 3rd party server.
-            </li>
-            <li>
-              <span className="font-weight-bold">Flexible</span>: Use standard SQL tools
-              to inspect schemas, select and filter data, and anything else you can do
-              with SQL.
-            </li>
-            <li>
-              <span className="font-weight-bold">Practical</span>: Integration is a
-              breeze. Get up and running in seconds for any supported API. Unit testing
-              is a lot more fun than using HTTP.
-            </li>
-            <li>
-              <span className="font-weight-bold">Secure</span>: Use standard SQL-based
-              access controls for different parts of your system, rather than the more
-              rudimentary version an API offers.
-            </li>
-          </ul>
-          <Lead>
-            See it in action! And try it out{" "}
-            <Link to="/terminal">right from your browser</Link>!
-          </Lead>
-          <CenteredDiv>
-            <div style={{ width: "80%" }}>
-              <WistiaEmbed mediaUrl="https://fast.wistia.com/embed/medias/lrox7uw103" />
-            </div>
           </CenteredDiv>
         </Centered>
       </Container>
@@ -153,7 +205,7 @@ export default function IndexPage() {
           <h2>Our Guide.</h2>
           <Lead>
             As developers ourselves, we place a strong emphasis on clear documentation
-            and intuitive, efficient tooling. Get up and going in minutes. Read our
+            and intuitive, efficient tooling. We want you to be able to get up and going in minutes. Read our
             documentation for more information.
           </Lead>
           <Lead>

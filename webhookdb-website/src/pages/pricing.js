@@ -3,6 +3,7 @@ import "../styles/custom.scss";
 import { Button, Col, Row } from "react-bootstrap";
 
 import CheckmarkSvg from "../components/CheckmarkSvg";
+import { Link } from "gatsby";
 import RLink from "../components/RLink";
 import React from "react";
 import Seo from "../components/Seo";
@@ -16,44 +17,49 @@ export default function Pricing() {
       <Seo title="Pricing" />
       <div className="d-flex justify-content-center">
         <Row className="mb-5 no-gutters" style={{ maxWidth: 1600 }}>
-          <Col xs={12} md={6} xl={4}>
+          <Col xs={12} md={6} xl={{ span: 5, offset: 1 }}>
             <PricingCard
-              title="Free"
+              title="Hosted/SaaS"
               cta="Get Started"
-              sub="Get started with WebhookDB with up to two integrations."
+              sub="Unlimited use on the fully hosted version of WebhookDB."
               features={[
-                "Up to 2 free active integrations",
+                "Unlimited number of integrations",
                 "Unlimited storage for each integration",
                 "API2SQL stored in a dedicated database",
-                "Upgrade anytime",
+                "Zero-downtime upgrade anytime",
               ]}
+              footer={
+                <span>
+                  Learn why{" "}
+                  <Link to="/licensing/">
+                    we offer unlimited use on the hosted version
+                  </Link>
+                  .
+                </span>
+              }
             />
           </Col>
-          <Col xs={12} md={6} xl={4}>
+          <Col xs={12} md={6} xl={5}>
             <PricingCard
-              title="Premium"
-              cta="Get Started"
-              sub="Upgrade to a paid subscription for $89/month or $890/year once you are ready."
-              features={[
-                "Unlimited active integrations",
-                "Unlimited storage for each integration",
-                "Write API2SQL into your own database",
-                "Priority email support",
-              ]}
-            />
-          </Col>
-          <Col xs={12} md={{ span: 6, offset: 3 }} xl={{ span: 4, offset: 0 }}>
-            <PricingCard
-              title="Enterprise"
+              title="Self-Hosted/Enterprise"
               cta="Contact Us"
               onCta={openContactUs}
-              sub="Complete data and operational ownership for customers seeking more control."
+              sub="Complete data and operational ownership."
               features={[
                 "Run everything on your own servers",
                 "Develop custom integrations",
-                "Scale, source, and OEM licenses",
+                "Flexible Scale, Source, and OEM licenses",
                 "Phone support",
               ]}
+              footer={
+                <span>
+                  Read more on{" "}
+                  <Link to="/licensing/">
+                    our committment to supporting our partners
+                  </Link>
+                  .
+                </span>
+              }
             />
           </Col>
         </Row>
@@ -63,7 +69,7 @@ export default function Pricing() {
   );
 }
 
-function PricingCard({ title, cta, sub, features, onCta }) {
+function PricingCard({ title, cta, sub, features, footer, onCta }) {
   return (
     <div className="d-flex justify-content-center pt-5 h-100">
       <div className="max-width-sm p-5 mx-2 shadow-lg rounded bg-light d-flex flex-column h-100">
@@ -82,13 +88,14 @@ function PricingCard({ title, cta, sub, features, onCta }) {
         <Button
           size="lg"
           block
-          className="mt-5"
+          className="mt-4"
           href={onCta ? null : "/download"}
           onClick={onCta}
           as={RLink}
         >
           {cta}
         </Button>
+        <div className="mt-4">{footer}</div>
       </div>
     </div>
   );
