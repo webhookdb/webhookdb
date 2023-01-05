@@ -510,5 +510,29 @@ or leave blank to choose the first option.
         expect(fake.webhook_response(nil)).to have_attributes(status: 201)
       end
     end
+
+    describe "upsert_webhook" do
+      it "logs errors" do
+        err = RuntimeError.new("hi")
+        expect(fake).to receive(:_upsert_webhook).and_raise(err)
+        logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
+          expect do
+            fake.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(
+                                  body: {"a" => 1}, headers: {"X" => "1"}, path: "/hi", method: "POST",
+                                ))
+          end.to raise_error(err)
+        end
+        expect(logs).to contain_exactly(
+          include_json(
+            message: eq("upsert_webhook_error"),
+            name: eq("Webhookdb::Replicator::Fake"),
+            context: {
+              error: "hi",
+              request: {body: {a: 1}, headers: {X: "1"}, path: "/hi", method: "POST"},
+            },
+          ),
+        )
+      end
+    end
   end
 end

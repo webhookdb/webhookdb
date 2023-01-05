@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "appydays/loggable"
+
 require "webhookdb/backfiller"
 require "webhookdb/db_adapter"
 require "webhookdb/connection_cache"
@@ -11,6 +13,7 @@ require "webhookdb/typed_struct"
 require "webhookdb/jobs/send_webhook"
 
 class Webhookdb::Replicator::Base
+  include Appydays::Loggable
   include Webhookdb::DBAdapter::ColumnTypes
 
   # Return the descriptor for this service.
@@ -421,6 +424,14 @@ class Webhookdb::Replicator::Base
   #
   # @param [Webhookdb::Replicator::WebhookRequest] request
   def upsert_webhook(request)
+    return self._upsert_webhook(request)
+  rescue StandardError => e
+    self.logger.error("upsert_webhook_error", request: request.as_json, error: e)
+    raise
+  end
+
+  # Hook to be overridden, while still retaining top-level upsert_webhook functionality like error handling.
+  def _upsert_webhook(request)
     remote_key_col = self._remote_key_column
     resource, event = self._resource_and_event(request)
     return nil if resource.nil?
