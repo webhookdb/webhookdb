@@ -113,6 +113,32 @@ RSpec.shared_examples "a replicator" do |name|
   end
 end
 
+RSpec.shared_examples "a replicator that may have a minimal body" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  let(:body) { raise NotImplementedError }
+  let(:other_bodies) { [] }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "can insert minimal examples into its table" do
+    svc.create_table
+    all_bodies = [body] + other_bodies
+    all_bodies.each { |b| upsert_webhook(svc, body: b) }
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(all_bodies.length)
+      expect(ds.first[:data]).to be_present
+    end
+  end
+end
+
 RSpec.shared_examples "a replicator that upserts webhooks only under specific conditions" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Replicator.create(sint) }
