@@ -454,6 +454,50 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 end
 
+RSpec.shared_examples "a replicator that ignores HTTP errors during backfill" do |name|
+  let(:api_url) { "https://fake-url.com" }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url:,
+    )
+  end
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  let(:backfiller_class) { Webhookdb::Backfiller }
+
+  def insert_required_data_callback
+    # For instances where our custom backfillers use info from rows in the dependency table to make requests.
+    # The function should take a replicator of the dependency.
+    # Something like: `return ->(dep_svc) { insert_some_info }`
+    return ->(_dep_svc) { return }
+  end
+
+  def stub_error_requests
+    raise NotImplementedError, "return request stubs for all ignored error responses"
+  end
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "does not error for any of the configured responses" do
+    allow(Webhookdb::Backfiller).to receive(:do_retry_wait).at_least(:once)
+    svc.create_table
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+    responses = stub_error_requests
+    Array.new(responses.size) { svc.backfill }
+    expect(responses).to all(have_been_made.at_least_times(1))
+    svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
+  end
+end
+
 RSpec.shared_examples "a replicator backfilling against the table of its dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Replicator.create(sint) }
