@@ -15,3 +15,7 @@
 [[redirects]]
   from = "/development-agencies"
   to = "/solutions/development-agencies"
+
+[[redirects]]
+  from = "/docs/super-webhooks"
+  to = "/docs/webhooks"

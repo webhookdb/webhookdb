@@ -44,7 +44,7 @@ export default function FooterSection() {
                   ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
                   ["/docs/api2sql/", API2SQL],
                   ["/docs/faq/", "FAQ"],
-                  ["/docs/super-webhooks/", "Super Webhooks"],
+                  ["/docs/webhooks/", "Super Webhooks"],
                   ["/integrations/", "Supported Integrations"],
                 ],
                 [
