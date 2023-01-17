@@ -69,8 +69,8 @@ export default function Partnering() {
         <Hilite>figure out a licensing structure that works for your needs;</Hilite>{" "}
         most commonly, this is a yearly license with a conversion into a
         &ldquo;source&rdquo; license, so you don&rsquo;t need to worry about paying for
-        WebhookDB in perpetuity or losing access if we go out of business. You
-        get all the benefits you&rsquo;d have if you had built it yourself.
+        WebhookDB in perpetuity or losing access if we go out of business. You get all
+        the benefits you&rsquo;d have if you had built it yourself.
       </Lead>
       <Lead>
         These usually include a significant amount of custom integration development

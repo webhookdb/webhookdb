@@ -97,9 +97,9 @@ export default function IndexPage() {
             <stroneg>Forever.</stroneg>
           </Lead>
           <Lead>
-            With {API2SQL}, application developers access 3rd party API data using the same database
-            they use for application data. This unified application
-            data reservoir approach <Hilite>simplifies development</Hilite>, and enables
+            With {API2SQL}, application developers access 3rd party API data using the
+            same database they use for application data. This unified application data
+            reservoir approach <Hilite>simplifies development</Hilite>, and enables
             product teams to
             <Hilite>focus on your core value proposition</Hilite>, not 3rd party API
             integration.
@@ -122,8 +122,8 @@ export default function IndexPage() {
           </Lead>
           <Lead>
             Take advantage of our pre-built integrations for leading API providers, from
-            Stripe to Twilio. Most of our partners have us build custom integrations &mdash; we can tackle
-            literally any API, 1st or 3rd party.
+            Stripe to Twilio. Most of our partners have us build custom integrations
+            &mdash; we can tackle literally any API, 1st or 3rd party.
           </Lead>
           <Lead>
             License WebhookDB as a fully-hosted SaaS, or for self-hosting, or with a
@@ -205,8 +205,8 @@ export default function IndexPage() {
           <h2>Our Guide.</h2>
           <Lead>
             As developers ourselves, we place a strong emphasis on clear documentation
-            and intuitive, efficient tooling. We want you to be able to get up and going in minutes. Read our
-            documentation for more information.
+            and intuitive, efficient tooling. We want you to be able to get up and going
+            in minutes. Read our documentation for more information.
           </Lead>
           <Lead>
             <SafeExternalLink href={staticData.announcementBlog}>
