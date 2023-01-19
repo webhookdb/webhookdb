@@ -54,6 +54,8 @@ class Webhookdb::Backfiller
     return self.fetch_backfill_page(pagination_token, last_backfilled:)
   rescue Webhookdb::Http::BaseError => e
     raise e if attempt >= self.max_backfill_retry_attempts
+    # Assume we'll never succeed on a 401, so don't bother retrying.
+    raise e if e.is_a?(Webhookdb::Http::Error) && e.status == 401
     self.wait_for_retry_attempt(attempt:)
     return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled:, attempt: attempt + 1)
   end
