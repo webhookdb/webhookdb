@@ -25,8 +25,9 @@ module Webhookdb::Fixtures::ServiceIntegrations
     self.depends_on = other
   end
 
+  STABLE_ENC_SECRET = "6vHQcB8xlVSmHO2Wxsqk713k7oi_SpIWirUG0YTGUa4="
   decorator :stable_encryption_secret do
-    self.data_encryption_secret = "6vHQcB8xlVSmHO2Wxsqk713k7oi_SpIWirUG0YTGUa4="
+    self.data_encryption_secret = STABLE_ENC_SECRET
   end
 
   decorator :with_encryption_secret do
