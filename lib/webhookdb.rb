@@ -33,6 +33,9 @@ module Webhookdb
   # something we expect to have changed has not changed.
   class InvalidPostcondition < StandardError; end
 
+  # Some invariant has been violated, which we never expect to see.
+  class InvariantViolation < StandardError; end
+
   # Error raised when a customer gives us some invalid input.
   # Allows the library to raise the error with the message,
   # and is caught automatically by the service as a 400.

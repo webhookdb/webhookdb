@@ -1,9 +1,15 @@
 # frozen_string_literal: true
 
+require "appydays/configurable"
 require "webhookdb/typed_struct"
 
 class Webhookdb::Replicator
+  include Appydays::Configurable
   extend Webhookdb::MethodUtilities
+
+  configurable(:replicator) do
+    setting :always_process_synchronously, false
+  end
 
   REPLICATORS_DIR = Pathname(__FILE__).dirname + "replicator"
   PLUGIN_DIR = Pathname(__FILE__).dirname + "replicator_ext"

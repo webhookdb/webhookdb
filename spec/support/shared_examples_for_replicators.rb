@@ -663,7 +663,7 @@ RSpec.shared_examples "a replicator with dependents" do |service_name, dependent
       expect(dep_svc).to receive(:on_dependency_webhook_upsert).twice do |inst, payload, changed:|
         calls << 0
         expect(inst).to eq(svc)
-        expect(payload).to eq(expected_insert)
+        expect(payload).to match(expected_insert)
         if can_track_row_changes
           expect(changed).to(calls.length == 1 ? be_truthy : be_falsey)
         else

@@ -44,7 +44,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   end
 
   def synchronous_processing_response_body(**)
-    super unless self.process_webhooks_synchronously?
+    return super unless self.process_webhooks_synchronously?
     return self.class.process_webhooks_synchronously
   end
 

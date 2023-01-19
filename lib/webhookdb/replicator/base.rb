@@ -64,6 +64,7 @@ class Webhookdb::Replicator::Base
   # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [String]
   def synchronous_processing_response_body(upserted:, request:)
+    return {message: "process synchronously"}.to_json if Webhookdb::Replicator.always_process_synchronously
     raise NotImplementedError, "must be implemented if process_webhooks_synchronously? is true"
   end
 
@@ -457,6 +458,7 @@ class Webhookdb::Replicator::Base
     return inserting
   end
 
+  # @param changed [Boolean]
   def _notify_dependents(inserting, changed)
     self.service_integration.dependents.each do |d|
       d.replicator.on_dependency_webhook_upsert(self, inserting, changed:)

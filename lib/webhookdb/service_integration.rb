@@ -84,6 +84,10 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
         select { |si| si.service_name == dep_descr.name }
   end
 
+  def recursive_dependents
+    return self.dependents + self.dependents.flat_map(&:recursive_dependents)
+  end
+
   class Stats
     attr_reader :message, :data
 

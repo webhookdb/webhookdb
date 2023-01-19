@@ -243,6 +243,21 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
       org.remove_related_database
     end
 
+    it "performs ProcessWebhook synchronously if configured" do
+      Webhookdb::Replicator.always_process_synchronously = true
+      org.prepare_database_connections
+      sint.replicator.create_table
+      header "X-My-Test", "abc"
+      post "/v1/service_integrations/xyz", my_id: "myid", at: Time.at(5)
+
+      expect(last_response).to have_status(202)
+      expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
+      expect(last_response).to have_json_body.that_includes(message: "process synchronously")
+    ensure
+      org.remove_related_database
+      Webhookdb::Replicator.reset_configuration
+    end
+
     it "uses netout queue for ProcessWebhook job if integration has deps", :async do
       Webhookdb::Replicator::Fake.upsert_has_deps = true
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).

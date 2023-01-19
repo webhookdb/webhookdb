@@ -4,6 +4,7 @@ require "grape"
 
 require "webhookdb/api"
 require "webhookdb/formatting"
+require "webhookdb/replicator"
 require "webhookdb/async/audit_logger"
 require "webhookdb/jobs/process_webhook"
 
@@ -75,7 +76,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         # It should be fast enough. We may as well log here so we can avoid
         # serializing the (large) webhook payload multiple times, as with normal pubsub.
         Webhookdb::Async::AuditLogger.new.perform(event_json)
-        if svc.process_webhooks_synchronously?
+        if svc.process_webhooks_synchronously? || Webhookdb::Replicator.always_process_synchronously
           whreq = Webhookdb::Replicator::WebhookRequest.new(
             method: process_kwargs[:request_method],
             path: process_kwargs[:request_path],
