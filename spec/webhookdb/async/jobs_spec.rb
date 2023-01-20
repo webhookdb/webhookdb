@@ -316,6 +316,93 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "RenewGoogleWatchChannels" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+    let(:cal_list_sint) { fac.stable_encryption_secret.create(service_name: "google_calendar_list_v1") }
+    let(:cal_list_svc) { cal_list_sint.replicator }
+    let(:cal_sint) { fac.depending_on(cal_list_sint).create(service_name: "google_calendar_v1") }
+    let(:cal_svc) { cal_sint.replicator }
+
+    before(:each) do
+      org.prepare_database_connections
+      cal_list_svc.create_table
+      cal_svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    def refreshed(row)
+      return svc.readonly_dataset { |ds| ds[pk: row.fetch(:pk)] }
+    end
+
+    it "performs bulk update on google replicator watches" do
+      before_cutoff = Time.now + 2.hours
+      after_cutoff = Time.now + 2.weeks
+      cal_list_svc.admin_dataset do |ds|
+        ds.returning(Sequel.lit("*")).insert(
+          data: "{}",
+          row_updated_at: Time.now,
+          encrypted_oauth_token: "lGfCermPAzJuhsbRalipbg==",
+          external_owner_id: "owner1",
+          watch_channel_id: "chan_id",
+          watch_channel_expiration: after_cutoff,
+        ).first
+      end
+      cal_row = cal_svc.admin_dataset do |ds|
+        ds.returning(Sequel.lit("*")).insert(
+          data: "{}",
+          compound_identity: "owner1_x",
+          google_id: "x",
+          external_owner_id: "owner1",
+          events_watch_channel_id: "events_chan_id",
+          events_watch_channel_expiration: before_cutoff,
+          events_watch_resource_id: "res_id",
+        ).first
+      end
+      cal_watch_req = stub_request(:post, "https://www.googleapis.com/calendar/v3/calendars/x/events/watch").
+        with(
+          headers: {"Authorization" => "Bearer asdfghjkl4567"},
+          body: hash_including(
+            :id, # this value is randomly generated so we can't predict it, but it should be there
+            token: {external_owner_id: "owner1"}.to_json,
+            type: "webhook",
+            address: cal_svc.webhook_endpoint,
+          ),
+        ).
+        to_return(
+          status: 200,
+          headers: {"Content-Type" => "application/json"},
+          body: {
+            kind: "api#channel",
+            id: "id_for_channel",
+            resourceId: "id_for_watched_resource",
+            resourceUri: "version_specific_id",
+            expiration: "1672864942219",
+          }.to_json,
+        )
+      cal_stop_req = stub_request(:post, "https://www.googleapis.com/calendar/v3/channels/stop").
+        with(
+          headers: {"Authorization" => "Bearer asdfghjkl4567"},
+          body: {id: "events_chan_id", resourceId: "res_id"}.to_json,
+        ).
+        to_return(status: 200, body: "")
+
+      Webhookdb::Jobs::RenewGoogleWatchChannels.new.perform
+
+      expect(cal_watch_req).to have_been_made
+      expect(cal_stop_req).to have_been_made
+
+      refreshed_cal_row = cal_svc.readonly_dataset { |ds| ds[pk: cal_row.fetch(:pk)] }
+      expect(refreshed_cal_row).to include(
+        events_watch_channel_expiration: match_time("2023-01-04 20:42:22.219 +0000"),
+        events_watch_channel_id: "id_for_channel",
+      )
+    end
+  end
+
   describe "ReplicationMigration" do
     let(:fake_sint) { Webhookdb::Fixtures.service_integration.create }
     let(:o) { fake_sint.organization }
