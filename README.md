@@ -39,6 +39,20 @@ using the `schema` isolation since it uses a shared Heroku database.
 - When the test run finishes, it will upload the test results to the database
   and notify about the results in Slack.
 
+## Integration with Remote Services
+
+In order for remote webhooks to work, 3rd party services need to reach your machine.
+The easiest way to do this is:
+
+- In another tab, run ngrok, via `make ngrok` or `ngrok http -subdomain webhookdb-${USER} 18001`.
+  If you don't have an ngrok subscription, that's fine, it's just a bit more work.
+- Set `WEBHOOKDB_API_URL=https://webhookdb-${USER}.ngrok.io` and run the server, or run `make run-with-ngrok`
+  If you have a different subdomain, use that.
+- OR, you can set `WEBHOOKDB_API_URL=<whatever>` in `.env.development.local`.
+- The webhook API will be reachable via ngrok. Test it with `curl https://webhookdb-${USER}.ngrok.io/healthz`.
+
+Remember you can run `export WEBHOOKDB_API_HOST=<whatever>` and then `webhookdb` CLI will use it.
+
 ## Regression Testing
 
 Testing changes to integrations can be difficult because we often don't have access

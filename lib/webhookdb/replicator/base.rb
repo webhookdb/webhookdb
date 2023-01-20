@@ -440,7 +440,8 @@ class Webhookdb::Replicator::Base
     prepared = self._prepare_for_insert(resource, event, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    inserting[:data] = resource.to_json
+    data_col_val = self._resource_to_data(resource)
+    inserting[:data] = data_col_val.to_json
     inserting[:enrichment] = enrichment.to_json if self._store_enrichment_body?
     inserting.merge!(prepared)
     updating = self._upsert_update_expr(inserting, enrichment:)
@@ -557,6 +558,13 @@ class Webhookdb::Replicator::Base
       memo[col.name] = value unless skip
     end
     return h
+  end
+
+  # Given the resource, return the value for the :data column.
+  # Only needed in rare situations where fields should be stored
+  # on the row, but not in :data.
+  def _resource_to_data(resource)
+    return resource
   end
 
   # Given the hash that is passed to the Sequel insert

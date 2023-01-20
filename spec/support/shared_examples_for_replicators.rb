@@ -6,6 +6,7 @@ RSpec.shared_examples "a replicator" do |name|
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
   let(:supports_row_diff) { true }
+  let(:expected_row) { nil }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -37,7 +38,11 @@ RSpec.shared_examples "a replicator" do |name|
     upsert_webhook(svc, body:)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_data)
+      if expected_row
+        expect(ds.first).to match(expected_row)
+      else
+        expect(ds.first[:data]).to eq(expected_data)
+      end
     end
   end
 
@@ -47,7 +52,11 @@ RSpec.shared_examples "a replicator" do |name|
     upsert_webhook(svc, body:)
     svc.admin_dataset do |ds|
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_data)
+      if expected_row
+        expect(ds.first).to match(expected_row)
+      else
+        expect(ds.first[:data]).to eq(expected_data)
+      end
       # this is how a fully qualified table is represented (schema->table, table->column)
       expect(ds.opts[:from].first).to have_attributes(table: "xyz", column: svc.service_integration.table_name.to_sym)
     end
@@ -169,6 +178,8 @@ RSpec.shared_examples "a replicator that prevents overwriting new data with old"
   let(:new_body) { raise NotImplementedError }
   let(:expected_old_data) { old_body }
   let(:expected_new_data) { new_body }
+  let(:expected_old_row) { nil }
+  let(:expected_new_row) { nil }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -184,11 +195,19 @@ RSpec.shared_examples "a replicator that prevents overwriting new data with old"
     svc.readonly_dataset do |ds|
       upsert_webhook(svc, body: old_body)
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_old_data)
+      if expected_old_row
+        expect(ds.first).to match(expected_old_row)
+      else
+        expect(ds.first[:data]).to eq(expected_old_data)
+      end
 
       upsert_webhook(svc, body: new_body)
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_new_data)
+      if expected_new_row
+        expect(ds.first).to match(expected_new_row)
+      else
+        expect(ds.first[:data]).to eq(expected_new_data)
+      end
     end
   end
 
@@ -198,11 +217,19 @@ RSpec.shared_examples "a replicator that prevents overwriting new data with old"
     svc.readonly_dataset do |ds|
       upsert_webhook(svc, body: new_body)
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_new_data)
+      if expected_new_row
+        expect(ds.first).to match(expected_new_row)
+      else
+        expect(ds.first[:data]).to eq(expected_new_data)
+      end
 
       upsert_webhook(svc, body: old_body)
       expect(ds.all).to have_length(1)
-      expect(ds.first[:data]).to eq(expected_new_data)
+      if expected_new_row
+        expect(ds.first).to match(expected_new_row)
+      else
+        expect(ds.first[:data]).to eq(expected_new_data)
+      end
     end
   end
 end
