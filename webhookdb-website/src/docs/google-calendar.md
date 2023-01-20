@@ -53,6 +53,49 @@ Likewise, we need to get the header used to secure the integration
 
 Record this so it can be read by your application too.
 
+<a id="testing"></a>
+
+## [Testing your Integration](#testing)
+
+Before we start writing anything in your backend, it's a good idea to make sure everything is set up right.
+Let's use cURL to validate everything is working.
+
+First, get an OAuth access token, either from your database, or using the Google API explorer
+like at https://developers.google.com/calendar/api/v3/reference/calendarList/list
+(open Developer Tools -> Network Tab -> XHR, run a 'Try this method',
+find the request that was made, and grab the token (like 'ya29....') out of the Authorization header).
+Put that value into an environment variable in your shell called `ACCESS_TOKEN`,
+like `export ACCESS_TOKEN=ya29.123456abcd`.
+Then let's try things out:
+
+```bash
+export ACCESS_TOKEN=ya29.123456abcd
+# These values are from when you created the google_calendar_list_v1 integration, as above
+export WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT=https://api.webhookdb.com/v1/service_integrations/svi_alaxblg5llvxb2morb9hw4xs2
+export WEBHOOKDB_GOOGLE_CALENDAR_SECRET=a3vgdtr0wje0ywjb73ic0ch3n
+
+# Make a request to link the calendar
+curl -X POST -d '{"type":"LINKED","external_owner_id":"test-user","oauth_token":"'"${ACCESS_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
+```
+
+That's it- you will see data flowing into your database almost immediately.
+You can connect to your database and query it (connection parameters are printed out
+when you set up the integration, or you can use `webhookdb db connection`).
+
+If your token expires, you can refresh it once you set the new one to `ACCESS_TOKEN`:
+
+```bash
+curl -X POST -d '{"type":"REFRESHED","external_owner_id":"test-user","oauth_token":"'"${ACCESS_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
+```
+
+After you've checked out your data, you can delete all the data out of WebhookDB
+if you want (or you can leave it- it'll keep syncing, and stop syncing once the token expires;
+we show how to send new access tokens below).
+
+```bash
+curl -X POST -d '{"type":"UNLINK","external_owner_id":"test-user"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
+```
+
 <a id="google-auth"></a>
 
 ## [Integrating with Google Auth](#google-auth)
