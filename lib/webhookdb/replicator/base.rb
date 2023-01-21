@@ -128,6 +128,7 @@ class Webhookdb::Replicator::Base
   # since verification may include info specific to the request content
   # (like, it can be whitespace sensitive).
   # @abstract
+  # @param [Rack::Request] request
   # @return [Webhookdb::WebhookResponse]
   def _webhook_response(request)
     raise NotImplementedError
