@@ -11,6 +11,7 @@ require "webhookdb/replicator/webhook_request"
 require "webhookdb/typed_struct"
 
 require "webhookdb/jobs/send_webhook"
+require "webhookdb/jobs/sync_target_run_sync"
 
 class Webhookdb::Replicator::Base
   include Appydays::Loggable
@@ -71,7 +72,7 @@ class Webhookdb::Replicator::Base
   # In some cases, services may send us sensitive headers we do not want to log.
   # This should be very rare but some services are designed really badly and send auth info in the webhook.
   # Remove or obfuscate the passed header hash.
-  def preprocess_headers_for_logging(_headers); end
+  def preprocess_headers_for_logging(headers); end
 
   # Return a tuple of (schema, table) based on the organization's replication schema,
   # and the service integration's table name.
@@ -407,7 +408,7 @@ class Webhookdb::Replicator::Base
   #
   # @param request [Rack::Request]
   # @return [Webhookdb::Replicator::Base]
-  def dispatch_request_to(_request)
+  def dispatch_request_to(request)
     return self
   end
 
@@ -503,7 +504,7 @@ class Webhookdb::Replicator::Base
   # @param [Hash,nil] event
   # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [*]
-  def _fetch_enrichment(_resource, _event, _request)
+  def _fetch_enrichment(resource, event, request)
     return nil
   end
 
@@ -626,6 +627,17 @@ class Webhookdb::Replicator::Base
     raise LocalJumpError if block.nil?
     Webhookdb::ConnectionCache.borrow(url, **kw) do |conn|
       yield(conn[self.qualified_table_sequel_identifier])
+    end
+  end
+
+  # Some replicators support 'instant sync', because they are upserted en-masse
+  # rather than row-by-row. That is, usually we run sync targets on a cron,
+  # because otherwise we'd need to run the sync target for every row.
+  # But if inserting is always done through backfilling,
+  # we know we have a useful set of results to sync, so don't need to wait for cron.
+  def enqueue_sync_targets
+    self.service_integration.sync_targets.each do |stgt|
+      Webhookdb::Jobs::SyncTargetRunSync.perform_async(stgt.id)
     end
   end
 
