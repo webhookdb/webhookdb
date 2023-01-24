@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "sequel/advisory_lock"
 require "sequel/database"
+
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
 #
@@ -20,6 +22,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Webhookdb::Dbutil
 
   class SyncInProgress < StandardError; end
+
+  # Advisory locks for sync targets use this as the first int, and the id as the second.
+  ADVISORY_LOCK_KEYSPACE = 2_000_000_000
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,
@@ -144,12 +149,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   #   - Otherwise the logic is the same as PG: create a temp table and COPY INTO from the CSV.
   #   - Purge the staged file.
   def run_sync(at:)
-    tempfile = nil
-    self.db.transaction do
-      available = self.class.dataset.where(id: self.id).lock_style("FOR UPDATE SKIP LOCKED").first
-      raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" if available.nil?
-      self.lock!
-
+    ran, _ = Sequel::AdvisoryLock.new(self.db, ADVISORY_LOCK_KEYSPACE, self.id).lock? do
       # Note that http links are not secure and should only be used for development purposes
       return self._run_sync_http(at) if self.connection_url.start_with?("https://", "http://")
 
@@ -177,23 +177,26 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         self.update(last_applied_schema: schema_expr)
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.id}")
-      self._dataset_to_sync(at) do |ds|
-        ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
-          tempfile.write(row)
+      begin
+        self._dataset_to_sync(at) do |ds|
+          ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
+            tempfile.write(row)
+          end
         end
+        tempfile.rewind
+        adapter.merge_from_csv(
+          adapter_conn,
+          tempfile,
+          table,
+          svc.primary_key_column,
+          [svc.primary_key_column, svc.remote_key_column] + svc.denormalized_columns + [svc.data_column],
+        )
+        self.update(last_synced_at: at)
+      ensure
+        tempfile.unlink
       end
-      tempfile.rewind
-      adapter.merge_from_csv(
-        adapter_conn,
-        tempfile,
-        table,
-        svc.primary_key_column,
-        [svc.primary_key_column, svc.remote_key_column] + svc.denormalized_columns + [svc.data_column],
-      )
-      self.update(last_synced_at: at)
-    ensure
-      tempfile&.unlink
     end
+    raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" unless ran
   end
 
   def _run_sync_http(at)

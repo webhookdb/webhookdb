@@ -154,11 +154,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       sint.organization.remove_related_database
     end
 
-    it "aborts if the row is already locked", db: :no_transaction do
+    it "aborts if a sync is already in progress" do
       sync_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint).create
       Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
-        otherconn.transaction(rollback: :always) do
-          otherconn[:sync_targets].where(id: sync_tgt.id).lock_style("FOR UPDATE").update(last_synced_at: Time.now)
+        Sequel::AdvisoryLock.new(otherconn, described_class::ADVISORY_LOCK_KEYSPACE, sync_tgt.id).lock do
           expect do
             sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
           end.to raise_error(Webhookdb::SyncTarget::SyncInProgress)
