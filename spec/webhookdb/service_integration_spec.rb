@@ -147,11 +147,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     end
   end
 
-  describe "sequence creation" do
-    after(:each) do
-      Webhookdb::Replicator::Fake.reset
-    end
-
+  describe "sequence creation", :fake_replicator do
     it "creates a sequence if needed" do
       Webhookdb::Replicator::Fake.requires_sequence = true
       sint = Webhookdb::Fixtures.service_integration.create

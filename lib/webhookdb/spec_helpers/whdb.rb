@@ -24,6 +24,19 @@ module Webhookdb::SpecHelpers::Whdb
       Webhookdb.regression_mode = false if example.metadata[:regression_mode]
     end
 
+    context.around(:each) do |example|
+      if example.metadata[:fake_replicator]
+        Webhookdb::Replicator::Fake.reset
+        begin
+          example.run
+        ensure
+          Webhookdb::Replicator::Fake.reset
+        end
+      else
+        example.run
+      end
+    end
+
     super
   end
 

@@ -247,14 +247,13 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    describe "ensure_all_columns" do
+    describe "ensure_all_columns", :fake_replicator do
       before(:each) do
         sint.organization.prepare_database_connections
       end
 
       after(:each) do
         sint.organization.remove_related_database
-        Webhookdb::Replicator::Fake.reset
       end
 
       it "uses create_table modification if the table does not exist" do
