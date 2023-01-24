@@ -159,7 +159,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
         Sequel::AdvisoryLock.new(otherconn, described_class::ADVISORY_LOCK_KEYSPACE, sync_tgt.id).lock do
           expect do
-            sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
+            sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
           end.to raise_error(Webhookdb::SyncTarget::SyncInProgress)
         end
       end
@@ -167,6 +167,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
     describe "with a postgres target" do
       let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create }
+      let(:adapter_conn) { Webhookdb::DBAdapter.adapter(sync_tgt.connection_url).connection(sync_tgt.connection_url) }
 
       before(:each) do
         drop_schemas
@@ -186,15 +187,15 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
       it "incrementally syncs to PG and sets last synced" do
         t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
-        sync_tgt.run_sync(at: t1)
-        sync_tgt.adapter_connection.using do |db|
+        sync_tgt.run_sync(now: t1)
+        adapter_conn.using do |db|
           expect(db[Sequel[@default_schema][sint.table_name.to_sym]].all).to have_length(2)
         end
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
 
         t2 = Time.parse("Thu, 30 Aug 2020 21:12:33 +0000")
-        sync_tgt.run_sync(at: t2)
-        sync_tgt.adapter_connection.using do |db|
+        sync_tgt.run_sync(now: t2)
+        adapter_conn.using do |db|
           expect(db[Sequel[@default_schema][sint.table_name.to_sym]].all).to have_length(3)
         end
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
@@ -202,8 +203,8 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
       it "can use an explicit schema and table" do
         sync_tgt.update(schema: @custom_schema.to_s, table: "synctgttesttable")
-        sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
-        sync_tgt.adapter_connection.using do |db|
+        sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
+        adapter_conn.using do |db|
           expect(db[Sequel[@custom_schema][:synctgttesttable]].all).to have_length(3)
         end
       end
@@ -211,11 +212,11 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       describe "schema caching" do
         it "executes schema changes if they change between syncs" do
           logs = capture_logs_from(Webhookdb.logger) do
-            sync_tgt.run_sync(at: 2.hours.ago)
+            sync_tgt.run_sync(now: 2.hours.ago)
             expect(sync_tgt.last_applied_schema).to include("CREATE SCHEMA")
-            sync_tgt.run_sync(at: 1.hour.ago)
+            sync_tgt.run_sync(now: 1.hour.ago)
             sync_tgt.update(last_applied_schema: sync_tgt.last_applied_schema + ";")
-            sync_tgt.run_sync(at: Time.now)
+            sync_tgt.run_sync(now: Time.now)
           end
           schema_logs = logs.select { |line| line.to_s.include?("CREATE SCHEMA") }
           expect(schema_logs).to have_length(2)
@@ -247,13 +248,13 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
       it "incrementally syncs to Snowflake and sets last synced" do
         t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
-        sync_tgt.run_sync(at: t1)
+        sync_tgt.run_sync(now: t1)
         values = run_cli("SELECT pk, my_id, at, data FROM #{@default_schema}.#{sint.table_name}")
         expect(values.flatten).to have_length(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
 
         t2 = Time.parse("Thu, 30 Aug 2020 21:12:33 +0000")
-        sync_tgt.run_sync(at: t2)
+        sync_tgt.run_sync(now: t2)
         values = run_cli("SELECT pk, my_id, at, data FROM #{@default_schema}.#{sint.table_name}")
         expect(values.flatten).to have_length(3)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
@@ -261,7 +262,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
       it "can use an explicit schema and table" do
         sync_tgt.update(schema: "synctgttestschema", table: "synctgttesttable")
-        sync_tgt.run_sync(at: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
+        sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2020 21:12:33 +0000"))
         values = run_cli("SELECT pk, my_id, at, data FROM #{@custom_schema}.synctgttesttable")
         expect(values.flatten).to have_length(3)
       end
@@ -303,7 +304,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
           ).
           to_return(status: 200, body: "", headers: {})
 
-        sync_tgt.run_sync(at: t1)
+        sync_tgt.run_sync(now: t1)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
         expect(sync1_req).to have_been_made
 
@@ -326,9 +327,32 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
             },
           ).
           to_return(status: 200, body: "", headers: {})
-        sync_tgt.run_sync(at: t2)
+        sync_tgt.run_sync(now: t2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
         expect(sync2_req).to have_been_made
+      end
+
+      it "records timestamp of last successful synced item, logs, and ignores http errors" do
+        sync_tgt.update(page_size: 2)
+        reqs = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return({status: 200, body: "", headers: {}}).
+          to_return(status: 413, body: "body too large", headers: {})
+        sync_tgt.run_sync(now: Time.now)
+        expect(reqs).to have_been_made.times(2)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
+      end
+
+      it "records timestamp of last successful synced item and raises if a non-http error occurs" do
+        sync_tgt.update(page_size: 2)
+        rte = RuntimeError.new("hi")
+        req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return(status: 200, body: "", headers: {}).
+          to_raise(rte)
+        expect do
+          sync_tgt.run_sync(now: Time.now)
+        end.to raise_error(rte)
+        expect(req).to have_been_made.times(2)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
       end
     end
   end
