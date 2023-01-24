@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "sequel/advisory_lock"
 require "sequel/database"
+
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
 #
@@ -20,6 +22,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Webhookdb::Dbutil
 
   class SyncInProgress < StandardError; end
+
+  # Advisory locks for sync targets use this as the first int, and the id as the second.
+  ADVISORY_LOCK_KEYSPACE = 2_000_000_000
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync,
@@ -125,8 +130,14 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # Running a sync involves some work we always do (export, transform),
   # and then work that varies per-adapter (load).
   #
-  # - Lock this row to make sure we never sync the same service integer
-  #   at the same time. We early out if the lock is held since it can take a while to sync.
+  # First, we lock using an advisory lock to make sure we never sync the same sync target
+  # concurrently. It can cause correctness and performance issues.
+  # Raise a +SyncInProgress+ error if we're currently syncing.
+  #
+  # If the sync target is against an HTTP URL, see +_run_http_sync+.
+  #
+  # If the sync target is a database connection:
+  #
   # - Ensure the sync target table exists and has the right schema.
   #   In general we do NOT create indices for the target table;
   #   since this table is for a client's data warehouse, we assume they will optimize it as needed.
@@ -143,124 +154,39 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   #   - PUT the CSV file into the stage for the table.
   #   - Otherwise the logic is the same as PG: create a temp table and COPY INTO from the CSV.
   #   - Purge the staged file.
-  def run_sync(at:)
-    tempfile = nil
-    self.db.transaction do
-      available = self.class.dataset.where(id: self.id).lock_style("FOR UPDATE SKIP LOCKED").first
-      raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" if available.nil?
-      self.lock!
-
-      # Note that http links are not secure and should only be used for development purposes
-      return self._run_sync_http(at) if self.connection_url.start_with?("https://", "http://")
-
-      svc = self.service_integration.replicator
-      schema_name = self.schema.present? ? self.schema : self.class.default_schema
-      table_name = self.table.present? ? self.table : self.service_integration.table_name
-      adapter = self.adapter
-      schema = Webhookdb::DBAdapter::Schema.new(name: schema_name.to_sym)
-      table = Webhookdb::DBAdapter::Table.new(name: table_name.to_sym, schema:)
-
-      schema_lines = []
-      schema_lines << adapter.create_schema_sql(table.schema, if_not_exists: true)
-      schema_lines << adapter.create_table_sql(
-        table,
-        [svc.primary_key_column, svc.remote_key_column],
-        if_not_exists: true,
-      )
-      (svc.denormalized_columns + [svc.data_column]).each do |col|
-        schema_lines << adapter.add_column_sql(table, col, if_not_exists: true)
+  #
+  # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
+  # will be synced.
+  def run_sync(now:)
+    ran, _ = Sequel::AdvisoryLock.new(self.db, ADVISORY_LOCK_KEYSPACE, self.id).lock? do
+      routine = if self.connection_url.start_with?("https://", "http://")
+                  # Note that http links are not secure and should only be used for development purposes
+                  HttpRoutine.new(now, self)
+      else
+        DatabaseRoutine.new(now, self)
       end
-      adapter_conn = adapter.connection(self.connection_url)
-      schema_expr = schema_lines.join(";\n") + ";"
-      if schema_expr != self.last_applied_schema
-        adapter_conn.execute(schema_expr)
-        self.update(last_applied_schema: schema_expr)
-      end
-      tempfile = Tempfile.new("whdbsyncout-#{self.id}")
-      self._dataset_to_sync(at) do |ds|
-        ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
-          tempfile.write(row)
-        end
-      end
-      tempfile.rewind
-      adapter.merge_from_csv(
-        adapter_conn,
-        tempfile,
-        table,
-        svc.primary_key_column,
-        [svc.primary_key_column, svc.remote_key_column] + svc.denormalized_columns + [svc.data_column],
-      )
-      self.update(last_synced_at: at)
-    ensure
-      tempfile&.unlink
+      return routine.run
     end
-  end
-
-  def _run_sync_http(at)
-    self._dataset_to_sync(at) do |ds|
-      chunk = []
-      ds.paged_each(rows_per_fetch: self.page_size) do |row|
-        chunk << row
-        self._flush_http_chunk(at, chunk) if chunk.size >= self.page_size
-      end
-      self._flush_http_chunk(at, chunk) unless chunk.empty?
-    end
-    self.update(last_synced_at: at)
-  end
-
-  def _flush_http_chunk(at, chunk)
-    sint = self.service_integration
-    body = {
-      rows: chunk,
-      integration_id: sint.opaque_id,
-      integration_service: sint.service_name,
-      table: sint.table_name,
-      sync_timestamp: at,
-    }
-    cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.connection_url)
-    Webhookdb::Http.post(
-      cleanurl,
-      body,
-      timeout: sint.organization.sync_target_timeout,
-      logger: self.logger,
-      basic_auth: authparams,
-    )
-    chunk.clear
-  end
-
-  def _dataset_to_sync(at)
-    svc = self.service_integration.replicator
-    tscol = Sequel[svc.timestamp_column.name]
-    svc.readonly_dataset do |ds|
-      tscond = (tscol <= at)
-      self.last_synced_at && (tscond &= (tscol >= self.last_synced_at))
-      ds = ds.where(tscond)
-      yield(ds)
-    end
-  end
-
-  def adapter
-    return Webhookdb::DBAdapter.adapter(self.connection_url)
-  end
-
-  def adapter_connection
-    return self.adapter.connection(self.connection_url)
+    raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" unless ran
   end
 
   def displaysafe_connection_url
     return displaysafe_url(self.connection_url)
   end
 
+  # @return [String]
   def associated_type
     # Eventually we need to support orgs
     return "service_integration"
   end
 
+  # @return [String]
   def associated_id
     # Eventually we need to support orgs
     return self.service_integration.opaque_id
   end
 
+  # @return [Webhookdb::Organization]
   def organization
     return self.service_integration.organization
   end
@@ -274,6 +200,163 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   # @!attribute connection_url
   #   @return [String]
+
+  # @!attribute last_synced_at
+  #   @return [Time]
+
+  class Routine
+    attr_reader :now, :sync_target, :replicator, :timestamp_expr
+
+    def initialize(now, sync_target)
+      @now = now
+      @sync_target = sync_target
+      @last_synced_at = sync_target.last_synced_at
+      @replicator = sync_target.service_integration.replicator
+      @timestamp_expr = Sequel[@replicator.timestamp_column.name]
+    end
+
+    def run = raise NotImplementedError
+
+    # Get the dataset of rows that need to be synced.
+    # Note that there are a couple race conditions here.
+    # First, those in https://github.com/lithictech/webhookdb-api/issues/571.
+    # There is also the condition that we could send the same row
+    # multiple times when the row timestamp is set to last_synced_at but
+    # it wasn't in the last sync; however that is likely not a big problem
+    # since clients need to handle updates in any case.
+    def dataset_to_sync
+      @replicator.readonly_dataset do |ds|
+        # Find rows updated before we started
+        tscond = (@timestamp_expr <= @now)
+        # Find rows updated after the last sync was run
+        @last_synced_at && (tscond &= (@timestamp_expr >= @last_synced_at))
+        ds = ds.where(tscond)
+        # We want to paginate from oldest to newest
+        ds = ds.order(@timestamp_expr)
+        yield(ds)
+      end
+    end
+
+    def record(last_synced_at)
+      self.sync_target.update(last_synced_at:)
+    end
+  end
+
+  class HttpRoutine < Routine
+    def run
+      page_size = self.sync_target.page_size
+      self.dataset_to_sync do |ds|
+        chunk = []
+        ds.paged_each(rows_per_fetch: page_size) do |row|
+          chunk << row
+          self._flush_http_chunk(chunk) if chunk.size >= page_size
+        end
+        self._flush_http_chunk(chunk) unless chunk.empty?
+        # We should save 'now' as the timestamp, rather than the last updated row.
+        # This is important because other we'd keep trying to sync the last row synced.
+        self.record(self.now)
+      end
+    rescue Webhookdb::Http::Error => e
+      # This is expected. We already committed the last page that was successful,
+      # so we can just stop syncing at this point to try again later.
+      self.sync_target.logger.error("sync_target_http_error", error: e)
+    end
+
+    def _flush_http_chunk(chunk)
+      sint = self.sync_target.service_integration
+      body = {
+        rows: chunk,
+        integration_id: sint.opaque_id,
+        integration_service: sint.service_name,
+        table: sint.table_name,
+        sync_timestamp: self.now,
+      }
+      cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
+      Webhookdb::Http.post(
+        cleanurl,
+        body,
+        timeout: sint.organization.sync_target_timeout,
+        logger: self.sync_target.logger,
+        basic_auth: authparams,
+      )
+      latest_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
+      # The client committed the sync page we sent. Record it in case of a future error,
+      # so we don't re-send the same page.
+      self.record(latest_ts)
+      chunk.clear
+    end
+  end
+
+  # - Ensure the sync target table exists and has the right schema.
+  #   In general we do NOT create indices for the target table;
+  #   since this table is for a client's data warehouse, we assume they will optimize it as needed.
+  #   The only exception is the unique constraint for the remote key column.
+  # - Select rows created/updated since our last update in our 'source' database.
+  # - Write them to disk into a CSV file.
+  # - Pass this CSV file to the proper sync target adapter.
+  # - For example, the PG sync target will:
+  #   - Create a temp table in the target database, using the schema from the sync target table.
+  #   - Load the data into that temp table.
+  #   - Insert rows into the target table temp table rows that do not appear in the target table.
+  #   - Update rows in the target table temp table rows that already appear in the target table.
+  # - The snowflake sync target will:
+  #   - PUT the CSV file into the stage for the table.
+  #   - Otherwise the logic is the same as PG: create a temp table and COPY INTO from the CSV.
+  #   - Purge the staged file.
+  #
+  class DatabaseRoutine < Routine
+    def initialize(now, sync_target)
+      super
+      @connection_url = self.sync_target.connection_url
+      @adapter = Webhookdb::DBAdapter.adapter(@connection_url)
+      @adapter_connection = @adapter.connection(@connection_url)
+    end
+
+    def run
+      schema_name = @sync_target.schema.present? ? @sync_target.schema : @sync_target.class.default_schema
+      table_name = @sync_target.table.present? ? @sync_target.table : @sync_target.service_integration.table_name
+      adapter = @adapter
+      schema = Webhookdb::DBAdapter::Schema.new(name: schema_name.to_sym)
+      table = Webhookdb::DBAdapter::Table.new(name: table_name.to_sym, schema:)
+
+      schema_lines = []
+      schema_lines << adapter.create_schema_sql(table.schema, if_not_exists: true)
+      schema_lines << adapter.create_table_sql(
+        table,
+        [@replicator.primary_key_column, @replicator.remote_key_column],
+        if_not_exists: true,
+      )
+      (@replicator.denormalized_columns + [@replicator.data_column]).each do |col|
+        schema_lines << adapter.add_column_sql(table, col, if_not_exists: true)
+      end
+      adapter_conn = adapter.connection(@connection_url)
+      schema_expr = schema_lines.join(";\n") + ";"
+      if schema_expr != self.sync_target.last_applied_schema
+        adapter_conn.execute(schema_expr)
+        self.sync_target.update(last_applied_schema: schema_expr)
+      end
+      tempfile = Tempfile.new("whdbsyncout-#{self.sync_target.id}")
+      begin
+        self.dataset_to_sync do |ds|
+          ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
+            tempfile.write(row)
+          end
+        end
+        tempfile.rewind
+        adapter.merge_from_csv(
+          adapter_conn,
+          tempfile,
+          table,
+          @replicator.primary_key_column,
+          [@replicator.primary_key_column,
+           @replicator.remote_key_column,] + @replicator.denormalized_columns + [@replicator.data_column],
+        )
+        self.record(self.now)
+      ensure
+        tempfile.unlink
+      end
+    end
+  end
 end
 
 # Table: sync_targets

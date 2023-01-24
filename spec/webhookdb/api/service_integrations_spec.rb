@@ -4,7 +4,7 @@ require "webhookdb/api/service_integrations"
 require "webhookdb/admin_api/entities"
 require "webhookdb/async"
 
-RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
+RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicator do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -22,12 +22,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db do
   let(:admin_role) { Webhookdb::Role.create(name: "admin") }
 
   before(:each) do
-    Webhookdb::Replicator::Fake.reset
     login_as(customer)
-  end
-
-  after(:each) do
-    Webhookdb::Replicator::Fake.reset
   end
 
   def max_out_plan_integrations(org)

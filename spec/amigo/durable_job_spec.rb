@@ -39,10 +39,11 @@ RSpec.describe Amigo::DurableJob do
     Sidekiq.client_middleware.add(described_class::ClientMiddleware)
     Sidekiq.server_middleware.add(described_class::ServerMiddleware)
 
-    described_class.reset_configuration
-    described_class.server_urls = [db1_url, db2_url]
-    described_class.server_env_vars = []
-    described_class.run_after_configured_hooks
+    described_class.reset_configuration(
+      enabled: true,
+      server_urls: [db1_url, db2_url],
+      server_env_vars: [],
+    )
     described_class.storage_datasets.each(&:delete)
   end
 
@@ -423,14 +424,14 @@ RSpec.describe Amigo::DurableJob do
       described_class.set_database_setting(:loggers, [logger])
       expect(orig_db.loggers).to contain_exactly(logger)
 
-      described_class.reset_configuration
+      described_class.reset_configuration(enabled: true)
       new_db = described_class.storage_databases.first
       expect(new_db).to_not eq(orig_db)
       expect(new_db.loggers).to contain_exactly(logger)
     end
 
     it "can replace all settings" do
-      described_class.reset_configuration
+      described_class.reset_configuration(enabled: true)
       orig_db = described_class.storage_databases.first
       # Initial value
       expect(orig_db).to have_attributes(log_warn_duration: nil)
@@ -443,7 +444,7 @@ RSpec.describe Amigo::DurableJob do
       expect(orig_db).to have_attributes(log_warn_duration: 1, sql_log_level: :info)
       expect(described_class.storage_databases.first).to have_attributes(log_warn_duration: nil, sql_log_level: :error)
 
-      described_class.reset_configuration
+      described_class.reset_configuration(enabled: true)
       new_db = described_class.storage_databases.first
       expect(new_db).to_not eq(orig_db)
       # log warn time should have been reset, but log level persisted

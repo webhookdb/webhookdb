@@ -21,7 +21,7 @@ class Webhookdb::Jobs::SyncTargetRunSync
       sync_target_service_integration_service: stgt.service_integration.service_name,
       sync_target_service_integration_table: stgt.service_integration.table_name,
     ) do
-      stgt.run_sync(at: Time.now)
+      stgt.run_sync(now: Time.now)
     rescue Webhookdb::SyncTarget::SyncInProgress
       Webhookdb::Async::JobLogger.logger.warn("sync_target_already_in_progress")
     end

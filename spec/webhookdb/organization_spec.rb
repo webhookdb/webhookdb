@@ -68,12 +68,11 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
     end
   end
 
-  describe "migrate_replication_tables" do
+  describe "migrate_replication_tables", :fake_replicator do
     let(:fake_sint) { Webhookdb::Fixtures.service_integration.create(organization: o) }
     let(:fake) { fake_sint.replicator }
 
     before(:each) do
-      Webhookdb::Replicator::Fake.reset
       o.prepare_database_connections
       fake.create_table
     end

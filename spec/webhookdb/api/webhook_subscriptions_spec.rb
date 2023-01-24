@@ -2,7 +2,7 @@
 
 require "webhookdb/api/webhook_subscriptions"
 
-RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
+RSpec.describe Webhookdb::API::WebhookSubscriptions, :db, :fake_replicator do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -13,10 +13,6 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db do
 
   before(:each) do
     login_as(customer)
-  end
-
-  after(:each) do
-    Webhookdb::Replicator::Fake.reset
   end
 
   describe "GET /v1/organizations/:identifier/webhook_subscriptions" do

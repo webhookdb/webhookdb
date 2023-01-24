@@ -135,6 +135,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     it "runs DurableJob.poll_jobs" do
+      Amigo::DurableJob.reset_configuration(enabled: true)
       # Ensure polling is called, but it should be early-outed.
       # rubocop:disable RSpec/VerifiedDoubles
       expect(Sidekiq::RetrySet).to receive(:new).and_return(double(size: 1000))
@@ -498,12 +499,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       expect(stgt.refresh).to have_attributes(last_synced_at: be_within(5).of(Time.now))
     end
 
-    it "noops if a sync is in progress", db: :no_transaction do
+    it "noops if a sync is in progress" do
       orig_sync = 3.hours.ago
       stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create(last_synced_at: orig_sync)
       Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
-        otherconn.transaction(rollback: :always) do
-          otherconn[:sync_targets].where(id: stgt.id).lock_style("FOR UPDATE").first
+        Sequel::AdvisoryLock.new(otherconn, Webhookdb::SyncTarget::ADVISORY_LOCK_KEYSPACE, stgt.id).lock do
           Webhookdb::Jobs::SyncTargetRunSync.new.perform(stgt.id)
         end
       end
