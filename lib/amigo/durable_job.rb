@@ -300,7 +300,7 @@ module Amigo::DurableJob
   end
 
   configurable(:durable_job) do
-    setting :enabled, true
+    setting :enabled, false
 
     # Space-separated URLs to write durable jobs into.
     setting :server_urls, [], convert: ->(s) { s.split.map(&:strip) }

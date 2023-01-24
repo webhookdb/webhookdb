@@ -135,6 +135,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     it "runs DurableJob.poll_jobs" do
+      Amigo::DurableJob.reset_configuration(enabled: true)
       # Ensure polling is called, but it should be early-outed.
       # rubocop:disable RSpec/VerifiedDoubles
       expect(Sidekiq::RetrySet).to receive(:new).and_return(double(size: 1000))
