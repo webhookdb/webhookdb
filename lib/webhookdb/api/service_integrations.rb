@@ -242,6 +242,37 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             present({}, with: Webhookdb::API::BaseEntity, message: "You have upserted into #{sint.table_name}.")
           end
 
+          desc "Returns information about the integration."
+          params do
+            optional :field, type: String, values: Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS
+          end
+          post :info do
+            ensure_plan_supports!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
+            data = {
+              id: sint.opaque_id,
+              service: sint.service_name,
+              table: sint.table_name,
+              url: sint.replicator.webhook_endpoint,
+              webhook_secret: sint.webhook_secret,
+            }
+
+            field_name = params[:field]
+            blocks = Webhookdb::Formatting.blocks
+            if field_name.present?
+              blocks.line(data.fetch(field_name.to_sym))
+            else
+              rows = data.map do |k, v|
+                [k.to_s.capitalize, v]
+              end
+              blocks.table(["Field", "Value"], rows)
+            end
+            r = {blocks: blocks.as_json}
+            status 200
+            present r
+          end
+
           resource :backfill do
             post do
               ensure_plan_supports!

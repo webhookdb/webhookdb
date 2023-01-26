@@ -19,7 +19,7 @@ class Webhookdb::API::Me < Webhookdb::API::V1
       end
       get do
         customer = current_customer
-        active_org = Webhookdb::Organization.lookup_by_identifier(params[:active_org_identifier])
+        active_org_ids = Webhookdb::Organization.with_identifier(params[:active_org_identifier]).select_map(:id)
         memberships, invited = Webhookdb::OrganizationMembership.where(customer:).all.partition(&:verified)
         blocks = Webhookdb::Formatting.blocks
         unless memberships.empty?
@@ -28,7 +28,7 @@ class Webhookdb::API::Me < Webhookdb::API::V1
           # the word "Status" here is referring to whether the org is "active" in the CLI. This designation
           # is added by the client
           rows = memberships.map do |m|
-            cli_status = m.organization === active_org ? "active" : ""
+            cli_status = active_org_ids.include?(m.organization_id) ? "active" : ""
             [m.organization.name, m.organization.key, m.status, cli_status]
           end
           blocks.table(["Name", "Key", "Role", "Status"], rows)

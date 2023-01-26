@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   let(:app) { described_class.build_app }
 
   let!(:customer) { Webhookdb::Fixtures.customer.create }
-  let!(:org) { Webhookdb::Fixtures.organization.create }
+  let!(:org) { Webhookdb::Fixtures.organization.create(name: "fake@lithic.tech Org") }
   let(:org_membership_fac) { Webhookdb::Fixtures.organization_membership(organization: org) }
   let!(:membership) { org_membership_fac.verified.create(customer:) }
   let!(:admin_role) { Webhookdb::Role.admin_role }
@@ -24,7 +24,15 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
   end
 
   describe "GET /v1/organizations/:org_identifier" do
-    it "returns organization associated with identifier" do
+    it "returns organization associated with id passed as route param" do
+      get "/v1/organizations/#{org.id}"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(id: org.id)
+    end
+
+    it "returns organization associated with key as route param" do
       get "/v1/organizations/#{org.key}"
 
       expect(last_response).to have_status(200)
@@ -32,12 +40,47 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
         that_includes(id: org.id)
     end
 
-    it "403s if the org does not exist or customer doesn't have permissions" do
+    it "returns organization associated with id passed as query param" do
+      get "/v1/organizations/-", org: org.id
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(id: org.id)
+    end
+
+    it "returns organization associated with key passed as query param" do
+      get "/v1/organizations/-", org: org.key
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(id: org.id)
+    end
+
+    it "returns organization associated with name passed as query param" do
+      get "/v1/organizations/-", org: org.name
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(id: org.id)
+    end
+
+    it "403s if the org does not exist" do
       get "/v1/organizations/fake_org"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: "There is no organization with that identifier."),
+      )
+    end
+
+    it "403s if customer doesn't have permissions" do
+      membership.destroy
+
+      get "/v1/organizations/#{org.id}"
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: "You don't have permissions with that organization."),
       )
     end
   end

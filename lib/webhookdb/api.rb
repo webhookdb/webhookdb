@@ -28,13 +28,22 @@ module Webhookdb::API
             return c
           end
 
-          def lookup_org!(identifier=params[:org_identifier], customer: nil)
+          def lookup_org!(identifier=nil, customer: nil)
+            identifier ||= params[:org_identifier]
+            if identifier == "-"
+              identifier = params[:org]
+              merror!(400, "must supply 'org_identifier' or 'org' param", code: "missing_org") unless identifier
+            end
             customer ||= current_customer
-            org = Webhookdb::Organization.lookup_by_identifier(identifier)
-            merror!(403, "There is no organization with that identifier.") if org.nil?
-            membership = customer.verified_memberships_dataset[organization: org]
-            merror!(403, "You don't have permissions with that organization.") if membership.nil?
-            return membership.organization
+            # Can return multiple orgs, including ones the user cannot access
+            orgs = Webhookdb::Organization.with_identifier(identifier).all
+            merror!(403, "There is no organization with that identifier.") if orgs.empty?
+            # This is scoped to just orgs the user can access. We check if the identifier
+            # matches multiple orgs, in which case it's ambiguous.
+            memberships = customer.verified_memberships_dataset.where(organization: orgs).limit(2).all
+            merror!(403, "You don't have permissions with that organization.") if memberships.empty?
+            merror!(403, "ambiguous") if memberships.size > 1 # TODO: better message, tests
+            return memberships.first.organization
           end
 
           def ensure_admin!(org=nil, customer: nil)

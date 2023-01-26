@@ -89,7 +89,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             def lookup!
               org = lookup_org!
               ensure_admin!(org)
-              (stgt = org.all_sync_targets_dataset[opaque_id: params[:opaque_id]])
+              (stgt = org.all_sync_targets_dataset[Sequel[:sync_targets][:opaque_id] => params[:opaque_id]])
               merror!(403, "There is no sync target with that id.") if stgt.nil?
               return stgt
             end

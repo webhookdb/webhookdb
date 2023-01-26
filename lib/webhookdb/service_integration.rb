@@ -8,6 +8,10 @@ require "sequel/plugins/soft_deletes"
 class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integrations)
   class TableRenameError < Webhookdb::InvalidInput; end
 
+  # We limit the information that a user can access through the CLI to these fields.
+  # Blank string returns all info.
+  INTEGRATION_INFO_FIELDS = ["id", "service", "table", "url", "webhook_secret", ""].freeze
+
   plugin :timestamps
   plugin :column_encryption do |enc|
     enc.column :data_encryption_secret

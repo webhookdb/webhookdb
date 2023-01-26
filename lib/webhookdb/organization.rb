@@ -45,15 +45,42 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
                   Sequel[organization_id: id] |
                     Sequel[service_integration_id: org_sints.select(:id)],
                 )
-              end)
-  one_to_many :all_sync_targets,
-              class: "Webhookdb::SyncTarget",
-              readonly: true,
-              dataset: (lambda do |r|
-                org_sints = Webhookdb::ServiceIntegration.where(organization_id: id)
-                r.associated_dataset.where(Sequel[service_integration_id: org_sints.select(:id)])
-              end)
+              end),
+              eager_loader: (lambda do |eo|
+                               org_ids = eo[:id_map].keys
+                               all_subs = Webhookdb::WebhookSubscription.
+                                 left_join(:service_integrations, {id: :service_integration_id}).
+                                 select(
+                                   Sequel[:webhook_subscriptions][Sequel.lit("*")],
+                                   Sequel[:service_integrations][:organization_id].as(:_sint_org_id),
+                                 ).where(
+                                   Sequel[Sequel[:webhook_subscriptions][:organization_id] => org_ids] |
+                                     Sequel[Sequel[:service_integrations][:organization_id] => org_ids],
+                                 ).all
+                               all_subs_by_org = all_subs.group_by { |sub| sub[:organization_id] || sub[:_sint_org_id] }
+                               eo[:rows].each do |org|
+                                 org.associations[:all_webhook_subscriptions] = all_subs_by_org.fetch(org.id, [])
+                               end
+                             end)
+  many_through_many :all_sync_targets,
+                    [
+                      [:service_integrations, :organization_id, :id],
+                    ],
+                    class: "Webhookdb::SyncTarget",
+                    left_primary_key: :id,
+                    right_primary_key: :service_integration_id,
+                    read_only: true,
+                    order: [:created_at, :id]
   one_to_many :database_migrations, class: "Webhookdb::Organization::DatabaseMigration", order: Sequel.desc(:created_at)
+
+  dataset_module do
+    # Return orgs with the given id (if identifier is an integer), or key or name.
+    def with_identifier(identifier)
+      return self.where(id: identifier.to_i) if /^\d+$/.match?(identifier)
+      ds = self.where(Sequel[key: identifier] | Sequel[name: identifier])
+      return ds
+    end
+  end
 
   def before_validation
     self.minimum_sync_seconds ||= Webhookdb::SyncTarget.default_min_period_seconds
@@ -76,17 +103,6 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   def cli_editable_fields
     return ["name", "billing_email"]
-  end
-
-  def self.lookup_by_identifier(identifier)
-    # Check to see if identifier is an integer, i.e. an ID.
-    # Otherwise treat it as a slug
-    org = if /\A\d+\z/.match?(identifier)
-            Webhookdb::Organization[id: identifier]
-          else
-            Webhookdb::Organization[key: identifier]
-          end
-    return org
   end
 
   def readonly_connection(**kw, &)
@@ -374,6 +390,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def validate
     super
     validates_all_or_none(:admin_connection_url_raw, :readonly_connection_url_raw, predicate: :present?)
+    validates_format(/^\D/, :name, message: "can't begin with a digit")
     validates_format(/^[a-z][a-z0-9_]*$/, :key, message: "is not valid as a CNAME")
     validates_max_length 63, :key, message: "is not valid as a CNAME"
   end

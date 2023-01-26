@@ -596,6 +596,52 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
   end
 
+  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/info" do
+    before(:each) do
+      login_as(customer)
+      _ = sint
+    end
+
+    it "returns integration's opaque_id if asked for `id`" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "id"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.match(sint.opaque_id)
+    end
+
+    it "returns integration's service_name if asked for `service`" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "service"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.match(sint.service_name)
+    end
+
+    it "returns integration's table_name if asked for `table`" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "table"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.match(sint.table_name)
+    end
+
+    it "returns integration's unauthed webhook url if asked for `url`" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "url"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.match(sint.replicator.webhook_endpoint)
+    end
+
+    it "returns integration's webhook secret if asked for `webhook_secret`" do
+      sint.update(webhook_secret: "whsek")
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "webhook_secret"
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to have_json_body.match("whsek")
+    end
+
+    it "400s if asked about an unsupported field" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/info", field: "data_encryption_secret"
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: match("Field does not have a valid value")),
+      )
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill" do
     before(:each) do
       login_as(customer)

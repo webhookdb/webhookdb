@@ -4,6 +4,27 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
   let(:described_class) { Webhookdb::Organization }
   let!(:o) { Webhookdb::Fixtures.organization.create }
 
+  describe "associations" do
+    it "knows about all sync targets" do
+      sint = Webhookdb::Fixtures.service_integration(organization: o).create
+      st = Webhookdb::Fixtures.sync_target(service_integration: sint).create
+      expect(o.refresh.all_sync_targets).to have_same_ids_as(st)
+      # Test eager loader
+      expect(Webhookdb::SyncTarget.all.first.organization.all_sync_targets).to have_same_ids_as(st)
+    end
+
+    it "knows about all webhook subscriptions" do
+      sint = Webhookdb::Fixtures.service_integration(organization: o).create
+      sint_sub = Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
+      org_sub = Webhookdb::Fixtures.webhook_subscription(organization: o).create
+      expect(o.refresh.all_webhook_subscriptions).to have_same_ids_as(sint_sub, org_sub)
+      # Test eager loader
+      expect(Webhookdb::ServiceIntegration.all.first.organization.all_webhook_subscriptions).to have_same_ids_as(
+        sint_sub, org_sub,
+      )
+    end
+  end
+
   describe "create_if_unique" do
     it "creates the org if it does not violate a unique constraint" do
       test_org = Webhookdb::Organization.create_if_unique(name: "Acme Corp.")
@@ -211,6 +232,12 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
   end
 
   describe "validations" do
+    it "cannot have an org name that begins with an integer" do
+      expect do
+        o.update(name: "123abc" * 30)
+      end.to raise_error(Sequel::ValidationFailed, match(/name can't begin with a digit/))
+    end
+
     it "requires all of the connections to be present, or none" do
       expect do
         o.db.transaction do
@@ -278,6 +305,37 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       sint = Webhookdb::Fixtures.service_integration.create(organization: o)
       expect(o.can_add_new_integration?).to be(false)
       Webhookdb::Subscription.max_free_integrations = 2
+    end
+  end
+
+  describe "with_identifier dataset" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+
+    it "returns correct dataset when identifier is an id" do
+      ds = Webhookdb::Organization.with_identifier(org.id.to_s)
+      expect(ds[id: org.id]).to_not be_nil
+      expect(ds.all).to have_length(1)
+    end
+
+    it "returns correct dataset when identifier is a key" do
+      ds = Webhookdb::Organization.with_identifier(org.key)
+      expect(ds[id: org.id]).to_not be_nil
+      expect(ds.all).to have_length(1)
+    end
+
+    it "returns correct dataset when identifier is a name" do
+      ds = Webhookdb::Organization.with_identifier(org.name)
+      expect(ds[id: org.id]).to_not be_nil
+      expect(ds.all).to have_length(1)
+    end
+
+    it "returns multiple results" do
+      org_ab = Webhookdb::Fixtures.organization.create(name: "a", key: "b")
+      org_ba = Webhookdb::Fixtures.organization.create(name: "b", key: "a")
+      ds = Webhookdb::Organization.with_identifier("a")
+      expect(ds[id: org_ab.id]).to_not be_nil
+      expect(ds[id: org_ba.id]).to_not be_nil
+      expect(ds.all).to have_length(2)
     end
   end
 
