@@ -33,10 +33,12 @@ module Webhookdb::Crypto
 
   class Boxed
     def self.from_raw(bytestr)
+      raise ArgumentError, "bytes string cannot be nil" if bytestr.nil?
       return self.new(bytestr, nil)
     end
 
     def self.from_b64(b64str)
+      raise ArgumentError, "base64 string cannot be nil" if b64str.nil?
       return self.new(nil, b64str)
     end
 

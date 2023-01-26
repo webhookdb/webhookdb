@@ -18,11 +18,8 @@ WebhookDB makes it extremely easy to integrate with Google Calendar,
 but there are still a of couple things to do on your side:
 
 - POST to WebhookDB when a user authorizes your app to access calendars (WebhookDB starts syncing)
-- POST to WebhookDB when you refresh credentials
 - (Optional) POST to WebhookDB when a user revokes access/unlinks their Google account
   (WebhookDB deletes all rows for the user)
-
-**NOTE: WebhookDB does *not* require your application's client ID and secret.**
 
 We'll go over all the steps for integrating Google Calendar.
 
@@ -30,28 +27,24 @@ We'll go over all the steps for integrating Google Calendar.
 
 ## [Create Integrations](#create-integrations)
 
-This should be simple, since the integrations do not require any additional setup
-(you can accept the defaults for the Calendar and Event prompts):
+First we need to set up the 'parent' integration,
+which holds onto your Google Client ID and Client Secret.
+It is where you will POST whenever authorizes your application
+and you get a Refresh Token.
 
-```
-webhookdb integrations create google_calendar_list_v1
-webhookdb integrations create google_calendar_v1
-webhookdb integrations create google_calendar_event_v1
-```
+    webhookdb integrations create google_calendar_list_v1
 
-We need to get the Calendar List endpoint (this is also printed out during `create`):
+Follow the prompts. The two pieces of information you'll want to copy down
+are the "webhook secret" (like `zd3zate6c5zfs40zyn44gqwm`), which will sign requests from your backend,
+and the "webhook endpoint" (like `https://api.webhookdb.com/v1/service_integrations/svi_abc123`)
+which is where you will POST.
 
-    webhookdb integrations info --field=url google_calendar_list_v1
+Then you'll need to add two more integrations:
 
-This prints out a URL like `https://api.webhookdb.com/v1/service_integrations/svi_abc123`.
-Record it somewhere (like a `.env` file) so it can be read by your application.
+    webhookdb integrations create google_calendar_v1
+    webhookdb integrations create google_calendar_event_v1
 
-Likewise, we need to get the header used to secure the integration
-(again, this is also printed out during `create`):
-
-    webhookdb integrations info --field=webhook_secret google_calendar_list_v1
-
-Record this so it can be read by your application too.
+Accept the prompt defaults to link them all together.
 
 <a id="testing"></a>
 
@@ -60,32 +53,33 @@ Record this so it can be read by your application too.
 Before we start writing anything in your backend, it's a good idea to make sure everything is set up right.
 Let's use cURL to validate everything is working.
 
-First, get an OAuth access token, either from your database, or using the Google API explorer
-like at https://developers.google.com/calendar/api/v3/reference/calendarList/list
-(open Developer Tools -> Network Tab -> XHR, run a 'Try this method',
-find the request that was made, and grab the token (like 'ya29....') out of the Authorization header).
-Put that value into an environment variable in your shell called `ACCESS_TOKEN`,
-like `export ACCESS_TOKEN=ya29.123456abcd`.
+First, get an OAuth Refresh Token, either from your database,
+or using the [Google OAuth Playground](https://developers.google.com/oauthplayground/).
+Make sure you're using the same Client ID and Client Secret as you sent to WebhookDB.
+
+Put that value into an environment variable in your shell called `REFRESH_TOKEN`,
+like `export REFRESH_TOKEN=1//123456abcd`.
 Then let's try things out:
 
 ```bash
-export ACCESS_TOKEN=ya29.123456abcd
+export REFRESH_TOKEN=1//123456abcd-123456abcd
 # These values are from when you created the google_calendar_list_v1 integration, as above
 export WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT=https://api.webhookdb.com/v1/service_integrations/svi_alaxblg5llvxb2morb9hw4xs2
 export WEBHOOKDB_GOOGLE_CALENDAR_SECRET=a3vgdtr0wje0ywjb73ic0ch3n
 
 # Make a request to link the calendar
-curl -X POST -d '{"type":"LINKED","external_owner_id":"test-user","oauth_token":"'"${ACCESS_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
+curl -X POST -d '{"type":"LINKED","external_owner_id":"test-user","refresh_token":"'"${REFRESH_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
 ```
 
 That's it- you will see data flowing into your database almost immediately.
 You can connect to your database and query it (connection parameters are printed out
 when you set up the integration, or you can use `webhookdb db connection`).
 
-If your token expires, you can refresh it once you set the new one to `ACCESS_TOKEN`:
+If for some reason you get a new refresh token, you can tell WebhookDB about it
+(set the new one to `REFRESH_TOKEN`):
 
 ```bash
-curl -X POST -d '{"type":"REFRESHED","external_owner_id":"test-user","oauth_token":"'"${ACCESS_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
+curl -X POST -d '{"type":"REFRESHED","external_owner_id":"test-user","refresh_token":"'"${REFRESH_TOKEN}"'"}' -H "Whdb-Webhook-Secret: ${WEBHOOKDB_GOOGLE_CALENDAR_SECRET}" -H "Content-Type: application/json" "${WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT}"
 ```
 
 After you've checked out your data, you can delete all the data out of WebhookDB
@@ -135,7 +129,7 @@ requests.post(
   json={
     "type": "LINKED", 
     "external_owner_id": str(user.id),
-    "oauth_token": credentials.token,
+    "refresh_token": credentials.refresh_token,
   }
 )
 ```
@@ -144,30 +138,20 @@ requests.post(
 
 ### [On Refresh](#on-refresh)
 
-At times, you will need to refresh the auth token
-(here is the relevant documentation). You must update WebhookDB with the new Access Code:
+At times, you may get a new refresh token for a user.
+It should be rare, since refresh tokens don't expire, but it happens.
+You must update WebhookDB with the new Refresh Token:
 
 ```python
-credentials = Credentials.from_authorized_user_info(
-    info={
-        "token": user.google_access_token,
-        "refresh_token": user.google_refresh_token,
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
-    },
-    scopes=GOOGLE_OAUTH2_SCOPES,
+# Can also be done asynchronously.
+requests.post(
+  os.getenv("WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT"),
+  headers={"Whdb-Webhook-Secret": os.getenv("WEBHOOKDB_GOOGLE_CALENDAR_SECRET")},
+  json={
+    "type": "REFRESHED",
+    "refresh_token": credentials.refresh_token,
+  }
 )
-if credentials.expired:
-    credentials.refresh(Request())
-    # Can also be done asynchronously.
-    requests.post(
-      os.getenv("WEBHOOKDB_GOOGLE_CALENDAR_ENDPOINT"),
-      headers={"Whdb-Webhook-Secret": os.getenv("WEBHOOKDB_GOOGLE_CALENDAR_SECRET")},
-      json={
-        "type": "REFRESHED",
-        "oauth_token": credentials.token,
-      }
-    )
 ```
 
 <a id="on-unlink"></a>
@@ -176,7 +160,7 @@ if credentials.expired:
 
 If your user unlinks their calendar, you should tell WebhookDB so it can delete all the data for that user.
 If for some reason you don't want to delete the data, you don't need to make this request;
-WebhookDB will automatically stop trying to sync once the access token is revoked or expires.
+WebhookDB will automatically stop trying to sync once the refresh token is revoked.
 
 ```python
 # Clear out the tokens from your database in whatever way is appropriate.

@@ -346,12 +346,13 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         ds.returning(Sequel.lit("*")).insert(
           data: "{}",
           row_updated_at: Time.now,
-          encrypted_oauth_token: "lGfCermPAzJuhsbRalipbg==",
+          encrypted_refresh_token: "lGfCermPAzJuhsbRalipbg==",
           external_owner_id: "owner1",
           watch_channel_id: "chan_id",
           watch_channel_expiration: after_cutoff,
         ).first
       end
+      cal_list_svc.force_set_access_token("owner1", "asdfghjkl4567")
       cal_row = cal_svc.admin_dataset do |ds|
         ds.returning(Sequel.lit("*")).insert(
           data: "{}",

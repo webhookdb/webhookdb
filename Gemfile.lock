@@ -304,6 +304,7 @@ DEPENDENCIES
   biz
   clipboard
   concurrent-ruby
+  connection_pool
   dotenv
   faker
   fluent_fixtures
@@ -331,6 +332,7 @@ DEPENDENCIES
   rack-ssl-enforcer
   rack-test
   rake
+  redis
   rspec
   rspec-eventually
   rspec-json_expectations
