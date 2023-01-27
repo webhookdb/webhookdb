@@ -63,8 +63,10 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
   end
 
   def _upsert_update_expr(inserting, **_kwargs)
+    update = super
     # Only set created_at if it's not set so the initial insert isn't modified.
-    return self._coalesce_excluded_on_update(inserting, [:row_created_at])
+    self._coalesce_excluded_on_update(update, [:row_created_at])
+    return update
   end
 
   def _mixin_backfill_url

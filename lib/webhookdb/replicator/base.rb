@@ -418,24 +418,27 @@ class Webhookdb::Replicator::Base
   # like when we have to take different action based on a request method.
   #
   # @param body [Hash]
-  def upsert_webhook_body(body)
-    return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:))
+  def upsert_webhook_body(body, **kw)
+    return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:), **kw)
   end
 
   # Upsert a webhook request into the database. Note this is a WebhookRequest,
   # NOT a Rack::Request.
   #
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  def upsert_webhook(request)
-    return self._upsert_webhook(request)
+  def upsert_webhook(request, **kw)
+    return self._upsert_webhook(request, **kw)
   rescue StandardError => e
     self.logger.error("upsert_webhook_error", request: request.as_json, error: e)
     raise
   end
 
-  # Hook to be overridden, while still retaining top-level upsert_webhook functionality like error handling.
-  def _upsert_webhook(request)
-    remote_key_col = self._remote_key_column
+  # Hook to be overridden, while still retaining
+  # top-level upsert_webhook functionality like error handling.
+  #
+  # @param request [Webhookdb::Replicator::WebhookRequest]
+  # @param upsert [Boolean] If false, just return what would be upserted.
+  def _upsert_webhook(request, upsert: true)
     resource, event = self._resource_and_event(request)
     return nil if resource.nil?
     enrichment = self._fetch_enrichment(resource, event, request)
@@ -446,6 +449,8 @@ class Webhookdb::Replicator::Base
     inserting[:data] = data_col_val.to_json
     inserting[:enrichment] = enrichment.to_json if self._store_enrichment_body?
     inserting.merge!(prepared)
+    return inserting unless upsert
+    remote_key_col = self._remote_key_column
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
     upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
@@ -573,17 +578,24 @@ class Webhookdb::Replicator::Base
   # (so contains all columns, including those from _prepare_for_insert),
   # return the hash used for the insert_conflict(update:) keyword args.
   #
-  # This should be used when the service requires different values
+  # Rather than sending over the literal values in the inserting statement
+  # (which is pretty verbose, like the large 'data' column),
+  # make a smaller statement by using 'EXCLUDED'.
+  #
+  # This can be overriden when the service requires different values
   # for inserting vs. updating, such as when a column's update value
   # must use the EXCLUDED table in the upsert expression.
   #
   # Most commonly, the use case for this is when you want to provide a row a value,
   # but ONLY on insert, OR on update by ONLY if the column is nil.
-  # See +_coalesce_excluded_on_update+ for more context in this common case.
+  # In that case, pass the result of this base method to
+  # +_coalesce_excluded_on_update+ (see also for more details).
   #
-  # By default, this just returns inserting, and insert/update use the same values.
+  # By default, this will use the same values for UPDATE as are used for INSERT,
+  # like `email = EXCLUDED.email` (the 'EXCLUDED' row being the one that failed to insert).
   def _upsert_update_expr(inserting, enrichment: nil)
-    return inserting
+    result = inserting.each_with_object({}) { |(c, _), h| h[c] = Sequel[:excluded][c] }
+    return result
   end
 
   # The string 'null' in a json column still represents 'null' but we'd rather have an actual NULL value,
@@ -595,21 +607,20 @@ class Webhookdb::Replicator::Base
 
   # Have a column set itself only on insert or if nil.
   #
-  # Given the payload being inserted, return a new hash where
+  # Given the payload to DO UPDATE, mutate it so that
   # the column names included in 'column_names' use what is already in the table,
   # and fall back to what's being inserted.
   # This new payload should be passed to the `update` kwarg of `insert_conflict`:
   #
   # ds.insert_conflict(update: self._coalesce_excluded_on_update(payload, :created_at)).insert(payload)
   #
-  # @param inserting [Hash]
+  # @param update [Hash]
   # @param column_names [Array<Symbol>]
-  def _coalesce_excluded_on_update(inserting, column_names)
-    result = inserting.dup
+  def _coalesce_excluded_on_update(update, column_names)
+    # Now replace just the specific columns we're overriding.
     column_names.each do |c|
-      result[c] = Sequel.function(:coalesce, self.qualified_table_sequel_identifier[c], Sequel[:excluded][c])
+      update[c] = Sequel.function(:coalesce, self.qualified_table_sequel_identifier[c], Sequel[:excluded][c])
     end
-    return result
   end
 
   # Yield to a dataset using the admin connection.

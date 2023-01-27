@@ -140,12 +140,14 @@ your database will be populated.
   end
 
   def _upsert_update_expr(inserting, **_kwargs)
+    update = super
     state = inserting.fetch(:state)
     # If the state is active, we want to use canceled_at:nil unconditionally.
-    return inserting if state == "active"
+    return update if state == "active"
     # If it's inactive, we only want to update canceled_at if it's not already set
     # (coalesce the existing row's canceled_at with the 'time.now' we are passing in).
-    return self._coalesce_excluded_on_update(inserting, [:canceled_at])
+    self._coalesce_excluded_on_update(update, [:canceled_at])
+    return update
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
