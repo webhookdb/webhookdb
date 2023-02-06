@@ -50,7 +50,6 @@
     "react-dom": "^17.0.2",
     "react-helmet": "^6.1.0",
     "react-icons": "^4.2.0",
-    "reactstrap": "^8.9.0",
     "sass": "1.32.13",
     "sharp": "^0.30.4",
     "smooth-scroll": "^16.1.3"
