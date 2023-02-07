@@ -20,7 +20,7 @@ export default function DigitalTransformation() {
             agencies to seamlessly unify and embed API data flows within external and
             internal applications.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

@@ -9,7 +9,7 @@ import React from "react";
 import Seo from "../components/Seo";
 import WavesHeaderLayout from "../components/WavesHeaderLayout";
 
-export default function Partnering() {
+export default function Licensing() {
   const [contactState, setContactState] = React.useState(null);
   return (
     <WavesHeaderLayout

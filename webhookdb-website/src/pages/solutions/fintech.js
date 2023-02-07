@@ -18,7 +18,7 @@ export default function Fintech() {
             WebhookDB is rocket fuel for fintech startups, providing a better way to
             integrate the 3rd party APIs that are fintech&rsquo;s lifeblood.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

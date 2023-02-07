@@ -16,7 +16,7 @@ export default function CtaAction({ alt, className, formClassName }) {
         <Link to="/terminal" className={linkCls}>
           terminal
         </Link>{" "}
-        and <Hilite>get started from your browser.</Hilite> You can upgrade to a pain
+        and <Hilite>get started from your browser.</Hilite> You can upgrade to a paid
         plan, or{" "}
         <Link to="/docs/self-hosting" className={linkCls}>
           switch to self-hosting
@@ -24,9 +24,7 @@ export default function CtaAction({ alt, className, formClassName }) {
         , later.
       </Lead>
       <Lead>
-        We pride ourselves on our <Link to="/licensing">partner-focused approach.</Link>{" "}
-        To discuss licensing WebhookDB for self-hosting, embedded use as OEM, and
-        additional or custom integrations, please use this contact form, or email{" "}
+        To get in touch, use this contact form, or email{" "}
         <a href="mailto:hello@webhookdb.com" className={linkCls}>
           hello@webhookdb.com
         </a>

@@ -18,7 +18,7 @@ export default function FooterSection() {
   } = useContactUs();
 
   return (
-    <Container fluid className="bg-dark text-light p-3">
+    <Container fluid className="bg-dark text-light p-3 pt-4">
       {renderContactUs()}
       <Row className="justify-content-center align-items-center">
         <Col>
@@ -34,21 +34,20 @@ export default function FooterSection() {
                     "Contact Us",
                     { onSelect: (_, e) => openContactUs(e) },
                   ],
-                  ["/terms/", "Terms of Use"],
-                  ["/privacy/", "Privacy Policy"],
+                  ["/terms", "Terms of Use"],
+                  ["/privacy", "Privacy Policy"],
                   ["/careers", "Careers"],
-                  ["/licensing/", "Licensing and Partnering"],
                 ],
                 [
-                  ["/docs/home/", "Documentation"],
+                  ["/docs/home", "Documentation"],
                   ["https://github.com/lithictech/webhookdb-cli", "WebhookDB CLI"],
                   ["/docs/api2sql/", API2SQL],
-                  ["/docs/faq/", "FAQ"],
-                  ["/docs/webhooks/", "Super Webhooks"],
-                  ["/integrations/", "Supported Integrations"],
+                  ["/docs/faq", "FAQ"],
+                  ["/docs/webhooks", "Super Webhooks"],
+                  ["/integrations", "Supported Integrations"],
                 ],
                 [
-                  ["/solutions/analytics/", "WHDB Analytics"],
+                  ["/solutions/analytics", "WHDB Analytics"],
                   ["/solutions/app-startups", "WHDB Application Startups"],
                   ["/solutions/development-agencies", "WHDB Development Agencies"],
                   ["/solutions/digital-transformation", "WHDB Digital Transformation"],

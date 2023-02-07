@@ -19,7 +19,7 @@ export default function NoCode() {
             No-Code Apps by allowing integration against an SQL database rather than via
             API calls.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

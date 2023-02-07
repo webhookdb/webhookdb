@@ -4,10 +4,12 @@
 
 $theme-colors: (
         "primary": #0099ff,
+        "primary-light": rgb(233 244 255),
         "secondary": #ffcd00,
         "light": #f4faff,
         "dark": #08090a,
 );
+$display-font-weight: 300;
 $font-family-base: 'Karla', sans-serif;
 $font-size-base: 1.1rem;
 $grid-breakpoints: (
@@ -26,6 +28,10 @@ h1, h2, h3 {
   font-family: 'Lora', cursive;
   margin-bottom: 1.5rem !important;
 }
+
+$font-weight-base: 300;
+$font-weight-bold: 700;
+$font-weight-bolder: 700;
 
 @import "~bootstrap/scss/bootstrap";
 
@@ -110,14 +116,23 @@ h1, h2, h3 {
 }
 
 .cta {
-  font-size: 150%;
+  font-size: 130%;
   padding: $spacer * 0.5 $spacer * 3;
-  max-width: 80%;
 }
 
 .bounded {
   max-width: 1200px;
   margin: auto;
+}
+
+.btn-secondary, .btn-light {
+  font-weight: bold;
+}
+
+.btn-outline-secondary {
+  color: $dark;
+  font-weight: bold;
+  border-width: 2px;
 }
 
 .sitenav {

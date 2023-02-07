@@ -19,7 +19,7 @@ export default function Enterprises() {
             WebhookDB solves headaches for enterprises dealing with modernization and
             unification efforts of both external and internal services.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

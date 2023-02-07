@@ -8,12 +8,12 @@ export default function WavesHeaderCta({ href, children }) {
     <CenteredDiv className="mb-3">
       <Button
         href={href || "/get-started"}
-        variant="light"
+        variant="secondary"
         size="lg"
         className="mt-2 cta"
         as={RLink}
       >
-        {children || "Get Started"}
+        {children || "Get in touch"}
       </Button>
     </CenteredDiv>
   );
