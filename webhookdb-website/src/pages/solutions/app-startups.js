@@ -20,7 +20,7 @@ export default function AppStartups() {
             killer app&rsquo;s functionality and user experience, not the learning curve
             and idiosyncrasies of API integration.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

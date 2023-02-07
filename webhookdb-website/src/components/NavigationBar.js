@@ -20,73 +20,26 @@ export default function NavigationBar() {
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="justify-content-end w-100">
             <NavDropdown
-              title="Solutions"
-              id="solutions-dropdown"
+              title="Products"
+              id="products-dropdown"
               className={clsx(itemCls, "nav-dropdown nav-link-hover-invert")}
             >
               <NavDropdownItem
-                href="/solutions/analytics"
-                title="Analytics"
-                text="Affordable, real-time, turnkey integration with for any 3rd party APIs."
+                href="/solutions/pricing"
+                title="Starter Edition"
+                text="Hosted WebhookDB gives you a taste of a better way to integrate APIs."
               />
               <Sep />
               <NavDropdownItem
-                href="/solutions/app-startups"
-                title="Application Startups"
-                text="Free developers and product managers to focus on your killer app's user experience, not backend API integration."
+                href="/solutions/pricing"
+                title="Partner Edition"
+                text="Self-hosted WebhookDB with a larger catalogue of available integrations."
               />
               <Sep />
               <NavDropdownItem
-                href="/solutions/development-agencies"
-                title="Development Agencies"
-                text="Deliver demanding projects faster than with current API integration paradigms."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/solutions/digital-transformation"
-                title="Digital Transformation"
-                text="Jumpstart your enterprise client's transformation journey with WebhookDB."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/solutions/enterprises"
-                title="Enterprises"
-                text="Solve the headaches of modernization and unification of external or internal services."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/solutions/fintech"
-                title="Fintech"
-                text="Rocket fuel for all your 3rd party integrations."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/solutions/no-code"
-                title="No Code"
-                text="Eliminate the dreaded complexity of 3rd party API integrations."
-              />
-            </NavDropdown>
-            <NavDropdown
-              title="Features"
-              id="features-dropdown"
-              className={clsx(itemCls, "nav-dropdown nav-link-hover-invert")}
-            >
-              <NavDropdownItem
-                href="/docs/api2sql"
-                title="API2SQL Architecture"
-                text="Welcome to a new, superior paradigm for API integration."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/licensing"
-                title="Licensing"
-                text="Learn about our committed and progressive approach to licensing and partnering."
-              />
-              <Sep />
-              <NavDropdownItem
-                href="/docs/api-reservoir"
-                title="API Data Reservoir"
-                text="Like a reservoir collects water and makes using it as simple as turning a tap, so WebhookDB does for API data."
+                href="/solutions/pricing"
+                title="Enterprise Edition"
+                text="Custom integrations for any internal or external API on the planet."
               />
               <Sep />
               <NavDropdownItem
@@ -96,10 +49,22 @@ export default function NavigationBar() {
               />
             </NavDropdown>
             <NavDropdown
-              title="Developers"
-              id="devs-dropdown"
+              title="Learn"
+              id="learn-dropdown"
               className={clsx(itemCls, "nav-dropdown nav-link-hover-invert")}
             >
+              <NavDropdownItem
+                href="/docs/api2sql"
+                title="API2SQL Architecture"
+                text="Welcome to a new, superior paradigm for API integration."
+              />
+              <Sep />
+              <NavDropdownItem
+                href="/docs/api-reservoir"
+                title="API Data Reservoir"
+                text="Like a reservoir collects water and makes using it as simple as turning a tap, so WebhookDB does for API data."
+              />
+              <Sep />
               <NavDropdownItem
                 href="/terminal"
                 title="Terminal"

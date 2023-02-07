@@ -2,9 +2,17 @@
 @font-face {
   font-family: 'Karla';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 300;
   //font-display: swap; // Removes Font Flickering
   src: local("Karla"), url("./fonts/karla/static/Karla-Regular.ttf") format('truetype');
+}
+
+@font-face {
+  font-family: 'Karla';
+  font-style: normal;
+  font-weight: 700;
+  //font-display: swap; // Removes Font Flickering
+  src: local("Karla"), url("./fonts/karla/static/Karla-SemiBold.ttf") format('truetype');
 }
 
 @font-face {

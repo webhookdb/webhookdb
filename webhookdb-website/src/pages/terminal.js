@@ -17,12 +17,12 @@ export default function Terminal() {
       <Seo title="WebhookDB Terminal" />
       <Container className="pt-2 px-2" fluid>
         <div className="m-3">
-          <p className="font-small mb-1">
+          <p className="mb-1">
             This is a fully functional terminal for WebhookDB. When you close your tab,
             your session is removed. If you&rsquo;d prefer something local, you should{" "}
             <Link to="/download">download the CLI</Link>.
           </p>
-          <p className="font-small mb-2">
+          <p className="mb-2">
             Check out <Link to="/docs/home">how to get started</Link>, or{" "}
             <a href={contactUsHref} onClick={openContactUs}>
               contact us

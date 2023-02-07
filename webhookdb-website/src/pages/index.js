@@ -1,6 +1,13 @@
 import "../styles/custom.scss";
 
-import { Button, Container, Image } from "react-bootstrap";
+import {
+  BiHappyHeartEyes,
+  IoIceCreamOutline,
+  IoRadio,
+  IoRocketOutline,
+} from "react-icons/all";
+import { Button, Col, Container, Row } from "react-bootstrap";
+import { IoIosCode, IoMdStopwatch } from "react-icons/io";
 
 import API2SQL from "../components/API2SQL";
 import Centered from "../components/Centered";
@@ -12,12 +19,12 @@ import Lead from "../components/Lead";
 import { Link } from "gatsby";
 import RLink from "../components/RLink";
 import React from "react";
-import Reservoir from "../images/diagram-api2sql-reservoir.png";
 import { SafeExternalLink } from "../components/links";
 import Seo from "../components/Seo";
 import Waves from "../components/Waves";
 import Webterm from "../components/Webterm";
-import WistiaEmbed from "../components/WistiaEmbed";
+import clsx from "clsx";
+import integrations from "../modules/integrations";
 import staticData from "../components/staticData";
 import useContactUs from "../components/useContactUs";
 
@@ -35,7 +42,8 @@ export default function IndexPage() {
           {
             name: "keywords",
             content:
-              "webhook, big data, analytics, stripe, shopify, integration, database, data warehouse, data",
+              "webhook, big data, analytics, api integration, database, data warehouse, api2sql, graphql, " +
+              integrations.map(({ name }) => name).join(", "),
           },
         ]}
       />
@@ -45,162 +53,88 @@ export default function IndexPage() {
       <Container className="bg-primary text-light pt-5 px-4" fluid>
         <Centered>
           <CenteredDiv>
-            <h1>Unify. Automate. Build.</h1>
+            <h1 className="text-center">Postgres for API Integration</h1>
           </CenteredDiv>
           <Lead>
-            WebhookDB accelerates application development and performance by extending
-            your existing database with
-            <Hilite>{API2SQL} data integration superpowers</Hilite>.
+            Instantly sync, schematize, and normalize any 3rd or 1st party API into your
+            own database.
           </Lead>
           <Lead>
-            WebhookDB syncs, ingests, schematizes, and automates data from 3rd party
-            APIs in realtime, enabling a <Hilite>single source of truth</Hilite> for
-            your application builders and product managers.
+            We&rsquo;ve augmented PostgreSQL to solve API integration headaches,
+            increase security, performance, and resiliency, and establish a single
+            source of truth.
           </Lead>
-          <Lead>
-            <Hilite>Replicate and query any API, in real-time, with SQL</Hilite>, right
-            from your <Hilite>existing database</Hilite>, and see how{" "}
-            <Hilite>fast and simple</Hilite>
-            integration with external APIs becomes.
-          </Lead>
-          <CenteredDiv className="mb-3">
-            <Button
-              href="/get-started"
-              variant="light"
-              size="lg"
-              className="mt-2 cta"
-              as={RLink}
-            >
-              Get Started
-            </Button>
-          </CenteredDiv>
+          <CtaPair
+            className="mb-5"
+            leftProps={{
+              href: "/docs/cli/",
+              variant: "secondary",
+              children: "Try WebhookDB for free",
+            }}
+            rightProps={{
+              href: "/get-started",
+              variant: "light",
+              children: "Contact Us",
+            }}
+          ></CtaPair>
         </Centered>
       </Container>
       <Waves />
-      <Container className="px-4" fluid>
+      <Container className="py-5 mt-3" fluid>
         <Centered>
-          <h2 className="mt-2">{API2SQL} Spells NO Cloud Middleware</h2>
+          <Row>
+            {features.map((f) => (
+              <Feature key={f.title} {...f} />
+            ))}
+          </Row>
+        </Centered>
+      </Container>
+      <Container className="bg-primary-light py-5" fluid>
+        <Centered>
+          <h2>Focus on your application, not your integrations.</h2>
           <Lead>
-            WebhookDB acts like a database extension that takes 3rd party API data and
-            syncs it right into your database &mdash; you&rsquo;ll have{" "}
-            <Hilite>fresh API data in heart of your application backend</Hilite>.
-            Instant access, always available, normalized and schematized.
+            WebhookDB&rsquo;s revolutionary{" "}
+            <Link to="/docs/api2sql">{API2SQL} technology</Link> gives your development
+            team API <Hilite>integration superpowers.</Hilite> Imagine all API data
+            living free in your database, rather than locked behind a proprietary API.
+          </Lead>
+          <Lead>
+            <strong>
+              Instant access, always available, normalized and schematized.
+            </strong>
+          </Lead>
+          <Lead>
+            Take advantage of <Hilite>pre-built integrations</Hilite> for leading API
+            providers, from Stripe to Twilio. Or write your own for{" "}
+            <Hilite>literally any API</Hilite> in just a few minutes.
+          </Lead>
+          <Lead>
+            <strong>
+              WebhookDB cuts the Gordion knot of API integration. Forever.
+            </strong>
           </Lead>
           <Lead>
             We call our new integration paradigm {API2SQL}. No more wasting key
             developer cycles on API integration, or staffing to deal with proprietary
             iPaaS frameworks, or expensive lock-in to cloud middleware.
           </Lead>
-          <Lead></Lead>
-          <Lead>
-            WebhookDB cuts the Gordion knot of API integration.{" "}
-            <stroneg>Forever.</stroneg>
-          </Lead>
-          <Lead>
-            With {API2SQL}, application developers access 3rd party API data using the
-            same database they use for application data. This unified application data
-            reservoir approach <Hilite>simplifies development</Hilite>, and enables
-            product teams to
-            <Hilite>focus on your core value proposition</Hilite>, not 3rd party API
-            integration.
-          </Lead>
-          <Lead>
-            See it in action! Or try it out{" "}
-            <Link to="/terminal">right from your browser</Link>!
-          </Lead>
-          <CenteredDiv>
-            <div style={{ width: "80%" }}>
-              <WistiaEmbed mediaUrl="https://fast.wistia.com/embed/medias/lrox7uw103" />
-            </div>
-          </CenteredDiv>
-          <h2 className="mt-5">Unbeatable Partnering & Pricing</h2>
-          <Lead>
-            We know that a paradigm shift from REST or GraphQL is no simple thing.
-            That&rsquo;s why WebhookDB&rsquo;s {API2SQL} reservoir-based integration
-            approach comes equipped with a <Hilite>partner-first business model</Hilite>
-            .
-          </Lead>
-          <Lead>
-            Take advantage of our pre-built integrations for leading API providers, from
-            Stripe to Twilio. Most of our partners have us build custom integrations
-            &mdash; we can tackle literally any API, 1st or 3rd party.
-          </Lead>
-          <Lead>
-            License WebhookDB as a fully-hosted SaaS, or for self-hosting, or with a
-            source license for unlimited development.
-          </Lead>
-          <Lead>
-            We&rsquo;re not trying to build the next integration-as-a-service hub to
-            compete with our customers and partners. Instead, we&rsquo;ve built a{" "}
-            <Hilite>next-generation integration capability</Hilite> to empower our
-            partners. It turns out most API integration is a commodity problem;
-            WebhookDB solves it for you so you can move on to more important things.
-          </Lead>
-          <h2 className="mt-5">{API2SQL} Is Better</h2>
-          <Lead>
-            {API2SQL} offers a new, superior paradigm for API integration, replacing
-            legacy patterns like REST, GraphSQL, and WSDL.
-          </Lead>
-          <Lead>What makes {API2SQL} superior?</Lead>
-          <ul className="lead">
-            <li>
-              <span className="font-weight-bold">Fast</span>: Query a local database
-              instead of a remote 3rd party server.
-            </li>
-            <li>
-              <span className="font-weight-bold">Flexible</span>: Use standard SQL tools
-              to inspect schemas, select and filter data, and anything else you can do
-              with SQL.
-            </li>
-            <li>
-              <span className="font-weight-bold">Practical</span>: Integration is a
-              breeze. Get up and running in seconds for any supported API. Unit testing
-              is a lot more fun than using HTTP.
-            </li>
-            <li>
-              <span className="font-weight-bold">Secure</span>: Use standard SQL-based
-              access controls for different parts of your system, rather than
-              rudimentary access control most APIs offer.
-            </li>
-          </ul>
-          <Button
-            href="/docs/api2sql"
-            variant="outline-primary"
-            size="lg"
-            className="cta"
-            as={RLink}
-          >
-            Learn more about {API2SQL}
-          </Button>
-          <h2 className="mt-5">API Data Reservoir</h2>
-          <Lead>
-            Reservoirs are designed to collect drainage over large area and turn it into{" "}
-            <Hilite>clean, safe, and predictable</Hilite> water servicing various
-            activities downstream.
-          </Lead>
-          <Lead>
-            WebhookDB is designed the same way: we <Hilite>collect and process</Hilite>{" "}
-            data from external APIs and make it{" "}
-            <Hilite>structured, relational, and accessible</Hilite> for use in your
-            applications and analytics.
-          </Lead>
-          <Lead>
-            Learn more about <Link to="/docs/api2sql">{API2SQL}</Link> and the{" "}
-            <Link to="/docs/api-reservoir">API Data Reservoir</Link>.
-          </Lead>
-          <CenteredDiv>
-            <Link to="/docs/api-reservoir">
-              <Image
-                src={Reservoir}
-                fluid
-                height={200}
-                style={{ maxHeight: 300, marginTop: "1rem" }}
-              />
-            </Link>
-          </CenteredDiv>
+          <CtaPair
+            className="mb-2"
+            leftProps={{
+              href: staticData.introVideo,
+              variant: "secondary",
+              as: SafeExternalLink,
+              children: "Watch intro video",
+            }}
+            rightProps={{
+              href: "/terminal",
+              variant: "outline-secondary",
+              children: "Try WebhookDB for free",
+            }}
+          ></CtaPair>
         </Centered>
       </Container>
-      <Container className="px-4 mt-5" fluid>
+      <Container className="px-4 my-5" fluid>
         <Centered>
           <h2>Our Guide.</h2>
           <Lead>
@@ -208,24 +142,23 @@ export default function IndexPage() {
             and intuitive, efficient tooling. We want you to be able to get up and going
             in minutes. Read our documentation for more information.
           </Lead>
-          <Lead>
-            <SafeExternalLink href={staticData.announcementBlog}>
-              Learn why we built WebhookDB
-            </SafeExternalLink>
-            .
-          </Lead>
-          <Button
-            href="/docs/home"
-            variant="outline-primary"
-            size="lg"
-            className="cta mt-2"
-            as={RLink}
-          >
-            Documentation
-          </Button>
+          <CtaPair
+            className="mb-2"
+            leftProps={{
+              href: "/docs/home",
+              variant: "primary",
+              children: "Documentation",
+            }}
+            rightProps={{
+              href: staticData.announcementBlog,
+              variant: "outline-primary",
+              as: SafeExternalLink,
+              children: "Why we built WebhookDB",
+            }}
+          />
         </Centered>
       </Container>
-      <Container className="px-4 mt-5" fluid>
+      <Container className="px-4 py-5 bg-primary-light" fluid>
         <Centered>
           <h2>Try It.</h2>
           <Lead>
@@ -237,7 +170,7 @@ export default function IndexPage() {
             Use the terminal window below, or go to the{" "}
             <Link to="/terminal">dedicated terminal page</Link>.
           </Lead>
-          <Webterm loading="lazy" width="100%" height="500" />
+          <Webterm className="mb-2" loading="lazy" width="100%" height="300" />
         </Centered>
       </Container>
       <Container className="px-4 mt-5 mb-5" fluid>
@@ -245,14 +178,116 @@ export default function IndexPage() {
           <h2>Get In Touch.</h2>
           <Lead>
             We&rsquo;re an independent, bootstrapped team. So it&rsquo;s extra special
-            when we hear from our customers. We&rsquo;d love for you to{" "}
-            <a onClick={openContactUs} href={contactUsHref}>
-              get in touch!
-            </a>
+            when we hear from our customers.
           </Lead>
+          <Button
+            variant="primary"
+            size="lg"
+            className="cta mt-2 mb-3"
+            href={contactUsHref}
+            onClick={openContactUs}
+          >
+            Get in touch
+          </Button>
         </Centered>
       </Container>
       {renderContactUs()}
     </LayoutPage>
   );
 }
+
+function CtaPair({ className, leftProps, rightProps, leftClass, rightClass }) {
+  return (
+    <Row className={clsx("justify-content-center", className)}>
+      <Col xs="12" sm="auto">
+        <Button
+          size="lg"
+          className={clsx("mt-3 w-100", leftClass)}
+          style={{ minWidth: 300 }}
+          as={RLink}
+          {...leftProps}
+        />
+      </Col>
+      <Col xs="12" sm="auto">
+        <Button
+          size="lg"
+          className={clsx("mt-3 w-100", rightClass)}
+          style={{ minWidth: 300 }}
+          as={RLink}
+          {...rightProps}
+        />
+      </Col>
+    </Row>
+  );
+}
+
+function Feature({ icon, title, text }) {
+  const Icon = icon;
+  return (
+    <Col xs={1} sm={6} md={4} className="text-center">
+      <div style={{ fontSize: "2.5rem" }} className="mb-2 text-primary">
+        <Icon />
+      </div>
+      <h4>{title}</h4>
+      <p>{text}</p>
+    </Col>
+  );
+}
+
+const features = [
+  {
+    icon: IoMdStopwatch,
+    title: "Hours, not Weeks",
+    text: (
+      <>
+        Integrate any API in hours, rather than days or weeks. There&rsquo;s nothing
+        WebhookDB can&rsquo;t handle.
+      </>
+    ),
+  },
+  {
+    icon: IoRocketOutline,
+    title: "So Much Faster",
+    text: (
+      <>
+        Data is instantly delivered to your backend. Query your database instead of a
+        remote 3rd party server.
+      </>
+    ),
+  },
+  {
+    icon: IoRadio,
+    title: "Speak SQL",
+    text: (
+      <>
+        No new frameworks to learn &mdash; speak the PostgreSQL you love, since API data
+        is in your database.
+      </>
+    ),
+  },
+  {
+    icon: IoIceCreamOutline,
+    title: "Lowest Cost",
+    text: (
+      <>
+        No account limits or usage based pricing. Designed to run easily and efficiently
+        on your own infrastructure.
+      </>
+    ),
+  },
+  {
+    icon: IoIosCode,
+    title: "Integrate Any API",
+    text: <>Choose from one of our pre-built replicators, or write your own.</>,
+  },
+  {
+    icon: BiHappyHeartEyes,
+    title: "Eliminate Complexity",
+    text: (
+      <>
+        Patterns like <Link to="/docs/api2sql">{API2SQL}</Link> and{" "}
+        <Link to="/docs/webhooks">Super Webhooks</Link> eliminate overall complexity.
+      </>
+    ),
+  },
+];

@@ -21,7 +21,7 @@ export default function Analytics() {
             <Hilite>affordable, real-time, turnkey integration</Hilite> with popular,
             and not-so-popular, 3rd party APIs.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

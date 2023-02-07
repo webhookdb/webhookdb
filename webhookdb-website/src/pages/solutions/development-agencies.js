@@ -20,7 +20,7 @@ export default function DevelopmentAgencies() {
             cost, and with higher customer satisfaction than the current API application
             integration paradigm, whether inhouse, iPaaS or No Code.
           </Lead>
-          <WavesHeaderCta>Get Started with WebhookDB</WavesHeaderCta>
+          <WavesHeaderCta />
         </>
       }
     >

@@ -24,8 +24,7 @@ Please reach out if you like what you see here, and think we can help you build 
 
 **Note: This applies only to the fully-hosted SaaS version of WebhookDB.
 For more information about self-hosting, check out our
-[Approach to Licensing and Partnering](/licensing/) and
-our [Guide to Self-Hosting WebhookDB](/docs/self-hosting).**
+[Guide to Self-Hosting WebhookDB](/docs/self-hosting).**
 
 All of your data is stored encrypted in Postgres databases in Amazon Web Services.
 

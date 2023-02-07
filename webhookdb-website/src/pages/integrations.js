@@ -21,8 +21,8 @@ export default function Integrations() {
         <>
           <h1>Supported Integrations</h1>
           <Lead>
-            We currently support the following integrations, with more released every
-            week. If you need a service or resource not listed below, please{" "}
+            We support the following integrations, with more released every week. If you
+            need a service or resource not listed below, please{" "}
             <a
               href={contactUsHref}
               onClick={openContactUs}
@@ -32,31 +32,23 @@ export default function Integrations() {
             </a>
             .
           </Lead>
-          <Lead>
-            Adding new integrations for most services is pretty simple and we should be
-            able to add what you need within two days.
-          </Lead>
         </>
       }
     >
       <Seo title="Integrations" />
       <Row className="justify-content-sm-center justify-content-xs-start align-items-start mt-3">
-        {integrations.map((integration, idx) => {
-          return (
-            <Col key={idx} className="col-12 col-sm-6 col-md-4 col-lg-4">
-              <Image
-                src={integration.logo}
-                className="mb-3 img-fluid"
-                style={{ maxHeight: 80 }}
-              />
-              <div className="lead font-weight-bold mb-5">
-                {integration.resources.join(", ")}
-              </div>
-            </Col>
-          );
-        })}
+        {integrations.map(({ name, logo }) => (
+          <Col key={name} className="col-12 col-sm-6 col-md-4 col-lg-4">
+            <Image
+              src={logo}
+              className="mb-3 img-fluid py-3 px-2"
+              alt={`Integrate ${name}`}
+              style={{ maxHeight: 80 }}
+            />
+          </Col>
+        ))}
       </Row>
-      <Lead>
+      <Lead className="mt-5">
         Some listed integrations are still in beta, so you may not see them in
         WebhookDB. Please{" "}
         <a href={contactUsHref} onClick={openContactUs}>

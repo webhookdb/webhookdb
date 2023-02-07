@@ -1,4 +1,4 @@
-import { Nav, NavItem, NavLink } from "reactstrap";
+import { Nav, NavItem, NavLink } from "react-bootstrap";
 import { graphql, useStaticQuery } from "gatsby";
 
 import RLink from "../components/RLink";
