@@ -224,14 +224,15 @@ module Webhookdb::Postgres::ModelUtilities
         elsif encrypted.include?(k)
           # Render encrypted fields as xyz...abc, or if a URL, hide the user/password.
           unenc = self.send(k)
-          begin
+          if unenc.length < 10
+            "\"...\""
+          elsif unenc.include?("://")
             uri = URI(unenc)
-          rescue URI::InvalidURIError
-            "\"#{unenc[..2]}...#{unenc[-3..]}\""
-          else
             uri.user = "*"
             uri.password = "*"
             uri.to_s.inspect
+          else
+            "\"#{unenc[..2]}...#{unenc[-3..]}\""
           end
         else
           v.inspect

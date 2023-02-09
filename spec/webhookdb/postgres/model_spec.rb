@@ -274,8 +274,12 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     it "decrypts strings and uris" do
       st = Webhookdb::Fixtures.sync_target.postgres.create
       expect(st.inspect).to include('connection_url: "postgres://*:*@localhost')
-      st.connection_url = "not a url"
-      expect(st.inspect).to include('connection_url: "not...url')
+      st.connection_url = "definitely not a url"
+      expect(st.inspect).to include('connection_url: "def...url')
+      st.connection_url = "abc"
+      expect(st.inspect).to include('connection_url: "...')
+      st.connection_url = ""
+      expect(st.inspect).to include('connection_url: "...')
     end
   end
 
