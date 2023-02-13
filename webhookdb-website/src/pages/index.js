@@ -224,7 +224,7 @@ function CtaPair({ className, leftProps, rightProps, leftClass, rightClass }) {
 function Feature({ icon, title, text }) {
   const Icon = icon;
   return (
-    <Col xs={1} sm={6} md={4} className="text-center">
+    <Col xs={12} sm={6} md={4} className="text-center">
       <div style={{ fontSize: "2.5rem" }} className="mb-2 text-primary">
         <Icon />
       </div>
