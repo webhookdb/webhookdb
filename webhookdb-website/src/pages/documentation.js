@@ -24,7 +24,7 @@ export default function Documentation() {
   );
 
   return (
-    <Nav vertical className="mt-4">
+    <Nav className="mt-4 flex-column">
       {data &&
         data.allMarkdownRemark.edges.map((edge, i) => {
           let doc = edge.node.frontmatter;
