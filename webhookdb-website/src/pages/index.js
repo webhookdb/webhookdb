@@ -60,7 +60,7 @@ export default function IndexPage() {
             own database.
           </Lead>
           <Lead>
-            We&rsquo;ve augmented PostgreSQL to solve API integration headaches,
+            We&rsquo;ve leveraged PostgreSQL to solve API integration headaches,
             increase security, performance, and resiliency, and establish a single
             source of truth.
           </Lead>
@@ -150,10 +150,9 @@ export default function IndexPage() {
               children: "Documentation",
             }}
             rightProps={{
-              href: staticData.announcementBlog,
+              href: "/docs/faq",
               variant: "outline-primary",
-              as: SafeExternalLink,
-              children: "Why we built WebhookDB",
+              children: "Read the FAQ",
             }}
           />
         </Centered>

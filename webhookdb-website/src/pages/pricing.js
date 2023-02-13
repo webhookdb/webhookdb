@@ -22,7 +22,7 @@ export default function Pricing() {
               cta="Get Started"
               sub="Free managed WebhookDB with any of our public integrations."
               features={[
-                "Enable up to five our public integrations",
+                "Enable up to five public integrations",
                 "Up to 500,000 rows for each integration",
                 "Fully hosted and managed",
                 "Upgrade anytime",
@@ -39,7 +39,7 @@ export default function Pricing() {
                 "Unlimited public and beta integrations",
                 "Write API2SQL into your own database",
                 "Runs on your own infrastructure",
-                "Priority email support",
+                "Discounts for startups and non-profits",
               ]}
             />
           </Col>
