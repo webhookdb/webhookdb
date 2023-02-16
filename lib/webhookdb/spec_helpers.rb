@@ -34,6 +34,10 @@ module Webhookdb::SpecHelpers
     return {"Content-Type" => "application/json"}.merge(**more)
   end
 
+  module_function def json_response(body, status: 200, headers: {})
+    return {status:, body: body.to_json, headers: json_headers(**headers)}
+  end
+
   ### Load data from the spec/data directory with the specified +name+,
   ### deserializing it if it's YAML or JSON, and returning it.
   module_function def load_fixture_data(name, raw: false)
