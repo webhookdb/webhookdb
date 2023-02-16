@@ -33,8 +33,8 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     end
   end
 
-  def force_set_access_token(microsoft_user_id, access_token="randtok-#{SecureRandom.hex(2)}")
-    svc.force_set_access_token(microsoft_user_id, access_token)
+  def force_set_oauth_access_token(microsoft_user_id, access_token="randtok-#{SecureRandom.hex(2)}")
+    svc.force_set_oauth_access_token(microsoft_user_id, access_token)
   end
 
   it_behaves_like "a replicator", "microsoft_calendar_user_v1" do
@@ -180,7 +180,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
 
     it "responds to `LINKED` request by inserting row and triggering full calendar and event syncs for user" do
       body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "LINKED"}
-      force_set_access_token("456", "acctok")
+      force_set_oauth_access_token("456", "acctok")
       cal_reqs = stub_calendar_requests("acctok")
       event_reqs = stub_event_requests("acctok")
       svc.upsert_webhook_body(body)
@@ -198,7 +198,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
 
     it "responds to `REFRESHED` request by clearing auth info and triggering full calendar and event syncs for user" do
       insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
-      force_set_access_token("456", "accesstok1")
+      force_set_oauth_access_token("456", "accesstok1")
 
       token_req = stub_request(:post, "https://login.microsoftonline.com/organizations/oauth2/v2.0/token").
         with(body: hash_including("refresh_token" => "refreshtok2")).
@@ -221,7 +221,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     end
 
     it "responds to `RESYNC` request by triggering full syncs for user and clearing calendar delta urls" do
-      force_set_access_token("456", "acctok")
+      force_set_oauth_access_token("456", "acctok")
       row = insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
 
       cal_reqs = stub_calendar_requests("acctok")
@@ -390,7 +390,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
 
     it "uses a stored token when available" do
       insert_cal_user_row(microsoft_user_id: "extid")
-      svc.force_set_access_token("extid", "sometok")
+      svc.force_set_oauth_access_token("extid", "sometok")
       svc.with_access_token("extid") do |tok|
         expect(tok).to eq("sometok")
       end

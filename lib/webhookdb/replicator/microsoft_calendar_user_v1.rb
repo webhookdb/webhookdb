@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require "webhookdb/replicator/microsoft_auth_mixin"
+require "webhookdb/replicator/oauth_refresh_access_token_mixin"
 require "webhookdb/replicator/microsoft_calendar_v1_mixin"
 
 class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Replicator::MicrosoftAuthMixin
+  include Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
   include Webhookdb::Replicator::MicrosoftCalendarV1Mixin
 
   # @return [Webhookdb::Replicator::Descriptor]
@@ -119,7 +119,7 @@ The secret to use for signing is:
         # When a user updates their auth in a client's system, they send us the new information
         # and we delete the old token.
         user_row = super(request)
-        self.delete_access_token(microsoft_user_id)
+        self.delete_oauth_access_token(microsoft_user_id)
       when "RESYNC"
         self.clear_delta_urls_for_user(microsoft_user_id)
         user_row = self.admin_dataset { |ds| ds[microsoft_user_id:] }
@@ -205,7 +205,7 @@ The secret to use for signing is:
       msg = "microsoft user id '#{microsoft_user_id}' has no row in ServiceIntegration[#{self.service_integration.id}]"
       raise Webhookdb::InvalidPrecondition, msg
     end
-    self._with_access_token(microsoft_user_id, -> { self._decrypt_refresh_token(cal_user_row) }, &)
+    self._with_oauth_access_token(microsoft_user_id, -> { self._decrypt_refresh_token(cal_user_row) }, &)
   end
 
   def _decrypt_refresh_token(row)
@@ -218,5 +218,6 @@ The secret to use for signing is:
 
   def upsert_has_deps? = true
 
-  def auth_cache_key_namespace = "mscalv1"
+  def oauth_cache_key_namespace = "mscalv1"
+  def oauth_token_url = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token"
 end

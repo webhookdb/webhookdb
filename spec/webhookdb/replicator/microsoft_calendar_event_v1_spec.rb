@@ -148,8 +148,8 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
     end
   end
 
-  def force_set_access_token(extownerid=microsoft_user_id, atok=access_token)
-    calendar_user_svc.force_set_access_token(extownerid, atok)
+  def force_set_oauth_access_token(extownerid=microsoft_user_id, atok=access_token)
+    calendar_user_svc.force_set_oauth_access_token(extownerid, atok)
   end
 
   it_behaves_like "a replicator", "microsoft_calendar_event_v1" do
@@ -194,7 +194,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
       end
 
       before(:each) do
-        force_set_access_token
+        force_set_oauth_access_token
       end
 
       it "syncs all events" do
@@ -258,7 +258,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
       end
 
       before(:each) do
-        force_set_access_token
+        force_set_oauth_access_token
       end
 
       it "syncs all events" do

@@ -27,8 +27,8 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
     end
   end
 
-  def force_set_access_token(ms_user_id=microsoft_user_id, atok=access_token)
-    calendar_user_svc.force_set_access_token(ms_user_id, atok)
+  def force_set_oauth_access_token(ms_user_id=microsoft_user_id, atok=access_token)
+    calendar_user_svc.force_set_oauth_access_token(ms_user_id, atok)
   end
 
   it_behaves_like "a replicator", "microsoft_calendar_v1" do
@@ -171,7 +171,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
     describe "sync_calendar_user_calendars" do
       it "syncs all calendars" do
         calendar_user_row = insert_calendar_user_row
-        force_set_access_token
+        force_set_oauth_access_token
         sync_req = stub_service_request(page1_response)
         svc.sync_calendar_user_calendars(calendar_user_row, access_token)
         expect(sync_req).to have_been_made
@@ -179,7 +179,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
 
       it "errors if the sync fails multiple times" do
         calendar_user_row = insert_calendar_user_row
-        force_set_access_token
+        force_set_oauth_access_token
         req410 = stub_service_request({}, status: 410)
         expect(Webhookdb::Backfiller).to receive(:do_retry_wait).at_least(:once)
         expect do
@@ -190,7 +190,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
 
       it "uses the 'next link' value as a pagination token until it is no longer returned" do
         calendar_user_row = insert_calendar_user_row
-        force_set_access_token
+        force_set_oauth_access_token
         sync_reqs = [
           stub_service_request(page1_response.merge({"@odata.nextLink" => "https://graph.microsoft.com/v1.0/me/calendars?%24top=1&%24skip=1"})),
           stub_service_request(page2_response, params: {"$skip" => 1}),
@@ -201,7 +201,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
 
       it "upserts incoming data with the microsoft_user_id from the parent" do
         calendar_user_row = insert_calendar_user_row
-        force_set_access_token
+        force_set_oauth_access_token
         sync_req = stub_service_request(page2_response)
         svc.sync_calendar_user_calendars(calendar_user_row, access_token)
         expect(sync_req).to have_been_made

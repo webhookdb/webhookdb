@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "webhookdb/replicator/microsoft_auth_mixin"
 require "webhookdb/replicator/microsoft_calendar_v1_mixin"
 require "webhookdb/microsoft_calendar"
 
