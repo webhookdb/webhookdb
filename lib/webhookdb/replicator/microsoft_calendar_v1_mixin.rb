@@ -43,16 +43,12 @@ Run `webhookdb integrations reset` if you need to modify the secret for this int
 
   class PaginatedBackfiller < Webhookdb::Backfiller
     def first_page_url_and_params = raise NotImplementedError
-
     def handle_item(body) = raise NotImplementedError
-
     def this_svc = raise NotImplementedError
 
     def fetch_backfill_page(pagination_token, **)
       headers = {"Authorization" => "Bearer #{@access_token}"}
-
       url, query = pagination_token.blank? ? self.first_page_url_and_params : [pagination_token, {}]
-
       response = Webhookdb::Http.get(
         url,
         query,
@@ -63,8 +59,7 @@ Run `webhookdb integrations reset` if you need to modify the secret for this int
       # the next page link is a full url that includes the page size param (`$top`) as well as the
       # pagination param (`$skip`)
       next_page_link = response.parsed_response.fetch("@odata.nextLink", nil)
-
       return data, next_page_link
     end
-    end
+  end
 end

@@ -95,7 +95,21 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
     bf.commit
   end
 
+  module EventBackfillerMixin
+    include Webhookdb::Backfiller::Bulk
+
+    def upserting_replicator = @event_svc
+    def upsert_page_size = Webhookdb::MicrosoftCalendar.upsert_page_size
+
+    def prepare_body(body)
+      body["microsoft_user_id"] = @microsoft_user_id
+      body["microsoft_calendar_id"] = @microsoft_calendar_id
+    end
+  end
+
   class EventBackfiller < PaginatedBackfiller
+    include EventBackfillerMixin
+
     def initialize(access_token:, event_svc:, calendar_row:)
       @access_token = access_token
       @event_svc = event_svc
@@ -116,39 +130,16 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       return "https://graph.microsoft.com/v1.0/me/calendars/#{@microsoft_calendar_id}/calendarView", params
     end
 
-    def handle_item(body)
-      body["microsoft_user_id"] = @microsoft_user_id
-      body["microsoft_calendar_id"] = @microsoft_calendar_id
-      inserting = @event_svc.upsert_webhook_body(body, upsert: false)
-      @pending_inserts << inserting
-      self.flush_pending_inserts if @pending_inserts.size > Webhookdb::MicrosoftCalendar.upsert_page_size
-    end
-
-    def flush_pending_inserts
-      return if @pending_inserts.empty?
-      @event_svc.admin_dataset(timeout: :fast) do |ds|
-        ds.
-          insert_conflict(
-            target: @event_svc._remote_key_column.name,
-            update: @event_svc._upsert_update_expr(@pending_inserts.first),
-          ).multi_insert(@pending_inserts)
-      end
-      @pending_inserts.clear
-    end
-
     def commit
       self.flush_pending_inserts
-    end
-
-    def run_backfill
-      self.backfill(nil)
-      self.commit
     end
   end
 
   # This backfiller is used for the "personal" calendar, which for whatever reason is the only calendar we can get
   # this kind of incremental change information for.
   class EventDeltaBackfiller < Webhookdb::Backfiller
+    include EventBackfillerMixin
+
     def initialize(access_token:, event_svc:, calendar_svc:, calendar_row:)
       @access_token = access_token
       @calendar_svc = calendar_svc
@@ -158,14 +149,6 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       @microsoft_calendar_id = calendar_row.fetch(:microsoft_calendar_id)
       @pending_inserts = []
       super()
-    end
-
-    def handle_item(body)
-      body["microsoft_user_id"] = @microsoft_user_id
-      body["microsoft_calendar_id"] = @microsoft_calendar_id
-      inserting = @event_svc.upsert_webhook_body(body, upsert: false)
-      @pending_inserts << inserting
-      self.flush_pending_inserts if @pending_inserts.size > Webhookdb::MicrosoftCalendar.upsert_page_size
     end
 
     def fetch_backfill_page(pagination_token, **)
@@ -202,18 +185,6 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       return data, next_page_link
     end
 
-    def flush_pending_inserts
-      return if @pending_inserts.empty?
-      @event_svc.admin_dataset(timeout: :fast) do |ds|
-        ds.
-          insert_conflict(
-            target: @event_svc._remote_key_column.name,
-            update: @event_svc._upsert_update_expr(@pending_inserts.first),
-          ).multi_insert(@pending_inserts)
-      end
-      @pending_inserts.clear
-    end
-
     def commit_next_delta_url(delta_url)
       @calendar_svc.admin_dataset do |calendar_ds|
         calendar_ds.where(microsoft_calendar_id: @microsoft_calendar_id).update(delta_url:)
@@ -223,11 +194,6 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
     def commit
       self.commit_next_delta_url(@delta_url)
       self.flush_pending_inserts
-    end
-
-    def run_backfill
-      self.backfill(nil)
-      self.commit
     end
   end
 end

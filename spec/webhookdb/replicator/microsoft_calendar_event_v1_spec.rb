@@ -197,12 +197,17 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
         force_set_oauth_access_token
       end
 
+      def run_backfill(bf=backfiller)
+        bf.backfill(nil)
+        bf.commit
+      end
+
       it "syncs all events" do
         sync_req = stub_request(:get, "https://graph.microsoft.com/v1.0/me/calendars/cal1/calendarView?%24top=1&#{calview_query_start_end}").
           with(
             headers: {"Authorization" => "Bearer acctok"},
           ).to_return(json_response(page1_response))
-        backfiller.run_backfill
+        run_backfill
         expect(sync_req).to have_been_made
       end
 
@@ -213,7 +218,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
           ).to_return(json_response({}, status: 410))
         expect(Webhookdb::Backfiller).to receive(:do_retry_wait).at_least(:once)
         expect do
-          backfiller.run_backfill
+          run_backfill
         end.to raise_error(Webhookdb::Http::Error)
         expect(req410).to have_been_made.times(3)
       end
@@ -230,7 +235,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
               headers: {"Authorization" => "Bearer acctok"},
             ).to_return(json_response(page2_response)),
         ]
-        backfiller.run_backfill
+        run_backfill
         expect(sync_reqs).to all(have_been_made)
       end
 
@@ -239,7 +244,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
           with(
             headers: {"Authorization" => "Bearer acctok"},
           ).to_return(json_response(page2_response))
-        backfiller.run_backfill
+        run_backfill
         expect(sync_req).to have_been_made
         svc.readonly_dataset do |ds|
           expect(ds.first).to include(microsoft_user_id: "123", microsoft_calendar_id: "cal1")
@@ -261,11 +266,16 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
         force_set_oauth_access_token
       end
 
+      def run_backfill(bf=backfiller)
+        bf.backfill(nil)
+        bf.commit
+      end
+
       it "syncs all events" do
         sync_req = stub_request(:get, "https://graph.microsoft.com/v1.0/me/calendarView/delta?#{calview_query_start_end}").
           with(headers: {"Authorization" => "Bearer acctok"}).
           to_return(json_response(delta_url_page_response))
-        backfiller.run_backfill
+        run_backfill
         expect(sync_req).to have_been_made
       end
 
@@ -275,7 +285,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
           to_return(json_response({}, status: 410))
         expect(Webhookdb::Backfiller).to receive(:do_retry_wait).at_least(:once)
         expect do
-          backfiller.run_backfill
+          run_backfill
         end.to raise_error(Webhookdb::Http::Error)
         expect(req410).to have_been_made.times(3)
       end
@@ -290,7 +300,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
             with(headers: {"Authorization" => "Bearer acctok"}).
             to_return(json_response(delta_url_page_response)),
         ]
-        backfiller.run_backfill
+        run_backfill
         expect(sync_reqs).to all(have_been_made)
       end
 
@@ -298,7 +308,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
         sync_req = stub_request(:get, "https://graph.microsoft.com/v1.0/me/calendarView/delta?#{calview_query_start_end}").
           with(headers: {"Authorization" => "Bearer acctok"}).
           to_return(json_response(delta_url_page_response))
-        backfiller.run_backfill
+        run_backfill
         expect(sync_req).to have_been_made
         svc.readonly_dataset do |ds|
           expect(ds.first).to include(microsoft_user_id: "123", microsoft_calendar_id: "cal1")
@@ -309,7 +319,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
         sync_req = stub_request(:get, "https://graph.microsoft.com/v1.0/me/calendarView/delta?#{calview_query_start_end}").
           with(headers: {"Authorization" => "Bearer acctok"}).
           to_return(json_response(delta_url_page_response))
-        backfiller.run_backfill
+        run_backfill
         expect(sync_req).to have_been_made
         calendar_svc.readonly_dataset do |cal_ds|
           expect(cal_ds[microsoft_calendar_id: "cal1"]).to include(delta_url:)
@@ -328,7 +338,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
         sync_req = stub_request(:get, "https://graph.microsoft.com/v1.0/me/calendarView/delta?$deltatoken=baz300&#{calview_query_start_end}").
           with(headers: {"Authorization" => "Bearer acctok"}).
           to_return(json_response(delta_url_page_response))
-        backfiller.run_backfill
+        run_backfill(backfiller)
         expect(sync_req).to have_been_made
       end
     end

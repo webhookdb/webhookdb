@@ -59,4 +59,31 @@ class Webhookdb::Backfiller
     self.wait_for_retry_attempt(attempt:)
     return self._fetch_backfill_page_with_retry(pagination_token, last_backfilled:, attempt: attempt + 1)
   end
+
+  module Bulk
+    def upsert_page_size = raise NotImplementedError("how many items should be upserted at a time")
+    def prepare_body(_body) = raise NotImplementedError("add/remove keys from body before upsert")
+    def upserting_replicator = raise NotImplementedError("the replicator being upserted")
+
+    def pending_inserts = @pending_inserts ||= []
+
+    def handle_item(body)
+      self.prepare_body(body)
+      inserting = self.upserting_replicator.upsert_webhook_body(body, upsert: false)
+      self.pending_inserts << inserting
+      self.flush_pending_inserts if self.pending_inserts.size > self.upsert_page_size
+    end
+
+    def flush_pending_inserts
+      return if self.pending_inserts.empty?
+      self.upserting_replicator.admin_dataset(timeout: :fast) do |ds|
+        ds.
+          insert_conflict(
+            target: self.upserting_replicator._remote_key_column.name,
+            update: self.upserting_replicator._upsert_update_expr(self.pending_inserts.first),
+          ).multi_insert(self.pending_inserts)
+      end
+      self.pending_inserts.clear
+    end
+  end
 end
