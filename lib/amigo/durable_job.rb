@@ -12,9 +12,18 @@ end
 
 # Durable jobs keep track of the job in a database, similar to DelayedJob,
 # so that if Sidekiq loses the job (because Redis crashes, or the worker crashes),
-# it will be restarted from the data in the database.
+# it will be sent to the Dead Set from the database.
 #
-# The way it works at a high level is:
+# We send 'missing' jobs to the Dead Set, rather than re-enqueue them,
+# because jobs may be deleted out of Redis manually,
+# so any re-enqueues of a missing job must also be done manually.
+#
+# An alternative to durable jobs is super_fetch using something like Redis' LMOVE;
+# however the only off-the-shelf package we could find (from Gitlab) did not work well.
+# We could implement our own LMOVE based fetch strategy,
+# but using PG was a lot simpler to get going (selection is easier, for example, than managing Redis sorted sets).
+#
+# The way Durable Jobs works at a high level is:
 #
 # - Connections to a series of database servers are held.
 #   These servers act as the 'durable stores' for Redis.
@@ -22,8 +31,7 @@ end
 #   a row is written into the first available durable store database.
 #   Every row records when it should be considered "dead";
 #   that is, after this time,
-#   DurableJob is free to re-enqueue a new instance of the job,
-#   as explained below.
+#   DurableJob moves this job to the Dead Set, as explained below.
 #   This is known as the "assume dead at" time; the difference between when a job is enqueued/runs,
 #   and when it can be assumed dead, is known as the "heartbeat extension".
 # - Whenever the job runs, server middleware takes a lock on the durable store row,
@@ -42,16 +50,15 @@ end
 # `poll_jobs` does the following at a high level (see the source for more details):
 #
 # - Look through each durable store database.
-# - For each job with an assume_dead_at in the past, we need to check whether we should re-enqueue it.
+# - For each job with an assume_dead_at in the past, we need to check whether we should kill it.
 # - If the job is currently processing in a queue, we no-op.
 #   We warn that the job should have a longer heartbeat_extension,
 #   or something should call DurableJob.heartbeat.
 # - If the job is currently in the retry set, we update the assume_dead_at of the row
 #   so it's after the time the job will be retried. That way we won't try and process
 #   the job again until after it's been retried.
-# - If the job is in the DeadSet, we delete the row since we should not re-enqueue it.
-# - If the job cannot be found in any of these places,
-#   we re-enqueue the job.
+# - If the job is in the DeadSet, we delete the row since it's already dead.
+# - If the job cannot be found in any of these places, it's added to the DeadSet.
 #
 # Note that DurableJob is subject to race conditions,
 # and a job can be enqueued and then run multiple times.
@@ -69,7 +76,7 @@ module Amigo::DurableJob
   end
 
   class << self
-    attr_accessor :storage_database_urls, :storage_databases, :table_fqn
+    attr_accessor :storage_database_urls, :storage_databases, :table_fqn, :failure_notifier
 
     # Set a field on the underlying storage databases,
     # such as :logger or :sql_log_level.
@@ -139,7 +146,7 @@ module Amigo::DurableJob
       return self.storage_databases.map { |db| db[self.table_fqn] }
     end
 
-    def insert_job(job_class, job_id, item, more: {})
+    def insert_job(job_class, job_id, item, queue: "default", more: {})
       raise Webhookdb::InvalidPrecondition, "not enabled" unless  self.enabled?
       item = item.dup
       item["class"] = job_class.to_s
@@ -156,7 +163,9 @@ module Amigo::DurableJob
               job_class: job_class.to_s,
               job_item_json: item.to_json,
               assume_dead_at:,
-              queue: job_class.get_sidekiq_options["queue"],
+              # We cannot use get_sidekiq_options, since that is static. We need to pass in the queue,
+              # which can be set dynamically.
+              queue:,
               **more,
             )
         rescue Sequel::DatabaseConnectionError => e
@@ -220,12 +229,12 @@ module Amigo::DurableJob
       # Note, this requires we don't let our retry set grow too large...
       retryset = Sidekiq::RetrySet.new
       if retryset.size >= skip_queue_size
-        Sidekiq.logger.warn "poll_jobs_retry_set_too_large"
+        Sidekiq.logger.warn "DurableJob: poll_jobs_retry_set_too_large"
         return
       end
       deadset = Sidekiq::DeadSet.new
       if deadset.size >= skip_queue_size
-        Sidekiq.logger.warn "poll_jobs_dead_set_too_large"
+        Sidekiq.logger.warn "DurableJob: poll_jobs_dead_set_too_large"
         return
       end
       retries_by_jid = retryset.to_h { |r| [r.jid, r] }
@@ -240,15 +249,15 @@ module Amigo::DurableJob
           all
         if all_rows_to_check.size == max_page_size
           # Hard to imagine this happening but here we are
-          Sidekiq.logger.warn "poll_jobs_max_page_size_reached"
+          Sidekiq.logger.warn "DurableJob: poll_jobs_max_page_size_reached"
         end
         # All our expired rows belong to one of any number of queues.
-        # We should process grouped by queue so we only need to look through the queue once.
+        # We should process grouped by queue so we only need to look through each queue once.
         by_queues = all_rows_to_check.group_by { |r| r[:queue] }
         by_queues.each do |queue, rows_to_check|
           q = Sidekiq::Queue.new(queue)
           if q.size >= skip_queue_size
-            Sidekiq.logger.warn "poll_jobs_queue_size_too_large"
+            Sidekiq.logger.warn "DurableJob: poll_jobs_queue_size_too_large"
             next
           end
           all_jids_in_queue = Set.new(q.map(&:jid))
@@ -275,19 +284,23 @@ module Amigo::DurableJob
               Sidekiq.logger.debug "DurableJob: #{job_class}[#{job_id}] is in retry set"
               dswhere.update(assume_dead_at: retry_record.at + cls.heartbeat_extension)
             elsif deadset_jids.include?(job_id)
+              # If a job moved to the dead set, we can delete the PG row.
+              # When we do the retry from the dead set, it'll push a new job to PG.
               Sidekiq.logger.info "DurableJob: #{job_class}[#{job_id}] is in dead set"
               dswhere.delete
             else
-              # The job isn't actively processing nor is in the retry set
-              # (we don't bother checking the deadset).
-              # This means we have lost it (or it was never sent to Sidekiq!).
-              # We need to re-enqueue it.
+              # The job isn't actively processing nor is in the retry/dead set.
+              # This means we have lost it, it was never sent to Sidekiq,
+              # or it was manually deleted (via Web UI, probably).
+              # Add it to the dead set so it can be manually inspected and retried.
               item = Yajl::Parser.parse(row[:job_item_json])
-              item["durable_reenqueued_at"] = now
+              item["durable_killed_at"] = now
               item["jid"] ||= job_id
-              Sidekiq.logger.warn "DurableJob: #{job_class}[#{job_id}] is  dead, re-enqueing"
-              cls.client_push(item)
-              dswhere.update(assume_dead_at: now + cls.heartbeat_extension)
+              Sidekiq.logger.warn "DurableJob: #{job_class}[#{job_id}] not found, adding to dead set"
+
+              Amigo::DurableJob.failure_notifier&.call(item)
+              deadset.kill(item.to_json, notify_failure: Amigo::DurableJob.failure_notifier.nil?)
+              dswhere.delete
             end
           end
         end
@@ -338,11 +351,11 @@ module Amigo::DurableJob
   end
 
   class ClientMiddleware
-    def call(worker_class, job, _queue, _redis_pool)
+    def call(worker_class, job, queue, _redis_pool)
       return job unless Amigo::DurableJob.enabled?
       (worker_class = worker_class.constantize) if worker_class.is_a?(String)
       return job unless worker_class.respond_to?(:heartbeat_extension)
-      Amigo::DurableJob.insert_job(worker_class, job.fetch("jid"), job) unless job["durable_reenqueued_at"]
+      Amigo::DurableJob.insert_job(worker_class, job.fetch("jid"), job, queue:) unless job["durable_reenqueued_at"]
       return job
     end
   end
