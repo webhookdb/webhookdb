@@ -8,25 +8,57 @@ require "sidekiq"
 # Use this to verify the behavior of durable jobs:
 #
 # - Ensure DISABLE_DURABLE_JOBS_POLL env var is set.
-# - `make run-workers`, and copy the PID
-# - From pry: `Webhookdb::Async.require_jobs; 100.times { Webhookdb::Jobs::DurableSleeper.perform_async }`
-# - `pkill -9 <pid>`, kills Sidekiq without cleanup
-# - `make psql` and `SELECT * FROM durable_jobs`, see that a bunch of stuff is there (but not all 100 rows)
-# - `Sidekiq::Queue.new.size`, should be less than the number of rows remaining in durable_jobs table.
-# - `make run-workers` again, watch the jobs drain. Eventually `Sidekiq::Queue.new.size`,
-#   and `SELECT * from durable_jobs` will return some nonzero amount.
-# - Run `Amigo::DurableJob.poll_jobs`, should add new jobs to the queue, and they should drain.
+# - `make run` and then `Webhookdb::Async.open_web` to go to Sidekiq web UI.
+# - `make run-workers`, and copy the PID.
+# - From pry: `Webhookdb::Jobs::DurableSleeper.setup_test_run(30)`
+# - Jobs are put into the queue and the workers will be 'running' (sleeping).
+# - Wait for some jobs to be done sleeping.
+# - `pkill -9 <pid>`, kills Sidekiq without cleanup.
+# - `Webhookdb::Jobs::DurableSleeper.print_status` will print
+#   the queue size. It would be '10' if you started with 30 jobs,
+#   10 processed, and the worker was killed while 10 more were processing
+#   (leaving 10 unprocessed jobs in the queue).
+#   It will also print dead jobs, which will be 0.
+#   It will also print processed jobs, will be be 10.
+# - Restart workers with `make run-workers`.
+# - The next 10 workers will run (queue). `print_status` returns 0 for queue and dead size,
+#   and 20 for jobs processed.
+# - Run `Amigo::DurableJob.poll_jobs`.
+# - Go to the web UI's Dead jobs. Observe 10 jobs are there. `print_status` also shows 10 jobs as dead.
+# - Retry those jobs.
+# - `print_status` shows 0 dead and 30 processed jobs.
 #
 class Webhookdb::Jobs::DurableSleeper
   include Sidekiq::Job
   include Amigo::DurableJob
 
-  def heartbeat_extension
+  MUX = Mutex.new
+  COUNTER_FILE = ".durable-sleeper-counter"
+
+  def self.heartbeat_extension
     return 20.seconds
   end
 
   def perform(duration=5)
+    self.logger.info("sleeping")
     sleep(duration)
+    MUX.synchronize do
+      done = File.read(COUNTER_FILE).to_i
+      done += 1
+      File.write(COUNTER_FILE, done.to_s)
+    end
+  end
+
+  def self.setup_test_run(count=30)
+    File.write(COUNTER_FILE, "0")
+    count.times { Webhookdb::Jobs::DurableSleeper.perform_async }
+  end
+
+  def self.print_status
+    done = File.read(COUNTER_FILE).to_i
+    puts "Queue Size: #{Sidekiq::Queue.new.size}"
+    puts "Processed:  #{done}"
+    puts "Dead Set:   #{Sidekiq::DeadSet.new.size}"
   end
 end
 

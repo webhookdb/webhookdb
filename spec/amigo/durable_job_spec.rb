@@ -38,6 +38,8 @@ RSpec.describe Amigo::DurableJob do
     Sidekiq.server_middleware.add(@before_server_mw)
     Sidekiq.client_middleware.add(described_class::ClientMiddleware)
     Sidekiq.server_middleware.add(described_class::ServerMiddleware)
+    described_class.failure_notifier = nil
+    @death_handlers = Sidekiq.death_handlers.dup
 
     described_class.reset_configuration(
       enabled: true,
@@ -51,6 +53,7 @@ RSpec.describe Amigo::DurableJob do
     Sidekiq.server_middleware.entries.delete(@before_server_mw)
     Sidekiq.client_middleware.remove(described_class::ClientMiddleware)
     Sidekiq.server_middleware.remove(described_class::ServerMiddleware)
+    Sidekiq.death_handlers.replace(@death_handlers)
     Sidekiq.redis(&:flushdb)
   end
 
@@ -79,7 +82,7 @@ RSpec.describe Amigo::DurableJob do
   describe "adding the job" do
     it "pushes into the first database on client_push and all perform_async variants" do
       cls = create_job_class
-      j1 = cls.perform_async({"x" => 1})
+      j1 = cls.set(queue: "myq").perform_async({"x" => 1})
       j2 = cls.perform_in(10.minutes, [1, 2, 3])
       j3 = cls.perform_at(5.minutes.from_now)
       expect(ds1.where(job_id: [j1, j2, j3]).all).to contain_exactly(
@@ -88,16 +91,19 @@ RSpec.describe Amigo::DurableJob do
           job_item_json: include('"args":[{"x":1}]').and(include('"class":"DurableJob::TestWorker"')),
           locked_by: nil,
           assume_dead_at: match_time(5.minutes.from_now).within(5),
+          queue: "myq",
         ),
         include(
           job_id: j2,
           job_item_json: include('"args":[[1,2,3]]'),
           assume_dead_at: match_time(15.minutes.from_now).within(5),
+          queue: "default",
         ),
         include(
           job_id: j3,
           job_item_json: include('"args":[]'),
           assume_dead_at: match_time(10.minutes.from_now).within(5),
+          queue: "default",
         ),
       )
       expect(ds2.where(job_id: [j1, j2, j3]).all).to be_empty
@@ -257,46 +263,13 @@ RSpec.describe Amigo::DurableJob do
   end
 
   describe "poll_jobs" do
-    before(:each) do
-      Sidekiq::Testing.fake!
+    def all_jobs(q)
+      a = []
+      q.each { |j| a << j }
+      return a
     end
 
-    after(:each) do
-      # allow(Sidekiq.logger).to receive(:error)
-      Sidekiq::Worker.drain_all
-    end
-
-    fake_queue = Class.new do
-      include Enumerable
-      def initialize(items)
-        @items = items
-      end
-
-      def size
-        return @items.size
-      end
-
-      def each(&)
-        return @items.each(&)
-      end
-    end
-    fake_entry = Class.new do
-      attr_reader :jid
-
-      def initialize(jid)
-        @jid = jid
-      end
-    end
-    fake_record = Class.new(fake_entry) do
-      attr_reader :at
-
-      def initialize(jid, at)
-        super(jid)
-        @at = Time.at(at)
-      end
-    end
-
-    it "re-enqueues jobs in all databases past their recheck time, that are not in the retry set or their queue" do
+    it "kills jobs in all databases past their recheck time, that are not in the retry set or their queue" do
       cls = create_job_class
       expect(ds1.select_map(:job_id)).to be_empty
       described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
@@ -304,21 +277,57 @@ RSpec.describe Amigo::DurableJob do
       described_class.insert_job(cls, "jobx3", {"class" => cls, "args" => []})
       described_class.lock_job("jobx1", -1)
       described_class.lock_job("jobx2", 2.minutes)
-      expect(cls.jobs).to be_empty
+      expect(all_jobs(Sidekiq::DeadSet.new)).to be_empty
       expect(ds1.select_map(:job_id)).to contain_exactly("jobx1", "jobx2", "jobx3")
 
-      expect(Sidekiq::RetrySet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::DeadSet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::Queue).to receive(:new).with("default").once.and_return(fake_queue.new([]))
       described_class.poll_jobs
-      # And the row for the polled job is updated
-      expect(ds1.select_map(:job_id)).to contain_exactly("jobx1", "jobx2", "jobx3")
-      expect(ds1[job_id: "jobx1"]).to include(assume_dead_at: match_time(5.minutes.from_now).within(10))
-      # But the others were not
+      # jobx1 has expired so should have moved to the dead set.
+      expect(ds1.select_map(:job_id)).to contain_exactly("jobx2", "jobx3")
+      expect(all_jobs(Sidekiq::DeadSet.new)).to contain_exactly(
+        have_attributes(item: include("args" => [], "class" => "DurableJob::TestWorker", "jid" => "jobx1")),
+      )
+      # jobx2 and x3 should not have had their deadlines updated since they were found.
       expect(ds1[job_id: "jobx2"]).to include(assume_dead_at: match_time(2.minutes.from_now).within(10))
-      # Assert a new job gets enqueued
-      expect(cls.jobs).to contain_exactly(
-        include("args" => [], "class" => "DurableJob::TestWorker", "jid" => "jobx1"),
+    end
+
+    def call_recorder
+      return Class.new do
+        attr_accessor :calls
+
+        def call(*args)
+          @calls ||= []
+          @calls << args
+        end
+      end
+    end
+
+    it "calls the failure notifier if set" do
+      cls = create_job_class
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
+      described_class.lock_job("jobx1", -1)
+
+      fail_rec = call_recorder.new
+      death_rec = call_recorder.new
+      Sidekiq.death_handlers.replace([death_rec])
+      described_class.failure_notifier = fail_rec
+      described_class.poll_jobs
+      expect(fail_rec.calls).to contain_exactly(
+        contain_exactly(include("durable_killed_at", "class" => "DurableJob::TestWorker")),
+      )
+      expect(death_rec.calls).to be_blank
+    end
+
+    it "calls death handlers if no failure notifier is set" do
+      cls = create_job_class
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
+      described_class.lock_job("jobx1", -1)
+
+      death_rec = call_recorder.new
+      Sidekiq.death_handlers.replace([death_rec])
+      described_class.failure_notifier = nil
+      described_class.poll_jobs
+      expect(death_rec.calls).to contain_exactly(
+        contain_exactly(include("durable_killed_at", "class" => "DurableJob::TestWorker"), be_a(RuntimeError)),
       )
     end
 
@@ -326,49 +335,47 @@ RSpec.describe Amigo::DurableJob do
       cls = create_job_class
       described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []})
       described_class.lock_job("joby1", -1)
-      expect(cls.jobs).to be_empty
-      expect(Sidekiq::RetrySet).to receive(:new).once.and_return(fake_queue.new([]))
-      described_class.poll_jobs(skip_queue_size: 0)
+      # Add one to the retry set, so polling skips.
+      Sidekiq::RetrySet.new.schedule(Time.now, {})
+      described_class.poll_jobs(skip_queue_size: 1)
+      # Nothing got deleted because we skipped checking with a skip_queue_size of 1.
       expect(ds1[job_id: "joby1"]).to include(assume_dead_at: match_time(-1.seconds.from_now).within(10))
-      expect(cls.jobs).to be_empty
+      # But now make sure it got deleted.
+      described_class.poll_jobs
+      expect(ds1[job_id: "joby1"]).to be_nil
     end
 
     it "skips checking if deadset is too full" do
       cls = create_job_class
-      described_class.insert_job(cls, "joba1", {"class" => cls, "args" => []})
-      described_class.lock_job("joba1", -1)
-      expect(cls.jobs).to be_empty
-      expect(Sidekiq::RetrySet).to receive(:new).once.
-        and_return(fake_queue.new([]))
-      expect(Sidekiq::DeadSet).to receive(:new).once.
-        and_return(fake_queue.new([fake_record.new("j123", Time.now)]))
+      described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []})
+      described_class.lock_job("joby1", -1)
+      # Add one to the dead set, so polling skips.
+      Sidekiq::DeadSet.new.kill("{}")
       described_class.poll_jobs(skip_queue_size: 1)
-      expect(ds1[job_id: "joba1"]).to include(assume_dead_at: match_time(-1.seconds.from_now).within(10))
-      expect(cls.jobs).to be_empty
+      # Nothing got deleted because we skipped checking with a skip_queue_size of 1.
+      expect(ds1[job_id: "joby1"]).to include(assume_dead_at: match_time(-1.seconds.from_now).within(10))
+      # But now make sure it got deleted.
+      described_class.poll_jobs
+      expect(ds1[job_id: "joby1"]).to be_nil
     end
 
     it "skips checking jobs in queues that are too full" do
       cls = create_job_class
-      described_class.insert_job(cls, "jobb1", {"class" => cls, "args" => []}, more: {queue: "q1"})
-      described_class.insert_job(cls, "jobb2", {"class" => cls, "args" => []}, more: {queue: "q1"})
-      described_class.insert_job(cls, "jobb3", {"class" => cls, "args" => []}, more: {queue: "q2"})
-      described_class.lock_job("jobb1", -1)
-      described_class.lock_job("jobb2", -1)
-      described_class.lock_job("jobb3", -1)
-      expect(Sidekiq::RetrySet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::DeadSet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::Queue).to receive(:new).with("q1").
-        and_return(fake_queue.new([fake_entry.new("jobb4"), fake_entry.new("jobb5")]))
-      expect(Sidekiq::Queue).to receive(:new).with("q2").
-        and_return(fake_queue.new([fake_entry.new("jobb3")]))
+      j1id = cls.set(queue: "q1").perform_async
+      j2id = cls.set(queue: "q1").perform_async
+      j3id = cls.set(queue: "q2").perform_async
+      described_class.lock_job(j1id, -1)
+      described_class.lock_job(j2id, -1)
+      described_class.lock_job(j3id, -1)
+      expect(ds1.select_map(:job_id)).to contain_exactly(j1id, j2id, j3id)
       described_class.poll_jobs(skip_queue_size: 2)
-      expect(ds1.select_map(:job_id)).to contain_exactly("jobb1", "jobb2", "jobb3")
       # jobs 1 and 2, in q1, should not have been updated or enqueued since q1 is full.
-      # The q2 job is updated because the queue is not busy.
-      # But because it's already in its queue, it isn't re-enqueued
-      expect(ds1[job_id: "jobb1"]).to include(assume_dead_at: match_time(-1.seconds.ago).within(10))
-      expect(ds1[job_id: "jobb3"]).to include(assume_dead_at: match_time(5.minutes.from_now).within(10))
-      expect(cls.jobs).to be_empty
+      # The q2 job is updated because the queue is not busy so could be checked.
+      expect(ds1[job_id: j1id]).to include(assume_dead_at: match_time(-1.seconds.ago).within(10))
+      expect(ds1[job_id: j3id]).to include(assume_dead_at: match_time(5.minutes.from_now).within(10))
+      expect(all_jobs(Sidekiq::Queue.new("q1"))).to have_length(2)
+      expect(all_jobs(Sidekiq::Queue.new("q2"))).to have_length(1)
+      expect(all_jobs(Sidekiq::DeadSet.new)).to be_empty
     end
 
     it "uses the retry time for items in the retry set" do
@@ -376,29 +383,23 @@ RSpec.describe Amigo::DurableJob do
       described_class.insert_job(cls, "jobc1", {"class" => cls, "args" => []})
       described_class.insert_job(cls, "jobc2", {"class" => cls, "args" => []})
       described_class.lock_job("jobc1", -1)
-      expect(Sidekiq::RetrySet).to receive(:new).once.
-        and_return(fake_queue.new([fake_record.new("jobc1", 3.days.from_now.to_f)]))
-      expect(Sidekiq::DeadSet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::Queue).to receive(:new).with("default").once.and_return(fake_queue.new([]))
-      expect(cls.jobs).to be_empty
+      Sidekiq::RetrySet.new.schedule(3.days.from_now.to_f, {"jid" => "jobc1"})
+      expect(all_jobs(Sidekiq::Queue.new)).to be_empty
       described_class.poll_jobs
       # The row for the polled job is updated
       expect(ds1[job_id: "jobc1"]).to include(assume_dead_at: match_time((3.days + 5.minutes).from_now).within(10))
       # No job gets enqueued, since it is already in the retry set
-      expect(cls.jobs).to be_empty
+      expect(all_jobs(Sidekiq::Queue.new)).to be_empty
     end
 
     it "deletes the job if it is found in the deadset" do
       cls = create_job_class
       described_class.insert_job(cls, "jobc1", {"class" => cls, "args" => []})
       described_class.lock_job("jobc1", -1)
-      expect(Sidekiq::RetrySet).to receive(:new).once.and_return(fake_queue.new([]))
-      expect(Sidekiq::DeadSet).to receive(:new).once.
-        and_return(fake_queue.new([fake_record.new("jobc1", Time.at(0))]))
-      expect(Sidekiq::Queue).to receive(:new).with("default").once.and_return(fake_queue.new([]))
+      Sidekiq::DeadSet.new.kill({"jid" => "jobc1"}.to_json)
       described_class.poll_jobs
       expect(ds1.all).to be_empty
-      expect(cls.jobs).to be_empty
+      expect(all_jobs(Sidekiq::DeadSet.new)).to have_length(1)
     end
 
     it "noops if not enabled" do
