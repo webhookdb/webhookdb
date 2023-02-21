@@ -99,6 +99,8 @@ module Webhookdb::Async
         config.server_middleware.add(Amigo::Retry::ServerMiddleware)
       end
 
+      Amigo::DurableJob.failure_notifier = Webhookdb::Async::JobLogger.method(:durable_job_failure_notifier)
+
       Sidekiq.configure_client do |config|
         config.redis = redis_params
         config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
