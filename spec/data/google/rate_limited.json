@@ -1,0 +1,38 @@
+{
+  "error": {
+    "code": 403,
+    "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per minute per user' of service 'calendar-json.googleapis.com' for consumer 'project_number:53780161697'.",
+    "errors": [
+      {
+        "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per minute per user' of service 'calendar-json.googleapis.com' for consumer 'project_number:53780161697'.",
+        "domain": "usageLimits",
+        "reason": "rateLimitExceeded"
+      }
+    ],
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "RATE_LIMIT_EXCEEDED",
+        "domain": "googleapis.com",
+        "metadata": {
+          "quota_limit": "defaultPerMinutePerUser",
+          "service": "calendar-json.googleapis.com",
+          "consumer": "projects/53780161697",
+          "quota_location": "global",
+          "quota_metric": "calendar-json.googleapis.com/default",
+          "quota_limit_value": "600"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Request a higher quota limit.",
+            "url": "https://cloud.google.com/docs/quota#requesting_higher_quota"
+          }
+        ]
+      }
+    ]
+  }
+}
