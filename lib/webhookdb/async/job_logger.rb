@@ -8,27 +8,38 @@ class Webhookdb::Async::JobLogger < Appydays::Loggable::SidekiqJobLogger
   end
 
   def self.durable_job_failure_notifier(job)
-    jcls = job["class"]
-    jargs = job["args"]
-    jid = job["jid"]
-    err = [job["error_class"], job["error_message"]].compact.join(": ")
+    # See https://github.com/sidekiq/sidekiq/wiki/Job-Format#activejob-middleware-format
+    # for job format.
+    job = job.dup
+    # These fields always exist.
+    jargs = job.delete("args")
+    jcls = job.delete("class")
+    jid = job.delete("jid")
+    jq = job.delete("queue")
+    jcreated = job.delete("created_at")
+    safe_fields = [
+      {title: "Job ID", value: jid, short: true},
+      {title: "Job Class", value: "`#{jcls}`", short: true},
+      {title: "Args", value: "```#{jargs.to_json}```"},
+      {title: "Queue", value: jq, short: true},
+      {title: "Created At", value: self._ts?("created_at", jcreated), short: true},
+    ]
+    # The remaining fields can be added dynamically.
+    other_fields = job.compact.
+      map { |k, v| {title: k.humanize, value: self._ts?(k, v), short: true} }
     Webhookdb::DeveloperAlert.new(
       subsystem: "Job Died",
-      emoji: ":zombie: ",
-      fallback: "Job #{jcls}[#{jid}][#{jargs}] moved to DeadSet: #{err}",
-      fields: [
-        {title: "Job ID", value: jid, short: true},
-        {title: "Job Class", value: jcls, short: true},
-        {title: "Args", value: jargs.to_json},
-        {title: "Retry", value: job["retry"], short: true},
-        {title: "Queue", value: job["queue"], short: true},
-        {title: "Dead", value: job["dead"], short: true},
-        {title: "Created", value: job["created_at"], short: true},
-        {title: "Enqueued", value: job["enqueued_at"], short: true},
-        {title: "Error", value: err, short: true},
-        {title: "Failed", value: job["failed_at"], short: true},
-        {title: "retries", value: job["retry_count"], short: true},
-      ],
+      emoji: ":zombie:",
+      fallback: "Job #{jcls}[#{jid}][#{jargs}] moved to DeadSet",
+      fields: safe_fields + other_fields,
     ).emit
+  end
+
+  def self._ts?(k, v)
+    return nil if v.nil?
+    return v unless k.end_with?("_at")
+    return Time.at(v) if v.is_a?(Numeric)
+    return Time.parse(v) if v.is_a?(String)
+    return v
   end
 end
