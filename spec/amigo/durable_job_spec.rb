@@ -171,10 +171,15 @@ RSpec.describe Amigo::DurableJob do
       jid = nil
       cls = create_job_class(lambda do |w, _args|
         jid = w.jid
-        raise NotImplementedError
+        raise NotImplementedError, "hi"
       end)
       expect { sidekiq_perform_inline(cls, []) }.to raise_error(NotImplementedError)
-      expect(ds1[job_id: jid]).to include(locked_by: nil, locked_at: nil)
+      row = ds1[job_id: jid]
+      expect(row).to include(locked_by: nil, locked_at: nil)
+      expect(JSON.parse(row[:job_item_json])).to include(
+        "error_class" => "NotImplementedError",
+        "error_message" => "hi",
+      )
     end
 
     it "warns if a job was not locked at the start of performing" do

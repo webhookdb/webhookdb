@@ -2,6 +2,8 @@
 
 require "httparty"
 
+require "appydays/loggable/httparty_formatter"
+
 module Webhookdb::Http
   # Error raised when some API has rate limited us.
   class BaseError < StandardError; end
@@ -58,7 +60,7 @@ module Webhookdb::Http
   end
 
   def self.get(url, query={}, **options)
-    raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
+    self._setup_logger_args(options)
     opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
     r = HTTParty.get(url, **opts)
@@ -67,7 +69,7 @@ module Webhookdb::Http
   end
 
   def self.post(url, body={}, headers: {}, **options)
-    raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
+    self._setup_logger_args(options)
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
@@ -75,5 +77,10 @@ module Webhookdb::Http
     r = HTTParty.post(url, **opts)
     self.check!(r, **options)
     return r
+  end
+
+  def self._setup_logger_args(options)
+    raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
+    options[:log_format] = :appydays
   end
 end
