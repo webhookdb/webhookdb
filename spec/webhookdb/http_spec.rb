@@ -180,4 +180,17 @@ RSpec.describe Webhookdb::Http do
       expect(described_class.user_agent).to eq("User Agent")
     end
   end
+
+  describe "logging" do
+    it "logs structured request information" do
+      logger = SemanticLogger["http_spec_logging_test"]
+      stub_request(:post, "https://foo/bar").to_return(json_response({o: "k"}))
+      logs = capture_logs_from(logger, formatter: :json) do
+        described_class.post("https://foo/bar", {x: 1}, logger:)
+      end
+      expect(logs.map { |j| JSON.parse(j) }).to contain_exactly(
+        include("message" => "httparty_request", "context" => include("http_method" => "POST")),
+      )
+    end
+  end
 end
