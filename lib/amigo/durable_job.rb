@@ -153,15 +153,18 @@ module Amigo::DurableJob
       job_run_at = item.key?("at") ? Time.at(item["at"]) : Time.now
       assume_dead_at = job_run_at + job_class.heartbeat_extension
       inserted = self.storage_datasets.any? do |ds|
+        job_item_json = item.to_json
         begin
           ds.
             insert_conflict(
               target: :job_id,
-              update: {assume_dead_at:},
+              # Update the job item JSON with the latest details.
+              # This is helpful if the job goes away.
+              update: {assume_dead_at:, job_item_json:},
             ).insert(
               job_id:,
               job_class: job_class.to_s,
-              job_item_json: item.to_json,
+              job_item_json:,
               assume_dead_at:,
               # We cannot use get_sidekiq_options, since that is static. We need to pass in the queue,
               # which can be set dynamically.
@@ -201,8 +204,13 @@ module Amigo::DurableJob
       return nil
     end
 
-    def unlock_job(dataset, job_id, heartbeat_extension)
-      dataset.where(job_id:).update(locked_by: nil, locked_at: nil, assume_dead_at: Time.now + heartbeat_extension)
+    def unlock_job(dataset, job_id, heartbeat_extension, **fields)
+      dataset.where(job_id:).update(
+        locked_by: nil,
+        locked_at: nil,
+        assume_dead_at: Time.now + heartbeat_extension,
+        **fields,
+      )
     end
 
     def heartbeat(now: nil)
@@ -361,7 +369,7 @@ module Amigo::DurableJob
   end
 
   class ServerMiddleware
-    def call(worker, _job, _queue)
+    def call(worker, job, _queue)
       return yield unless Amigo::DurableJob.enabled? && worker.class.respond_to?(:heartbeat_extension)
       ds, row = Amigo::DurableJob.lock_job(worker.jid, worker.class.heartbeat_extension)
       if row.nil?
@@ -372,8 +380,11 @@ module Amigo::DurableJob
       # rubocop:disable Lint/RescueException
       begin
         yield
-      rescue Exception
-        Amigo::DurableJob.unlock_job(ds, worker.jid, worker.class.heartbeat_extension)
+      rescue Exception => e
+        j2 = job.dup
+        j2["error_class"] = e.class.to_s
+        j2["error_message"] = e.to_s
+        Amigo::DurableJob.unlock_job(ds, worker.jid, worker.class.heartbeat_extension, job_item_json: j2.to_json)
         raise
       ensure
         Thread.current[:durable_job_active_job] = nil
