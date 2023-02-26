@@ -9,7 +9,7 @@ module Webhookdb::Http
   class BaseError < StandardError; end
 
   class Error < BaseError
-    attr_reader :response, :body, :uri, :status
+    attr_reader :response, :body, :uri, :status, :http_method
 
     def initialize(response, msg=nil)
       @response = response
@@ -21,11 +21,12 @@ module Webhookdb::Http
         cleaned_params = CGI.parse(@uri.query).map { |k, v| k.include?("secret") ? [k, ".snip."] : [k, v] }
         @uri.query = HTTParty::Request::NON_RAILS_QUERY_STRING_NORMALIZER.call(cleaned_params)
       end
+      @http_method = response.request.http_method::METHOD
       super(msg || self.to_s)
     end
 
     def to_s
-      return "HttpError(status: #{self.status}, uri: #{self.uri}, body: #{self.body})"
+      return "HttpError(status: #{self.status}, method: #{self.http_method}, uri: #{self.uri}, body: #{self.body})"
     end
 
     alias inspect to_s

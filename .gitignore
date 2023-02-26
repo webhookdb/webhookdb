@@ -56,3 +56,4 @@ temp/
 .DS_Store
 
 .durable-sleeper-counter
+message.html

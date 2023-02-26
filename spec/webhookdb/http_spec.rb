@@ -147,7 +147,7 @@ RSpec.describe Webhookdb::Http do
         nil
       end
       expect(e).to_not be_nil
-      expect(e.to_s).to eq("HttpError(status: 500, uri: https://a.b/?, body: meh)")
+      expect(e.to_s).to eq("HttpError(status: 500, method: GET, uri: https://a.b/?, body: meh)")
     end
 
     it "sanitizes query params with secret or access" do
@@ -160,7 +160,8 @@ RSpec.describe Webhookdb::Http do
       end
       expect(e).to_not be_nil
       expect(e.to_s).to eq(
-        "HttpError(status: 500, uri: https://api.convertkit.com/v3/subscribers?api_secret=.snip.&page=1, body: meh)",
+        "HttpError(status: 500, method: GET, " \
+        "uri: https://api.convertkit.com/v3/subscribers?api_secret=.snip.&page=1, body: meh)",
       )
     end
   end
