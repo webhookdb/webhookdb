@@ -101,6 +101,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return self.verified_memberships.filter(&:admin?).map(&:customer)
   end
 
+  def alerting
+    return @alerting ||= Alerting.new(self)
+  end
+
   def cli_editable_fields
     return ["name", "billing_email"]
   end
@@ -399,6 +403,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   #   @return [Array<Webhookdb::ServiceIntegration>]
 end
 
+require "webhookdb/organization/alerting"
 require "webhookdb/organization/db_builder"
 
 # Table: organizations
