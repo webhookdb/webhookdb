@@ -126,18 +126,18 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       desc "Updates the field on an org."
       params do
         requires :field, type: String
+        requires :value, type: String
       end
       post :update do
         customer = current_customer
         org = lookup_org!
         ensure_admin!
-        field_name = params[:field].split("=")[0]
-        value = params[:field].split("=")[1]
+        field_name = params[:field].downcase
         unless org.cli_editable_fields.include?(field_name)
           merror!(403, "That field is not editable from the command line")
         end
         customer.db.transaction do
-          org.send("#{field_name}=", value)
+          org.send("#{field_name}=", params[:value])
           org.save_changes
           status 200
           present org, with: Webhookdb::API::OrganizationEntity,

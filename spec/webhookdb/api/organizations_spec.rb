@@ -267,7 +267,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
 
   describe "POST /v1/organizations/:org_identifier/update" do
     it "fails if request customer doesn't have admin privileges" do
-      post "/v1/organizations/#{org.key}/update", field: 'name="Acme Corp"'
+      post "/v1/organizations/#{org.key}/update", field: "name", value: '"Acme Corp"'
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -278,7 +278,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "fails if proposed change field is not editable via the cli" do
       membership.update(membership_role: admin_role)
 
-      post "/v1/organizations/#{org.key}/update", field: "opaque_id=foobar"
+      post "/v1/organizations/#{org.key}/update", field: "opaque_id", value: "foobar"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -289,7 +289,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "updates org" do
       membership.update(membership_role: admin_role)
 
-      post "/v1/organizations/#{org.key}/update", field: "billing_email=x@y.com"
+      post "/v1/organizations/#{org.key}/update", field: "billing_email", value: "x@y.com"
 
       updated_org = Webhookdb::Organization[id: org.id]
       expect(updated_org.billing_email).to eq("x@y.com")
@@ -298,7 +298,7 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     it "returns correct response" do
       membership.update(membership_role: admin_role)
 
-      post "/v1/organizations/#{org.key}/update", field: "billing_email=x@y.com"
+      post "/v1/organizations/#{org.key}/update", field: "billing_email", value: "x@y.com"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
