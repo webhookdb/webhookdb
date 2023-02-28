@@ -114,13 +114,14 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         present_collection dbms, with: Webhookdb::API::DatabaseMigrationEntity, message:
       end
 
-      desc "Execute an arbitrary query against an org's connection string"
+      desc "Execute an arbitrary query against an org's connection string" do
+        headers Webhookdb::API::ConnstrAuth.headers_desc
+      end
       params do
         optional :query, type: String, prompt: "Input your SQL query, and then press Enter:"
       end
       post :sql do
-        _customer = current_customer
-        org = lookup_org!
+        org = lookup_org!(allow_connstr_auth: true)
         begin
           r = org.execute_readonly_query(params[:query])
         rescue Sequel::DatabaseError => e
