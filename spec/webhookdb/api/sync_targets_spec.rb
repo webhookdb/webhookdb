@@ -58,6 +58,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
           period_seconds: 600,
           table: "",
           schema: "",
+          page_size: 500, # the default
         )
       end
 
@@ -440,12 +441,14 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "https://u:p@a.b",
-             period_seconds: 11.minutes.to_i
+             period_seconds: 11.minutes.to_i,
+             page_size: 600
 
         expect(last_response).to have_status(200)
         stgt = sint.sync_targets.first
         expect(stgt).to have_attributes(
           period_seconds: 11.minutes.to_i,
+          page_size: 600,
         )
       end
 
@@ -561,6 +564,14 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
+      it "can modify page_size" do
+        http_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint).create(connection_url: "https://u:p@a.b")
+        post "/v1/organizations/#{org.key}/sync_targets/http/#{http_tgt.opaque_id}/update", page_size: 750
+
+        expect(last_response).to have_status(200)
+        expect(http_tgt.refresh).to have_attributes(page_size: 750)
+      end
+
       it "403s if the HTTP sync target does not exist for that org" do
         st = Webhookdb::Fixtures.sync_target.create
         post "/v1/organizations/#{org.key}/sync_targets/http/#{st.opaque_id}/update", table: "tbl"
@@ -571,7 +582,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "403s if user doesn't have permissions for organization assocatied with service integration" do
+      it "403s if user doesn't have permissions for organization associated with service integration" do
         membership.destroy
 
         post "/v1/organizations/#{org.key}/sync_targets/http/#{sync_tgt.opaque_id}/update", table: "tbl"

@@ -32,6 +32,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # Can be overridden per-organization.
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
+    # How many items sent in each POST for http sync targets.
+    setting :default_page_size, 500
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
     # since it's convenient, but for tests, it could cause conflicts
@@ -203,6 +205,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @return [Webhookdb::Organization]
   def organization
     return self.service_integration.organization
+  end
+
+  def before_validation
+    self.page_size ||= Webhookdb::SyncTarget.default_page_size
+    super
   end
 
   def before_create
