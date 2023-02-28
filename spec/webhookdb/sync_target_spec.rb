@@ -85,52 +85,73 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
-  describe "validate_url" do
+  describe "validate_db_url" do
     it "returns nil if the url is for a supported database" do
-      expect(described_class.validate_url("postgres://u:p@x:5432/db")).to be_nil
+      expect(described_class.validate_db_url("postgres://u:p@x:5432/db")).to be_nil
     end
 
+    it "returns an error if the url is https" do
+      expect(described_class.validate_db_url("https://u:p@x/db")).to match(
+        /'https' protocol is not supported for database sync targets\. Supported protocols are: postgres, snowflake\./,
+      )
+    end
+
+    it "returns an error if the url is http" do
+      Webhookdb::SyncTarget.allow_http = true
+      expect(described_class.validate_db_url("http://u:p@x/db")).to match(
+        /'http' protocol is not supported for database sync targets\. Supported protocols are: postgres, snowflake\./,
+      )
+    end
+
+    it "returns an error if the url cannot be parsed" do
+      expect(described_class.validate_db_url("this is not ao url")).to eq("That's not a valid URL.")
+    end
+
+    it "returns an error if the database is not supported" do
+      expect(described_class.validate_db_url("oracle://u:p@x:5432/db")).to eq(
+        # rubocop:disable Layout/LineLength
+        "The 'oracle' protocol is not supported for database sync targets. Supported protocols are: postgres, snowflake.",
+        # rubocop:enable Layout/LineLength
+      )
+    end
+  end
+
+  describe "validate_http_url" do
     it "returns nil if the url is https" do
-      expect(described_class.validate_url("https://u:p@x/db")).to be_nil
-      expect(described_class.validate_url("https://:p@x/db")).to be_nil
-      expect(described_class.validate_url("https://u@x/db")).to be_nil
+      expect(described_class.validate_http_url("https://u:p@x/db")).to be_nil
+      expect(described_class.validate_http_url("https://:p@x/db")).to be_nil
+      expect(described_class.validate_http_url("https://u@x/db")).to be_nil
     end
 
     it "returns nil if the url is http and config allows http urls" do
       Webhookdb::SyncTarget.allow_http = true
-      expect(described_class.validate_url("http://u:p@x/db")).to be_nil
-      expect(described_class.validate_url("http://:p@x/db")).to be_nil
-      expect(described_class.validate_url("http://u@x/db")).to be_nil
+      expect(described_class.validate_http_url("http://u:p@x/db")).to be_nil
+      expect(described_class.validate_http_url("http://:p@x/db")).to be_nil
+      expect(described_class.validate_http_url("http://u@x/db")).to be_nil
+    end
+
+    it "returns an error if the url is for a database" do
+      expect(described_class.validate_http_url("postgres://u:p@x:5432/db")).to eq(
+        "Must be an https url.",
+      )
     end
 
     it "returns an error if the url cannot be parsed" do
-      expect(described_class.validate_url("this is not ao url")).to eq(
-        "The URL is not valid",
+      expect(described_class.validate_http_url("this is not ao url")).to eq(
+        "That's not a valid URL.",
       )
     end
 
     it "returns an error if the url is http and config disallows http urls" do
       Webhookdb::SyncTarget.allow_http = false
-      expect(described_class.validate_url("http://u:p@x:5432/db")).to eq(
-        "The 'http' protocol is not supported. Supported protocols are: postgres, snowflake, https",
-      )
-    end
-
-    it "returns an error if the database is not supported" do
-      expect(described_class.validate_url("oracle://u:p@x:5432/db")).to eq(
-        "The 'oracle' protocol is not supported. Supported protocols are: postgres, snowflake, https",
+      expect(described_class.validate_http_url("http://u:p@x:5432/db")).to eq(
+        "Url must be https, not http.",
       )
     end
 
     it "returns an error if the https url has no username or password" do
-      expect(described_class.validate_url("https://x/handler")).to eq(
+      expect(described_class.validate_http_url("https://x/handler")).to eq(
         "https urls must include a Basic Auth username and/or password, like 'https://user:pass@x/handler'",
-      )
-    end
-
-    it "returns an error if the database url does not have a username and password" do
-      expect(described_class.validate_url("postgres://u@pg:5432/db")).to eq(
-        "Database URLs must include a username and password, like 'postgres://user:pass@pg:5432/db'",
       )
     end
   end
