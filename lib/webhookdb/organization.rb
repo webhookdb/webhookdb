@@ -118,13 +118,16 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def execute_readonly_query(sql)
+    max_rows = self.max_query_rows || self.class.max_query_rows
     return self.readonly_connection do |conn|
       ds = conn.fetch(sql)
       r = QueryResult.new
+      r.max_rows_reached = false
       r.columns = ds.columns
       r.rows = []
-      ds.each do |row|
-        if r.rows.length >= self.class.max_query_rows
+      # Stream to avoid pulling in all rows of unlimited queries
+      ds.stream.each do |row|
+        if r.rows.length >= max_rows
           r.max_rows_reached = true
           break
         end

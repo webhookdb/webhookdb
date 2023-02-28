@@ -111,7 +111,7 @@ class Webhookdb::ConnectionCache
         raise ReentranceError,
               "ConnectionCache#borrow is not re-entrant for the same database since the connection has stateful config"
       end
-      conn = db_loans[:available].pop || take_conn(url, single_threaded: true, extensions: [:pg_json])
+      conn = db_loans[:available].pop || take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
       db_loans[:loaned][t] = conn
     end
     conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
