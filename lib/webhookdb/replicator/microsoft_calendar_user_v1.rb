@@ -44,7 +44,7 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
     return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
   end
 
-  def _resource_to_data(resource)
+  def _resource_to_data(resource, _event, _request)
     data = resource.dup
     data.delete("type")
     data.delete("encrypted_refresh_token")

@@ -59,7 +59,7 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
     ]
   end
 
-  def _prepare_for_insert(resource, event, enrichment)
+  def _prepare_for_insert(resource, event, request, enrichment)
     h = super
     # Transistor merged their summary and description fields so they're authored
     # as one big 'description' HTML blob in February 2023. Previous to that,

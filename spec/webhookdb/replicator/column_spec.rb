@@ -574,31 +574,5 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         let(:expected_query) { /SELECT nextval\('replicator_seq_org_/ }
       end
     end
-
-    describe "Webhookdb::Replicator::BookingpalV1Mixin::DEFAULTER_DELETED_AT" do
-      let(:described_class) { Webhookdb::Replicator::BookingpalV1Mixin::DEFAULTER_DELETED_AT }
-      let(:resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "POST"} }
-      let(:delete_resource) { {"request_path" => "path", "request_body" => {}, "request_method" => "DELETE"} }
-
-      describe "ruby defaulter" do
-        it "returns Time.now if request method is 'DELETE'" do
-          v = described_class.ruby.call(delete_resource)
-          expect(v).to be_within(10).of(Time.now)
-        end
-
-        it "returns nil if request method is not 'DELETE'" do
-          v = described_class.ruby.call(resource)
-          expect(v).to be_nil
-        end
-      end
-
-      describe "sql defaulter" do
-        it "returns nil'" do
-          e = described_class.sql.call
-          v = Webhookdb::Postgres::Model.db.select(e).first.to_a[0][1]
-          expect(v).to be_nil
-        end
-      end
-    end
   end
 end

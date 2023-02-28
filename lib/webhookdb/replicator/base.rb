@@ -442,10 +442,10 @@ class Webhookdb::Replicator::Base
     resource, event = self._resource_and_event(request)
     return nil if resource.nil?
     enrichment = self._fetch_enrichment(resource, event, request)
-    prepared = self._prepare_for_insert(resource, event, enrichment)
+    prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    data_col_val = self._resource_to_data(resource)
+    data_col_val = self._resource_to_data(resource, event, request)
     inserting[:data] = data_col_val.to_json
     inserting[:enrichment] = enrichment.to_json if self._store_enrichment_body?
     inserting.merge!(prepared)
@@ -557,8 +557,12 @@ class Webhookdb::Replicator::Base
 
   # Return the hash that should be inserted into the database,
   # based on the denormalized columns and data given.
+  # @param [Hash,nil] resource
+  # @param [Hash,nil] event
+  # @param [Webhookdb::Replicator::WebhookRequest] request
+  # @param [Hash,nil] enrichment
   # @return [Hash]
-  def _prepare_for_insert(resource, event, enrichment)
+  def _prepare_for_insert(resource, event, request, enrichment)
     h = [self._remote_key_column].concat(self._denormalized_columns).each_with_object({}) do |col, memo|
       value = col.to_ruby_value(resource:, event:, enrichment:, service_integration:)
       skip = value.nil? && col.skip_nil?
@@ -570,7 +574,11 @@ class Webhookdb::Replicator::Base
   # Given the resource, return the value for the :data column.
   # Only needed in rare situations where fields should be stored
   # on the row, but not in :data.
-  def _resource_to_data(resource)
+  # To skip :data column updates, return nil.
+  # @param [Hash,nil] resource
+  # @param [Hash,nil] event
+  # @param [Webhookdb::Replicator::WebhookRequest] request
+  def _resource_to_data(resource, event, request)
     return resource
   end
 

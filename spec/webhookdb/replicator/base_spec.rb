@@ -122,7 +122,7 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
     it "retrieves all columns and converts values" do
       s = svc_cls.new(sint_fac.instance)
 
-      prepared_hash = s._prepare_for_insert(resource, nil, nil)
+      prepared_hash = s._prepare_for_insert(resource, nil, nil, nil)
       expect(prepared_hash).to eq({id: "productABC", item: "Banana", quantity: 12, notes: "They are yellow"})
     end
 
@@ -135,7 +135,7 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
           "quantity" => "11",
           "notes" => nil,
         }
-      prepared_hash = s._prepare_for_insert(new_resource, nil, nil)
+      prepared_hash = s._prepare_for_insert(new_resource, nil, nil, nil)
       expect(prepared_hash).to eq({id: "productABC", item: "Banana", quantity: 11})
     end
   end
