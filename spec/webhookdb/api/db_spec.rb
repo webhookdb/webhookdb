@@ -278,6 +278,36 @@ RSpec.describe Webhookdb::API::Db, :db do
         error: include(message: "ERROR:  syntax error at or near \"this\"\nLINE 1: this is invalid\n        ^\n"),
       )
     end
+
+    describe "using a SHA256 hash connection string instead of user auth" do
+      before(:each) do
+        logout
+      end
+
+      it "allows auth with a SHA256 hashed connection string" do
+        svc = Webhookdb::Replicator.create(sint)
+        svc.create_table
+        svc.admin_dataset do |ds|
+          ds.db << insert_query
+        end
+
+        header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
+        post "/v1/db/#{org.key}/sql", query: "select * from fake_v1"
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(
+          headers: ["pk", "my_id", "at", "data"],
+          rows: [[be_a(Numeric), "abcxyz", nil, {}]],
+        )
+      end
+
+      it "401s if the hash connection string is invalid" do
+        header "Whdb-Sha256-Conn", "abc"
+        post "/v1/db/#{org.key}/sql", query: "select * from fake_v1"
+
+        expect(last_response).to have_status(401)
+      end
+    end
   end
 
   describe "GET /v1/db/:organization_key/roll-credentials" do
