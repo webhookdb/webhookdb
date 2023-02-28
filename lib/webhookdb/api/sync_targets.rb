@@ -43,6 +43,10 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                                   db_identifier: true,
                                   allow_blank: true,
                                   desc: "Table to create and update. Default to match the table name of the service integration.",)
+                !is_db && optional(:page_size,
+                                   type: Integer,
+                                   values: (1..1000),
+                                   desc: "Maximum number of rows in each POST request.",)
               end
               params :connection_url do
                 optional :connection_url,
@@ -103,6 +107,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 period_seconds: params[:period_seconds],
                 schema: params[:schema] || "",
                 table: params[:table] || "",
+                page_size: params[:page_size],
                 created_by: customer,
               )
               message = "Every #{stgt.period_seconds} seconds, data from #{sint.service_name} " \
@@ -143,10 +148,13 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               route_setting :target_type, target_type_resource
               post :update do
                 stgt = lookup!
-                stgt.period_seconds = params[:period_seconds] if params.key?(:period_seconds)
                 stgt.table = params[:table] if params.key?(:table)
                 stgt.schema = params[:schema] if params.key?(:schema)
-                validate_period!(stgt.organization, params[:period_seconds])
+                stgt.page_size = params[:page_size] if params.key?(:page_size)
+                if params.key?(:period_seconds) && (period_seconds = params[:period_seconds])
+                  validate_period!(stgt.organization, period_seconds)
+                  stgt.period_seconds = period_seconds
+                end
                 save_or_error!(stgt)
                 status 200
                 present stgt, with: Webhookdb::API::SyncTargetEntity, message: "#{fullname.capitalize} sync target has been updated."
