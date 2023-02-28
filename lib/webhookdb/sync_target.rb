@@ -81,36 +81,50 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     end
   end
 
-  def self.validate_url(s)
+  def http?
+    url = URI(self.connection_url)
+    return true if ["http", "https"].include?(url.scheme)
+    return false
+  end
+
+  def db?
+    return !self.http?
+  end
+
+  def self.validate_db_url(s)
     begin
       url = URI(s)
     rescue URI::InvalidURIError
-      return "The URL is not valid"
+      return "That's not a valid URL."
     end
-    # rubocop:disable Layout/LineLength
-    not_supported_msg = "The '#{url.scheme}' protocol is not supported. Supported protocols are: postgres, snowflake, https"
-    # rubocop:enable Layout/LineLength
+    protocols = ["postgres", "snowflake"]
+    unless protocols.include?(url.scheme)
+      protostr = protocols.join(", ")
+      # rubocop:disable Layout/LineLength
+      msg = "The '#{url.scheme}' protocol is not supported for database sync targets. Supported protocols are: #{protostr}."
+      # rubocop:enable Layout/LineLength
+      return msg
+    end
+    return nil
+  end
+
+  def self.validate_http_url(s)
+    begin
+      url = URI(s)
+    rescue URI::InvalidURIError
+      return "That's not a valid URL."
+    end
     case url.scheme
-      when "postgres", "snowflake"
-        return nil if url.user.present? && url.password.present?
-        url.user = "user"
-        url.password = "pass"
-        return "Database URLs must include a username and password, like '#{url}'"
       when "https"
         return nil if url.user.present? || url.password.present?
         url.user = "user"
         url.password = "pass"
         return "https urls must include a Basic Auth username and/or password, like '#{url}'"
       when "http"
-        # http behavior should be identical to https scheme, except that it should not be supported
-        # unless configuration allows it
-        return not_supported_msg unless Webhookdb::SyncTarget.allow_http
-        return nil if url.user.present? || url.password.present?
-        url.user = "user"
-        url.password = "pass"
-        return "https urls must include a Basic Auth username and/or password, like '#{url}'"
+        # http does not require a username/pass since it's only for internal use.
+        return Webhookdb::SyncTarget.allow_http ? nil : "Url must be https, not http."
       else
-        return not_supported_msg
+        return "Must be an https url."
     end
   end
 
