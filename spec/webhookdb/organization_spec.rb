@@ -55,24 +55,48 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       end
 
       res = o.execute_readonly_query("SELECT my_id, data FROM #{sint.table_name}")
-
-      expect(res.columns).to match([:my_id, :data])
-      expect(res.rows).to eq([["alpha", {}]])
-      expect(res.max_rows_reached).to be_nil
+      expect(res).to have_attributes(
+        columns: [:my_id, :data],
+        rows: [["alpha", {}]],
+        max_rows_reached: be(false),
+      )
     end
 
     it "truncates results correctly" do
-      Webhookdb::Organization.max_query_rows = 2
-
       # rubocop:disable Layout/LineLength
       Sequel.connect(o.admin_connection_url) do |admin_conn|
         admin_conn << "INSERT INTO #{sint.table_name} (my_id, data) VALUES ('alpha', '{}'), ('beta', '{}'), ('gamma', '{}')"
       end
       # rubocop:enable Layout/LineLength
 
-      res = o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")
-      expect(res.rows).to eq([["alpha"], ["beta"]])
-      expect(res.max_rows_reached).to be(true)
+      Webhookdb::Organization.max_query_rows = 2
+      expect(o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")).to have_attributes(
+        rows: [["alpha"], ["beta"]],
+        max_rows_reached: be(true),
+      )
+
+      Webhookdb::Organization.max_query_rows = 3
+      expect(o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")).to have_attributes(
+        rows: have_length(3),
+        max_rows_reached: be(false),
+      )
+    end
+
+    it "uses the organization max query rows if not null" do
+      Sequel.connect(o.admin_connection_url) do |admin_conn|
+        admin_conn << "INSERT INTO #{sint.table_name} (my_id, data) VALUES ('alpha', '{}'), ('beta', '{}')"
+      end
+      Webhookdb::Organization.max_query_rows = 1
+      expect(o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")).to have_attributes(
+        rows: have_length(1),
+        max_rows_reached: true,
+      )
+
+      o.update(max_query_rows: 99_999)
+      expect(o.execute_readonly_query("SELECT my_id FROM #{sint.table_name}")).to have_attributes(
+        rows: have_length(2),
+        max_rows_reached: false,
+      )
     end
   end
 
