@@ -311,10 +311,10 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     def stub_service_requests
       return [
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-            with(body: "pagination%5Bpage%5D=1").
+            with(body: "pagination%5Bpage%5D=1&pagination%5Bper%5D=500").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-            with(body: "pagination%5Bpage%5D=2").
+            with(body: "pagination%5Bpage%5D=2&pagination%5Bper%5D=500").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
@@ -444,13 +444,13 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     def stub_service_requests(partial:)
       new_reqs = [
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-          with(body: "pagination%5Bpage%5D=1").
+          with(body: "pagination%5Bpage%5D=1&pagination%5Bper%5D=500").
           to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
       ]
       return new_reqs if partial
       old_reqs = [
         stub_request(:get, "https://api.transistor.fm/v1/episodes").
-          with(body: "pagination%5Bpage%5D=2").
+          with(body: "pagination%5Bpage%5D=2&pagination%5Bper%5D=500").
           to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
       return old_reqs + new_reqs
@@ -520,6 +520,110 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
           post_to_url: "",
           complete: true,
           output: match("Great! We are going to start backfilling your Transistor Episodes."),
+        )
+      end
+    end
+  end
+
+  describe "logical summary and description" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "transistor_episode_v1") }
+    let(:body) do
+      JSON.parse(<<~J)
+        {
+           "data":{
+              "id":"655205",
+              "type":"episode",
+              "attributes":{
+                 "title":"THE SHOW",
+                 "number":1,
+                 "season":1,
+                 "status":"published",
+                 "published_at":"2021-09-20T10:51:45.707-07:00",
+                 "duration":236,
+                 "explicit":false,
+                 "keywords":"",
+                 "alternate_url":"",
+                 "media_url":"https://media.transistor.fm/70562b4e/83984906.mp3",
+                 "image_url":null,
+                 "author":"",
+                 "summary":"readgssfdctwadg",
+                 "description":"",
+                 "created_at":"2021-09-20T10:06:08.582-07:00",
+                 "updated_at":"2021-09-20T10:51:45.708-07:00",
+                 "formatted_published_at":"September 20, 2021",
+                 "duration_in_mmss":"03:56",
+                 "share_url":"https://share.transistor.fm/s/70562b4e",
+                 "formatted_summary":"readgssfdctwadg",
+                 "audio_processing":false,
+                 "type":"full",
+                 "email_notifications":null
+              },
+              "relationships":{
+                 "show":{
+                    "data":{
+                       "id":"24204",
+                       "type":"show"
+                    }
+                 }
+              }
+           }
+        }
+      J
+    end
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "uses description and formatted_summary verbatim for the 'legacy' format" do
+      body["data"]["attributes"]["description"] = "<div>param 1</div><div>para 2</div>"
+      body["data"]["attributes"]["summary"] = "Make it short."
+      body["data"]["attributes"]["formatted_summary"] = "Make it short."
+
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          logical_summary: "Make it short.",
+          logical_description: "<div>param 1</div><div>para 2</div>",
+          api_format: 1,
+        )
+      end
+    end
+
+    it "extracts the first description line for the combined format" do
+      body["data"]["attributes"]["description"] =
+        " <div>Make it short. <br><br><strong>Links:</strong></div><ul><li>hi</li></ul>"
+      body["data"]["attributes"]["summary"] = nil
+      body["data"]["attributes"]["formatted_summary"] = "Make it short. Links: hi"
+
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          logical_summary: "Make it short.",
+          logical_description: "<div><strong>Links:</strong></div><ul><li>hi</li></ul>",
+          api_format: 2,
+        )
+      end
+    end
+
+    it "uses the description as the summary if there is just one line" do
+      body["data"]["attributes"]["description"] = " <div>Make it short. </div>"
+      body["data"]["attributes"]["summary"] = nil
+      body["data"]["attributes"]["formatted_summary"] = "Make it short."
+
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          logical_summary: "Make it short.",
+          logical_description: nil,
+          api_format: 2,
         )
       end
     end
