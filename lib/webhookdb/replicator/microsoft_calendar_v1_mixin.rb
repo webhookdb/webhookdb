@@ -12,8 +12,8 @@ module Webhookdb::Replicator::MicrosoftCalendarV1Mixin
     end
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! You are all set.
-Refer to https://webhookdb.com/docs/google-calendar for detailed instructions
-on syncing data for your linked Google accounts.
+Refer to https://webhookdb.com/docs/outlook-calendar for detailed instructions
+on syncing data for your linked Outlook accounts.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}")})
     return step.completed
@@ -23,9 +23,9 @@ on syncing data for your linked Google accounts.
     # TODO: Revisit this copy
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(#{self.resource_name_singular} does not support backfilling.
-See https://webhookdb.com/docs/google-calendar for instructions on setting up your integration.
+See https://webhookdb.com/docs/outlook-calendar for instructions on setting up your integration.
 You can send WebhookDB the 'REFRESH' and 'RESYNC' messages to refresh a user's access token,
-and resync all their Google Calendar data, respectively.
+and resync all their Outlook Calendar data, respectively.
 
 Run `webhookdb integrations reset` if you need to modify the secret for this integration.
 

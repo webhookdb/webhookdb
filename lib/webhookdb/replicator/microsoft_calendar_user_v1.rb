@@ -30,6 +30,9 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
       Webhookdb::Replicator::Column.new(:row_updated_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
       # Provided by the client for each of their users.
       Webhookdb::Replicator::Column.new(:encrypted_refresh_token, TEXT, skip_nil: true),
+      Webhookdb::Replicator::Column.new(:events_subscription_id, TEXT, skip_nil: true, optional: true, index: true),
+      Webhookdb::Replicator::Column.new(:events_subscription_expiration, TIMESTAMP, index: true, skip_nil: true,
+                                                                                    optional: true,),
     ]
   end
 
@@ -94,6 +97,21 @@ The secret to use for signing is:
   end
 
   def upsert_webhook(request)
+    # if microsoft is sending us a change notification here:
+    notification_bodies = request.body.fetch("value", nil)
+    if notification_bodies.present?
+      # Microsoft will sometimes send us multiple change notifications at once...even when there is a single
+      # notification it is sent as an array. We use the subscription ID to match which user rows we need to sync
+      # events for.
+      notification_bodies.each do |notification|
+        events_subscription_id = notification.fetch("subscriptionId")
+        user_row = self.admin_dataset { |ds| ds.where(events_subscription_id:).first }
+        raise Webhookdb::InvalidPostcondition, "there is no calendar user with that subscription id" if user_row.nil?
+        sync_calendar_user_calendars_and_events(self, user_row)
+      end
+      return
+    end
+
     client_request_type = request.body["type"]
     return unless client_request_type
     # Avoid mutating the request, since it leads to weird issues since we pass
@@ -148,9 +166,113 @@ The secret to use for signing is:
 
     # We trigger full syncs for link, refresh, and resync requests.
     sync_calendar_user_calendars_and_events(self, user_row)
+    create_or_update_event_change_subscription(self, user_row)
   end
 
   CLEANUP_SERVICE_NAMES = ["microsoft_calendar_v1", "microsoft_calendar_event_v1"].freeze
+  MAX_SUBSCRIPTION_DURATION = 4300.minutes
+
+  def create_or_update_event_change_subscription(calendar_user_svc, calendar_user_row)
+    microsoft_user_id = calendar_user_row.fetch(:microsoft_user_id)
+    subscription_id = calendar_user_row.fetch(:events_subscription_id, nil)
+
+    calendar_user_svc.with_access_token(microsoft_user_id) do |access_token|
+      calendar_user_svc.admin_dataset do |ds|
+        subscription_resp = if subscription_id.nil?
+                              self._create_event_change_subscription(access_token)
+        else
+          self._renew_event_change_subscription(subscription_id, access_token)
+        end
+        expiration = Time.parse(subscription_resp.fetch("expirationDateTime"))
+        ds.where(microsoft_user_id: calendar_user_row.fetch(:microsoft_user_id)).update(
+          events_subscription_expiration: expiration,
+          events_subscription_id: subscription_id.nil? ? subscription_resp.fetch("id") : subscription_id,
+        )
+      end
+    end
+  end
+
+  def _create_event_change_subscription(access_token)
+    response = Webhookdb::Http.post(
+      "https://graph.microsoft.com/v1.0/subscriptions",
+      {
+        "changeType" => "created,updated,deleted",
+        "resource" => "me/events",
+        "notificationUrl" => self.service_integration.replicator.webhook_endpoint,
+        "clientState" => self.service_integration.webhook_secret,
+        "expirationDateTime" => (Time.now + MAX_SUBSCRIPTION_DURATION).iso8601,
+      },
+      headers: {"Authorization" => "Bearer #{access_token}"},
+      logger: self.logger,
+    )
+    return response.parsed_response
+  end
+
+  def _renew_event_change_subscription(subscription_id, access_token)
+    url = "https://graph.microsoft.com/v1.0/subscriptions/#{URI.encode_www_form_component(subscription_id)}"
+    response = Webhookdb::Http.post(
+      url,
+      {"expirationDateTime" => (Time.now + MAX_SUBSCRIPTION_DURATION).iso8601},
+      headers: {"Authorization" => "Bearer #{access_token}"},
+      logger: self.logger,
+      method: :patch,
+    )
+    return response.parsed_response
+  end
+
+  def _webhook_response(request)
+    # We need to be able to provide verification when we are setting up our change notification sunscriptions.
+    # https://learn.microsoft.com/en-us/graph/webhooks?tabs=http#notification-endpoint-validation
+    validation_token = request.params.fetch("validationToken", nil)
+    unless validation_token.nil?
+      return Webhookdb::WebhookResponse.new(
+        status: 200,
+        headers: {"Content-Type" => "text/plain;charset=utf-8"},
+        body: validation_token,
+      )
+    end
+
+    # The change notifications from Microsoft will not have the webhook secret in the header, but we can verify
+    # that the "clientState" field matches our webhook secret. We should always return a 202 in this case, due to
+    # the way Microsoft Graph interprets status codes:
+    # https://learn.microsoft.com/en-us/graph/webhooks?tabs=http#processing-the-change-notification
+
+    # The notification bodies come in as an array--let's just check the `clientState` of the first one. As far as I
+    # can tell, when multiple notification bodies are sent in it's because they belong to the same subscription, and so
+    # it follows that they will all have the same `clientState` value.
+    # https://learn.microsoft.com/en-us/graph/webhooks?tabs=http#change-notification-example
+    notification_bodies = request.params.fetch("value", nil)
+    # verify in the standard way (with secret header) if the request is not from microsoft
+    return super(request) if notification_bodies.nil?
+
+    client_state = notification_bodies.first.fetch("clientState", nil)
+    return Webhookdb::WebhookResponse.ok if client_state == self.service_integration.webhook_secret
+    return Webhookdb::WebhookResponse.error("Client state does not match webhook secret.") unless client_state.nil?
+    super(request)
+  end
+
+  def bulk_update_expiring_subscriptions
+    cutoff = Time.now + 24.hours
+    expiring_soon_expr = Sequel[:events_subscription_expiration] < cutoff
+    rows = self.admin_dataset do |ds|
+      ds.select(:pk, :microsoft_user_id, :events_subscription_id, :encrypted_refresh_token).
+        where(expiring_soon_expr).
+        all
+    end
+    rows.each do |row|
+      microsoft_user_id = row.fetch(:microsoft_user_id)
+      subscription_id = row.fetch(:events_subscription_id)
+      subscription_resp = self.with_access_token(microsoft_user_id) do |access_token|
+        self._renew_event_change_subscription(subscription_id, access_token)
+      end
+      expiration = Time.parse(subscription_resp.fetch("expirationDateTime"))
+      self.admin_dataset do |ds|
+        ds.where(pk: row.fetch(:pk)).update(
+          events_subscription_expiration: expiration,
+        )
+      end
+    end
+  end
 
   def clear_delta_urls_for_user(microsoft_user_id)
     # Goes through dependent `microsoft_calendar_v1` integrations and clears delta urls for the given user.

@@ -37,6 +37,20 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     svc.force_set_oauth_access_token(microsoft_user_id, access_token)
   end
 
+  def stub_subscription_request(expiration:, subscription_id: nil, status: 200, body: nil, method: :post)
+    url = if subscription_id.nil?
+            "https://graph.microsoft.com/v1.0/subscriptions"
+          else
+            "https://graph.microsoft.com/v1.0/subscriptions/#{subscription_id}"
+          end
+    body ||= {
+      id: subscription_id || "subscription_id",
+      expirationDateTime: expiration,
+    }
+
+    return stub_request(method, url).to_return(status:, headers: json_headers, body: body.to_json)
+  end
+
   it_behaves_like "a replicator", "microsoft_calendar_user_v1" do
     let(:sint) { super() }
     let(:body) do
@@ -178,93 +192,147 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
       ]
     end
 
-    it "responds to `LINKED` request by inserting row and triggering full calendar and event syncs for user" do
-      body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "LINKED"}
-      force_set_oauth_access_token("456", "acctok")
-      cal_reqs = stub_calendar_requests("acctok")
-      event_reqs = stub_event_requests("acctok")
-      svc.upsert_webhook_body(body)
-      expect(cal_reqs).to all(have_been_made)
-      expect(event_reqs).to all(have_been_made)
+    describe "change notifications from microsoft" do
+      let(:notification_body) do
+        JSON.parse(<<~J)
+          {
+            "value": [{
+              "@odata.type": "#microsoft.graph.changeNotification",
+              "changeType": "String",
+              "clientState": "String",
+              "encryptedContent": {
+                "@odata.type": "microsoft.graph.changeNotificationEncryptedContent"
+              },
+              "id": "String (identifier)",
+              "lifecycleEvent": "String",
+              "resource": "String",
+              "resourceData": {
+                "@odata.type": "microsoft.graph.resourceData"
+              },
+              "subscriptionExpirationDateTime": "String (timestamp)",
+              "subscriptionId": "sub_id",
+              "tenantId": "Guid"
+            }]
+          }
+        J
+      end
 
-      svc.readonly_dataset do |ds|
-        expect(ds.all).to have_length(1)
-        expect(ds.first).to include(
-          encrypted_refresh_token: "rqin-LtdutD-a_S48IKF8A==",
-          microsoft_user_id: "456",
-        )
+      it "finds user row associated with the subscription and triggers full sync" do
+        insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456", events_subscription_id: "sub_id")
+        force_set_oauth_access_token("456", "acctok")
+        cal_reqs = stub_calendar_requests("acctok")
+        event_reqs = stub_event_requests("acctok")
+        svc.upsert_webhook_body(notification_body)
+        expect(cal_reqs).to all(have_been_made)
+        expect(event_reqs).to all(have_been_made)
+      end
+
+      it "raise an error if there is no calendar user associated with the subscription_id" do
+        expect do
+          svc.upsert_webhook_body(notification_body)
+        end.to raise_error(Webhookdb::InvalidPostcondition)
       end
     end
 
-    it "responds to `REFRESHED` request by clearing auth info and triggering full calendar and event syncs for user" do
-      insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
-      force_set_oauth_access_token("456", "accesstok1")
-
-      token_req = stub_request(:post, "https://login.microsoftonline.com/organizations/oauth2/v2.0/token").
-        with(body: hash_including("refresh_token" => "refreshtok2")).
-        to_return(status: 200, body: {access_token: "acctok2", expires_in: 500}.to_json, headers: json_headers)
-      cal_reqs = stub_calendar_requests("acctok2")
-      event_reqs = stub_event_requests("acctok2")
-
-      body = {"refresh_token" => "refreshtok2", "microsoft_user_id" => "456", "type" => "REFRESHED"}
-      svc.upsert_webhook_body(body)
-      expect(token_req).to have_been_made
-      expect(cal_reqs).to all(have_been_made)
-      expect(event_reqs).to all(have_been_made)
-      svc.readonly_dataset do |ds|
-        expect(ds.all).to have_length(1)
-        expect(ds.first).to include(
-          encrypted_refresh_token: "ZGxqnruLo91GgmZtN46r2A==",
-          microsoft_user_id: "456",
-        )
-      end
-    end
-
-    it "responds to `RESYNC` request by triggering full syncs for user and clearing calendar delta urls" do
-      force_set_oauth_access_token("456", "acctok")
-      row = insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
-
-      cal_reqs = stub_calendar_requests("acctok")
-      event_reqs = stub_event_requests("acctok")
-      body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "RESYNC"}
-      svc.upsert_webhook_body(body)
-      expect(cal_reqs).to all(have_been_made)
-      expect(event_reqs).to all(have_been_made)
-    end
-
-    it "responds to `UNLINKED` request by deleting all relevant calendar data" do
-      insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
-      cal_svc.admin_dataset do |cal_ds|
-        cal_ds.multi_insert(
-          [
-            {data: "{}", microsoft_calendar_id: "a", microsoft_user_id: "456"},
-            {data: "{}", microsoft_calendar_id: "b", microsoft_user_id: "789"},
-          ],
-        )
-      end
-      event_svc.admin_dataset do |event_ds|
-        event_ds.multi_insert(
-          [
-            {data: "{}", microsoft_event_id: "c", microsoft_user_id: "456"},
-            {data: "{}", microsoft_event_id: "d", microsoft_user_id: "456"},
-          ],
-        )
-      end
-
-      body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "UNLINKED"}
-      svc.upsert_webhook_body(body)
-
-      expect(svc.readonly_dataset(&:all)).to be_empty
-      expect(cal_svc.readonly_dataset(&:all)).to have_length(1)
-      expect(cal_svc.readonly_dataset(&:first)).to include(microsoft_user_id: "789")
-      expect(event_svc.readonly_dataset(&:all)).to be_empty
-    end
-
-    it "raises error for unknown request type" do
-      body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "REMIX"}
-      expect do
+    describe "requests from the customer" do
+      it "responds to `LINKED` request by inserting row and triggering full sync and creating event subscription" do
+        body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "LINKED"}
+        force_set_oauth_access_token("456", "acctok")
+        cal_reqs = stub_calendar_requests("acctok")
+        event_reqs = stub_event_requests("acctok")
+        expiration = Time.now + 4300.minutes
+        subscription_req = stub_subscription_request(expiration:)
         svc.upsert_webhook_body(body)
-      end.to raise_error(RuntimeError, "Unknown MicrosoftCalendarUserV1 request type: REMIX")
+        expect(cal_reqs).to all(have_been_made)
+        expect(event_reqs).to all(have_been_made)
+        expect(subscription_req).to have_been_made
+
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(
+            encrypted_refresh_token: "rqin-LtdutD-a_S48IKF8A==",
+            microsoft_user_id: "456",
+          )
+        end
+      end
+
+      it "responds to `REFRESHED` request by clearing auth info and triggering full sync for user" do
+        insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
+        force_set_oauth_access_token("456", "accesstok1")
+
+        token_req = stub_request(:post, "https://login.microsoftonline.com/organizations/oauth2/v2.0/token").
+          with(body: hash_including("refresh_token" => "refreshtok2")).
+          to_return(status: 200, body: {access_token: "acctok2", expires_in: 500}.to_json, headers: json_headers)
+        cal_reqs = stub_calendar_requests("acctok2")
+        event_reqs = stub_event_requests("acctok2")
+        expiration = Time.now + 4300.minutes
+        subscription_req = stub_subscription_request(expiration:)
+
+        body = {"refresh_token" => "refreshtok2", "microsoft_user_id" => "456", "type" => "REFRESHED"}
+        svc.upsert_webhook_body(body)
+        expect(token_req).to have_been_made
+        expect(cal_reqs).to all(have_been_made)
+        expect(event_reqs).to all(have_been_made)
+        expect(subscription_req).to have_been_made
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to have_length(1)
+          expect(ds.first).to include(
+            encrypted_refresh_token: "ZGxqnruLo91GgmZtN46r2A==",
+            microsoft_user_id: "456",
+          )
+        end
+      end
+
+      it "responds to `RESYNC` request by triggering full syncs for user and clearing calendar delta urls" do
+        force_set_oauth_access_token("456", "acctok")
+        row = insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
+
+        cal_reqs = stub_calendar_requests("acctok")
+        event_reqs = stub_event_requests("acctok")
+        expiration = Time.now + 4300.minutes
+        subscription_req = stub_subscription_request(expiration:)
+
+        body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "RESYNC"}
+        svc.upsert_webhook_body(body)
+        expect(cal_reqs).to all(have_been_made)
+        expect(event_reqs).to all(have_been_made)
+        expect(subscription_req).to have_been_made
+      end
+
+      it "responds to `UNLINKED` request by deleting all relevant calendar data" do
+        insert_cal_user_row(refresh_token: "refreshtok", microsoft_user_id: "456")
+        cal_svc.admin_dataset do |cal_ds|
+          cal_ds.multi_insert(
+            [
+              {data: "{}", microsoft_calendar_id: "a", microsoft_user_id: "456"},
+              {data: "{}", microsoft_calendar_id: "b", microsoft_user_id: "789"},
+            ],
+          )
+        end
+        event_svc.admin_dataset do |event_ds|
+          event_ds.multi_insert(
+            [
+              {data: "{}", microsoft_event_id: "c", microsoft_user_id: "456"},
+              {data: "{}", microsoft_event_id: "d", microsoft_user_id: "456"},
+            ],
+          )
+        end
+
+        body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "UNLINKED"}
+        svc.upsert_webhook_body(body)
+
+        expect(svc.readonly_dataset(&:all)).to be_empty
+        expect(cal_svc.readonly_dataset(&:all)).to have_length(1)
+        expect(cal_svc.readonly_dataset(&:first)).to include(microsoft_user_id: "789")
+        expect(event_svc.readonly_dataset(&:all)).to be_empty
+      end
+
+      it "raises error for unknown request type" do
+        body = {"refresh_token" => "refrok", "microsoft_user_id" => "456", "type" => "REMIX"}
+        expect do
+          svc.upsert_webhook_body(body)
+        end.to raise_error(RuntimeError, "Unknown MicrosoftCalendarUserV1 request type: REMIX")
+      end
     end
   end
 
@@ -326,14 +394,134 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
         )
       end
     end
+  end
 
-    describe "calculate_backfill_state_machine" do
-      it "uses the create state machine" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          output: match("You are about to add support for syncing Outlook Calendar Users"),
-          needs_input: true,
+  describe "calculate_backfill_state_machine" do
+    it "uses the create state machine" do
+      sm = sint.calculate_backfill_state_machine
+      expect(sm).to have_attributes(
+        output: match("You are about to add support for syncing Outlook Calendar Users"),
+        needs_input: true,
+      )
+    end
+  end
+
+  describe "subscription management" do
+    let(:access_token) { "accesstok" }
+    let(:refresh_token) { "refreshtok" }
+
+    before(:each) do
+      org.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    def refreshed(row)
+      return svc.readonly_dataset { |ds| ds[pk: row.fetch(:pk)] }
+    end
+
+    def update(row, **fields)
+      return svc.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(fields) }
+    end
+
+    describe "create_or_update_event_change_subscription" do
+      let(:user_id) { "456" }
+      let(:row) { insert_cal_user_row(refresh_token:, microsoft_user_id: user_id) }
+
+      before(:each) do
+        force_set_oauth_access_token(user_id)
+      end
+
+      it "creates and stores the subscription" do
+        expiration = Time.now + 4300.minutes
+        req = stub_subscription_request(expiration:)
+        svc.create_or_update_event_change_subscription(svc, row)
+        expect(req).to have_been_made
+        expect(refreshed(row)).to include(
+          events_subscription_expiration: match_time(expiration),
+          events_subscription_id: "subscription_id",
         )
+      end
+
+      describe "with an existing subscription" do
+        let(:old_expiration) { Time.now + 1000.minutes }
+
+        before(:each) do
+          update(row, events_subscription_id: "sub_id123", events_subscription_expiration: old_expiration)
+        end
+
+        it "renews it" do
+          expiration = Time.now + 4300.minutes
+          req = stub_subscription_request(subscription_id: "sub_id123", expiration:, method: :patch)
+          svc.create_or_update_event_change_subscription(svc, refreshed(row))
+          expect(req).to have_been_made
+          expect(refreshed(row)).to include(
+            events_subscription_expiration: match_time(expiration),
+            events_subscription_id: "sub_id123",
+          )
+        end
+      end
+
+      it "raises if the subscription request errors" do
+        expiration = Time.now + 4300.minutes
+        req = stub_subscription_request(expiration:, status: 400, body: {})
+        expect do
+          svc.create_or_update_event_change_subscription(svc, row)
+        end.to raise_error(Webhookdb::Http::Error)
+        expect(req).to have_been_made
+      end
+    end
+
+    describe "bulk_update_expiring_subscriptiones" do
+      let(:before_cutoff) { Time.now + 12.hours }
+      let(:after_cutoff) { Time.now + 2.weeks }
+
+      def insert_expiring_row
+        return insert_cal_user_row(
+          refresh_token:,
+          microsoft_user_id: SecureRandom.hex(4),
+          events_subscription_id: "sub_id123",
+          events_subscription_expiration: before_cutoff,
+        )
+      end
+
+      def insert_not_expiring_row
+        return insert_cal_user_row(
+          refresh_token:,
+          microsoft_user_id: SecureRandom.hex(4),
+          events_subscription_id: "sub_id456",
+          events_subscription_expiration: after_cutoff,
+        )
+      end
+
+      it "selects rows that are expiring soon and sends new subscription request" do
+        expir_row = insert_expiring_row
+        not_expir_row = insert_not_expiring_row
+        user_id = expir_row.fetch(:microsoft_user_id)
+        force_set_oauth_access_token(user_id, access_token)
+
+        expiration = Time.now + 4300.minutes
+        req = stub_subscription_request(subscription_id: "sub_id123", expiration:, method: :patch)
+        svc.bulk_update_expiring_subscriptions
+        expect(req).to have_been_made
+
+        expect(refreshed(expir_row)).to include(
+          events_subscription_expiration: match_time(expiration),
+          events_subscription_id: "sub_id123",
+        )
+        expect(refreshed(not_expir_row)).to include(
+          events_subscription_expiration: match_time(after_cutoff),
+          events_subscription_id: "sub_id456",
+        )
+      end
+
+      it "noops when no rows are expiring soon" do
+        not_expir_row = insert_not_expiring_row
+        svc.bulk_update_expiring_subscriptions
+        expect(refreshed(not_expir_row)).to include(**not_expir_row)
       end
     end
   end
@@ -347,6 +535,28 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
 
       goodreq = fake_request
       goodreq.add_header("HTTP_WHDB_WEBHOOK_SECRET", "goodsecret")
+      expect(svc.webhook_response(goodreq)).to have_attributes(status: 202)
+    end
+
+    it "returns the validation token string and a 200 when it is present" do
+      token = "Validation: Testing client application reachability for subscription Request-Id: ms_sub_id"
+      req = fake_request
+      req.params["validationToken"] = token
+      expect(svc.webhook_response(req)).to have_attributes(
+        status: 200,
+        headers: {"Content-Type" => "text/plain;charset=utf-8"},
+        body: token,
+      )
+    end
+
+    it "detects when a request looks like it's from Microsoft and validates using `clientState` field" do
+      sint.webhook_secret = "goodsecret"
+      badreq = fake_request
+      badreq.params["value"] = [{"clientState" => "badsecret"}]
+      expect(svc.webhook_response(badreq)).to have_attributes(status: 401)
+
+      goodreq = fake_request
+      goodreq.params["value"] = [{"clientState" => "goodsecret"}]
       expect(svc.webhook_response(goodreq)).to have_attributes(status: 202)
     end
   end
