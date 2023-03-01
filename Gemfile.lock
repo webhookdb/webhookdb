@@ -261,7 +261,7 @@ GEM
       connection_pool (>= 2.2.5)
       rack (~> 2.0)
       redis (>= 4.5.0, < 5)
-    sidekiq-amigo (1.4.1)
+    sidekiq-amigo (1.4.2)
       sidekiq (~> 6)
       sidekiq-cron (~> 1)
     sidekiq-cron (1.7.0)
@@ -352,7 +352,7 @@ DEPENDENCIES
   sequel_pg
   sequel_postgresql_triggers
   sidekiq
-  sidekiq-amigo (>= 1.4.1)
+  sidekiq-amigo (>= 1.4.2)
   sidekiq-cron
   slack-notifier
   stripe
