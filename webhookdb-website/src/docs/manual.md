@@ -256,9 +256,9 @@ Output the SQL DDL (CREATE TABLE command) to create a DB table that matches what
 
 **--service, -s**="": Name of the service. Run `webhookdb services list` to see a list of all services available to your organization.
 
-<a id="integrations"></a>
+<a id="integrations,-integration"></a>
 
-### [integrations](#integrations)
+### [integrations, integration](#integrations,-integration)
 
 Make sure that you're working on the correct organization when you create an integration.
 
@@ -281,6 +281,18 @@ Create an integration for the given organization.
 Delete an integration and its table.
 
 **--confirm, -c**="": Confirm this action by providing a value of the integration's table name. Will be prompted if not provided.
+
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+<a id="info"></a>
+
+#### [info](#info)
+
+Display information about given integration.
+
+**--field, -f**="": The field that you want information about.
 
 **--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
 
@@ -318,9 +330,9 @@ Get statistics about webhooks for this integration.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-<a id="org"></a>
+<a id="org,-orgs,-organization,-organizations"></a>
 
-### [org](#org)
+### [org, orgs, organization, organizations](#org,-orgs,-organization,-organizations)
 
 Create and activate an organization, invite new members, and change membership roles.
 
@@ -332,9 +344,9 @@ Change the default organization for any command you run.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-<a id="changerole"></a>
+<a id="changerole,-change-role"></a>
 
-#### [changerole](#changerole)
+#### [changerole, change-role](#changerole,-change-role)
 
 Change the role of members of your organization.
 
@@ -422,9 +434,9 @@ Change the name or billing email of the organization. (Note: the org key is immu
 
 **--value, -v**="": The new value for the chosen field
 
-<a id="services"></a>
+<a id="services,-service"></a>
 
-### [services](#services)
+### [services, service](#services,-service)
 
 Work with available services that can be hooked up to reflect data to WebhookDB.
 
@@ -438,9 +450,9 @@ List all available services.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-<a id="subscription"></a>
+<a id="subscription,-subscriptions,-sub,-subs"></a>
 
-### [subscription](#subscription)
+### [subscription, subscriptions, sub, subs](#subscription,-subscriptions,-sub,-subs)
 
 Work with your WebhookDB subscription.
 
@@ -474,17 +486,17 @@ Print information about the WebhookDB pricing plans.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-<a id="sync"></a>
+<a id="dbsync,-sync"></a>
 
-### [sync](#sync)
+### [dbsync, sync](#dbsync,-sync)
 
-Replicate data in a WebhookDB table into another database.
+Replicate data in a WebhookDB table to another database.
 
 <a id="create"></a>
 
 #### [create](#create)
 
-Create a sync target for the specified integration. Data will be automatically synced from the integration's WebhookDB table into the database specified by the connection string. PostgresQL and SnowflakeDB databases are supported.
+Create a database sync target for the specified integration. Data will be automatically synced from the integration's WebhookDB table into the database specified by the connection string. PostgresQL and SnowflakeDB databases are supported.
 
 **--connection-url, -u**="": The connection string for the database that WebhookDB should write data to.
 
@@ -502,17 +514,17 @@ Create a sync target for the specified integration. Data will be automatically s
 
 #### [delete](#delete)
 
-Delete the sync target and stop any further syncing. The table being synced to is not modified.
+Delete the database sync target and stop any further syncing. The database being synced to is not modified.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+**--target, -t**="": Sync target opaque id. Use `webhookdb dbsync list` to see a list of all your database sync targets.
 
 <a id="list"></a>
 
 #### [list](#list)
 
-List all sync targets for the given organization.
+List all database sync targets for the given organization.
 
 **--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
 
@@ -522,7 +534,7 @@ List all sync targets for the given organization.
 
 #### [update](#update)
 
-Update the sync target. Use `webhookdb sync list` to see all sync targets.
+Update the database sync target. Use `webhookdb dbsync list` to see all database sync targets.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
@@ -532,35 +544,115 @@ Update the sync target. Use `webhookdb sync list` to see all sync targets.
 
 **--table**="": Table to create and update. Default to match the table name of the service integration.
 
-**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+**--target, -t**="": Sync target opaque id. Use `webhookdb dbsync list` to see a list of all your database sync targets.
 
 <a id="update-creds"></a>
 
 #### [update-creds](#update-creds)
 
-Update credentials for the sync target. If the database URL used to sync is changing, you must use update-creds so WebhookDB can continue to write to it.
+Update the username and password used to connect to the database being synced to.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
 **--password, -p**="": Takes a password.
 
-**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+**--target, -t**="": Sync target opaque id. Use `webhookdb dbsync list` to see a list of all your database sync targets.
 
-**--user, -u**="": Database username
+**--user, -u**="": Takes a username.
 
 <a id="trigger"></a>
 
 #### [trigger](#trigger)
 
-Trigger a sync to the sync target. The sync will happen at the earliest possible moment since the last sync, no matter how long the configured period is on the sync target.
+Trigger a database sync to the sync target. The database sync will happen at the earliest possible moment since the last sync, no matter how long the configured period is on the sync target.
 
 **--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
-**--target, -t**="": Sync target opaque id. Run `webhookdb sync list` to see a list of all your sync targets.
+**--target, -t**="": Sync target opaque id. Use `webhookdb dbsync list` to see a list of all your database sync targets.
+
+<a id="httpsync"></a>
+
+### [httpsync](#httpsync)
+
+Replicate data in a WebhookDB table to another http endpoint.
+
+<a id="create"></a>
+
+#### [create](#create)
+
+Create a http sync target for the specified integration. Data will be automatically synced from the integration's WebhookDB table into the http endpoint specified by the connection string. Only https urls are supported.
+
+**--connection-url, -u**="": The connection string for the http endpoint that WebhookDB should write data to.
+
+**--integration, -i**="": Integration identifier. This can either be the service name, the table name, or the opaque id, which is a unique code that starts with 'svi_'. Run webhookdb integrations list to see a list of all your integrations.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--pagesize**="": Max number of rows WebhookDB sends the sync target in each call. (default: 0)
+
+**--period**="": Number of seconds between syncs. (default: 0)
+
+<a id="delete"></a>
+
+#### [delete](#delete)
+
+Delete the http sync target and stop any further syncing. The http endpoint being synced to is not modified.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--target, -t**="": Sync target opaque id. Use `webhookdb httpsync list` to see a list of all your http sync targets.
+
+<a id="list"></a>
+
+#### [list](#list)
+
+List all http sync targets for the given organization.
+
+**--format, -f**="": Format of the output. One of: json, csv, table, raw (default: table)
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
 
 <a id="update"></a>
 
-### [update](#update)
+#### [update](#update)
+
+Update the http sync target. Use `webhookdb httpsync list` to see all http sync targets.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--pagesize**="": Max number of rows WebhookDB sends the sync target in each call. (default: 0)
+
+**--period**="": Number of seconds between syncs. (default: 0)
+
+**--target, -t**="": Sync target opaque id. Use `webhookdb httpsync list` to see a list of all your http sync targets.
+
+<a id="update-creds"></a>
+
+#### [update-creds](#update-creds)
+
+Update the username and password used to connect to the http endpoint being synced to.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--password, -p**="": Takes a password.
+
+**--target, -t**="": Sync target opaque id. Use `webhookdb httpsync list` to see a list of all your http sync targets.
+
+**--user, -u**="": Takes a username.
+
+<a id="trigger"></a>
+
+#### [trigger](#trigger)
+
+Trigger a http sync to the sync target. The http sync will happen at the earliest possible moment since the last sync, no matter how long the configured period is on the sync target.
+
+**--org, -o**="": Takes an org key. Run `webhook org list` to see a list of all your org keys.
+
+**--target, -t**="": Sync target opaque id. Use `webhookdb httpsync list` to see a list of all your http sync targets.
+
+<a id="update,-upgrade"></a>
+
+### [update, upgrade](#update,-upgrade)
 
 Update the version of the CLI in-place.
 
@@ -568,9 +660,9 @@ Update the version of the CLI in-place.
 
 **--version**="": Use a specific version rather than latest. Can be used to downgrade.
 
-<a id="webhook"></a>
+<a id="webhook,-webhooks"></a>
 
-### [webhook](#webhook)
+### [webhook, webhooks](#webhook,-webhooks)
 
 Manage webhooks that will be notified when WebhookDB data is updated.
 
