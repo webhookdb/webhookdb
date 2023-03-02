@@ -55,6 +55,15 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return Webhookdb::Replicator.create(self)
   end
 
+  def log_tags
+    return {
+      service_integration_id: self.id,
+      service_integration_name: self.service_name,
+      service_integration_table: self.table_name,
+      **self.organization.log_tags,
+    }
+  end
+
   def authed_api_path
     return "/v1/organizations/#{self.organization_id}/service_integrations/#{self.opaque_id}"
   end

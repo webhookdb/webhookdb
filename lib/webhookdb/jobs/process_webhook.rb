@@ -24,11 +24,7 @@ class Webhookdb::Jobs::ProcessWebhook
   end
 
   def _perform(event)
-    self.with_log_tags(
-      service_integration_id: @sint.id,
-      service_integration_name: @sint.service_name,
-      service_integration_table: @sint.table_name,
-    ) do
+    self.with_log_tags(@sint.log_tags) do
       kw = event.payload[1].symbolize_keys
       svc = Webhookdb::Replicator.create(@sint)
       # kwargs contains: :headers, :body, :request_path, :request_method
