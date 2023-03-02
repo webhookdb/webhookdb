@@ -22,6 +22,8 @@ class Webhookdb::Jobs::Backfill
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event.payload[0])
     svc = Webhookdb::Replicator.create(sint)
     backfill_kwargs = event.payload[1] || {}
-    svc.backfill(**backfill_kwargs.symbolize_keys)
+    self.with_log_tags(sint.log_tags) do
+      svc.backfill(**backfill_kwargs.symbolize_keys)
+    end
   end
 end
