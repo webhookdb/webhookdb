@@ -317,7 +317,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "RenewGoogleWatchChannels" do
+  describe "RenewGoogleWatchChannels and RenewWatchChannel" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
     let(:cal_list_sint) { fac.stable_encryption_secret.create(service_name: "google_calendar_list_v1") }
@@ -392,7 +392,19 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         ).
         to_return(status: 200, body: "")
 
-      Webhookdb::Jobs::RenewGoogleWatchChannels.new.perform
+      # Test the scheduled job, which enques sub-jobs, and the evaluation of these sub-jobs.
+      # Since we test RenewWatchChannel via RenewGoogleWatchChannels anyway,
+      # this seems fine.
+      # Other bulk channel renew/enqueue jobs can be tested at the publishing level,
+      # without the API request portion.
+      expect do
+        expect do
+          Webhookdb::Jobs::RenewGoogleWatchChannels.new.perform
+        end.to publish(
+          "webhookdb.serviceintegration.renewwatchchannel",
+          match_array([cal_sint.id, include("row_pk" => cal_row.fetch(:pk))]),
+        )
+      end.to perform_async_job(Webhookdb::Jobs::RenewWatchChannel)
 
       expect(cal_watch_req).to have_been_made
       expect(cal_stop_req).to have_been_made

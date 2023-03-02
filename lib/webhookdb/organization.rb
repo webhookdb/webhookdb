@@ -82,6 +82,13 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  def log_tags
+    return {
+      organization_id: self.id,
+      organization_key: self.key,
+    }
+  end
+
   def before_validation
     self.minimum_sync_seconds ||= Webhookdb::SyncTarget.default_min_period_seconds
     self.key ||= Webhookdb.to_slug(self.name)
