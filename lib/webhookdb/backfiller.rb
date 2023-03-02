@@ -64,24 +64,27 @@ class Webhookdb::Backfiller
     def upsert_page_size = raise NotImplementedError("how many items should be upserted at a time")
     def prepare_body(_body) = raise NotImplementedError("add/remove keys from body before upsert")
     def upserting_replicator = raise NotImplementedError("the replicator being upserted")
+    def remote_key_column_name = @remote_key_column_name ||= self.upserting_replicator._remote_key_column.name
 
-    def pending_inserts = @pending_inserts ||= []
+    def pending_inserts = @pending_inserts ||= {}
 
     def handle_item(body)
       self.prepare_body(body)
       inserting = self.upserting_replicator.upsert_webhook_body(body, upsert: false)
-      self.pending_inserts << inserting
+      k = inserting.fetch(self.remote_key_column_name)
+      self.pending_inserts[k] = inserting
       self.flush_pending_inserts if self.pending_inserts.size > self.upsert_page_size
     end
 
     def flush_pending_inserts
       return if self.pending_inserts.empty?
+      rows_to_insert = self.pending_inserts.values
       self.upserting_replicator.admin_dataset(timeout: :fast) do |ds|
         ds.
           insert_conflict(
             target: self.upserting_replicator._remote_key_column.name,
-            update: self.upserting_replicator._upsert_update_expr(self.pending_inserts.first),
-          ).multi_insert(self.pending_inserts)
+            update: self.upserting_replicator._upsert_update_expr(rows_to_insert.first),
+          ).multi_insert(rows_to_insert)
       end
       self.pending_inserts.clear
     end

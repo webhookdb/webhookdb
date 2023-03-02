@@ -115,7 +115,6 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       @event_svc = event_svc
       @microsoft_user_id = calendar_row.fetch(:microsoft_user_id)
       @microsoft_calendar_id = calendar_row.fetch(:microsoft_calendar_id)
-      @pending_inserts = []
       super()
     end
 
@@ -147,7 +146,6 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       @delta_url = calendar_row.fetch(:delta_url)
       @microsoft_user_id = calendar_row.fetch(:microsoft_user_id)
       @microsoft_calendar_id = calendar_row.fetch(:microsoft_calendar_id)
-      @pending_inserts = []
       super()
     end
 
