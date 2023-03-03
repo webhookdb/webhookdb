@@ -79,7 +79,7 @@ class Webhookdb::Replicator::Column
       sql: ->(*) { key.to_sym },
     )
   end
-  KNOWN_DEFAULTERS = {now: DEFAULTER_NOW}.freeze
+  KNOWN_DEFAULTERS = {now: DEFAULTER_NOW, tofalse: DEFAULTER_FALSE}.freeze
 
   # @return [Symbol]
   attr_reader :name
@@ -160,6 +160,7 @@ class Webhookdb::Replicator::Column
   )
     raise ArgumentError, "name must be a symbol" unless name.is_a?(Symbol)
     raise ArgumentError, "type #{type.inspect} is not supported" unless COLUMN_TYPES.include?(type)
+    raise ArgumentError, "use :tofalse as the defaulter (or nil for no defaulter)" if defaulter == false
     @name = name
     @type = type
     @data_key = data_key || name.to_s
