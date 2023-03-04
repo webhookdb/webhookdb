@@ -33,6 +33,7 @@ module Webhookdb::Async
     "webhookdb/jobs/durable_job_recheck_poller",
     "webhookdb/jobs/emailer",
     "webhookdb/jobs/message_dispatched",
+    "webhookdb/jobs/nextpax_sync_property_changes",
     "webhookdb/jobs/organization_database_migration_notify_finished",
     "webhookdb/jobs/organization_database_migration_notify_started",
     "webhookdb/jobs/organization_database_migration_run",
