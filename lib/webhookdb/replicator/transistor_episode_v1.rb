@@ -96,21 +96,39 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
   # Usually the Transistor HTML looks like <div>foo<br><br>hello</div>.
   # Extract 'foo' as text, remove leading <br>, and return <div>hello</div>.
   def _extract_first_html_line_as_text(element)
-    # Assume the element starts with a div. It's possible this can be a 'p' tag in the future?
-    first_div = element.css("div").first
+    # Grab the first div or p element, where the text is.
+    first_div = element.css("div, p").first
     return nil unless first_div
-    # Find the first text element. This is not the entire 'inner_text',
-    # just the first piece of text ('foo' above, where inner_text would be 'foohello').
-    leading_text = first_div.children.find { |n| n.is_a?(Nokogiri::XML::Text) }
-    return nil unless leading_text
-    # Remove all the <br> tags after the text.
-    while (sibling = leading_text.next)
-      break unless sibling.name == "br"
-      sibling.remove
+    # Iterate over each child element:
+    # - If it's a text element, it's part of the first line.
+    # - If it's a br/div/p element, we have reached the end of the first line.
+    # - Otherwise, it's probably some type of style element, and can be appended.
+    first_line_html = +""
+    first_div.children.to_a.each do |child|
+      if child.is_a?(Nokogiri::XML::Text)
+        first_line_html << child.inner_text
+        child.remove
+      elsif child.name == "br"
+        # Remove additional br tags, this is like
+        # removing leading whitespace of the new/remaining description.
+        while (sibling = child.next)
+          break unless sibling.name == "br"
+          sibling.remove
+        end
+        child.remove
+        break
+      elsif BLOCK_ELEMENT_TAGS.include?(child.name)
+        break
+      else
+        first_line_html << child.to_html
+        child.remove
+      end
     end
-    leading_text.remove # Remove the text element itself.
-    return leading_text.inner_text.strip # It's easy for whitespace to show up, so get rid of it.
+    first_div.remove if first_div.inner_text.blank?
+    return first_line_html.strip
   end
+
+  BLOCK_ELEMENT_TAGS = ["p", "div"].freeze
 
   def upsert_has_deps?
     return true
