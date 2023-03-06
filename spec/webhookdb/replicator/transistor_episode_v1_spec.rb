@@ -597,7 +597,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
       end
     end
 
-    it "extracts the first description line for the combined format" do
+    it "extracts the first description line (using br) for the combined format" do
       body["data"]["attributes"]["description"] =
         " <div>Make it short. <br><br><strong>Links:</strong></div><ul><li>hi</li></ul>"
       body["data"]["attributes"]["summary"] = nil
@@ -608,6 +608,38 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
         expect(ds.first).to include(
           logical_summary: "Make it short.",
           logical_description: "<div><strong>Links:</strong></div><ul><li>hi</li></ul>",
+          api_format: 2,
+        )
+      end
+    end
+
+    it "extracts the first description line (using nested div) for the combined format" do
+      body["data"]["attributes"]["description"] =
+        " <div>Make it short. <div><strong>Links:</strong></div><ul><li>hi</li></ul></div>"
+      body["data"]["attributes"]["summary"] = nil
+      body["data"]["attributes"]["formatted_summary"] = "Make it short. Links: hi"
+
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          logical_summary: "Make it short.",
+          logical_description: "<div><div><strong>Links:</strong></div><ul><li>hi</li></ul></div>",
+          api_format: 2,
+        )
+      end
+    end
+
+    it "is smart about block elements in the description line" do
+      body["data"]["attributes"]["description"] =
+        "<p>Super Show <em>Extras</em> edition.</p><p>It's a good show.</p>"
+      body["data"]["attributes"]["summary"] = nil
+      body["data"]["attributes"]["formatted_summary"] = "Super Show Extras edition.Its a good show."
+
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          logical_summary: "Super Show <em>Extras</em> edition.",
+          logical_description: "<p>It's a good show.</p>",
           api_format: 2,
         )
       end
