@@ -807,6 +807,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(last_response).to have_json_body.that_includes(
         error: include(code: "prompt_required_params"),
       )
+      expect(last_response_json_body[:error][:state_machine_step]).to include(
+        prompt: /The table and all data for this integration will also be removed:/,
+      )
 
       post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name + "x"
 
@@ -825,6 +828,50 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /admin privileges/),
       )
+    end
+
+    describe "recursive deletion" do
+      let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+      let!(:dep_sint) { fac.depending_on(sint).create }
+      let!(:dep_dep_sint) { fac.depending_on(dep_sint).create }
+
+      it "destroys the integrations and drops the tables recursively" do
+        org.prepare_database_connections
+        sint.replicator.create_table
+        dep_sint.replicator.create_table
+        dep_dep_sint.replicator.create_table
+
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.
+          that_includes(message: /deleted all secrets for.*The following tables have been dropped/)
+
+        expect(org.service_integrations_dataset.all).to be_empty
+
+        expect do
+          sint.replicator.admin_dataset(&:count)
+        end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+        expect do
+          dep_sint.replicator.admin_dataset(&:count)
+        end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+        expect do
+          dep_dep_sint.replicator.admin_dataset(&:count)
+        end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+      ensure
+        org.remove_related_database
+      end
+
+      it "422s if the table name is not given as the confirmation value and notifies about recursive deletion" do
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/delete"
+
+        expect(last_response).to have_status(422)
+        expect(last_response).to have_json_body.that_includes(
+          error: include(code: "prompt_required_params"),
+        )
+        expect(last_response_json_body[:error][:state_machine_step]).to include(
+          prompt: /The tables and all data for this integration and its dependents will also be removed:/,
+        )
+      end
     end
   end
 

@@ -346,25 +346,39 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             ensure_admin!
             org = lookup_org!
             sint = lookup_service_integration!(org, params[:sint_identifier])
+            dependents_lines = sint.recursive_dependents.map(&:table_name).join("\n")
             if sint.table_name != params[:confirm]&.strip
+              prompt_msg = if sint.dependents.empty?
+                             "Please confirm your deletion by entering the integration's table name '" \
+                               "#{sint.table_name}'. The table and all data for this integration will also be removed:"
+              else
+                %(This integration has dependents and therefore cannot be deleted on its own.
+If you choose to go forward with the deletion, it will recursively delete all dependents.
+For reference, this includes the following integrations:
+
+#{dependents_lines}
+
+Please confirm your deletion by entering the integration's table name '#{sint.table_name}'.
+The tables and all data for this integration and its dependents will also be removed:)
+                           end
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :confirm,
-                "Please confirm your deletion by entering the integration's table name '#{sint.table_name}'. " \
-                "The table and all data for this integration will also be removed:",
+                prompt_msg,
               )
             end
 
-            begin
-              sint.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{sint.table_name}" }
-            rescue Sequel::DatabaseError => e
-              raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
-            end
-            sint.destroy
-            message = "Great! We've deleted all secrets for #{sint.service_name}. " \
-                      "The table #{sint.table_name} containing its data has been dropped."
+            sint.destroy_self_and_all_dependents
             status 200
-            present sint, with: Webhookdb::API::ServiceIntegrationEntity, message:
+
+            if sint.dependents.empty?
+              confirmation_msg = "Great! We've deleted all secrets for #{sint.service_name}. " \
+                                 "The table #{sint.table_name} containing its data has been dropped."
+          else
+            confirmation_msg = "Great! We've deleted all secrets for #{sint.service_name} and its dependents. " \
+                               "The following tables have been dropped: \n\n #{sint.table_name} \n #{dependents_lines}"
+                               end
+            present sint, with: Webhookdb::API::ServiceIntegrationEntity, message: confirmation_msg
           end
 
           params do

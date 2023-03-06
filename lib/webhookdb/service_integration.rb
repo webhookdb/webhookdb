@@ -101,6 +101,17 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return self.dependents + self.dependents.flat_map(&:recursive_dependents)
   end
 
+  def destroy_self_and_all_dependents
+    self.dependents.each(&:destroy_self_and_all_dependents)
+
+    begin
+      self.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{self.table_name}" }
+    rescue Sequel::DatabaseError => e
+      raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+    end
+    self.destroy
+  end
+
   class Stats
     attr_reader :message, :data
 

@@ -162,4 +162,48 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       expect { sint.ensure_sequence }.to raise_error(Webhookdb::InvalidPrecondition)
     end
   end
+
+  describe "destroy_self_and_all_dependents" do
+    it "destroys a single service integration if it has no dependents" do
+      org.prepare_database_connections
+      sint.replicator.create_table
+
+      sint.destroy_self_and_all_dependents
+
+      expect(org.service_integrations_dataset.all).to be_empty
+
+      expect do
+        sint.replicator.admin_dataset(&:count)
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+    ensure
+      org.remove_related_database
+    end
+
+    it "destroys service integrations recursively" do
+      fac = Webhookdb::Fixtures.service_integration(organization: org)
+      dep_sint = fac.depending_on(sint).create
+      dep_dep_sint = fac.depending_on(dep_sint).create
+
+      org.prepare_database_connections
+      sint.replicator.create_table
+      dep_sint.replicator.create_table
+      dep_dep_sint.replicator.create_table
+
+      sint.destroy_self_and_all_dependents
+
+      expect(org.service_integrations_dataset.all).to be_empty
+
+      expect do
+        sint.replicator.admin_dataset(&:count)
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+      expect do
+        dep_sint.replicator.admin_dataset(&:count)
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+      expect do
+        dep_dep_sint.replicator.admin_dataset(&:count)
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+    ensure
+      org.remove_related_database
+    end
+  end
 end
