@@ -30,6 +30,7 @@ and resync all their Outlook Calendar data, respectively.
 Run `webhookdb integrations reset` if you need to modify the secret for this integration.
 
 #{self._query_help_output(prefix: "You can query available #{self.resource_name_plural}")})
+    step.error_code = "mscal_no_backfill"
     return step.completed
   end
 

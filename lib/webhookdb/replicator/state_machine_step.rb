@@ -23,6 +23,8 @@ class Webhookdb::Replicator::StateMachineStep
     @post_params_value_key = "value"
   end
 
+  def successful? = return self.complete && self.error_code.blank?
+
   # @return [Webhookdb::Replicator::StateMachineStep]
   def completed
     self.complete = true

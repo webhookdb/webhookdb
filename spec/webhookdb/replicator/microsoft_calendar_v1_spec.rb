@@ -238,6 +238,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarV1, :db do
           output: match("Outlook Calendar does not support backfilling"),
           complete: true,
           needs_input: false,
+          error_code: "mscal_no_backfill",
         )
       end
     end
