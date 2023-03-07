@@ -144,11 +144,13 @@ class Webhookdb::Replicator::Base
   # @param value [String] The value of the field.
   # @return [Webhookdb::Replicator::StateMachineStep]
   def process_state_change(field, value)
+    can_trigger_backfill = false
     case field
       when "webhook_secret"
         meth = :calculate_create_state_machine
       when "backfill_key", "backfill_secret", "api_url"
         meth = :calculate_backfill_state_machine
+        can_trigger_backfill = true
       when "dependency_choice"
         meth = :calculate_create_state_machine
         value = self._find_dependency_candidate(value)
@@ -159,7 +161,10 @@ class Webhookdb::Replicator::Base
     self.service_integration.db.transaction do
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
-      return self.send(meth)
+      step = self.send(meth)
+      self.service_integration.publish_deferred("backfill", self.service_integration.id, cascade: true) if
+        can_trigger_backfill && step.successful?
+      return step
     end
   end
 
@@ -195,6 +200,16 @@ class Webhookdb::Replicator::Base
   def calculate_backfill_state_machine
     # This is a pure function that can be tested on its own--the endpoints just need to return a state machine step
     raise NotImplementedError
+  end
+
+  def calculate_and_backfill_state_machine
+    step = self.calculate_backfill_state_machine
+    if step.successful?
+      # We should always cascade manual backfills.
+      # In the future we may need a way to trigger a full backfill.
+      self.service_integration.publish_deferred("backfill", self.service_integration.id, cascade: true)
+    end
+    return step
   end
 
   # Remove all the information used in the initial creation of the integration so that it can be re-entered
@@ -725,9 +740,7 @@ class Webhookdb::Replicator::Base
     sint.update(last_backfilled_at: new_last_backfilled) if incremental
     return unless cascade
     sint.dependents.each do |dep|
-      Amigo.publish(
-        "webhookdb.serviceintegration.backfill", dep.id, {cascade: true, incremental:},
-      )
+      dep.publish_deferred("backfill", dep.id, {cascade: true, incremental:})
     end
   end
 

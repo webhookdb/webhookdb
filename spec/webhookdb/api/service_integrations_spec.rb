@@ -659,13 +659,14 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "starts backfill process if setup is complete", :async do
+    it "starts backfill process if setup is complete", :do_not_defer_events, :async do
       sint.update(backfill_secret: "sek")
+
       expect do
         post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill"
       end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id, {"cascade" => true}])
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(output: /backfill of fake_v1 \(xyz\)\. Data/)
+      expect(last_response).to have_json_body.that_includes(output: /backfill flow is working/)
     end
 
     it "fails if service integration is not supported by subscription plan" do
@@ -736,6 +737,20 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
         complete: true,
         output: match("The integration creation flow is working correctly"),
       )
+    end
+
+    it "starts backfill process when backfill setup is complete", :async, :do_not_defer_events do
+      new_sint = Webhookdb::Fixtures.service_integration.create(
+        opaque_id: "abc",
+        organization: org,
+        service_name: "fake_v1",
+      )
+
+      expect do
+        post "/v1/organizations/#{org.key}/service_integrations/abc/transition/backfill_secret", value: "bfsek"
+      end.to publish("webhookdb.serviceintegration.backfill").with_payload([new_sint.id, {"cascade" => true}])
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(output: /backfill flow is working/)
     end
 
     it "403s if the current user cannot modify the integration due to org permissions" do
