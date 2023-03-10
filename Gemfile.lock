@@ -29,6 +29,9 @@ GEM
       aws-sigv4 (~> 1.4)
     aws-sigv4 (1.5.0)
       aws-eventstream (~> 1, >= 1.0.2)
+    barnes (0.0.9)
+      multi_json (~> 1)
+      statsd-ruby (~> 1.1)
     bcrypt (3.1.18)
     biz (1.8.2)
       clavius (~> 1.0)
@@ -268,6 +271,7 @@ GEM
       fugit (~> 1)
       sidekiq (>= 4.2.1)
     slack-notifier (2.4.0)
+    statsd-ruby (1.5.0)
     stripe (6.5.0)
     timecop (0.9.5)
     twilio-ruby (5.68.0)
@@ -300,6 +304,7 @@ DEPENDENCIES
   amazing_print
   appydays (>= 0.6.0)
   aws-sdk-s3
+  barnes
   bcrypt
   biz
   clipboard
