@@ -5,6 +5,10 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 ENV["PROC_MODE"] = "sidekiq"
 
+require "barnes"
+
+Barnes.start
+
 require "appydays/dotenviable"
 Appydays::Dotenviable.load
 

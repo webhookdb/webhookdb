@@ -17,6 +17,10 @@ Appydays::Dotenviable.load
 raise "No port defined?" unless ENV["PORT"]
 port ENV.fetch("PORT", nil)
 
+before_fork do
+  Barnes.start
+end
+
 preload_app!
 
 on_worker_boot do
@@ -26,8 +30,4 @@ on_worker_boot do
       modelclass.db&.disconnect
     end
   end
-end
-
-before_fork do
-  Barnes.start
 end
