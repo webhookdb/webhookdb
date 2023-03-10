@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
-# workers Integer(ENV['WEB_CONCURRENCY'] || 1)
-# threads_count = Integer(ENV['RAILS_MAX_THREADS'] || 2)
-# threads threads_count, threads_count
+workers_count = Integer(ENV.fetch("WEB_CONCURRENCY", 2))
+workers workers_count
+threads_count = Integer(ENV.fetch("RAILS_MAX_THREADS", 2))
+threads threads_count, threads_count
 
 lib = File.expand_path("lib", "#{__dir__}/..")
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
@@ -17,11 +18,15 @@ Appydays::Dotenviable.load
 raise "No port defined?" unless ENV["PORT"]
 port ENV.fetch("PORT", nil)
 
-before_fork do
-  Barnes.start
-end
-
 preload_app!
+
+if workers_count.zero?
+  Barnes.start
+else
+  before_fork do
+    Barnes.start
+  end
+end
 
 on_worker_boot do
   SemanticLogger.reopen if defined?(SemanticLogger)
