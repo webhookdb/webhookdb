@@ -49,7 +49,12 @@ module Webhookdb::Tasks
 
         desc "Do a thing through Rake so it's easy to run under the debugger"
         task :debugtask do
-          puts "Put the code that you want to run here"
+          require "webhookdb"
+          Webhookdb.load_app
+          sint = Webhookdb::ServiceIntegration[84]
+          row_pk = 710
+          expiring_before = 1.week.from_now
+          sint.replicator.renew_watch_channel(row_pk:, expiring_before:)
         end
       end
     end
