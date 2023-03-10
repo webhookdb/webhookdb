@@ -7,7 +7,7 @@ class Webhookdb::Jobs::ConvertkitTagBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron "0 30 * * * *"
-  splay 10.minutes
+  splay 5.minutes
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "convertkit_tag_v1") do |sint|

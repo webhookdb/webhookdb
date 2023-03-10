@@ -8,7 +8,7 @@ class Webhookdb::Jobs::TheranestScheduledBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron(Webhookdb::Theranest.cron_expression)
-  splay 10.minutes
+  splay 5.minutes
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "theranest_auth_v1") do |sint|

@@ -8,7 +8,7 @@ class Webhookdb::Jobs::SponsyScheduledBackfill
   extend Webhookdb::Async::ScheduledJob
 
   cron(Webhookdb::Sponsy.cron_expression)
-  splay 2.minutes
+  splay 1.minute
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "sponsy_publication_v1") do |sint|
