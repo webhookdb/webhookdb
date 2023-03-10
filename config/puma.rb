@@ -9,6 +9,8 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 ENV["PROC_MODE"] = "puma"
 
+require "barnes"
+
 require "appydays/dotenviable"
 Appydays::Dotenviable.load
 
@@ -24,4 +26,8 @@ on_worker_boot do
       modelclass.db&.disconnect
     end
   end
+end
+
+before_fork do
+  Barnes.start
 end
