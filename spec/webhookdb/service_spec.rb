@@ -52,6 +52,11 @@ class Webhookdb::API::TestService < Webhookdb::Service
     invalid!(["a is invalid", "b is invalid"])
   end
 
+  get :save_or_error do
+    c = Webhookdb::Customer.new
+    save_or_error!(c)
+  end
+
   params do
     requires :email, type: String, coerce_with: NormalizedEmail
     requires :phone, type: String, coerce_with: NormalizedPhone
@@ -250,13 +255,20 @@ RSpec.describe Webhookdb::Service, :db do
         # Upcase the first letter, since this is probably going into the UI.
         message: "Arg1 is missing, arg2 is missing",
         status: 400,
+        field_errors: {arg1: ["is missing"], arg2: ["is missing"]},
       },
     )
 
     get "/invalid_password"
     expect(last_response).to have_status(400)
     expect(last_response_json_body).to eq(
-      error: {code: "validation_error", errors: ["not a bunny"], message: "Not a bunny", status: 400},
+      error: {
+        code: "validation_error",
+        errors: ["password not a bunny"],
+        message: "Not a bunny",
+        field_errors: {password: ["not a bunny"]},
+        status: 400,
+      },
     )
   end
 
@@ -266,8 +278,21 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_response_json_body).to eq(
       error: {
         code: "validation_error",
-        errors: [{email: ["is invalid"]}],
+        errors: ["email is invalid"],
         message: "Email is invalid",
+        field_errors: {email: ["is invalid"]},
+        status: 400,
+      },
+    )
+
+    get "/save_or_error"
+    expect(last_response).to have_status(400)
+    expect(last_response_json_body).to eq(
+      error: {
+        code: "validation_error",
+        errors: ["email is not present", "email is invalid", "email is not == "],
+        message: "Email is not present, email is invalid, email is not == ",
+        field_errors: {email: ["is not present", "is invalid", "is not == "]},
         status: 400,
       },
     )
@@ -277,7 +302,13 @@ RSpec.describe Webhookdb::Service, :db do
     get "/invalid_plain"
     expect(last_response).to have_status(400)
     expect(last_response_json_body).to eq(
-      error: {code: "validation_error", errors: ["this is invalid"], message: "This is invalid", status: 400},
+      error: {
+        code: "validation_error",
+        errors: ["this is invalid"],
+        message: "This is invalid",
+        field_errors: {},
+        status: 400,
+      },
     )
   end
 
@@ -290,6 +321,7 @@ RSpec.describe Webhookdb::Service, :db do
         errors: ["a is invalid", "b is invalid"],
         message: "A is invalid, b is invalid",
         status: 400,
+        field_errors: {},
       },
     )
   end

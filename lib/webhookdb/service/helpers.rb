@@ -132,11 +132,24 @@ module Webhookdb::Service::Helpers
     merror!(404, "Not Found", code: "not_found")
   end
 
+  # Raise a 400 error for unstructured validation.
+  # @param errors [Array<String>,String] Error messages, like 'password is invalid'.
+  # @param message [String] If not given, build it from the errors list.
   def invalid!(errors, message: nil)
     errors = [errors] unless errors.respond_to?(:to_ary)
-    message ||= errors.join(", ")
-    message = message.first.upcase + message[1..]
-    merror!(400, message, code: "validation_error", more: {errors:})
+    message ||= errors.join(", ").upcase_first
+    merror!(400, message, code: "validation_error", more: {errors:, field_errors: {}})
+  end
+
+  # Raise a 400 error for structured validation.
+  # @param field_errors [Hash<String, Array<String>>] If errors are tied to fields,
+  #   this is a hash where the key is the field name, and the value is an array of all validation messages.
+  #   For example, {password: ['is invalid']}
+  # @param message [String] If not given, build it from the errors list.
+  def invalid_fields!(field_errors, message: nil)
+    errors = field_errors.map { |field, field_errs| field_errs.map { |e| "#{field} #{e}" } }.flatten
+    message ||= errors.join(", ").upcase_first
+    merror!(400, message, code: "validation_error", more: {errors:, field_errors:})
   end
 
   def endpoint_removed!
@@ -162,7 +175,7 @@ module Webhookdb::Service::Helpers
       object.save_changes
       return object
     else
-      invalid!(object.errors.full_messages)
+      invalid_fields!(object.errors.to_h)
     end
   end
 

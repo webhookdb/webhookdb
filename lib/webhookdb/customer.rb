@@ -300,7 +300,7 @@ our docs at https://webhookdb.com/docs/cli.
     self.validates_presence(:email)
     self.validates_format(/[[:graph:]]+@[[:graph:]]+\.[a-zA-Z]{2,}/, :email)
     self.validates_unique(:email)
-    self.validates_operator(:==, self.email.downcase.strip, :email)
+    self.validates_operator(:==, self.email&.downcase&.strip, :email)
   end
 end
 
