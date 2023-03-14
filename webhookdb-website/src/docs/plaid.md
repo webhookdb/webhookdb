@@ -1,7 +1,7 @@
 ---
 title: Plaid Setup
 path: /docs/plaid
-order: 50
+order: 100
 ---
 
 **NOTICE: Our Plaid integration is still in Beta.
@@ -99,7 +99,7 @@ curl -X POST https://sandbox.plaid.com/link/token/create -H 'Content-Type: appli
 ```
 
 This will ensure WebhookDB finds out about changes to your Plaid items.
-Note that you can still [proxy webhooks](https://webhookdb.com/docs/cli#proxy-webhooks)
+Note that you can still [proxy webhooks](/docs/cli#proxy-webhooks)
 using WebhookDB, in case you still need webhooks to hit your backend.
 
 <a id="notify-whdb"></a>

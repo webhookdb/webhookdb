@@ -27,8 +27,10 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
 
   configurable(:sync_target) do
-    # Allow installs to set this much lower if they want a faster sync,
-    # but something higher is better as a default.
+    # Allow installs to set this much lower if they want a faster sync.
+    # On production we use 1 minute as a default since it's faster than the replication delay
+    # of similar services but not fast enough to discourage self-hosting (which can be immediate).
+    # We have 10 minutes here for test compatibility (API endpoints read and store this when they are built).
     # Can be overridden per-organization.
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i

@@ -18,4 +18,8 @@
 
 [[redirects]]
   from = "/docs/super-webhooks"
-  to = "/docs/webhooks"
+  to = "/docs/httpsync"
+
+[[redirects]]
+  from = "/docs/webhooks"
+  to = "/docs/httpsync"

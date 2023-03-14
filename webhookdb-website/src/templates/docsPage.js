@@ -64,20 +64,22 @@ export default function DocsPage({ data }) {
               )}
             </Col>
 
-            <Col lg={10} xs={12} md={12} className="px-4 py-3 py-lg-4 max-width-xl">
-              <Row>
-                <Col className="d-lg-none mb-3">
-                  <ModalPagination path={frontmatter.path} mdx={mdx} />
-                </Col>
-              </Row>
-              <Breadcrumb>
-                <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
-                <Breadcrumb.Item href="/docs/home">Documentation</Breadcrumb.Item>
-                <Breadcrumb.Item active>{frontmatter.title}</Breadcrumb.Item>
-              </Breadcrumb>
-              <div>
-                <h1>{frontmatter.title}</h1>
-                <div dangerouslySetInnerHTML={{ __html: html }} />
+            <Col lg={10} xs={12} md={12} className="px-4 py-3 py-lg-4">
+              <div className="max-width-xl">
+                <Row>
+                  <Col className="d-lg-none mb-3">
+                    <ModalPagination path={frontmatter.path} mdx={mdx} />
+                  </Col>
+                </Row>
+                <Breadcrumb>
+                  <Breadcrumb.Item href="/">Home</Breadcrumb.Item>
+                  <Breadcrumb.Item href="/docs/home">Documentation</Breadcrumb.Item>
+                  <Breadcrumb.Item active>{frontmatter.title}</Breadcrumb.Item>
+                </Breadcrumb>
+                <div>
+                  <h1>{frontmatter.title}</h1>
+                  <div dangerouslySetInnerHTML={{ __html: html }} />
+                </div>
               </div>
             </Col>
           </Row>
