@@ -148,11 +148,16 @@ class Webhookdb::Service < Grape::API
     # We can flesh this out with more details later:
     # https://github.com/ruby-grape/grape#validation-errors
     # https://stripe.com/docs/api/curl#errors
-    invalid!(e.full_messages, message: e.message)
+    field_errors = e.each_with_object({}) do |(params, message), memo|
+      params.each do |p|
+        (memo[p] ||= []) << message
+      end
+    end
+    invalid_fields!(field_errors, message: e.message.upcase_first)
   end
 
   rescue_from Webhookdb::Customer::InvalidPassword do |e|
-    invalid!(e.message)
+    invalid_fields!({"password" => [e.message]}, message: e.message.upcase_first)
   end
 
   rescue_from Grape::Exceptions::MethodNotAllowed do |e|
@@ -180,7 +185,7 @@ class Webhookdb::Service < Grape::API
   end
 
   rescue_from Sequel::ValidationFailed do |e|
-    invalid!(e.errors, message: e.message)
+    invalid_fields!(e.errors, message: e.message.upcase_first)
   end
 
   rescue_from :all do |e|
