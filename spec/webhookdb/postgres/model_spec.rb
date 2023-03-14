@@ -144,10 +144,10 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     it "will find again if the create fails due to a race condition (UniqueConstraintViolation)" do
       name = "foo"
       placeholder = model_class.create(name: "not-" + name)
-      expect(model_class).to receive(:find).with(name:).twice do
+      expect(model_class).to receive(:find).with({name:}).twice do
         placeholder.name == name ? placeholder : nil
       end
-      expect(model_class).to receive(:create).with(name:) do
+      expect(model_class).to receive(:create).with({name:}) do
         placeholder.name = name
         raise Sequel::UniqueConstraintViolation
       end
