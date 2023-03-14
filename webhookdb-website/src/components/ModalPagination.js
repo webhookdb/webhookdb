@@ -13,7 +13,12 @@ export default function ModalPagination({ mdx }) {
 
   return (
     <div className="text-center">
-      <Button className="rounded-pill px-5" variant="primary" onClick={handleShow}>
+      <Button
+        className="rounded-pill px-5 py-3"
+        size="lg"
+        variant="primary"
+        onClick={handleShow}
+      >
         Browse Docs
         <FaSearch className="ml-2" />
       </Button>

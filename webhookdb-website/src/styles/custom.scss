@@ -69,22 +69,12 @@ h1, h2, h3 {
   min-height: 80vh;
 }
 
-// If we need multiple do this:
+
 // https://sass-lang.com/documentation/values/maps#do-something-for-every-pair
-.max-width-xs {
-  max-width: map.get($grid-breakpoints, 'xs');
-}
-.max-width-sm {
-  max-width: map.get($grid-breakpoints, 'sm');
-}
-.max-width-md {
-  max-width: map.get($grid-breakpoints, 'md');
-}
-.max-width-lg {
-  max-width: map.get($grid-breakpoints, 'lg');
-}
-.max-width-xl {
-  max-width: map.get($grid-breakpoints, 'xl');
+@each $breakpoint-name, $breakpoint-value in $grid-breakpoints {
+  .max-width-#{$breakpoint-name} {
+    max-width: $breakpoint-value;
+  }
 }
 
 .font-small {

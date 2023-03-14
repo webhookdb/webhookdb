@@ -242,6 +242,13 @@ Note that for some integrations, WebhookDB is limited in what it can backfill,
 such as the last 90 days of Shopify Orders, for example.
 The CLI will let you know when we cannot backfill a full history.
 
+<a id="sync"></a>
+
+## [Sync to a database or endpoint](#sync)
+
+WebhookDB allows you to send chunks of newly inserted and updated rows to another database (Snowflake, Postgres, etc)
+or an HTTP endpoint. [Learn more about Integrating WebhookDB](/docs/integrating#notifications).
+
 <a id="proxy-webhooks"></a>
 
 ## [Proxy webhooks](#proxy-webhooks)

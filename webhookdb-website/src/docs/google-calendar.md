@@ -1,7 +1,7 @@
 ---
 title: Google Calendar
 path: /docs/google-calendar
-order: 52
+order: 110
 ---
 
 **NOTICE: Our Google Calendar integration is still in beta.
