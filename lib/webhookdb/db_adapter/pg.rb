@@ -64,6 +64,11 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     end
   end
 
+  def verify_connection(url)
+    conn = self.connection(url)
+    conn.using { |c| c.execute("SELECT 1") }
+  end
+
   COLTYPE_MAP = {
     BIGINT => "bigint",
     BOOLEAN => "boolean",

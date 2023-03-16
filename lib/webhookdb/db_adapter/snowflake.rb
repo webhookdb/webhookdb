@@ -112,6 +112,11 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     connection.execute(import_sql)
   end
 
+  def verify_connection(url)
+    conn = self.connection(url)
+    conn.execute("SELECT 1")
+  end
+
   def identifier_quote_char
     return ""
   end

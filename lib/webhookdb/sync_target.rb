@@ -22,6 +22,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Webhookdb::Dbutil
 
   class SyncInProgress < StandardError; end
+  class InvalidConnection < StandardError; end
 
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
@@ -129,6 +130,36 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         return Webhookdb::SyncTarget.allow_http ? nil : "Url must be https, not http."
       else
         return "Must be an https url."
+    end
+  end
+
+  def self.verify_db_connection(url)
+    adapter = Webhookdb::DBAdapter.adapter(url)
+    begin
+      adapter.verify_connection(url)
+    rescue StandardError => e
+      raise InvalidConnection, "Could not SELECT 1: #{e.message}"
+    end
+  end
+
+  def self.verify_http_connection(url)
+    cleanurl, authparams = Webhookdb::Http.extract_url_auth(url)
+    body = {
+      rows: [],
+      integration_id: "svi_test",
+      integration_service: "httpsync_test",
+      table: "test",
+    }
+    begin
+      Webhookdb::Http.post(
+        cleanurl,
+        body,
+        logger: self.logger,
+        basic_auth: authparams,
+        follow_redirects: true,
+      )
+    rescue Webhookdb::Http::Error => e
+      raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
     end
   end
 
