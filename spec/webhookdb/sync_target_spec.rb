@@ -240,6 +240,23 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       end
     end
 
+    it "releases the lock after sync" do
+      sync_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint).create
+      expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
+      sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
+      expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
+    end
+
+    it "releases the lock after sync if there is an error" do
+      sync_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint).create
+      expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
+      expect(described_class::DatabaseRoutine).to receive(:new).and_raise(RuntimeError)
+      expect do
+        sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
+      end.to raise_error(RuntimeError)
+      expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
+    end
+
     describe "with a postgres target" do
       let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create }
       let(:adapter_conn) { Webhookdb::DBAdapter.adapter(sync_tgt.connection_url).connection(sync_tgt.connection_url) }

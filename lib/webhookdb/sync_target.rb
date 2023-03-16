@@ -207,16 +207,30 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
   # will be synced.
   def run_sync(now:)
-    ran, _ = Sequel::AdvisoryLock.new(self.db, ADVISORY_LOCK_KEYSPACE, self.id).with_lock? do
-      routine = if self.connection_url.start_with?("https://", "http://")
-                  # Note that http links are not secure and should only be used for development purposes
-                  HttpRoutine.new(now, self)
-      else
-        DatabaseRoutine.new(now, self)
+    ran = false
+    # Take the advisory lock with a separate connection. This seems to be pretty important-
+    # it's possible that (for reasons not clear at this time) using the standard connection pool
+    # results in the lock being held since the session remains open for a while on the worker.
+    # Opening a separate connection ensures that, once this method exits, the lock will be released
+    # since the session will be ended.
+    Webhookdb::Dbutil.borrow_conn(Webhookdb::Postgres::Model.uri) do |db|
+      self.advisory_lock(db).with_lock? do
+        routine = if self.connection_url.start_with?("https://", "http://")
+                    # Note that http links are not secure and should only be used for development purposes
+                    HttpRoutine.new(now, self)
+        else
+          DatabaseRoutine.new(now, self)
+        end
+        routine.run
+        ran = true
       end
-      return routine.run
     end
     raise SyncInProgress, "SyncTarget[#{self.id}] is already being synced" unless ran
+  end
+
+  # @return [Sequel::AdvisoryLock]
+  def advisory_lock(db)
+    return Sequel::AdvisoryLock.new(db, ADVISORY_LOCK_KEYSPACE, self.id)
   end
 
   def displaysafe_connection_url
