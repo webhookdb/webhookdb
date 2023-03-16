@@ -19,10 +19,12 @@ module Webhookdb::IntegrationSpecHelpers
       raise "Unit tests should not be run during integration tests (or this test needs an :integration flag" unless
         example.metadata[:integration]
 
+      @to_destroy = []
       WebMock.allow_net_connect!
     end
 
     context.after(:each) do
+      @to_destroy.each(&:destroy)
       WebMock.disable_net_connect!
     end
     super

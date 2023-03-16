@@ -20,6 +20,7 @@ RSpec.describe "database", :integration do
       service_integration: sint,
       connection_url: sint.organization.admin_connection_url,
     ).create
+    @to_destroy << sync_tgt
     require "webhookdb/jobs/sync_target_run_sync"
     Webhookdb::Jobs::SyncTargetRunSync.perform_async(sync_tgt.id)
     expect { sync_tgt.refresh }.to eventually(have_attributes(last_synced_at: be_present))
@@ -34,6 +35,7 @@ RSpec.describe "database", :integration do
       service_integration: sint,
       connection_url: "http://u:p@localhost:18015/mypath",
     ).create
+    @to_destroy << sync_tgt
 
     require "socket"
     server = TCPServer.new "localhost", 18_015
