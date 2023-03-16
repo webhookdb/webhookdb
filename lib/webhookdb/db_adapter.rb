@@ -182,6 +182,10 @@ class Webhookdb::DBAdapter
     raise NotImplementedError
   end
 
+  def verify_connection(url)
+    raise NotImplementedError
+  end
+
   # @param [String] url
   # @return [Webhookdb::DBAdapter]
   def self.adapter(url)

@@ -5,6 +5,20 @@ require "webhookdb/jobs/sync_target_run_sync"
 
 # rubocop:disable Layout/LineLength
 class Webhookdb::API::SyncTargets < Webhookdb::API::V1
+  class ConnectionUrlType < Grape::Validations::Validators::Base
+    def validate!(params)
+      url = params[:connection_url]
+      case @option
+        when "db", "http"
+          if (err = Webhookdb::SyncTarget.send("validate_#{@option}_url", url))
+            raise Grape::Exceptions::Validation.new params: [url], message: err
+          end
+      else
+          raise Grape::Exceptions::Validation.new params: [url], message: "#{@option} is not a valid connection url type"
+      end
+    end
+  end
+
   resource :organizations do
     route_param :org_identifier, type: String do
       resource :sync_targets do
@@ -51,7 +65,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               params :connection_url do
                 optional :connection_url,
                          type: String,
-                         prompt: "Enter the #{is_db ? 'database connection string' : 'HTTP endpoint'} that WebhookDB should sync data to:"
+                         prompt: "Enter the #{is_db ? 'database connection string' : 'HTTP endpoint'} that WebhookDB should sync data to:",
+                         connection_url_type: is_db ? "db" : "http"
               end
 
               def validate_period!(org, value)
@@ -59,6 +74,14 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 return if r.cover?(value)
                 err = "The valid sync period for organization #{org.name} is between #{r.begin} and #{r.end} seconds."
                 invalid!(err, message: err)
+              end
+
+              def verify_connection(url)
+                if db?
+                  Webhookdb::SyncTarget.verify_db_connection(url)
+                else
+                  Webhookdb::SyncTarget.verify_http_connection(url)
+                end
               end
 
               def predicate = db? ? :db? : :http?
@@ -97,10 +120,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
               sint = lookup_service_integration!(org, identifier)
 
-              if (err = Webhookdb::SyncTarget.send("validate_#{target_type}_url", params[:connection_url]))
-                invalid!(err, message: err)
-              end
               validate_period!(sint.organization, params[:period_seconds])
+              verify_connection(params[:connection_url])
               stgt = Webhookdb::SyncTarget.create(
                 service_integration: sint,
                 connection_url: params[:connection_url],
@@ -114,6 +135,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                         "in #{sint.table_name} will be synchronized to #{stgt.displaysafe_connection_url}"
               status 200
               present stgt, with: Webhookdb::API::SyncTargetEntity, message:
+            rescue Grape::Exceptions::Validation => e
+              merror!(400, e.message)
             end
 
             route_param :opaque_id do
@@ -137,6 +160,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 uri = URI(stgt.connection_url)
                 uri.user = params[:user]
                 uri.password = params[:password]
+                verify_connection(uri.to_s)
                 stgt.update(connection_url: uri.to_s)
                 status 200
                 present stgt, with: Webhookdb::API::SyncTargetEntity, message: "Connection URL has been updated."

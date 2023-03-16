@@ -156,6 +156,60 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "verify_db_connection" do
+    describe "postgres" do
+      it "verifies that postgres connection is valid" do
+        expect do
+          described_class.verify_db_connection(Webhookdb::Postgres::Model.uri)
+        end.to_not raise_error
+      end
+
+      it "raises error if postgres connection is invalid" do
+        expect do
+          described_class.verify_db_connection("postgres://u:p@x.y")
+        end.to raise_error(described_class::InvalidConnection, /Could not SELECT 1/)
+      end
+    end
+  end
+
+  describe "verify_http_connection" do
+    it "verifies that http connection is valid" do
+      req = stub_request(:post, "https://a.b/").
+        with(
+          body: {
+            rows: [],
+            integration_id: "svi_test",
+            integration_service: "httpsync_test",
+            table: "test",
+          },
+        ).
+        to_return(status: 200, body: "", headers: {})
+
+      expect do
+        described_class.verify_http_connection("https://u:p@a.b")
+      end.to_not raise_error
+      expect(req).to have_been_made
+    end
+
+    it "raises error if http connection is invalid" do
+      req = stub_request(:post, "https://a.b/").
+        with(
+          body: {
+            rows: [],
+            integration_id: "svi_test",
+            integration_service: "httpsync_test",
+            table: "test",
+          },
+        ).
+        to_return(status: 403, body: "", headers: {})
+
+      expect do
+        described_class.verify_http_connection("https://u:p@a.b")
+      end.to raise_error(described_class::InvalidConnection, %r{POST to https://a.b failed})
+      expect(req).to have_been_made
+    end
+  end
+
   describe "run_sync" do
     before(:each) do
       sint.organization.prepare_database_connections

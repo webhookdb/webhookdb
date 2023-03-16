@@ -10,6 +10,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
   let!(:customer) { Webhookdb::Fixtures.customer.admin_in_org(org).create }
   let!(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, service_name: "fake_v1") }
   let(:membership) { customer.all_memberships_dataset.last }
+  let(:valid_pg_url) { Webhookdb::Postgres::Model.uri }
 
   before(:each) do
     login_as(customer)
@@ -48,13 +49,13 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       it "creates the sync target for service integration" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_identifier: sint.opaque_id,
-             connection_url: "postgres://u:p@a.b",
+             connection_url: valid_pg_url,
              period_seconds: 600
 
         expect(last_response).to have_status(200)
         stgt = sint.sync_targets.first
         expect(stgt).to have_attributes(
-          connection_url: "postgres://u:p@a.b",
+          connection_url: valid_pg_url,
           period_seconds: 600,
           table: "",
           schema: "",
@@ -84,7 +85,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       it "can specify all fields" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_identifier: sint.opaque_id,
-             connection_url: "postgres://u:p@a.b",
+             connection_url: valid_pg_url,
              table: "mytbl",
              schema: "my_schema",
              period_seconds: 11.minutes.to_i
@@ -101,7 +102,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       it "can use deprecated 'service_integration_opaque_id' parameter" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_opaque_id: sint.opaque_id,
-             connection_url: "postgres://u:p@a.b",
+             connection_url: valid_pg_url,
              period_seconds: 600
 
         expect(last_response).to have_status(200)
@@ -111,7 +112,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_identifier: sint.opaque_id,
              service_integration_opaque_id: "fakesint",
-             connection_url: "postgres://u:p@a.b",
+             connection_url: valid_pg_url,
              period_seconds: 600
 
         # if the deprecated param were used, this would be a 403 integration not found
@@ -120,7 +121,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
       it "errors if no service integration id parameter has been submitted" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             connection_url: "postgres://u:p@a.b",
+             connection_url: valid_pg_url,
              period_seconds: 600
 
         expect(last_response).to have_status(400)
@@ -131,7 +132,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
       it "403s if service integration with given identifier doesn't exist" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             service_integration_identifier: "fakesint", connection_url: "https://example.com", period_seconds: 600
+             service_integration_identifier: "fakesint", connection_url: "postgres://u:p@a.b", period_seconds: 600
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(
@@ -143,7 +144,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         membership.destroy
 
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             service_integration_identifier: sint.opaque_id, connection_url: "https://example.com", period_seconds: 600
+             service_integration_identifier: sint.opaque_id, connection_url: "postgres://u:p@a.b", period_seconds: 600
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(
@@ -197,7 +198,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         org.update(minimum_sync_seconds: 1)
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_identifier: sint.opaque_id,
-             connection_url: "postgres://u:p@x/b",
+             connection_url: valid_pg_url,
              period_seconds: 1
 
         expect(last_response).to have_status(200)
@@ -210,11 +211,21 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       end
 
       it "updates the username and password" do
+        # get valid values
+        uri = URI(valid_pg_url)
+        user = uri.user
+        pass = uri.password
+
+        # then update sync target with old values
+        uri.user = "old_user"
+        uri.password = "old_pass"
+        sync_tgt.update(connection_url: uri.to_s)
+
         post "/v1/organizations/#{org.key}/sync_targets/db/#{sync_tgt.opaque_id}/update_credentials",
-             user: "user", password: "pass"
+             user:, password: pass
 
         expect(last_response).to have_status(200)
-        expect(sync_tgt.refresh).to have_attributes(connection_url: "postgres://user:pass@pg/db")
+        expect(sync_tgt.refresh).to have_attributes(connection_url: valid_pg_url)
       end
 
       it "403s if the sync target does not exist for that org" do
@@ -228,7 +239,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "403s if user doesn't have permissions for organization assocatied with service integration" do
+      it "403s if user doesn't have permissions for organization associated with service integration" do
         membership.destroy
 
         post "/v1/organizations/#{org.key}/sync_targets/db/#{sync_tgt.opaque_id}/update_credentials",
@@ -238,6 +249,14 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         expect(last_response).to have_json_body.that_includes(
           error: include(message: "You don't have permissions with that organization."),
         )
+      end
+
+      it "500s if new creds are invalid" do
+        post "/v1/organizations/#{org.key}/sync_targets/db/#{sync_tgt.opaque_id}/update_credentials",
+             user: "user", password: "pass"
+
+        expect(last_response).to have_status(500)
+        expect(last_response).to have_json_body.that_includes(error: include(message: match("Could not SELECT 1")))
       end
     end
 
@@ -403,6 +422,17 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
     describe "POST /v1/organizations/:identifier/sync_targets/http/create" do
       it "creates the HTTP sync target for service integration" do
+        req = stub_request(:post, "https://a.b/").
+          with(
+            body: {
+              rows: [],
+              integration_id: "svi_test",
+              integration_service: "httpsync_test",
+              table: "test",
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
+
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "https://u:p@a.b",
@@ -416,6 +446,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
           table: "",
           schema: "",
         )
+        expect(req).to have_been_made
       end
 
       it "prompts for connection_url" do
@@ -438,6 +469,16 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       end
 
       it "can specify all fields" do
+        req = stub_request(:post, "https://a.b/").
+          with(
+            body: {
+              rows: [],
+              integration_id: "svi_test",
+              integration_service: "httpsync_test",
+              table: "test",
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "https://u:p@a.b",
@@ -450,11 +491,14 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
           period_seconds: 11.minutes.to_i,
           page_size: 600,
         )
+        expect(req).to have_been_made
       end
 
       it "403s if service integration with given identifier doesn't exist" do
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
-             service_integration_identifier: "fakesint", connection_url: "https://example.com", period_seconds: 600
+             service_integration_identifier: "fakesint",
+             connection_url: "https://user:pass@example.com",
+             period_seconds: 600
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(
@@ -466,7 +510,9 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         membership.destroy
 
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
-             service_integration_identifier: sint.opaque_id, connection_url: "https://example.com", period_seconds: 600
+             service_integration_identifier: sint.opaque_id,
+             connection_url: "https://user:pass@example.com",
+             period_seconds: 600
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(
@@ -474,7 +520,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "400s if the url fails validation" do
+      it "400s if the url fails initial validation" do
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "postgres://a.b",
@@ -486,6 +532,28 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         expect(last_response).to have_json_body.that_includes(
           error: include(message: /Must be an https url/),
         )
+      end
+
+      it "500s if the url verification request doesn't go through" do
+        req = stub_request(:post, "https://a.b/").
+          with(
+            body: {
+              rows: [],
+              integration_id: "svi_test",
+              integration_service: "httpsync_test",
+              table: "test",
+            },
+          ).
+          to_return(status: 404, body: "", headers: {})
+
+        post "/v1/organizations/#{org.key}/sync_targets/http/create",
+             service_integration_identifier: sint.opaque_id,
+             connection_url: "https://u:p@a.b",
+             period_seconds: 600
+
+        expect(last_response).to have_status(500)
+        expect(sint.sync_targets).to be_empty
+        expect(req).to have_been_made
       end
 
       it "400s if the period is outside the allowed range" do
@@ -504,12 +572,23 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
 
       it "200s if the period is outside the default range but the org setting allows it" do
         org.update(minimum_sync_seconds: 1)
+        req = stub_request(:post, "https://a.b/").
+          with(
+            body: {
+              rows: [],
+              integration_id: "svi_test",
+              integration_service: "httpsync_test",
+              table: "test",
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "https://u:p@a.b",
              period_seconds: 1
 
         expect(last_response).to have_status(200)
+        expect(req).to have_been_made
       end
     end
 
@@ -519,11 +598,23 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
       end
 
       it "updates the username and password" do
+        req = stub_request(:post, "https://a.b/").
+          with(
+            body: {
+              rows: [],
+              integration_id: "svi_test",
+              integration_service: "httpsync_test",
+              table: "test",
+            },
+          ).
+          to_return(status: 200, body: "", headers: {})
+
         post "/v1/organizations/#{org.key}/sync_targets/http/#{sync_tgt.opaque_id}/update_credentials",
              user: "user", password: "pass"
 
         expect(last_response).to have_status(200)
         expect(sync_tgt.refresh).to have_attributes(connection_url: "https://user:pass@a.b")
+        expect(req).to have_been_made
       end
 
       it "403s if the HTTP sync target does not exist for that org" do
