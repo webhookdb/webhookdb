@@ -178,7 +178,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     it "aborts if a sync is already in progress" do
       sync_tgt = Webhookdb::Fixtures.sync_target(service_integration: sint).create
       Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
-        Sequel::AdvisoryLock.new(otherconn, described_class::ADVISORY_LOCK_KEYSPACE, sync_tgt.id).lock do
+        Sequel::AdvisoryLock.new(otherconn, described_class::ADVISORY_LOCK_KEYSPACE, sync_tgt.id).with_lock do
           expect do
             sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
           end.to raise_error(Webhookdb::SyncTarget::SyncInProgress)
