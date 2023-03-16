@@ -20,7 +20,7 @@ class Sequel::AdvisoryLock
   # pg_advisory_lock_shared
   # pg_advisory_xact_lock
   # pg_advisory_xact_lock_shared
-  def lock
+  def with_lock
     raise LocalJumpError unless block_given?
     @db.get(@locker)
     return yield
@@ -32,7 +32,7 @@ class Sequel::AdvisoryLock
   # pg_try_advisory_lock_shared
   # pg_try_advisory_xact_lock
   # pg_try_advisory_xact_lock_shared
-  def lock?
+  def with_lock?
     raise LocalJumpError unless block_given?
     acquired = @db.get(@trylocker)
     return false, nil unless acquired

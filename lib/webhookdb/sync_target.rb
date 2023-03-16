@@ -176,7 +176,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
   # will be synced.
   def run_sync(now:)
-    ran, _ = Sequel::AdvisoryLock.new(self.db, ADVISORY_LOCK_KEYSPACE, self.id).lock? do
+    ran, _ = Sequel::AdvisoryLock.new(self.db, ADVISORY_LOCK_KEYSPACE, self.id).with_lock? do
       routine = if self.connection_url.start_with?("https://", "http://")
                   # Note that http links are not secure and should only be used for development purposes
                   HttpRoutine.new(now, self)

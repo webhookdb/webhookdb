@@ -553,7 +553,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       orig_sync = 3.hours.ago
       stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create(last_synced_at: orig_sync)
       Sequel.connect(Webhookdb::Postgres::Model.uri) do |otherconn|
-        Sequel::AdvisoryLock.new(otherconn, Webhookdb::SyncTarget::ADVISORY_LOCK_KEYSPACE, stgt.id).lock do
+        Sequel::AdvisoryLock.new(otherconn, Webhookdb::SyncTarget::ADVISORY_LOCK_KEYSPACE, stgt.id).with_lock do
           Webhookdb::Jobs::SyncTargetRunSync.new.perform(stgt.id)
         end
       end
