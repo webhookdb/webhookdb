@@ -27,6 +27,7 @@ RSpec.describe "database", :integration do
     Sequel.connect(sint.organization.readonly_connection_url) do |db|
       expect(db[sint.table_name.to_sym].all).to have_attributes(size: 5)
     end
+    expect(sync_tgt.advisory_lock(sync_tgt.db).dataset(this: true).all).to be_empty
   end
 
   it "can sync to http sync targets" do
@@ -58,6 +59,7 @@ RSpec.describe "database", :integration do
     expect { sync_tgt.refresh }.to eventually(have_attributes(last_synced_at: be_present))
     expect { received }.to eventually(contain_exactly(include("POST /mypath").and(include('"rows":'))))
     Thread.kill(server_thread)
+    expect(sync_tgt.advisory_lock(sync_tgt.db).dataset(this: true).all).to be_empty
   end
 
   it "can run a database migration" do
