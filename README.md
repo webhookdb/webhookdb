@@ -256,3 +256,54 @@ but the following setups are common:
   providing zero isolation, but is sufficient for controlled single-application use.
   Because there are no urls or schemas to worry about,
   it provides the most convenient access to your data.
+
+## Performance Tuning
+
+For the most part, Postgres does the bulk of the work. It's rare for WebhookDB/Ruby to be any sort of bottleneck.
+
+Always keep the following in mind when building, and then we will talk about Postgres:
+
+- Do bulk upserts where possible (see Plaid and Google Calendar integrations for examples).
+- Use large pages (1000-2000 items) when querying external APIs where possible.
+  There's no reason to use small pages in most cases.
+- Make sure upserting is done on an indexed column. This is usually only an issue for bulk upserts,
+  since by default row-by-row upserts use the remote column, which is always indexed.
+- Index as few things as possible, since updating indices adds time to updates.
+- If your replicator needs to query for things, see if you can make it an index-only scan
+  (that is, an index has what the query needs). This is much faster than normal index usage
+  (and obviously must never sequential scan). Again, this should be rare.
+- All external calls and DB queries should have a timeout applied.
+
+Now, for tuning Postgres. WebhookDB's 'app' database should not need any tuning;
+it has pretty straightforward CRUD usage patterns with simple queries,
+so there isn't much to do.
+
+The per-organization databases may need some tuning,
+especially for certain high-volume integrations. There three types of workloads you'll see:
+
+- Single row upserts.
+- Bulk upserts. These tables can be high activity, and can lead to vacuums.
+- `SELECT` (by clients). Make sure these are fast, indexed queries.
+  If not, indices may need to be added, or client queries may need to be adjusted.
+
+Here are some performance tuning tips.
+Some of the advice is RDS specific but should apply more broadly.
+
+- Check out [Tuning PG](https://wiki.postgresql.org/wiki/Tuning_Your_PostgreSQL_Server)
+  for some useful advice and background.
+- Use `show shared_buffers` to see your shared buffers.
+  It should be 25-40% of RAM. You can use this equation:
+  `select (30*7.5*1024*1024 /100)/8` => `147456.000000000000`
+  - 30 is 30%
+  - 7.5 is 7.5 GB of RAM
+  - 1024*1024 to convert GB to KB (to unify against shared_buffers units)
+  - 8 is 8kB, which is what shared_buffers is set in, at least in AWS RDS.
+- If performance craters, check IOPS usage. You may have exhausted your allowance.
+  RDS events may let you know. Or if you see a lot of waiting on IO,
+  this is usually why (check RDS Performance Insights).
+  Figure out what you need to do to get more IOPS.
+- If things slow down (but not crater), you may have vacuuming going on.
+  Use `select * from pg_stat_activity where state != 'idle'` and see.
+  If vacuuming is happening too often, your server will be slow (and especially the vacuumed tables).
+  There are many ways to tune this but we need some more exploration to provide good guidance. 
+- Check on server load. If you're hitting CPU or memory limits, you may just need a bigger instance.
