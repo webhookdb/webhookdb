@@ -8,10 +8,10 @@ class Webhookdb::Jobs::DurableJobRecheckPoller
   extend Webhookdb::Async::ScheduledJob
 
   cron "*/3 * * * *"
-  splay 20
+  splay 5
 
   def _perform
     return if ENV["DISABLE_DURABLE_JOBS_POLL"]
-    Amigo::DurableJob.poll_jobs
+    Amigo::DurableJob.poll_jobs(self)
   end
 end

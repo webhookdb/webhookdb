@@ -23,6 +23,10 @@ RSpec.describe Amigo::DurableJob do
     return u.to_s
   end
 
+  def poll_jobs(**)
+    described_class.poll_jobs(nil, **)
+  end
+
   let(:db1_url) { @db1_url }
   let(:db2_url) { @db2_url }
   let(:db1) { @db1 }
@@ -278,18 +282,18 @@ RSpec.describe Amigo::DurableJob do
       return a
     end
 
-    it "kills jobs in all databases past their recheck time, that are not in the retry set or their queue" do
+    it "kills jobs in all databases past their recheck time and missing that are not in queue, retry, or dead set" do
       cls = create_job_class
       expect(ds1.select_map(:job_id)).to be_empty
-      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
-      described_class.insert_job(cls, "jobx2", {"class" => cls, "args" => []})
-      described_class.insert_job(cls, "jobx3", {"class" => cls, "args" => []})
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
+      described_class.insert_job(cls, "jobx2", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
+      described_class.insert_job(cls, "jobx3", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
       described_class.lock_job("jobx1", -1)
       described_class.lock_job("jobx2", 2.minutes)
       expect(all_jobs(Sidekiq::DeadSet.new)).to be_empty
       expect(ds1.select_map(:job_id)).to contain_exactly("jobx1", "jobx2", "jobx3")
 
-      described_class.poll_jobs
+      poll_jobs
       # jobx1 has expired so should have moved to the dead set.
       expect(ds1.select_map(:job_id)).to contain_exactly("jobx2", "jobx3")
       expect(all_jobs(Sidekiq::DeadSet.new)).to contain_exactly(
@@ -312,14 +316,14 @@ RSpec.describe Amigo::DurableJob do
 
     it "calls the failure notifier if set" do
       cls = create_job_class
-      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
       described_class.lock_job("jobx1", -1)
 
       fail_rec = call_recorder.new
       death_rec = call_recorder.new
       Sidekiq.death_handlers.replace([death_rec])
       described_class.failure_notifier = fail_rec
-      described_class.poll_jobs
+      poll_jobs
       expect(fail_rec.calls).to contain_exactly(
         contain_exactly(include("durable_killed_at", "class" => "DurableJob::TestWorker")),
       )
@@ -328,43 +332,70 @@ RSpec.describe Amigo::DurableJob do
 
     it "calls death handlers if no failure notifier is set" do
       cls = create_job_class
-      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
       described_class.lock_job("jobx1", -1)
 
       death_rec = call_recorder.new
       Sidekiq.death_handlers.replace([death_rec])
       described_class.failure_notifier = nil
-      described_class.poll_jobs
+      poll_jobs
       expect(death_rec.calls).to contain_exactly(
         contain_exactly(include("durable_killed_at", "class" => "DurableJob::TestWorker"), be_a(RuntimeError)),
       )
     end
 
+    it "marks jobs as missing, and does not kill them, the first time they cannot be found" do
+      cls = create_job_class
+      expect(ds1.select_map(:job_id)).to be_empty
+      # This job will be marked missing
+      described_class.insert_job(cls, "jobx1", {"class" => cls, "args" => []})
+      # This job should be deleted, since it's already been marked missing
+      described_class.insert_job(cls, "jobx2", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
+      described_class.lock_job("jobx1", -1)
+      described_class.lock_job("jobx2", -1)
+
+      # The first job will be marked missing, and the second job will be deleted
+      poll_jobs
+      expect(ds1.all).to contain_exactly(
+        include(
+          job_id: "jobx1",
+          assume_dead_at: match_time(5.minutes.from_now).within(10),
+          missing_at: match_time(:now),
+        ),
+      )
+      expect(all_jobs(Sidekiq::DeadSet.new)).to contain_exactly(
+        have_attributes(item: include("args" => [], "class" => "DurableJob::TestWorker", "jid" => "jobx2")),
+      )
+      # Now the first job should die as well on the next poll
+      poll_jobs(now: 6.minutes.from_now)
+      expect(ds1.all).to be_empty
+    end
+
     it "skips checking if retryset is too full" do
       cls = create_job_class
-      described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []})
+      described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
       described_class.lock_job("joby1", -1)
       # Add one to the retry set, so polling skips.
       Sidekiq::RetrySet.new.schedule(Time.now, {})
-      described_class.poll_jobs(skip_queue_size: 1)
+      poll_jobs(skip_queue_size: 1)
       # Nothing got deleted because we skipped checking with a skip_queue_size of 1.
       expect(ds1[job_id: "joby1"]).to include(assume_dead_at: match_time(-1.seconds.from_now).within(10))
       # But now make sure it got deleted.
-      described_class.poll_jobs
+      poll_jobs
       expect(ds1[job_id: "joby1"]).to be_nil
     end
 
     it "skips checking if deadset is too full" do
       cls = create_job_class
-      described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []})
+      described_class.insert_job(cls, "joby1", {"class" => cls, "args" => []}, more: {missing_at: Time.now})
       described_class.lock_job("joby1", -1)
       # Add one to the dead set, so polling skips.
       Sidekiq::DeadSet.new.kill("{}")
-      described_class.poll_jobs(skip_queue_size: 1)
+      poll_jobs(skip_queue_size: 1)
       # Nothing got deleted because we skipped checking with a skip_queue_size of 1.
       expect(ds1[job_id: "joby1"]).to include(assume_dead_at: match_time(-1.seconds.from_now).within(10))
       # But now make sure it got deleted.
-      described_class.poll_jobs
+      poll_jobs
       expect(ds1[job_id: "joby1"]).to be_nil
     end
 
@@ -377,7 +408,7 @@ RSpec.describe Amigo::DurableJob do
       described_class.lock_job(j2id, -1)
       described_class.lock_job(j3id, -1)
       expect(ds1.select_map(:job_id)).to contain_exactly(j1id, j2id, j3id)
-      described_class.poll_jobs(skip_queue_size: 2)
+      poll_jobs(skip_queue_size: 2)
       # jobs 1 and 2, in q1, should not have been updated or enqueued since q1 is full.
       # The q2 job is updated because the queue is not busy so could be checked.
       expect(ds1[job_id: j1id]).to include(assume_dead_at: match_time(-1.seconds.ago).within(10))
@@ -394,7 +425,7 @@ RSpec.describe Amigo::DurableJob do
       described_class.lock_job("jobc1", -1)
       Sidekiq::RetrySet.new.schedule(3.days.from_now.to_f, {"jid" => "jobc1"})
       expect(all_jobs(Sidekiq::Queue.new)).to be_empty
-      described_class.poll_jobs
+      poll_jobs
       # The row for the polled job is updated
       expect(ds1[job_id: "jobc1"]).to include(assume_dead_at: match_time((3.days + 5.minutes).from_now).within(10))
       # No job gets enqueued, since it is already in the retry set
@@ -406,7 +437,7 @@ RSpec.describe Amigo::DurableJob do
       described_class.insert_job(cls, "jobc1", {"class" => cls, "args" => []})
       described_class.lock_job("jobc1", -1)
       Sidekiq::DeadSet.new.kill({"jid" => "jobc1"}.to_json)
-      described_class.poll_jobs
+      poll_jobs
       expect(ds1.all).to be_empty
       expect(all_jobs(Sidekiq::DeadSet.new)).to have_length(1)
     end
@@ -414,7 +445,7 @@ RSpec.describe Amigo::DurableJob do
     it "noops if not enabled" do
       described_class.enabled = false
       expect(Sidekiq::RetrySet).to_not receive(:new)
-      described_class.poll_jobs
+      poll_jobs
     end
   end
 

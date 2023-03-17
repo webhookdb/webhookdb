@@ -22,6 +22,8 @@ end
 # however the only off-the-shelf package we could find (from Gitlab) did not work well.
 # We could implement our own LMOVE based fetch strategy,
 # but using PG was a lot simpler to get going (selection is easier, for example, than managing Redis sorted sets).
+# Additionally, using PG gives us redundancy against Redis outages-
+# it allows us to enqueue jobs even if Redis is down, for example.
 #
 # The way Durable Jobs works at a high level is:
 #
@@ -51,14 +53,14 @@ end
 #
 # - Look through each durable store database.
 # - For each job with an assume_dead_at in the past, we need to check whether we should kill it.
-# - If the job is currently processing in a queue, we no-op.
-#   We warn that the job should have a longer heartbeat_extension,
-#   or something should call DurableJob.heartbeat.
+# - If the job is currently processing in a queue, we no-op. We can't do anything about backed-up queues.
 # - If the job is currently in the retry set, we update the assume_dead_at of the row
 #   so it's after the time the job will be retried. That way we won't try and process
 #   the job again until after it's been retried.
 # - If the job is in the DeadSet, we delete the row since it's already dead.
-# - If the job cannot be found in any of these places, it's added to the DeadSet.
+# - If the job cannot be found in any of these places, we mark it 'missing'.
+#   It may be missing because it's processing; we'll find out on the next run.
+# - If the job still cannot be found, it's added to the DeadSet.
 #
 # Note that DurableJob is subject to race conditions,
 # and a job can be enqueued and then run multiple times.
@@ -138,6 +140,8 @@ module Amigo::DurableJob
           text :locked_by
           # Set when a worker takes a job
           timestamptz :locked_at
+          # The first time we cannot find the job, we report it missing rather than treating it as gone.
+          timestamptz :missing_at
         end
       end
     end
@@ -230,19 +234,19 @@ module Amigo::DurableJob
       raise "DurableJob.heartbeat called but no durable job is in TLS"
     end
 
-    def poll_jobs(now: Time.now, skip_queue_size: 500, max_page_size: 2000)
+    def poll_jobs(joblike, now: Time.now, skip_queue_size: 500, max_page_size: 2000)
       return unless self.enabled?
       # There is a global retry set we can use across all queues.
       # If it's too big, don't bother polling jobs.
       # Note, this requires we don't let our retry set grow too large...
       retryset = Sidekiq::RetrySet.new
-      if retryset.size >= skip_queue_size
-        Sidekiq.logger.warn "DurableJob: poll_jobs_retry_set_too_large"
+      if (rssize = retryset.size) >= skip_queue_size
+        Amigo.log(joblike, :warn, "poll_jobs_retry_set_too_large", {size: rssize})
         return
       end
       deadset = Sidekiq::DeadSet.new
-      if deadset.size >= skip_queue_size
-        Sidekiq.logger.warn "DurableJob: poll_jobs_dead_set_too_large"
+      if (dssize = deadset.size) >= skip_queue_size
+        Amigo.log(joblike, :warn, "poll_jobs_dead_set_too_large", {size: dssize})
         return
       end
       retries_by_jid = retryset.to_h { |r| [r.jid, r] }
@@ -251,21 +255,21 @@ module Amigo::DurableJob
       self.storage_datasets.each do |ds|
         # To avoid big memory usage, process a limited number of items.
         all_rows_to_check = ds.where { assume_dead_at <= now }.
-          select(:job_id, :job_class, :queue, :job_item_json).
+          select(:job_id, :job_class, :queue, :job_item_json, :missing_at).
           order(:assume_dead_at).
           limit(max_page_size).
           all
         if all_rows_to_check.size == max_page_size
-          # Hard to imagine this happening but here we are
-          Sidekiq.logger.warn "DurableJob: poll_jobs_max_page_size_reached"
+          # If we're super backed up, don't bother polling.
+          Amigo.log(joblike, :warn, "poll_jobs_max_page_size_reached", {})
         end
         # All our expired rows belong to one of any number of queues.
         # We should process grouped by queue so we only need to look through each queue once.
         by_queues = all_rows_to_check.group_by { |r| r[:queue] }
         by_queues.each do |queue, rows_to_check|
           q = Sidekiq::Queue.new(queue)
-          if q.size >= skip_queue_size
-            Sidekiq.logger.warn "DurableJob: poll_jobs_queue_size_too_large"
+          if (qsize = q.size) >= skip_queue_size
+            Amigo.log(joblike, :warn, "poll_jobs_queue_size_too_large", {size: qsize})
             next
           end
           all_jids_in_queue = Set.new(q.map(&:jid))
@@ -273,42 +277,57 @@ module Amigo::DurableJob
             job_class = row[:job_class]
             job_id = row[:job_id]
             cls = class_cache[job_class] ||= const_get(job_class)
+            # We may want to switch this to bulk operations,
+            # but it can get pretty challenging to reason about.
             dswhere = ds.where(job_id:)
             if all_jids_in_queue.include?(job_id)
-              # If a job is in the queue, it means it's processing,
-              # and likely has been for a while.
-              # In that case, bump the deadline.
-              msg = "DurableJob: #{job_class}[#{job_id}] is " \
-                    "processing longer than its heartbeat_extension. " \
-                    "Consider calling Amigo::DurableJob.heartbeat, " \
-                    "or extend Amigo::DurableJob#heartbeat_extension on the job."
-              Sidekiq.logger.warn msg
-              dswhere.update(assume_dead_at: now + cls.heartbeat_extension)
+              # If a job is in the queue, it means it's waiting to be processed.
+              # Bump the deadline and keep going.
+              Amigo.log(joblike, :debug, "poll_jobs_extending_heartbeat", {job_id:, job_class:})
+              dswhere.update(missing_at: nil, assume_dead_at: now + cls.heartbeat_extension)
             elsif (retry_record = retries_by_jid[job_id])
               # If a job is in the retry set, we don't need to bother checking
               # until the retry is ready. If we retry ahead of time, that's fine-
-              # if the job succeeds, it'll delete the row, if it fails,
+              # if the job succeeds, it'll delete the durable job row, if it fails,
               # it'll overwrite assume_dead_at and we'll get back here.
-              Sidekiq.logger.debug "DurableJob: #{job_class}[#{job_id}] is in retry set"
-              dswhere.update(assume_dead_at: retry_record.at + cls.heartbeat_extension)
+              Amigo.log(joblike, :debug, "poll_jobs_found_in_retry_set", {job_id:, job_class:})
+              dswhere.update(missing_at: nil, assume_dead_at: retry_record.at + cls.heartbeat_extension)
             elsif deadset_jids.include?(job_id)
               # If a job moved to the dead set, we can delete the PG row.
               # When we do the retry from the dead set, it'll push a new job to PG.
-              Sidekiq.logger.info "DurableJob: #{job_class}[#{job_id}] is in dead set"
+              Amigo.log(joblike, :info, "poll_jobs_found_in_dead_set", {job_id:, job_class:})
               dswhere.delete
             else
-              # The job isn't actively processing nor is in the retry/dead set.
-              # This means we have lost it, it was never sent to Sidekiq,
-              # or it was manually deleted (via Web UI, probably).
-              # Add it to the dead set so it can be manually inspected and retried.
+              # The job was not found for one of the following reasons:
+              # - The job is actively processing (is not in Redis while this happens).
+              #   - There's an inherent race condition if we try to check workers;
+              #     so instead, if this is the first time the job is missing,
+              #     we assume it's because it's processing,
+              #     and only treat the job as lost the next time we cannot find it.
+              # - The job was manually deleted (web UI or console).
+              #   - We can't know this happened, so have to treat it like a lost job,
+              #     and send it to the dead set. We can get around this by only deleting jobs from the dead set,
+              #     rather than the retry set.
+              # - The job was never sent to Sidekiq.
+              #   - We need to handle it.
+              # - The job was lost while processing, like due to a segfault.
+              #   - We need to handle it.
+              #
               item = Yajl::Parser.parse(row[:job_item_json])
-              item["durable_killed_at"] = now
               item["jid"] ||= job_id
-              Sidekiq.logger.warn "DurableJob: #{job_class}[#{job_id}] not found, adding to dead set"
-
-              Amigo::DurableJob.failure_notifier&.call(item)
-              deadset.kill(item.to_json, notify_failure: Amigo::DurableJob.failure_notifier.nil?)
-              dswhere.delete
+              if row[:missing_at]
+                item["durable_killed_at"] = now
+                Amigo.log(joblike, :warn, "poll_jobs_handling_failed_job", {job_id:, job_class:})
+                Amigo::DurableJob.failure_notifier&.call(item)
+                deadset.kill(item.to_json, notify_failure: Amigo::DurableJob.failure_notifier.nil?)
+                dswhere.delete
+              else
+                Amigo.log(joblike, :debug, "poll_jobs_setting_job_missing", {job_id:, job_class:})
+                # We want to look again at the next scheduled heartbeat, since this may just be a slow job
+                # that didn't check in frequently enough. In the future, we could warn about it if
+                # we end up finding a row with missing_at set, but for now it's unlikely so not worth it.
+                dswhere.update(missing_at: now, assume_dead_at: now + cls.heartbeat_extension)
+              end
             end
           end
         end
