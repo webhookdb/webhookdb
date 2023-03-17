@@ -116,7 +116,7 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
         expect do
           delivery.attempt_delivery
         end.to publish("webhookdb.developeralert.emitted").with_payload(
-          match_array([include("subsystem" => "Webhook Subscriptions")]),
+          contain_exactly(include("subsystem" => "Webhook Subscriptions")),
         )
 
         expect(req).to have_been_made

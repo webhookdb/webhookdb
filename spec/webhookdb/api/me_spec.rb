@@ -33,13 +33,11 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(last_response).to have_status(200)
       b = last_response_json_body
       lines = b[:display_headers].map { |(k, f)| [f, b[k.to_sym]] }
-      expect(lines).to match_array(
-        [
-          ["Default Org", "Hi (hi)"],
-          ["Email", "a@b.co"],
-          ["Memberships", "Hi (hi): member\nBye (bye): admin"],
-          ["Invitations", "Bar (bar): code1\nFoo (foo): code2"],
-        ],
+      expect(lines).to contain_exactly(
+        ["Default Org", "Hi (hi)"],
+        ["Email", "a@b.co"],
+        ["Memberships", "Hi (hi): member\nBye (bye): admin"],
+        ["Invitations", "Bar (bar): code1\nFoo (foo): code2"],
       )
     end
 
@@ -77,61 +75,59 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(
-          blocks: match_array(
-            [
-              {
-                type: "line",
-                value: "You are a member of the following organizations:",
-              },
-              {type: "line", value: ""},
-              {
-                type: "table",
-                value: {
-                  headers: [
-                    "Name",
-                    "Key",
-                    "Role",
-                    "Status",
+          blocks: contain_exactly(
+            {
+              type: "line",
+              value: "You are a member of the following organizations:",
+            },
+            {type: "line", value: ""},
+            {
+              type: "table",
+              value: {
+                headers: [
+                  "Name",
+                  "Key",
+                  "Role",
+                  "Status",
+                ],
+                rows: [
+                  [
+                    org.name,
+                    org.key,
+                    membership.status,
+                    "active",
                   ],
-                  rows: [
-                    [
-                      org.name,
-                      org.key,
-                      membership.status,
-                      "active",
-                    ],
+                ],
+              },
+            },
+            {type: "line", value: ""},
+            {
+              type: "line",
+              value: "You have been invited to the following organizations:",
+            },
+            {type: "line", value: ""},
+            {
+              type: "table",
+              value: {
+                headers: [
+                  "Name",
+                  "Key",
+                  "Join Code",
+                ],
+                rows: [
+                  [
+                    invited_org.name,
+                    invited_org.key,
+                    "join-abc123",
                   ],
-                },
+                ],
               },
-              {type: "line", value: ""},
-              {
-                type: "line",
-                value: "You have been invited to the following organizations:",
-              },
-              {type: "line", value: ""},
-              {
-                type: "table",
-                value: {
-                  headers: [
-                    "Name",
-                    "Key",
-                    "Join Code",
-                  ],
-                  rows: [
-                    [
-                      invited_org.name,
-                      invited_org.key,
-                      "join-abc123",
-                    ],
-                  ],
-                },
-              },
-              {type: "line", value: ""},
-              {
-                type: "line",
-                value: "To join an invited org, use: webhookdb org join <join code>.",
-              },
-            ],
+            },
+            {type: "line", value: ""},
+            {
+              type: "line",
+              value: "To join an invited org, use: webhookdb org join <join code>.",
+            },
           ),
         )
     end
@@ -144,33 +140,31 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(
-          blocks: match_array(
-            [
-              {
-                type: "line",
-                value: "You are a member of the following organizations:",
-              },
-              {type: "line", value: ""},
-              {
-                type: "table",
-                value: {
-                  headers: [
-                    "Name",
-                    "Key",
-                    "Role",
-                    "Status",
+          blocks: contain_exactly(
+            {
+              type: "line",
+              value: "You are a member of the following organizations:",
+            },
+            {type: "line", value: ""},
+            {
+              type: "table",
+              value: {
+                headers: [
+                  "Name",
+                  "Key",
+                  "Role",
+                  "Status",
+                ],
+                rows: [
+                  [
+                    org.name,
+                    org.key,
+                    membership.status,
+                    "active",
                   ],
-                  rows: [
-                    [
-                      org.name,
-                      org.key,
-                      membership.status,
-                      "active",
-                    ],
-                  ],
-                },
+                ],
               },
-            ],
+            },
           ),
         )
     end
@@ -183,36 +177,34 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(
-          blocks: match_array(
-            [
-              {
-                type: "line",
-                value: "You have been invited to the following organizations:",
-              },
-              {type: "line", value: ""},
-              {
-                type: "table",
-                value: {
-                  headers: [
-                    "Name",
-                    "Key",
-                    "Join Code",
+          blocks: contain_exactly(
+            {
+              type: "line",
+              value: "You have been invited to the following organizations:",
+            },
+            {type: "line", value: ""},
+            {
+              type: "table",
+              value: {
+                headers: [
+                  "Name",
+                  "Key",
+                  "Join Code",
+                ],
+                rows: [
+                  [
+                    invited_org.name,
+                    invited_org.key,
+                    "join-abc123",
                   ],
-                  rows: [
-                    [
-                      invited_org.name,
-                      invited_org.key,
-                      "join-abc123",
-                    ],
-                  ],
-                },
+                ],
               },
-              {type: "line", value: ""},
-              {
-                type: "line",
-                value: "To join an invited org, use: webhookdb org join <join code>.",
-              },
-            ],
+            },
+            {type: "line", value: ""},
+            {
+              type: "line",
+              value: "To join an invited org, use: webhookdb org join <join code>.",
+            },
           ),
         )
     end
@@ -225,13 +217,11 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(
-          blocks: match_array(
-            [
-              {
-                type: "line",
-                value: "You aren't affiliated with any organizations yet.",
-              },
-            ],
+          blocks: contain_exactly(
+            {
+              type: "line",
+              value: "You aren't affiliated with any organizations yet.",
+            },
           ),
         )
     end

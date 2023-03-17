@@ -334,11 +334,9 @@ class Webhookdb::Organization::DbBuilder
       orig_admin_user = URI(@org.admin_connection_url_raw).user
       admin_user = self.randident("ad")
       admin_pwd = self.randident
-      lines.concat(
-        [
-          "ALTER ROLE #{orig_admin_user} RENAME TO #{admin_user};",
-          "ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';",
-        ],
+      lines.push(
+        "ALTER ROLE #{orig_admin_user} RENAME TO #{admin_user};",
+        "ALTER ROLE #{admin_user} WITH PASSWORD '#{admin_pwd}';",
       )
       @admin_url = self._create_conn_url(admin_user, admin_pwd, superuser_uri, @org.dbname)
     else

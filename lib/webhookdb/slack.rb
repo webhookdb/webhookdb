@@ -40,8 +40,8 @@ class Webhookdb::Slack
   def self.ignore_channel_not_found
     yield()
   rescue ::Slack::Notifier::APIError => e
-    return if /channel_not_found/.match?(e.message)
-    return if /channel_is_archived/.match?(e.message)
+    return if e.message.include?("channel_not_found")
+    return if e.message.include?("channel_is_archived")
     raise e
   end
 

@@ -100,7 +100,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         Webhookdb::Fixtures.customer.create
       end.to perform_async_job(Webhookdb::Jobs::CustomerCreatedNotifyInternal).
         and(publish("webhookdb.developeralert.emitted").with_payload(
-              match_array([include("subsystem" => "Customer Created")]),
+              contain_exactly(include("subsystem" => "Customer Created")),
             ))
     end
   end
@@ -439,7 +439,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           Webhookdb::Jobs::RenewGoogleWatchChannels.new.perform
         end.to publish(
           "webhookdb.serviceintegration.renewwatchchannel",
-          match_array([cal_sint.id, include("row_pk" => cal_row.fetch(:pk))]),
+          contain_exactly(cal_sint.id, include("row_pk" => cal_row.fetch(:pk))),
         )
       end.to perform_async_job(Webhookdb::Jobs::RenewWatchChannel)
 

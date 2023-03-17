@@ -4,7 +4,7 @@ require "webhookdb/async"
 require "webhookdb/async/job"
 require "webhookdb/async/scheduled_job"
 
-RSpec.describe "Webhookdb::Async", :db, :async do
+RSpec.describe "Webhookdb::Async", :async, :db do
   before(:all) do
     Webhookdb::Async.setup_tests
   end

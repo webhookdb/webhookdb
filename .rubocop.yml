@@ -9,7 +9,7 @@ inherit_from: .rubocop_todo.yml
 AllCops:
   NewCops: enable
   SuggestExtensions: false
-  TargetRubyVersion: 3.1
+  TargetRubyVersion: 3.2
   Exclude:
     # Explicitly list all excludes: https://github.com/rubocop/rubocop/issues/9832
     - 'webhookdb-website/**/*'
@@ -141,7 +141,7 @@ Style/Documentation:
 Style/FormatString:
   EnforcedStyle: percent
 Style/NumericPredicate:
-  IgnoredMethods: ['where']
+  AllowedMethods: ['where']
   Exclude:
     - 'db/migrations/*'
 Style/RedundantReturn:

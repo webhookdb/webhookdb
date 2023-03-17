@@ -140,9 +140,11 @@ RSpec.describe Amigo::DurableJob do
     end
 
     it "does standard behavior if not enabled" do
+      calls = []
       described_class.enabled = false
-      cls = create_job_class
+      cls = create_job_class(->(*) { calls << 1 })
       sidekiq_perform_inline(cls, [])
+      expect(calls).to have_length(1)
     end
   end
 
@@ -262,8 +264,10 @@ RSpec.describe Amigo::DurableJob do
 
     it "noops if not enabled" do
       described_class.enabled = false
-      described_class.heartbeat
-      described_class.heartbeat!
+      expect do
+        described_class.heartbeat
+        described_class.heartbeat!
+      end.to_not raise_error
     end
   end
 

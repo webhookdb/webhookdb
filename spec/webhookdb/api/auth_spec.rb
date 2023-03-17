@@ -19,7 +19,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
   describe "POST /v1/auth" do
     it "errors if a customer is logged in" do
       login_as(Webhookdb::Fixtures.customer.create)
-      post "/v1/auth", email: email
+      post("/v1/auth", email:)
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(error: include(code: "already_logged_in"))
     end
@@ -44,7 +44,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
       it "errors if signups are disabled" do
         Webhookdb::Customer.signup_email_allowlist = ["nomatch"]
-        post "/v1/auth", email: email
+        post("/v1/auth", email:)
         expect(last_response).to have_status(402)
         expect(last_response).to have_json_body.
           that_includes(error: include(code: "signup_disabled"))
@@ -58,7 +58,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
         existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
         _org = Webhookdb::Fixtures.organization.with_member(customer).create
 
-        post "/v1/auth", email: email
+        post("/v1/auth", email:)
 
         expect(last_response).to have_status(202)
         expect(last_response).to have_json_body.that_includes(output: /Hello again/)
@@ -73,7 +73,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       it "logs in if the provided token is correct" do
         existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
 
-        post "/v1/auth", email: email, token: existing_code.token
+        post "/v1/auth", email:, token: existing_code.token
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(output: /Welcome!/)
@@ -85,7 +85,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
       it "fails if the provided token is incorrect" do
         existing_code = Webhookdb::Fixtures.reset_code(customer:).email.create
 
-        post "/v1/auth", email: email, token: "123456"
+        post "/v1/auth", email:, token: "123456"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(output: /Sorry, that token is invalid/)
@@ -95,7 +95,7 @@ RSpec.describe Webhookdb::API::Auth, :db do
 
       it "succeeds even if signup is disabled" do
         Webhookdb::Customer.signup_email_allowlist = ["nomatch"]
-        post "/v1/auth", email: email
+        post("/v1/auth", email:)
         expect(last_response).to have_status(202)
       end
     end

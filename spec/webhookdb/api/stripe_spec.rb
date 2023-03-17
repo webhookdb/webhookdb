@@ -3,7 +3,7 @@
 require "webhookdb/api/stripe"
 require "webhookdb/stripe"
 
-RSpec.describe Webhookdb::API::Stripe, :db, :async do
+RSpec.describe Webhookdb::API::Stripe, :async, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -44,9 +44,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
                    "object" => "subscription_item",
                    "billing_thresholds" => nil,
                    "created" => 1_624_389_749,
-                   "metadata" => {
-
-                   },
+                   "metadata" => {},
                    "plan" =>
                      {"id" => "price_1J4s6rFFYxHXGyKx5NqSpSYB",
                       "object" => "plan",
@@ -60,9 +58,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
                       "interval" => "month",
                       "interval_count" => 1,
                       "livemode" => false,
-                      "metadata" => {
-
-                      },
+                      "metadata" => {},
                       "nickname" => nil,
                       "product" => "prod_JiIi6yyo7A3cha",
                       "tiers" => nil,
@@ -79,9 +75,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
                       "currency" => "usd",
                       "livemode" => false,
                       "lookup_key" => nil,
-                      "metadata" => {
-
-                      },
+                      "metadata" => {},
                       "nickname" => nil,
                       "product" => "prod_JiIi6yyo7A3cha",
                       "recurring" =>
@@ -104,9 +98,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
                 "url" => "/v1/subscription_items?subscription=sub_JigYoW2aRYfl0R",},
              "latest_invoice" => "in_1J5FB3FFYxHXGyKxLCTiXLJY",
              "livemode" => false,
-             "metadata" => {
-
-             },
+             "metadata" => {},
              "next_pending_invoice_item_invoice" => nil,
              "pause_collection" => nil,
              "pending_invoice_item_interval" => nil,
@@ -125,9 +117,7 @@ RSpec.describe Webhookdb::API::Stripe, :db, :async do
                 "interval" => "month",
                 "interval_count" => 1,
                 "livemode" => false,
-                "metadata" => {
-
-                },
+                "metadata" => {},
                 "nickname" => nil,
                 "product" => "prod_JiIi6yyo7A3cha",
                 "tiers" => nil,

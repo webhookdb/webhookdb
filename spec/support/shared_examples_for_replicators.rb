@@ -71,7 +71,7 @@ RSpec.shared_examples "a replicator" do |name|
     svc.create_table
     expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).
       with(include(
-             "payload" => match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
+             "payload" => contain_exactly(sint.id, hash_including("row", "external_id", "external_id_column")),
            ))
     upsert_webhook(svc, body:)
   end

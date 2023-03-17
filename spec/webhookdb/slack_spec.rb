@@ -38,7 +38,7 @@ RSpec.describe Webhookdb::Slack do
     end
 
     it "is set with default fields" do
-      stub_request(:post, "http://unconfigured-slack-webhook/").
+      req = stub_request(:post, "http://unconfigured-slack-webhook/").
         with(
           body: {"payload" => '{"channel":"#eng-naboo","username":"Unknown","icon_emoji":":question:","text":"hello"}'},
         ).
@@ -46,10 +46,11 @@ RSpec.describe Webhookdb::Slack do
 
       n = described_class.new_notifier
       n.post(text: "hello")
+      expect(req).to have_been_made
     end
 
     it "is set with explicit fields" do
-      stub_request(:post, "http://unconfigured-slack-webhook/").
+      req = stub_request(:post, "http://unconfigured-slack-webhook/").
         with(
           body: {"payload" => '{"channel":"#foo","username":"U","icon_emoji":":h:","text":"hello"}'},
         ).
@@ -57,22 +58,24 @@ RSpec.describe Webhookdb::Slack do
 
       n = described_class.new_notifier(channel: "#foo", username: "U", icon_emoji: ":h:")
       n.post(text: "hello")
+      expect(req).to have_been_made
     end
 
     it "can use a channel override" do
       described_class.channel_override = "#testfake"
-      stub_request(:post, "http://unconfigured-slack-webhook/").
+      req = stub_request(:post, "http://unconfigured-slack-webhook/").
         with(
           body: {"payload" => '{"channel":"#testfake","username":"Unknown","icon_emoji":":question:","text":"hello"}'},
         ).
         to_return(status: 200, body: "", headers: {})
       n = described_class.new_notifier
       n.post(text: "hello")
+      expect(req).to have_been_made
     end
 
     it "can override the override" do
       described_class.channel_override = "#testfake"
-      stub_request(:post, "http://unconfigured-slack-webhook/").
+      req = stub_request(:post, "http://unconfigured-slack-webhook/").
         with(
           body: {"payload" => '{"channel":"#forced","username":"Unknown","icon_emoji":":question:","text":"hello"}'},
         ).
@@ -80,6 +83,7 @@ RSpec.describe Webhookdb::Slack do
 
       n = described_class.new_notifier(force_channel: "#forced")
       n.post(text: "hello")
+      expect(req).to have_been_made
     end
   end
 end

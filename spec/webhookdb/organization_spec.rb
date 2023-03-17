@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::Organization", :db, :async do
+RSpec.describe "Webhookdb::Organization", :async, :db do
   let(:described_class) { Webhookdb::Organization }
   let!(:o) { Webhookdb::Fixtures.organization.create }
 
@@ -186,7 +186,7 @@ RSpec.describe "Webhookdb::Organization", :db, :async do
       Webhookdb::Replicator::Fake.requires_sequence = true
       _ = fake_sint
       o.migrate_replication_tables
-      o.migrate_replication_tables
+      expect { o.migrate_replication_tables }.to_not raise_error
     end
   end
 
