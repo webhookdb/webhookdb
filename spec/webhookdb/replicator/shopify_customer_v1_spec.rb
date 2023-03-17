@@ -30,7 +30,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
           ],
           "accepts_marketing_updated_at": null,
           "marketing_opt_in_level": null,
-          "admin_graphql_api_id": "gid:\/\/shopify\/Customer\/706405506930370084"
+          "admin_graphql_api_id": "gid://shopify/Customer/706405506930370084"
         }
       J
     end
@@ -63,7 +63,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
           ],
           "accepts_marketing_updated_at": null,
           "marketing_opt_in_level": null,
-          "admin_graphql_api_id": "gid:\/\/shopify\/Customer\/706405506930370084"
+          "admin_graphql_api_id": "gid://shopify/Customer/706405506930370084"
         }
       J
     end
@@ -93,7 +93,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
           ],
           "accepts_marketing_updated_at": null,
           "marketing_opt_in_level": null,
-          "admin_graphql_api_id": "gid:\/\/shopify\/Customer\/706405506930370084"
+          "admin_graphql_api_id": "gid://shopify/Customer/706405506930370084"
         }
       J
     end

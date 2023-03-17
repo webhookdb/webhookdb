@@ -90,17 +90,20 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
       it "scopes the admin connection permissions" do
         o.prepare_database_connections
-        Sequel.connect(o.admin_connection_url) do |admin_conn|
-          admin_conn << "CREATE TABLE my_test_table(val TEXT)"
-          admin_conn << "INSERT INTO my_test_table (val) VALUES ('x')"
-          admin_conn << "SELECT * FROM my_test_table"
-          admin_conn << "DROP TABLE my_test_table"
+        expect do
+          Sequel.connect(o.admin_connection_url) do |admin_conn|
+            admin_conn << "CREATE TABLE my_test_table(val TEXT)"
+            admin_conn << "INSERT INTO my_test_table (val) VALUES ('x')"
+            admin_conn << "SELECT * FROM my_test_table"
+            admin_conn << "DROP TABLE my_test_table"
 
-          admin_conn << "CREATE TABLE whdb_unit_test.my_test_table(val TEXT)"
-          admin_conn << "INSERT INTO whdb_unit_test.my_test_table (val) VALUES ('x')"
-          admin_conn << "SELECT * FROM whdb_unit_test.my_test_table"
-          admin_conn << "DROP TABLE whdb_unit_test.my_test_table"
-        end
+            admin_conn << "CREATE TABLE whdb_unit_test.my_test_table(val TEXT)"
+            admin_conn << "INSERT INTO whdb_unit_test.my_test_table (val) VALUES ('x')"
+            admin_conn << "SELECT * FROM whdb_unit_test.my_test_table"
+            admin_conn << "DROP TABLE whdb_unit_test.my_test_table"
+          end
+          # These will raise permission errors if not set up right
+        end.to_not raise_error
       end
 
       it "scopes the readonly connection permissions" do
@@ -392,8 +395,10 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
     describe "with none isolation", whdbisolation: "none" do
       it "noops" do
-        o.prepare_database_connections
-        o.remove_related_database
+        expect do
+          o.prepare_database_connections
+          o.remove_related_database
+        end.to_not raise_error
       end
     end
   end
@@ -634,7 +639,7 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       end
     end
 
-    describe "with schema+user isolation", whdbisolation: "schema+user", db: :no_transaction do
+    describe "with schema+user isolation", db: :no_transaction, whdbisolation: "schema+user" do
       # Need the no_transaction otherwise we get a deadlock
 
       before(:each) do

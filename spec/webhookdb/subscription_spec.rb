@@ -37,11 +37,9 @@ RSpec.describe "Webhookdb::Subscription", :db do
         to_return(status: 200, body: load_fixture_data("stripe/prices_get", raw: true), headers: {})
 
       plans = described_class.list_plans
-      expect(plans.as_json).to match_array(
-        [
-          {description: "Monthly Subscription", key: "monthly", price: cost("$89")},
-          {description: "Yearly Subscription (2 months free)", key: "yearly", price: cost("$890")},
-        ],
+      expect(plans.as_json).to contain_exactly(
+        {description: "Monthly Subscription", key: "monthly", price: cost("$89")},
+        {description: "Yearly Subscription (2 months free)", key: "yearly", price: cost("$890")},
       )
 
       expect(req).to have_been_made
@@ -85,7 +83,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
         expect do
           Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
         end.to publish("webhookdb.developeralert.emitted").with_payload(
-          match_array([include("subsystem" => "Subscription Created")]),
+          contain_exactly(include("subsystem" => "Subscription Created")),
         )
       end
 
@@ -93,7 +91,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
         expect do
           Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
         end.to publish("webhookdb.developeralert.emitted").with_payload(
-          match_array([include("subsystem" => "Subscription Error")]),
+          contain_exactly(include("subsystem" => "Subscription Error")),
         )
       end
 
@@ -105,7 +103,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
         expect do
           Webhookdb::Subscription.create_or_update_from_stripe_hash(stripe_data)
         end.to publish("webhookdb.developeralert.emitted").with_payload(
-          match_array([include("subsystem" => "Subscription Status Change")]),
+          contain_exactly(include("subsystem" => "Subscription Status Change")),
         )
 
         # No alert for other field type
@@ -158,15 +156,16 @@ RSpec.describe "Webhookdb::Subscription", :db do
         integrations_remaining_formatted: "2",
         sub_status: "",
       )
-      expect(status.display_headers.map { |k, f| [f, status.data[k]] }).to match_array(
-        [
-          ["Organization", "My Org (my_org)"],
-          ["Billing email", ""],
-          ["Plan name", "Free"],
-          ["Integrations used", "0"],
-          ["Integrations left", "2"],
-          ["Status", ""],
-        ],
+      expect(status.display_headers.map do |k, f|
+        [f,
+         status.data[k],]
+      end).to contain_exactly(
+        ["Organization", "My Org (my_org)"],
+        ["Billing email", ""],
+        ["Plan name", "Free"],
+        ["Integrations used", "0"],
+        ["Integrations left", "2"],
+        ["Status", ""],
       )
     end
 
@@ -188,15 +187,16 @@ RSpec.describe "Webhookdb::Subscription", :db do
         integrations_remaining_formatted: "unlimited",
         sub_status: "active",
       )
-      expect(status.display_headers.map { |k, f| [f, status.data[k]] }).to match_array(
-        [
-          ["Organization", "My Org (my_org)"],
-          ["Billing email", "santa@northpole.org"],
-          ["Plan name", "fixtured plan"],
-          ["Integrations used", "1"],
-          ["Integrations left", "unlimited"],
-          ["Status", "active"],
-        ],
+      expect(status.display_headers.map do |k, f|
+        [f,
+         status.data[k],]
+      end).to contain_exactly(
+        ["Organization", "My Org (my_org)"],
+        ["Billing email", "santa@northpole.org"],
+        ["Plan name", "fixtured plan"],
+        ["Integrations used", "1"],
+        ["Integrations left", "unlimited"],
+        ["Status", "active"],
       )
     end
   end

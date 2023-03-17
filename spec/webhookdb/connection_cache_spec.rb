@@ -199,6 +199,7 @@ RSpec.describe Webhookdb::ConnectionCache do
         instance.borrow(db1_url, transaction: true) { |_| }
       end
 
+      # rubocop:disable RSpec/NoExpectationExample
       it "can wrap the block in a transaction (test via behavior)" do
         # TODO: run another thread to observe the transaction has not committed
         instance.borrow(db1_url, transaction: true) do |c|
@@ -208,6 +209,7 @@ RSpec.describe Webhookdb::ConnectionCache do
           c << "insert into t1(c) values('x')"
         end
       end
+      # rubocop:enable RSpec/NoExpectationExample
 
       it "rolls back on failure (test via spy)" do
         c = capture_conn(instance, db1_url)

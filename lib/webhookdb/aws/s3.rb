@@ -99,11 +99,11 @@ class Webhookdb::AWS::S3
     url = uri.to_s
     parsed_uri = case uri.scheme
       when "s3"
-        url.match(%r{s3://(?<bucket>[\w\-]+)/(?<key>[\w\-/]+\.\w+)}i)
+        url.match(%r{s3://(?<bucket>[\w-]+)/(?<key>[\w\-/]+\.\w+)}i)
       when "http", "https"
         url.match(%r{
           https?://
-          (?<bucket>[\w\-]+)\.
+          (?<bucket>[\w-]+)\.
           s3\.
           (?<region>[a-z]{2}-[a-z]+-\d+\.)?
           amazonaws\.com/

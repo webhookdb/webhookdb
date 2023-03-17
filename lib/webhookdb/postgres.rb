@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "pg"
-require "set"
 require "appydays/loggable"
 require "sequel"
 require "sequel/core"

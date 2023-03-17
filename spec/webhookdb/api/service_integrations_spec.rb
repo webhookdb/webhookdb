@@ -197,23 +197,19 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       header "X-My-Test", "abc"
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
-          "args" => match_array(
-            [
-              include(
-                "name" => "webhookdb.serviceintegration.webhook",
-                "payload" => match_array(
-                  [
-                    sint.id,
-                    hash_including(
-                      "headers" => hash_including("X-My-Test" => "abc"),
-                      "body" => {"foo" => 1},
-                      "request_path" => "/v1/service_integrations/xyz",
-                      "request_method" => "POST",
-                    ),
-                  ],
+          "args" => contain_exactly(
+            include(
+              "name" => "webhookdb.serviceintegration.webhook",
+              "payload" => contain_exactly(
+                sint.id,
+                hash_including(
+                  "headers" => hash_including("X-My-Test" => "abc"),
+                  "body" => {"foo" => 1},
+                  "request_path" => "/v1/service_integrations/xyz",
+                  "request_method" => "POST",
                 ),
               ),
-            ],
+            ),
           ),
           "queue" => "webhook",
         ),
@@ -350,23 +346,19 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       header "X-My-Test", "abc"
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
-          "args" => match_array(
-            [
-              include(
-                "name" => "webhookdb.serviceintegration.webhook",
-                "payload" => match_array(
-                  [
-                    sint.id,
-                    hash_including(
-                      "headers" => hash_including("X-My-Test" => "abc"),
-                      "body" => {},
-                      "request_path" => "/v1/service_integrations/xyz/v2/listings",
-                      "request_method" => "DELETE",
-                    ),
-                  ],
+          "args" => contain_exactly(
+            include(
+              "name" => "webhookdb.serviceintegration.webhook",
+              "payload" => contain_exactly(
+                sint.id,
+                hash_including(
+                  "headers" => hash_including("X-My-Test" => "abc"),
+                  "body" => {},
+                  "request_path" => "/v1/service_integrations/xyz/v2/listings",
+                  "request_method" => "DELETE",
                 ),
               ),
-            ],
+            ),
           ),
           "queue" => "webhook",
         ),
@@ -414,18 +406,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       }
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
-          "args" => match_array(
-            [
-              include(
-                "payload" => match_array(
-                  [
-                    other_sint.id,
-                    hash_including,
-                  ],
-                ),
-              ),
-            ],
-          ),
+          "args" => contain_exactly(include(
+                                      "payload" => contain_exactly(other_sint.id, hash_including),
+                                    )),
         ),
       )
 
@@ -659,7 +642,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "starts backfill process if setup is complete", :do_not_defer_events, :async do
+    it "starts backfill process if setup is complete", :async, :do_not_defer_events do
       sint.update(backfill_secret: "sek")
 
       expect do

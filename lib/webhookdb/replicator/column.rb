@@ -29,7 +29,7 @@ class Webhookdb::Replicator::Column
   )
   # Given a Datetime, convert it to UTC and truncate to a Date.
   CONV_TO_UTC_DATE = IsomorphicProc.new(
-    ruby: ->(t, **_) { t.nil? ? nil : t.in_time_zone("UTC").to_date },
+    ruby: ->(t, **_) { t&.in_time_zone("UTC")&.to_date },
     sql: lambda do |i|
       ts = Sequel.cast(i, :timestamptz)
       in_utc = Sequel.function(:timezone, "UTC", ts)

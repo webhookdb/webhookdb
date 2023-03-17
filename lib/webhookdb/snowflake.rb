@@ -38,18 +38,18 @@ class Webhookdb::Snowflake
     raise ArgumentError, "url requires account (host), user, and db (or uri path): #{url}" if cli.include?("")
 
     if (schemaname = params["schemaname"] || params["schema"]).present?
-      cli.concat(["--schemaname", schemaname])
+      cli.push("--schemaname", schemaname)
     end
     if (rolename = params["rolename"] || params["role"]).present?
-      cli.concat(["--rolename", rolename])
+      cli.push("--rolename", rolename)
     end
-    cli.concat(["--warehouse", params["warehouse"]]) if params["warehouse"].present?
+    cli.push("--warehouse", params["warehouse"]) if params["warehouse"].present?
     return cli, {"SNOWSQL_PWD" => password}
   end
 
   def self.run_cli(url, query, parse: false, format: "json")
     args, env = self.parse_url_to_cli_args(url, format:)
-    args.concat(["-q", query])
+    args.push("-q", query)
     stdout, stderr, status = Open3.capture3(env, *args)
 
     if stderr.blank? && status.success?

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::LoggedWebhook", :db, :async do
+RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
   let(:described_class) { Webhookdb::LoggedWebhook }
 
   describe "associations" do

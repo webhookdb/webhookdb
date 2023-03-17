@@ -202,7 +202,7 @@ module Webhookdb::Postgres::ModelUtilities
         v.blank? || k.to_s.end_with?("_currency")
       end
       begin
-        encrypted = self.class.send(:column_encryption_metadata).map { |(col, _)| col.to_s }.to_set
+        encrypted = self.class.send(:column_encryption_metadata).to_set { |(col, _)| col.to_s }
       rescue NoMethodError
         encrypted = Set.new
       end
