@@ -5,8 +5,8 @@
   "description": "webhookdb-website",
   "author": "hello@webhookdb.com",
   "packageManager": "yarn@1.22.19",
-  "engines" : {
-    "node" : ">=16.0.0 <17.0.0"
+  "engines": {
+    "node": ">=16.0.0 <17.0.0"
   },
   "scripts": {
     "develop": "gatsby develop -p 18002",
@@ -29,6 +29,7 @@
     "@mdx-js/react": "^1.6.22",
     "bootstrap": "4.6.0",
     "clsx": "^1.1.1",
+    "dayjs": "^1.11.7",
     "gatsby": "^3.4.1",
     "gatsby-cli": "^3.9.0",
     "gatsby-plugin-google-fonts": "^1.0.1",

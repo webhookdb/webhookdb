@@ -8,7 +8,10 @@ export default function Documentation() {
   const data = useStaticQuery(
     graphql`
       query {
-        allMarkdownRemark(sort: { order: ASC, fields: [frontmatter___order] }) {
+        allMarkdownRemark(
+          filter: { contentType: { eq: "docs" } }
+          sort: { order: ASC, fields: [frontmatter___order] }
+        ) {
           edges {
             node {
               frontmatter {
