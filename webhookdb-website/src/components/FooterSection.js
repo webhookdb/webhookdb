@@ -37,6 +37,7 @@ export default function FooterSection() {
                   ["/terms", "Terms of Use"],
                   ["/privacy", "Privacy Policy"],
                   ["/careers", "Careers"],
+                  ["/blog", "Blog"],
                 ],
                 [
                   ["/docs/home", "Documentation"],
