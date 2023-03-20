@@ -25,19 +25,19 @@ export default function NavigationBar() {
               className={clsx(itemCls, "nav-dropdown nav-link-hover-invert")}
             >
               <NavDropdownItem
-                href="/solutions/pricing"
+                href="/pricing"
                 title="Starter Edition"
                 text="Hosted WebhookDB gives you a taste of a better way to integrate APIs."
               />
               <Sep />
               <NavDropdownItem
-                href="/solutions/pricing"
+                href="/pricing"
                 title="Partner Edition"
                 text="Self-hosted WebhookDB with a larger catalogue of available integrations."
               />
               <Sep />
               <NavDropdownItem
-                href="/solutions/pricing"
+                href="/pricing"
                 title="Enterprise Edition"
                 text="Custom integrations for any internal or external API on the planet."
               />
