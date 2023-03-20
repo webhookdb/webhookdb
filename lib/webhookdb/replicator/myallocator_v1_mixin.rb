@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "grape/util/env"
+
 module Webhookdb::Replicator::MyallocatorV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
@@ -21,8 +23,16 @@ module Webhookdb::Replicator::MyallocatorV1Mixin
   end
 
   def _webhook_response(request)
-    shared_secret = request.body.fetch("shared_secret")
-    matches = ActiveSupport::SecurityUtils.secure_compare(self.service_integration.webhook_secret, shared_secret)
+    (parsed_body = request.env[Grape::Env::API_REQUEST_BODY]) or
+      raise Webhookdb::InvalidPrecondition, "expected request.env to have api.request.body, which is set by Grape"
+    shared_secret = parsed_body["shared_secret"]
+    matches = if shared_secret.nil?
+                false
+else
+  ActiveSupport::SecurityUtils.secure_compare(
+    self.service_integration.webhook_secret, shared_secret,
+  )
+end
     unless matches
       return Webhookdb::WebhookResponse.ok(json: {"ErrorCode" => 1153, "Error" => "Invalid credentials"},
                                            status: 200,)

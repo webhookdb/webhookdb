@@ -47,8 +47,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
         ],},
      "booking_id" => "booking_abc",
      "ota_property_id" => "ota_prop",
-     "ota_property_sub_id" => "",
-    }
+     "ota_property_sub_id" => "",}
   end
   let(:get_booking_id_request_body) do
     {
@@ -82,25 +81,29 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
       ds.multi_insert(
         [
           {
-            data: {},
+            data: {}.to_json,
             booking_id: "booking_abc",
             mya_property_id: 1,
             ota_property_id: "ota_prop123",
             ota_property_sub_id: "sub1",
+            row_updated_at: Time.parse("2022-03-21 12:09:19"),
           },
           {
-            data: {},
+            data: {}.to_json,
             booking_id: "booking_def",
             mya_property_id: 1,
             ota_property_id: "ota_prop123",
             ota_property_sub_id: "sub2",
+            row_updated_at: Time.parse("2022-03-21 12:09:19"),
           },
           {
-            data: {foo: "bar"},
+            data: {booking_detail_info: "present"}.to_json,
             booking_id: "booking_ghi",
             mya_property_id: 1,
             ota_property_id: "ota_prop123",
             ota_property_sub_id: "sub2",
+            row_updated_at: Time.parse("2022-05-20 12:09:19"),
+
           },
         ],
       )
@@ -112,6 +115,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
     let(:request_path) { "/BookingCreate" }
     let(:request_method) { "POST" }
     let(:supports_row_diff) { false }
+    let(:fake_request_env) { {"api.request.body" => {}} }
   end
   it_behaves_like "a replicator dependent on another", "myallocator_booking_v1",
                   "myallocator_root_v1" do
@@ -122,7 +126,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
     let(:request_body) { booking_create_request_body }
     let(:request_path) { "/BookingCreate" }
     let(:request_method) { "PUT" }
-    let(:expected_synchronous_response) { nil }
+    let(:expected_synchronous_response) { "{}" }
   end
 
   describe "synchronous_processing_response_body" do
@@ -143,7 +147,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
       )
       inserting = svc.upsert_webhook(req)
       synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
-      expect(synch_resp).to be_nil
+      expect(synch_resp).to eq("{}")
     end
 
     it "returns expected response on 'GetBookingId' request" do
@@ -158,45 +162,67 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
       expect(inserting).to be_nil
 
       synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
-      expect(JSON.parse(synch_resp)).to eq(
+      expect(synch_resp).to eq(
         {
           "success" => true,
-          "Booking" => {foo: "bar"},
-        },
+          "Booking" => {"booking_detail_info" => "present"},
+        }.to_json,
       )
     end
 
-    it "returns expected response on 'GetBookingList' request" do
+    it "returns all results if no time provided on 'GetBookingList' request" do
       insert_booking_rows
+      body = get_booking_list_request_body.merge("ota_booking_version" => nil)
       req = Webhookdb::Replicator::WebhookRequest.new(
-        body: get_booking_id_request_body,
+        body:,
         method: "POST",
-        path: "/GetBookingId",
+        path: "/GetBookingList",
       )
       # upsert_webhook should noop here
       inserting = svc.upsert_webhook(req)
       expect(inserting).to be_nil
 
       synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
-      expect(JSON.parse(synch_resp)).to eq(
+      expect(synch_resp).to eq(
         {
           "success" => true,
-          "Bookings" => [{booking_id: "booking_def"}, {booking_id: "booking_ghi"}],
-        },
+          "Bookings" => [{"booking_id" => "booking_def"}, {"booking_id" => "booking_ghi"}],
+        }.to_json,
+      )
+    end
+
+    it "returns relevant results if a time is provided on 'GetBookingList' request" do
+      insert_booking_rows
+      req = Webhookdb::Replicator::WebhookRequest.new(
+        body: get_booking_list_request_body,
+        method: "POST",
+        path: "/GetBookingList",
+      )
+      # upsert_webhook should noop here
+      inserting = svc.upsert_webhook(req)
+      expect(inserting).to be_nil
+
+      synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
+      expect(synch_resp).to eq(
+        {
+          "success" => true,
+          "Bookings" => [{"booking_id" => "booking_ghi"}],
+        }.to_json,
       )
     end
   end
 
   describe "webhook validation" do
     it "returns a 200 with designated MyAllocator error body if no shared secret" do
-      status, headers, body = svc.webhook_response(fake_request).to_rack
+      req = fake_request(env: {"api.request.body" => {}})
+      status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
       expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
     end
 
     it "returns a 200 with designated MyAllocator error body for invalid shared secret" do
       sint.update(webhook_secret: "shared_secret")
-      req = fake_request(input: {shared_secret: "shared_secret"}.to_json)
+      req = fake_request(env: {"api.request.body" => {"shared_secret" => "bad_secret"}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
       expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
@@ -204,7 +230,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
 
     it "returns a 200 with a valid shared secret" do
       sint.update(webhook_secret: "shared_secret")
-      req = fake_request(input: {shared_secret: "shared_secret"}.to_json)
+      req = fake_request(env: {"api.request.body" => {"shared_secret" => "shared_secret"}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
       expect(body).to match({o: "k"}.to_json)

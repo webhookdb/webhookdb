@@ -30,21 +30,21 @@ class Webhookdb::Replicator::MyallocatorBookingV1 < Webhookdb::Replicator::Base
     ]
   end
 
-  GET_BOOKING_PATHS = ["GetBookingId", "GetBookingList"].freeze
+  GET_BOOKING_PATHS = ["/GetBookingId", "/GetBookingList"].freeze
 
   def _upsert_webhook(request)
     return if GET_BOOKING_PATHS.include?(request.path)
     super
   end
 
-  def synchronous_processing_response_body(upserted:, request:)
+  def synchronous_processing_response_body(request:, **)
     case request.path
       when /BookingCreate/
-        return
+        return "{}"
       when /GetBookingId/
         booking_id = request.body.fetch("booking_id")
         booking = self.admin_dataset { |booking_ds| booking_ds[booking_id:] }
-        return {"success" => true, "Booking" => booking[:data]}
+        return {"success" => true, "Booking" => booking[:data]}.to_json
       when /GetBookingList/
         bookings = self.admin_dataset do |booking_ds|
           match_id_conditions = [
@@ -53,13 +53,11 @@ class Webhookdb::Replicator::MyallocatorBookingV1 < Webhookdb::Replicator::Base
             [:ota_property_sub_id, request.body.fetch("ota_property_sub_id")],
           ]
           filtered = booking_ds.where(match_id_conditions)
-
-          last_synced = Time.parse(request.body.fetch("ota_booking_version"))
-          filtered = filtered.where { row_updated_at > last_synced }
-
+          ota_booking_version = request.body.fetch("ota_booking_version")
+          filtered = filtered.where { row_updated_at > Time.parse(ota_booking_version) } unless ota_booking_version.nil?
           filtered.select(:booking_id)
         end
-        return {"success" => true, "Bookings" => bookings.map { |row| {"booking_id" => row[:booking_id]} }}
+        return {"success" => true, "Bookings" => bookings.map { |row| {"booking_id" => row[:booking_id]} }}.to_json
     end
     raise "invalid path"
   end

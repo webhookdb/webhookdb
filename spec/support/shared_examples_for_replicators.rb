@@ -7,6 +7,7 @@ RSpec.shared_examples "a replicator" do |name|
   let(:expected_data) { body }
   let(:supports_row_diff) { true }
   let(:expected_row) { nil }
+  let(:fake_request_env) { {} }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -97,7 +98,7 @@ RSpec.shared_examples "a replicator" do |name|
   end
 
   it "can serve a webhook response webhooks" do
-    request = fake_request
+    request = fake_request(env: fake_request_env)
     whresp = svc.webhook_response(request)
     expect(whresp).to be_a(Webhookdb::WebhookResponse)
     status, headers, body = whresp.to_rack
