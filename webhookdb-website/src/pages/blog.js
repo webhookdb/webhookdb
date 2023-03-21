@@ -14,7 +14,11 @@ export default function Blog() {
     graphql`
       query {
         allMarkdownRemark(
-          filter: { contentType: { eq: "blog" }, frontmatter: { draft: { eq: false } } }
+          filter: {
+            contentType: { eq: "blog" }
+            isFuture: { eq: false }
+            frontmatter: { draft: { eq: false } }
+          }
           sort: { order: DESC, fields: [frontmatter___date] }
         ) {
           edges {
