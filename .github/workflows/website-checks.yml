@@ -1,0 +1,30 @@
+name: Website Checks
+on:
+  pull_request:
+    paths:
+      - webhookdb-website/**
+  push:
+    branches: [main]
+    paths:
+      - webhookdb-website/**
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webhookdb-website
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.13
+          cache: 'yarn'
+      - run: yarn install
+      - run: yarn run prettier-check
+      - run: yarn run sort-imports-check
+      - run: yarn run eslint-check
+      - run: CI=true yarn run test
