@@ -96,6 +96,11 @@ export default function NavigationBar() {
               />
             </NavDropdown>
             <Nav.Item className={itemCls}>
+              <Nav.Link href="/blog" as={RLink} className="nav-link-hover-invert">
+                Blog
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item className={itemCls}>
               <Nav.Link href="/pricing" as={RLink} className="nav-link-hover-invert">
                 Pricing
               </Nav.Link>
