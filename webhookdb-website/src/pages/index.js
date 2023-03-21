@@ -1,15 +1,11 @@
 import "../styles/custom.scss";
 
-import {
-  BiHappyHeartEyes,
-  IoIceCreamOutline,
-  IoRadio,
-  IoRocketOutline,
-} from "react-icons/all";
 import { Button, Col, Container, Row } from "react-bootstrap";
+import { IoIceCreamOutline, IoRadio, IoRocketOutline } from "react-icons/io5";
 import { IoIosCode, IoMdStopwatch } from "react-icons/io";
 
 import API2SQL from "../components/API2SQL";
+import { BiHappyHeartEyes } from "react-icons/bi";
 import Centered from "../components/Centered";
 import CenteredDiv from "../components/CenteredDiv";
 import Helmet from "react-helmet";
