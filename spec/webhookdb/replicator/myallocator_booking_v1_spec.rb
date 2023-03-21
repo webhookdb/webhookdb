@@ -125,7 +125,6 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
   it_behaves_like "a replicator that processes webhooks synchronously", "myallocator_booking_v1" do
     let(:request_body) { booking_create_request_body }
     let(:request_path) { "/BookingCreate" }
-    let(:request_method) { "PUT" }
     let(:expected_synchronous_response) { "{}" }
   end
 

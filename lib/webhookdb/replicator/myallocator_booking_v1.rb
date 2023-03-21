@@ -59,6 +59,7 @@ class Webhookdb::Replicator::MyallocatorBookingV1 < Webhookdb::Replicator::Base
         end
         return {"success" => true, "Bookings" => bookings.map { |row| {"booking_id" => row[:booking_id]} }}.to_json
     end
+    # TODO: better error handling
     raise "invalid path"
   end
 end
