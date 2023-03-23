@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 RSpec.shared_examples "a replicator" do |name|
-  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:dep_sint) { nil }
+  let(:org) { Webhookdb::Fixtures.organization.create }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.depending_on(dep_sint).create(service_name: name, organization: org)
+  end
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
   let(:expected_data) { body }
@@ -16,6 +20,13 @@ RSpec.shared_examples "a replicator" do |name|
 
   after(:each) do
     sint.organization.remove_related_database
+  end
+
+  def insert_required_data_callback
+    # For instances where we use info from rows in the dependency table in the upsert process.
+    # The function should take a replicator of the dependency.
+    # Something like: `return ->(dep_svc) { insert_some_info }`
+    return ->(_dep_svc) { return }
   end
 
   it "knows the expression used to conditionally update" do
@@ -36,6 +47,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "can insert into its table" do
     svc.create_table
+    setup_dependency(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
@@ -50,6 +62,7 @@ RSpec.shared_examples "a replicator" do |name|
   it "can insert into a custom table when the org has a replication schema set" do
     svc.service_integration.organization.migrate_replication_schema("xyz")
     svc.create_table
+    setup_dependency(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.admin_dataset do |ds|
       expect(ds.all).to have_length(1)
@@ -70,6 +83,7 @@ RSpec.shared_examples "a replicator" do |name|
   it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events do
     Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
     svc.create_table
+    setup_dependency(sint, insert_required_data_callback)
     expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).
       with(include(
              "payload" => match_array([sint.id, hash_including("row", "external_id", "external_id_column")]),
@@ -82,6 +96,7 @@ RSpec.shared_examples "a replicator" do |name|
       Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
       expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).once
       svc.create_table
+      setup_dependency(sint, insert_required_data_callback)
       upsert_webhook(svc, body:) # Upsert and make sure the next does not run
       expect do
         upsert_webhook(svc, body:)
@@ -92,6 +107,7 @@ RSpec.shared_examples "a replicator" do |name|
   it "does not emit the rowupsert event if there are no subscriptions", :async, :do_not_defer_events do
     # No subscription is created so should not publish
     svc.create_table
+    setup_dependency(sint, insert_required_data_callback)
     expect do
       upsert_webhook(svc, body:)
     end.to_not publish("webhookdb.serviceintegration.rowupsert")
@@ -739,7 +755,11 @@ RSpec.shared_examples "a replicator dependent on another" do |service_name, depe
 end
 
 RSpec.shared_examples "a replicator that processes webhooks synchronously" do |name|
-  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:dep_sint) { nil }
+  let(:org) { Webhookdb::Fixtures.organization.create }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.depending_on(dep_sint).create(service_name: name, organization: org)
+  end
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:expected_synchronous_response) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
@@ -750,6 +770,7 @@ RSpec.shared_examples "a replicator that processes webhooks synchronously" do |n
 
   it "returns expected response from `synchronous_processing_response`" do
     sint.organization.prepare_database_connections
+    setup_dependency(sint)
     svc.create_table
     inserting = upsert_webhook(svc)
     synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: webhook_request)

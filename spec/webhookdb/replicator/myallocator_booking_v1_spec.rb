@@ -128,6 +128,12 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
     let(:expected_synchronous_response) { "{}" }
   end
 
+  describe "_upsert_webhook" do
+    it "noops for certain paths" do
+      raise NotImplementedError
+    end
+  end
+
   describe "synchronous_processing_response_body" do
     before(:each) do
       sint.organization.prepare_database_connections
@@ -216,7 +222,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
       req = fake_request(env: {"api.request.body" => {}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
-      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
+      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid shared secret"}.to_json)
     end
 
     it "returns a 200 with designated MyAllocator error body for invalid shared secret" do
@@ -224,7 +230,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
       req = fake_request(env: {"api.request.body" => {"shared_secret" => "bad_secret"}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
-      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
+      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid shared secret"}.to_json)
     end
 
     it "returns a 200 with a valid shared secret" do

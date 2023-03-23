@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'uuid'
 require "webhookdb/db_adapter"
 
 class Webhookdb::Replicator::Column
@@ -72,6 +73,14 @@ class Webhookdb::Replicator::Column
     ruby: ->(service_integration:, **_) { service_integration.sequence_nextval },
     sql: ->(service_integration:) { Sequel.function(:nextval, service_integration.sequence_name) },
   )
+  DEFAULTER_UUID = IsomorphicProc.new(
+    ruby: lambda do |*|
+            uuid = UUID.new
+            return uuid.generate
+          end,
+    # TODO: figure this out
+    sql: ->(*) { raise NotImplementedError },
+  )
 
   def self.defaulter_from_resource_field(key)
     return Webhookdb::Replicator::Column::IsomorphicProc.new(
@@ -79,7 +88,7 @@ class Webhookdb::Replicator::Column
       sql: ->(*) { key.to_sym },
     )
   end
-  KNOWN_DEFAULTERS = {now: DEFAULTER_NOW, tofalse: DEFAULTER_FALSE}.freeze
+  KNOWN_DEFAULTERS = {now: DEFAULTER_NOW, tofalse: DEFAULTER_FALSE, uuid: DEFAULTER_UUID}.freeze
 
   # @return [Symbol]
   attr_reader :name

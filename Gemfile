@@ -52,6 +52,7 @@ gem "sidekiq-cron"
 gem "slack-notifier"
 gem "stripe"
 gem "twilio-ruby"
+gem "uuid"
 gem "warden"
 gem "yajl-ruby"
 

@@ -77,6 +77,8 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
         sint = self.get_dependent_integration("myallocator_booking_v1")
       when /CreateProperty/
         sint = self.get_dependent_integration("myallocator_property_v1")
+      when /SetupProperty/, /GetRoomTypes/
+        sint = self.get_dependent_integration("myallocator_room_v1")
     else
         raise NotImplementedError
     end

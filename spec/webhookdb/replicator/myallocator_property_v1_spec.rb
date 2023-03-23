@@ -52,7 +52,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
 
   it_behaves_like "a replicator that processes webhooks synchronously", "myallocator_property_v1" do
     let(:request_body) { create_property_body }
-    let(:expected_synchronous_response) { {success: true, ota_property_id: upserted.fetch(:ota_property_id)}.to_json }
+    let(:expected_synchronous_response) { {success: true, ota_property_id: "prop_id"}.to_json }
   end
 
   describe "webhook validation" do
@@ -60,7 +60,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
       req = fake_request(env: {"api.request.body" => {}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
-      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
+      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid shared secret"}.to_json)
     end
 
     it "returns a 200 with designated MyAllocator error body for invalid shared secret" do
@@ -68,7 +68,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
       req = fake_request(env: {"api.request.body" => {"shared_secret" => "bad_secret"}})
       status, _headers, body = svc.webhook_response(req).to_rack
       expect(status).to eq(200)
-      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid credentials"}.to_json)
+      expect(body).to match({"ErrorCode" => 1153, "Error" => "Invalid shared secret"}.to_json)
     end
 
     it "returns a 200 with a valid shared secret" do

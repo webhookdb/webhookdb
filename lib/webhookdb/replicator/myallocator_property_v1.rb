@@ -19,14 +19,14 @@ class Webhookdb::Replicator::MyallocatorPropertyV1 < Webhookdb::Replicator::Base
   end
 
   def _remote_key_column
-    # TODO: is this the right choice for remote key
-    return Webhookdb::Replicator::Column.new(:mya_property_id, TEXT)
+    return Webhookdb::Replicator::Column.new(:mya_property_id, INTEGER)
   end
 
   def _denormalized_columns
     return [
       Webhookdb::Replicator::Column.new(:ota_property_id, TEXT),
       Webhookdb::Replicator::Column.new(:ota_property_password, TEXT),
+      Webhookdb::Replicator::Column.new(:ota_property_sub_id, TEXT),
       Webhookdb::Replicator::Column.new(:row_updated_at, TIMESTAMP, defaulter: :now, optional: true),
     ]
   end

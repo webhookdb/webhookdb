@@ -34,7 +34,7 @@ else
   )
 end
     unless matches
-      return Webhookdb::WebhookResponse.ok(json: {"ErrorCode" => 1153, "Error" => "Invalid credentials"},
+      return Webhookdb::WebhookResponse.ok(json: {"ErrorCode" => 1153, "Error" => "Invalid shared secret"},
                                            status: 200,)
     end
     return Webhookdb::WebhookResponse.ok(status: 200)

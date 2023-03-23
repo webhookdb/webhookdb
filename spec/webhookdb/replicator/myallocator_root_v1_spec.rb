@@ -81,6 +81,22 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
       expect(svc.dispatch_request_to(booking_detail_req).service_integration).to eq(booking_sint)
     end
 
+    it "dispatches appropriate requests to property sint" do
+      property_sint = fac.create(service_name: "myallocator_property_v1")
+
+      createproperty_req = request_to("http://example.com/CreateProperty")
+      expect(svc.dispatch_request_to(createproperty_req).service_integration).to eq(property_sint)
+    end
+
+    it "dispatches appropriate requests to room sint" do
+      room_sint = fac.create(service_name: "myallocator_room_v1")
+
+      setup_property_req = request_to("http://example.com/SetupProperty")
+      expect(svc.dispatch_request_to(setup_property_req).service_integration).to eq(room_sint)
+      get_room_types_req = request_to("http://example.com/GetRoomTypes")
+      expect(svc.dispatch_request_to(get_room_types_req).service_integration).to eq(room_sint)
+    end
+
     it "raises RuntimeError when url is not handled by case statement" do
       expect { svc.dispatch_request_to(fake_request) }.to raise_error(RuntimeError, /invalid path/)
     end
