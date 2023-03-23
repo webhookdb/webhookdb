@@ -1,7 +1,7 @@
 ---
 path: /blog/2023-03-why-webhookdb
-date: 2023-03-20T12:00:00
-summary: WebookDB is the only option on the market that allows you to ask any API a question and get correct and fast results.
+date: 2023-03-02T12:00:00
+summary: WebhookDB is the only option on the market that allows you to ask any API a question and get correct and fast results.
 title: Why WebhookDB?
 image: ivan-diaz-uW39J-CzwNs-unsplash.jpg
 imageAlt: space shuttle entering the atmosphere

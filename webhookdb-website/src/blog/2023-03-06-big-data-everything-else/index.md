@@ -1,6 +1,6 @@
 ---
 path: /blog/2023-03-big-data-everything-else
-date: 2023-03-23T12:00:00
+date: 2023-03-06T12:00:00
 summary: Big data problems require big data solutions and tradeoffs. But very few problems are big data problems.
 title: Don't make big problems out of small data
 image: nasa-Q1p7bh3SHj8-unsplash.jpg
