@@ -9,6 +9,7 @@ import React from "react";
 import Seo from "../components/Seo";
 import TableOfContents from "../components/TableOfContents";
 import { graphql } from "gatsby";
+import throttledRequestIdleCallback from "../modules/throttledRequestIdleCallback";
 
 export const query = graphql`
   query ($path: String!) {
@@ -32,18 +33,45 @@ export default function DocsPage({ data }) {
   const { frontmatter, html } = markdownRemark;
   const { mdx } = data;
 
-  async function getSyntax() {
+  /**
+   * When the page loads, load deckdeckgo to replace the static code blocks
+   * with pretty ones. This changes the height of the page,
+   * so once all the elements are done loading,
+   * we need to re-navigate to the hash to find the right scroll position.
+   * @returns {Promise<void>}
+   */
+  async function loadCodeFormattingAndRenavigate() {
     try {
       const deckdeckgoLoader = require("@deckdeckgo/highlight-code/dist/loader");
-
-      deckdeckgoLoader.defineCustomElements(window);
+      await deckdeckgoLoader.defineCustomElements(window);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load code highlighting:", err);
+      return;
     }
+    const hash = window.location.hash || "";
+    if (hash.length < 2) {
+      // No need to navigate for empty hash or #
+      return;
+    }
+    const codeBlocks = [...document.querySelectorAll("deckgo-highlight-code")];
+    // Poll until all code blocks are hydrated, then navigate to scroll into view.
+    const renavigateWhenHydrated = () => {
+      const allHydrated = codeBlocks.every((node) =>
+        node.className.includes("hydrated")
+      );
+      if (allHydrated) {
+        window.requestIdleCallback(() => {
+          window.location.href = window.location.hash;
+        });
+      } else {
+        throttledRequestIdleCallback(renavigateWhenHydrated, 100);
+      }
+    };
+    throttledRequestIdleCallback(renavigateWhenHydrated, 100);
   }
 
   React.useEffect(() => {
-    getSyntax();
+    loadCodeFormattingAndRenavigate().then(() => null);
   }, []);
 
   return (

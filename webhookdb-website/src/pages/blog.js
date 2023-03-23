@@ -37,7 +37,13 @@ export default function Blog() {
     `
   );
 
-  const showAll = false; // new URL(window.location).searchParams.get("showAll");
+  const [showAll, setShowAll] = React.useState(false);
+  React.useEffect(() => {
+    if (window !== undefined) {
+      setShowAll(Boolean(new URL(window.location).searchParams.get("showAll")));
+    }
+  }, []);
+
   const posts = data.allMarkdownRemark.edges.filter((edge) => {
     if (showAll) {
       return true;

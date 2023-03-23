@@ -86,7 +86,7 @@ export default function BlogPost({ data }) {
                           src={`/content/blog/thumbnail/${blog.image}`}
                           alt={blog.imageAlt}
                           height="200px"
-                          className="rounded-lg"
+                          style={{ objectFit: "cover" }}
                         ></CardImg>
                       </RLink>
                       <Card.Body>
