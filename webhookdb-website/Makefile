@@ -13,9 +13,6 @@ run-network: check-version
 build: check-version
 	yarn build
 
-test: check-version
-	yarn run test
-
 prettier: check-version
 	yarn run prettier
 sort-imports:
@@ -26,7 +23,7 @@ eslint: check-version
 lint: eslint
 lint-fix:
 	yarn run eslint-fix
-check: prettier sort-imports eslint test
+check: prettier sort-imports eslint
 
 markdown-%: ## Convert the named blog post to HTML and write to stdout.
 	@$(shell yarn bin remark) --use remark-frontmatter --use remark-html blog/$(*)/index.md

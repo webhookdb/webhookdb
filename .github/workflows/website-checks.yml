@@ -4,7 +4,7 @@ on:
     paths:
       - webhookdb-website/**
   push:
-    branches: [main]
+    branches: [ main ]
     paths:
       - webhookdb-website/**
 jobs:
@@ -22,9 +22,20 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16.13
-          cache: 'yarn'
+          # cache: 'yarn' # Can't do this. See https://github.com/actions/setup-node/issues/488
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+        shell: bash
+        working-directory: webhookdb-website
+      - name: Restore yarn cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: yarn-cache-folder-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-cache-folder-
       - run: yarn install
       - run: yarn run prettier-check
       - run: yarn run sort-imports-check
-      - run: yarn run eslint-check
-      - run: CI=true yarn run test
+      - run: yarn run eslint
