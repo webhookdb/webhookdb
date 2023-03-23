@@ -14,16 +14,13 @@ export default function Blog() {
     graphql`
       query {
         allMarkdownRemark(
-          filter: {
-            contentType: { eq: "blog" }
-            isFuture: { eq: false }
-            frontmatter: { draft: { eq: false } }
-          }
+          filter: { contentType: { eq: "blog" }, frontmatter: { draft: { eq: false } } }
           sort: { order: DESC, fields: [frontmatter___date] }
         ) {
           edges {
             node {
               contentType
+              isFuture
               frontmatter {
                 path
                 title
@@ -31,6 +28,7 @@ export default function Blog() {
                 date
                 image
                 imageAlt
+                draft
               }
             }
           }
@@ -38,6 +36,14 @@ export default function Blog() {
       }
     `
   );
+
+  const showAll = false; // new URL(window.location).searchParams.get("showAll");
+  const posts = data.allMarkdownRemark.edges.filter((edge) => {
+    if (showAll) {
+      return true;
+    }
+    return !edge.node.isFuture && !edge.node.frontmatter.draft;
+  });
 
   return (
     <WavesHeaderLayout
@@ -55,12 +61,12 @@ export default function Blog() {
     >
       <Seo title="Blog" />
       <div className="py-3" />
-      {data.allMarkdownRemark.edges.map((edge) => {
+      {posts.map((edge) => {
         let blog = edge.node.frontmatter;
         return (
           <div
             key={blog.path}
-            className="d-flex flex-row justify-content-center align-items-center mt-4"
+            className="d-flex flex-row justify-content-start align-items-center mt-5"
           >
             <div>
               <RLink to={blog.path}>

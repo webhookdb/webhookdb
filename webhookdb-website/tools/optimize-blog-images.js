@@ -17,14 +17,22 @@ const main = async () => {
     const p = path.join(inputFolder, f);
     const basename = path.basename(p);
     const [extless] = basename.split(".");
+    const width = 1280;
+    const thumbWidth = 384;
+    let height = 1024;
+    let thumbHeight = thumbWidth;
+    if (extless.endsWith("-nocrop")) {
+      height = undefined;
+      thumbHeight = undefined;
+    }
     const newBasename = `${extless}.jpg`;
     const headerOutput = path.join(outputFolder, newBasename);
     const thumbnailOutput = path.join(outputFolder, "thumbnail", newBasename);
     promises.push(
       sharp(p)
         .resize({
-          width: 1280,
-          height: 1024,
+          width,
+          height,
           fit: sharp.fit.cover,
           position: sharp.strategy.attention,
         })
@@ -34,8 +42,8 @@ const main = async () => {
     promises.push(
       sharp(p)
         .resize({
-          width: 384,
-          height: 384,
+          width: thumbWidth,
+          height: thumbHeight,
           fit: sharp.fit.cover,
           position: sharp.strategy.attention,
         })
