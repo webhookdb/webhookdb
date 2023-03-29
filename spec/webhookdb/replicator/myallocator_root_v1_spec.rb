@@ -98,7 +98,9 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
     end
 
     it "raises RuntimeError when url is not handled by case statement" do
-      expect { svc.dispatch_request_to(fake_request) }.to raise_error(RuntimeError, /invalid path/)
+      expect do
+        svc.dispatch_request_to(request_to("http://example.com/Foo"))
+      end.to raise_error(RuntimeError, %r{invalid path: '/Foo'})
     end
   end
 

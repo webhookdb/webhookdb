@@ -80,7 +80,7 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
       when /SetupProperty/, /GetRoomTypes/
         sint = self.get_dependent_integration("myallocator_room_v1")
     else
-        raise NotImplementedError
+        raise "invalid path: '#{request.path}'"
     end
     return sint.replicator
   end

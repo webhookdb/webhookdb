@@ -32,6 +32,7 @@ class Webhookdb::Replicator::MyallocatorPropertyV1 < Webhookdb::Replicator::Base
   end
 
   def synchronous_processing_response_body(upserted:, **)
-    return {success: true, ota_property_id: upserted.fetch(:ota_property_id)}.to_json
+    return {success: true, ota_property_id: upserted.fetch(:ota_property_id),
+            ota_property_password: upserted.fetch(:ota_property_password),}.to_json
   end
 end

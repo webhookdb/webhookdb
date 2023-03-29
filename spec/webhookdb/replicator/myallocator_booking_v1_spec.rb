@@ -129,8 +129,18 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
   end
 
   describe "_upsert_webhook" do
-    it "noops for certain paths" do
-      raise NotImplementedError
+    it "noops for paths that should only retrieve information" do
+      sint.organization.prepare_database_connections
+      svc.create_table
+
+      get_id_req = Webhookdb::Replicator::WebhookRequest.new(body: get_booking_id_request_body, path: "/GetBookingId")
+      svc.upsert_webhook(get_id_req)
+      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
+
+      get_list_req = Webhookdb::Replicator::WebhookRequest.new(body: get_booking_list_request_body,
+                                                               path: "/GetBookingList",)
+      svc.upsert_webhook(get_list_req)
+      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
     end
   end
 

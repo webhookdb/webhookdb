@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'uuid'
+require "uuid"
 require "webhookdb/db_adapter"
 
 class Webhookdb::Replicator::Column

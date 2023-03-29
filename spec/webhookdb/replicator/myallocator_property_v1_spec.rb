@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
   end
   let(:svc) { Webhookdb::Replicator.create(sint) }
 
-  let(:create_property_body) do
+  let(:create_property_request_body) do
     {
       "ota_property_id" => "prop_id",
       "ota_property_password" => "prop_password",
@@ -41,7 +41,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
   end
 
   it_behaves_like "a replicator", "myallocator_property_v1" do
-    let(:body) { create_property_body }
+    let(:body) { create_property_request_body }
     let(:supports_row_diff) { false }
     let(:fake_request_env) { {"api.request.body" => {}} }
   end
@@ -51,8 +51,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
   end
 
   it_behaves_like "a replicator that processes webhooks synchronously", "myallocator_property_v1" do
-    let(:request_body) { create_property_body }
-    let(:expected_synchronous_response) { {success: true, ota_property_id: "prop_id"}.to_json }
+    let(:request_body) { create_property_request_body }
+    let(:expected_synchronous_response) do
+      {success: true, ota_property_id: "prop_id", ota_property_password: "prop_password"}.to_json
+    end
   end
 
   describe "webhook validation" do

@@ -5,6 +5,14 @@ require "grape/util/env"
 module Webhookdb::Replicator::MyallocatorV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
+  # TODO: make sure matchers in upsert and synchronous response are gonna work in prod cases
+  #   (ending slashes?)
+  CREATE_PROPERTY_PATH = "/CreateProperty"
+  GET_BOOKING_PATHS = ["/GetBookingId", "/GetBookingList"].freeze
+  GET_RATE_PLANS_PATH = "/GetRatePlans"
+  GET_ROOMS_PATH = "/GetRoomTypes"
+  SETUP_PROPERTY_PATH = "/SetupProperty"
+
   def _resource_and_event(request)
     return request.body, nil
   end
@@ -60,5 +68,34 @@ end
 
   def on_dependency_webhook_upsert(_replicator, _payload, *)
     return
+  end
+
+  def get_dependency_replicator(dependency_name)
+    dep_integrations = self.service_integration.recursive_dependencies.filter do |d|
+      d.service_name == dependency_name
+    end
+    if dep_integrations.size > 1
+      raise Webhookdb::InvalidPrecondition,
+            "should only depend on one #{dependency_name} integration"
+    end
+    if dep_integrations.size.zero?
+      raise Webhookdb::InvalidPrecondition,
+            "should depend directly or indirectly on #{dependency_name} integration"
+    end
+    return dep_integrations.first.replicator
+  end
+
+  def get_parent_property_row(request)
+    mya_property_id = request.body.fetch("mya_property_id")
+    property_svc = self.get_dependency_replicator("myallocator_property_v1")
+    property_row = property_svc.admin_dataset { |property_ds| property_ds[mya_property_id:] }
+    return property_row
+  end
+
+  # TODO: write documentation string here
+  def ota_creds_correct?(property_row, request)
+    return true if request.path == CREATE_PROPERTY_PATH
+    return (request.body.fetch("ota_property_id") == property_row[:ota_property_id]) &&
+        (request.body.fetch("ota_property_password") == property_row[:ota_property_password])
   end
 end

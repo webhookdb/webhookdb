@@ -11,29 +11,6 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
   let(:sint) { fac.depending_on(property_sint).create(service_name: "myallocator_room_v1") }
   let(:svc) { Webhookdb::Replicator.create(sint) }
 
-  let(:setup_property_request_body) do
-    {
-      "verb" => "SetupProperty",
-      "ota_property_id" => "ota_prop123",
-      "ota_property_password" => "pass1",
-      "ota_property_sub_id" => "sub1",
-      "mya_property_id" => 1,
-      "guid" => "6C08B96E-450D-4E6A-9933-7D0305730305",
-      "ota_cid" => "ota",
-      "shared_secret" => "s3cr3ts4uc3",
-      "RoomInfo" => [
-        {
-          "mya_room_id" => 45_829,
-          "units" => 5,
-          "beds" => 2,
-          "dormitory" => false,
-          "label" => "Double Room",
-          "description" => "A potentially long description about the room",
-        },
-      ],
-    }
-  end
-
   let(:get_room_types_request_body) do
     {
       "verb" => "GetRoomTypes",
@@ -62,6 +39,77 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
           "description" => nil,
         },
       ],
+    }
+  end
+
+  let(:setup_property_request_body) do
+    {
+      "verb" => "SetupProperty",
+      "ota_property_id" => "",
+      "ota_property_password" => "",
+      "ota_property_sub_id" => "",
+      "mya_property_id" => 1,
+      "guid" => "6C08B96E-450D-4E6A-9933-7D0305730305",
+      "ota_cid" => "ota",
+      "shared_secret" => "s3cr3ts4uc3",
+      "RoomInfo" => [
+        {
+          "mya_room_id" => 45_829,
+          "units" => 5,
+          "beds" => 2,
+          "dormitory" => false,
+          "label" => "Double Room",
+          "description" => "A potentially long description about the room",
+        },
+      ],
+    }
+  end
+
+  let(:create_property_request_body) do
+    {
+      "ota_property_id" => "ota_prop123",
+      "ota_property_password" => "pass2",
+      "ota_property_sub_id" => "10034818",
+      "mya_property_id" => 1,
+      "ota_cid" => "ota",
+      "verb" => "CreateProperty",
+      "shared_secret" => "s3cr3ts4uc3",
+      "guid" => "6C08B96E-450D-4E6A-9933-7D0305730305",
+      "Property" => {
+        "name" => "Sample Hostel",
+        "country" => "US",
+        "currency" => "EUR",
+        "email_default" => "someone@example.com",
+        "email_channel_booking" => "bookings@example.com",
+        "default_min_los" => 3,
+        "default_max_los" => 0,
+        "breakfast" => "",
+        "weekend" => [],
+        "firstname" => "John",
+        "lastname" => "Smith",
+        "timezone" => "Asia/Thimphu",
+        "address" => {},
+        "business_contact" => {},
+        "images" => [],
+        "rooms" => [
+          {
+            "mya_room_id" => 45_829,
+            "units" => 5,
+            "beds" => 2,
+            "dormitory" => false,
+            "label" => "Double Room",
+            "description" => "A potentially long description about the room",
+          },
+          {
+            "mya_room_id" => 290,
+            "units" => 25,
+            "beds" => 4,
+            "dormitory" => false,
+            "label" => "4-person private",
+            "description" => nil,
+          },
+        ],
+      },
     }
   end
 
@@ -139,24 +187,13 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
     end
 
     it "noops if parent property row doesn't exist" do
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
       whreq = Webhookdb::Replicator::WebhookRequest.new(body: setup_property_request_body, path: "/SetupProperty")
       svc.upsert_webhook(whreq)
       svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
     end
 
-    it "noops if ota credentials are incorrect" do
+    it "noops if there is no room information" do
       insert_property_row(property_svc)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
-      bad_cred_body = get_room_types_request_body.merge("ota_property_password" => "bad_pass")
-      whreq = Webhookdb::Replicator::WebhookRequest.new(body: bad_cred_body, path: "/GetRoomTypes")
-      svc.upsert_webhook(whreq)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
-    end
-
-    it "noops if there is no 'RoomInfo' field" do
-      insert_property_row(property_svc)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
       no_rooms_body = setup_property_request_body.dup
       no_rooms_body.delete("RoomInfo")
       whreq = Webhookdb::Replicator::WebhookRequest.new(body: no_rooms_body, path: "/SetupProperty")
@@ -164,10 +201,42 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
       svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
     end
 
-    it "inserts 'RoomInfo' objects as individual rows" do
+    it "noops if ota credentials are incorrect on 'GetRoomTypes' request" do
       insert_property_row(property_svc)
+      bad_cred_body = get_room_types_request_body.merge("ota_property_password" => "bad_pass")
+      whreq = Webhookdb::Replicator::WebhookRequest.new(body: bad_cred_body, path: "/GetRoomTypes")
+      svc.upsert_webhook(whreq)
       svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
+    end
+
+    it "inserts room objects from 'GetRoomTypes' request" do
+      insert_property_row(property_svc)
       whreq = Webhookdb::Replicator::WebhookRequest.new(body: get_room_types_request_body, path: "/GetRoomTypes")
+      svc.upsert_webhook(whreq)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(2)
+        expect(ds.all).to contain_exactly(
+          include(mya_room_id: 45_829, beds: 2, dormitory: false, label: "Double Room"),
+          include(mya_room_id: 290, beds: 4, dormitory: false, label: "4-person private"),
+        )
+      end
+    end
+
+    it "inserts room objects from 'SetupProperty' request" do
+      insert_property_row(property_svc)
+      whreq = Webhookdb::Replicator::WebhookRequest.new(body: setup_property_request_body, path: "/SetupProperty")
+      svc.upsert_webhook(whreq)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.all).to contain_exactly(
+          include(mya_room_id: 45_829, beds: 2, dormitory: false, label: "Double Room"),
+        )
+      end
+    end
+
+    it "inserts room objects from 'CreateProperty' request" do
+      insert_property_row(property_svc)
+      whreq = Webhookdb::Replicator::WebhookRequest.new(body: create_property_request_body, path: "/CreateProperty")
       svc.upsert_webhook(whreq)
       svc.readonly_dataset do |ds|
         expect(ds.all).to have_length(2)
@@ -190,7 +259,19 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
       org.remove_related_database
     end
 
-    it "returns expected response on 'SetupProperty' request" do
+    it "returns nil response on 'CreateProperty' request" do
+      insert_property_row(property_svc)
+      req = Webhookdb::Replicator::WebhookRequest.new(
+        body: create_property_request_body,
+        method: "POST",
+        path: "/CreateProperty",
+      )
+      inserting = svc.upsert_webhook(req)
+      synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
+      expect(synch_resp).to be_nil
+    end
+
+    it "returns 'success' response on 'SetupProperty' request" do
       insert_property_row(property_svc)
       req = Webhookdb::Replicator::WebhookRequest.new(
         body: setup_property_request_body,
@@ -202,7 +283,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
       expect(synch_resp).to eq({"success" => true}.to_json)
     end
 
-    it "returns expected response with room info on 'GetRoomTypes' request" do
+    it "returns response with room info on 'GetRoomTypes' request" do
       insert_property_row(property_svc)
 
       req = Webhookdb::Replicator::WebhookRequest.new(
@@ -236,13 +317,13 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
       )
     end
 
-    it "returns error response when property credentials are incorrect" do
+    it "returns error response when ota credentials are incorrect" do
       insert_property_row(property_svc)
       bad_cred_body = get_room_types_request_body.merge("ota_property_id" => "wrong_prop_id")
       req = Webhookdb::Replicator::WebhookRequest.new(
         body: bad_cred_body,
         method: "POST",
-        path: "/SetupProperty",
+        path: "/GetRoomTypes",
       )
       # upsert_webhook should noop here
       inserting = svc.upsert_webhook(req)
@@ -253,6 +334,20 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
         {"success" => false,
          "errors" => [{"id" => 1001, "msg" => "Invalid OTA creds for property"}],}.to_json,
       )
+    end
+
+    it "doesn't return error response when ota credentials are invalid on a `SetupProperty` request" do
+      insert_property_row(property_svc)
+      bad_cred_body = get_room_types_request_body.merge("ota_property_id" => "wrong_prop_id")
+      req = Webhookdb::Replicator::WebhookRequest.new(
+        body: bad_cred_body,
+        method: "POST",
+        path: "/SetupProperty",
+      )
+      # upsert_webhook should noop here
+      inserting = svc.upsert_webhook(req)
+      synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
+      expect(synch_resp).to eq({"success" => true}.to_json)
     end
   end
 
