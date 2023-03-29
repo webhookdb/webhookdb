@@ -2,7 +2,7 @@
 
 class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
-  include Webhookdb::Replicator::BookingpalV1Mixin
+  include Webhookdb::Replicator::MyallocatorV1Mixin
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
@@ -23,16 +23,16 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
     return []
   end
 
-  def _upsert_webhook(**_kwargs)
-    raise NotImplementedError("This is a stub integration only for auth and url routing purposes.")
+  def _upsert_webhook(_request)
+    return
+  end
+
+  def synchronous_processing_response_body(**)
+    return {success: true}.to_json
   end
 
   def _fetch_backfill_page(*)
     return [], nil
-  end
-
-  def webhook_response(_request)
-    raise NotImplementedError("This is a stub integration only for auth and url routing purposes.")
   end
 
   def calculate_create_state_machine
@@ -71,8 +71,9 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
   end
 
   def dispatch_request_to(request)
-    sint = nil
     case request.path
+      when /HealthCheck/
+        sint = self.service_integration
       when /BookingCreate/, /GetBookingList/, /GetBookingId/
         sint = self.get_dependent_integration("myallocator_booking_v1")
       when /CreateProperty/

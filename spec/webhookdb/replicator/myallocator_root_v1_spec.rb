@@ -9,6 +9,11 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
   end
   let(:svc) { sint.replicator }
 
+  def request_to(uri)
+    env = Rack::MockRequest.env_for(uri)
+    return fake_request(env:)
+  end
+
   it "can create its table in its org db" do
     sint.organization.prepare_database_connections
     svc.create_table
@@ -21,7 +26,20 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
 
   describe "backfill" do
     it "noops" do
-      sint.replicator.backfill
+      svc.backfill
+    end
+  end
+
+  describe "upsert_webhook" do
+    it "noops" do
+      svc.upsert_webhook(fake_request)
+    end
+  end
+
+  describe "synchronous_processing_response_body" do
+    it "returns success body" do
+      resp = svc.synchronous_processing_response_body
+      expect(resp).to eq("{\"success\":true}")
     end
   end
 
@@ -62,7 +80,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
 
   describe "dispatch_request_to" do
     let(:root_sint) { Webhookdb::Fixtures.service_integration(service_name: "myallocator_root_v1").create }
-    let(:svc) { root_sint.replicator }
+    let(:root_svc) { root_sint.replicator }
     let(:fac) { Webhookdb::Fixtures.service_integration.depending_on(root_sint) }
 
     def request_to(uri)
@@ -70,36 +88,41 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
       return fake_request(env:)
     end
 
-    it "dispatches appropriate requests to booking sint" do
+    it "dispatches 'HealthCheck' requests to root sint" do
+      health_check_req = request_to("http://example.com/HealthCheck")
+      expect(root_svc.dispatch_request_to(health_check_req).service_integration).to eq(root_sint)
+    end
+
+    it "dispatches 'BookingCreate', 'GetBookingList', & 'GetBookingId' requests to booking sint" do
       booking_sint = fac.create(service_name: "myallocator_booking_v1")
 
       booking_create_req = request_to("http://example.com/BookingCreate")
-      expect(svc.dispatch_request_to(booking_create_req).service_integration).to eq(booking_sint)
+      expect(root_svc.dispatch_request_to(booking_create_req).service_integration).to eq(booking_sint)
       booking_list_req = request_to("http://example.com/GetBookingList")
-      expect(svc.dispatch_request_to(booking_list_req).service_integration).to eq(booking_sint)
+      expect(root_svc.dispatch_request_to(booking_list_req).service_integration).to eq(booking_sint)
       booking_detail_req = request_to("http://example.com/GetBookingId")
-      expect(svc.dispatch_request_to(booking_detail_req).service_integration).to eq(booking_sint)
+      expect(root_svc.dispatch_request_to(booking_detail_req).service_integration).to eq(booking_sint)
     end
 
-    it "dispatches appropriate requests to property sint" do
+    it "dispatches 'CreateProperty' requests to property sint" do
       property_sint = fac.create(service_name: "myallocator_property_v1")
 
-      createproperty_req = request_to("http://example.com/CreateProperty")
-      expect(svc.dispatch_request_to(createproperty_req).service_integration).to eq(property_sint)
+      create_property_req = request_to("http://example.com/CreateProperty")
+      expect(root_svc.dispatch_request_to(create_property_req).service_integration).to eq(property_sint)
     end
 
-    it "dispatches appropriate requests to room sint" do
+    it "dispatches 'SetupProperty' & 'GetRoomType' requests to room sint" do
       room_sint = fac.create(service_name: "myallocator_room_v1")
 
       setup_property_req = request_to("http://example.com/SetupProperty")
-      expect(svc.dispatch_request_to(setup_property_req).service_integration).to eq(room_sint)
+      expect(root_svc.dispatch_request_to(setup_property_req).service_integration).to eq(room_sint)
       get_room_types_req = request_to("http://example.com/GetRoomTypes")
-      expect(svc.dispatch_request_to(get_room_types_req).service_integration).to eq(room_sint)
+      expect(root_svc.dispatch_request_to(get_room_types_req).service_integration).to eq(room_sint)
     end
 
     it "raises RuntimeError when url is not handled by case statement" do
       expect do
-        svc.dispatch_request_to(request_to("http://example.com/Foo"))
+        root_svc.dispatch_request_to(request_to("http://example.com/Foo"))
       end.to raise_error(RuntimeError, %r{invalid path: '/Foo'})
     end
   end
