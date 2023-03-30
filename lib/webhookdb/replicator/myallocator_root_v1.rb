@@ -74,6 +74,8 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
     case request.path
       when /HealthCheck/
         sint = self.service_integration
+      when /ARIUpdate/
+        sint = self.get_dependent_integration("myallocator_ari_v1")
       when /BookingCreate/, /GetBookingList/, /GetBookingId/
         sint = self.get_dependent_integration("myallocator_booking_v1")
       when /CreateProperty/, /GetSubProperties/

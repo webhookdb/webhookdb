@@ -93,9 +93,14 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
       expect(root_svc.dispatch_request_to(health_check_req).service_integration).to eq(root_sint)
     end
 
+    it "dispatches 'ARIUpdate' requests to ari sint" do \
+      ari_sint = fac.create(service_name: "myallocator_ari_v1")
+      ari_update_req = request_to("http://example.com/ARIUpdate")
+      expect(root_svc.dispatch_request_to(ari_update_req).service_integration).to eq(ari_sint)
+    end
+
     it "dispatches 'BookingCreate', 'GetBookingList', & 'GetBookingId' requests to booking sint" do
       booking_sint = fac.create(service_name: "myallocator_booking_v1")
-
       booking_create_req = request_to("http://example.com/BookingCreate")
       expect(root_svc.dispatch_request_to(booking_create_req).service_integration).to eq(booking_sint)
       booking_list_req = request_to("http://example.com/GetBookingList")
@@ -106,14 +111,12 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
 
     it "dispatches 'CreateProperty' requests to property sint" do
       property_sint = fac.create(service_name: "myallocator_property_v1")
-
       create_property_req = request_to("http://example.com/CreateProperty")
       expect(root_svc.dispatch_request_to(create_property_req).service_integration).to eq(property_sint)
     end
 
     it "dispatches 'SetupProperty' & 'GetRoomType' requests to room sint" do
       room_sint = fac.create(service_name: "myallocator_room_v1")
-
       setup_property_req = request_to("http://example.com/SetupProperty")
       expect(root_svc.dispatch_request_to(setup_property_req).service_integration).to eq(room_sint)
       get_room_types_req = request_to("http://example.com/GetRoomTypes")
