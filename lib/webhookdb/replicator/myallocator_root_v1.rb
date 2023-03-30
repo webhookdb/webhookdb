@@ -76,7 +76,7 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
         sint = self.service_integration
       when /BookingCreate/, /GetBookingList/, /GetBookingId/
         sint = self.get_dependent_integration("myallocator_booking_v1")
-      when /CreateProperty/
+      when /CreateProperty/, /GetSubProperties/
         sint = self.get_dependent_integration("myallocator_property_v1")
       when /SetupProperty/, /GetRoomTypes/
         sint = self.get_dependent_integration("myallocator_room_v1")

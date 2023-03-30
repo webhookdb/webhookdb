@@ -39,6 +39,18 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
       },
     }
   end
+  let(:get_sub_properties_request_body) do
+    {
+      "verb" => "GetSubProperties",
+      "ota_property_id" => "ota_prop123",
+      "ota_property_password" => "very-secret-password",
+      "ota_property_sub_id" => "",
+      "mya_property_id" => 25_678,
+      "guid" => "6C08B96E-450D-4E6A-9933-7D0305730305",
+      "ota_cid" => "ota",
+      "shared_secret" => "s3cr3ts4uc3",
+    }
+  end
 
   it_behaves_like "a replicator", "myallocator_property_v1" do
     let(:body) { create_property_request_body }
@@ -50,10 +62,90 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
     let(:no_dependencies_message) { "This integration requires MyAllocator Root to sync" }
   end
 
-  it_behaves_like "a replicator that processes webhooks synchronously", "myallocator_property_v1" do
-    let(:request_body) { create_property_request_body }
-    let(:expected_synchronous_response) do
-      {success: true, ota_property_id: "prop_id", ota_property_password: "prop_password"}.to_json
+  describe "synchronous_processing_response_body" do
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "returns success response with property cred info for 'CreateProperty' request" do
+      request = Webhookdb::Replicator::WebhookRequest.new(
+        body: create_property_request_body,
+        method: "POST",
+        path: "/CreateProperty",
+      )
+      upserted = svc.upsert_webhook(request)
+      synch_resp = svc.synchronous_processing_response_body(upserted:, request:)
+      expect(synch_resp).to eq(
+        {
+          "success" => true,
+          "ota_property_id" => "prop_id",
+          "ota_property_password" => "prop_password",
+        }.to_json,
+      )
+    end
+
+    it "returns expected subproperties for 'GetSubProperties' request" do
+      svc.admin_dataset do |ds|
+        ds.multi_insert(
+          [
+            {
+              data: {}.to_json,
+              mya_property_id: 1,
+              ota_property_id: "ota_prop123",
+              ota_property_password: "pass1",
+              ota_property_sub_id: "sub1",
+              name: "cool property",
+            },
+            {
+              data: {}.to_json,
+              mya_property_id: 2,
+              ota_property_id: "ota_prop123",
+              ota_property_password: "pass1",
+              ota_property_sub_id: "sub2",
+              name: "sweet digs",
+            },
+          ],
+        )
+      end
+
+      request = Webhookdb::Replicator::WebhookRequest.new(
+        body: get_sub_properties_request_body,
+        method: "POST",
+        path: "/GetSubProperties",
+      )
+      upserted = svc.upsert_webhook(request)
+      synch_resp = svc.synchronous_processing_response_body(upserted:, request:)
+      parsed_resp = JSON.parse(synch_resp)
+      expect(parsed_resp.fetch("success")).to be true
+      expect(parsed_resp.fetch("SubProperties")).to match_array(
+        [
+          {"title" => "cool property", "ota_property_sub_id" => "sub1"},
+          {"title" => "sweet digs", "ota_property_sub_id" => "sub2"},
+        ],
+      )
+    end
+  end
+
+  describe "upsert_webhook" do
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "noops for 'GetSubProperties'" do
+      whreq = Webhookdb::Replicator::WebhookRequest.new(body: get_sub_properties_request_body,
+                                                        path: "/GetSubProperties",)
+      svc.upsert_webhook(whreq)
+      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
     end
   end
 

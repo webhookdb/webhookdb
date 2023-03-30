@@ -149,6 +149,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
           ota_property_id: "ota_prop123",
           ota_property_password: "pass1",
           ota_property_sub_id: "sub1",
+          name: "cool property",
         )
       return inserted.first
     end

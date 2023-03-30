@@ -30,8 +30,6 @@ class Webhookdb::Replicator::MyallocatorBookingV1 < Webhookdb::Replicator::Base
     ]
   end
 
-  GET_BOOKING_PATHS = ["/GetBookingId", "/GetBookingList"].freeze
-
   def _upsert_webhook(request)
     return if GET_BOOKING_PATHS.include?(request.path)
     super

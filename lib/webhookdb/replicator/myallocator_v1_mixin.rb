@@ -11,6 +11,7 @@ module Webhookdb::Replicator::MyallocatorV1Mixin
   GET_BOOKING_PATHS = ["/GetBookingId", "/GetBookingList"].freeze
   GET_RATE_PLANS_PATH = "/GetRatePlans"
   GET_ROOMS_PATH = "/GetRoomTypes"
+  GET_SUB_PROPERTIES_PATH = "/GetSubProperties"
   SETUP_PROPERTY_PATH = "/SetupProperty"
 
   def _resource_and_event(request)

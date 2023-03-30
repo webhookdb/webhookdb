@@ -111,6 +111,7 @@ class Webhookdb::Replicator::MyallocatorRatePlanV1 < Webhookdb::Replicator::Base
         ],
       }.to_json
     end
+
     return unless request.path == GET_RATE_PLANS_PATH
     rate_plan_rows = self.admin_dataset { |ds| ds.where(mya_property_id: request.body.fetch("mya_property_id")).all }
     rate_plan_info = rate_plan_rows.map do |row|
