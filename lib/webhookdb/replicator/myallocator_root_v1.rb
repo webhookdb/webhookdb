@@ -38,8 +38,8 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
   def calculate_create_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
-      step.output = %(In order to authenticate information recieved from BookingPal, we will need a webhook secret.)
-      return step.prompting("webhook secret").webhook_secret(self.service_integration)
+      step.output = %(In order to authenticate information recieved from MyAllocator, we will need a shared secret.)
+      return step.prompting("shared secret").webhook_secret(self.service_integration)
     end
     step.output = %(WebhookDB will pass this authentication information on to dependents.
     )

@@ -93,20 +93,22 @@ RSpec.describe Webhookdb::Replicator::MyallocatorAriV1, :db do
     let(:supports_row_diff) { false }
     let(:fake_request_env) { {"api.request.body" => {}} }
     let(:expected_data) do
-      {"date" => "2025-01-22",
-       "rate" => "15.00",
-       "close" => false,
-       "units" => 5,
-       "max_los" => 14,
-       "min_los" => 2,
-       "closearr" => false,
-       "closedep" => false,
-       "ota_rate_id" => "rate_456",
-       "ota_room_id" => "61365",
-       "rdef_single" => "2.00",
-       "mya_property_id" => 1,
-       "ota_property_id" => "ota_prop123",
-       "ota_property_sub_id" => "sub1",}
+      {
+        "date" => "2025-01-22",
+        "rate" => "15.00",
+        "close" => false,
+        "units" => 5,
+        "max_los" => 14,
+        "min_los" => 2,
+        "closearr" => false,
+        "closedep" => false,
+        "ota_rate_id" => "rate_456",
+        "ota_room_id" => "61365",
+        "rdef_single" => "2.00",
+        "mya_property_id" => 1,
+        "ota_property_id" => "ota_prop123",
+        "ota_property_sub_id" => "sub1",
+      }
     end
 
     def insert_required_data_callback

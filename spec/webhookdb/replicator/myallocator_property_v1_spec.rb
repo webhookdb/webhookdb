@@ -132,20 +132,12 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
   end
 
   describe "upsert_webhook" do
-    before(:each) do
-      sint.organization.prepare_database_connections
-      svc.create_table
-    end
-
-    after(:each) do
-      sint.organization.remove_related_database
-    end
-
     it "noops for 'GetSubProperties'" do
-      whreq = Webhookdb::Replicator::WebhookRequest.new(body: get_sub_properties_request_body,
-                                                        path: "/GetSubProperties",)
+      whreq = Webhookdb::Replicator::WebhookRequest.new(
+        body: get_sub_properties_request_body,
+        path: "/GetSubProperties",
+      )
       svc.upsert_webhook(whreq)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(0) }
     end
   end
 

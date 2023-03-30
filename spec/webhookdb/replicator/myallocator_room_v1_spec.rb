@@ -331,8 +331,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
 
       synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: req)
       expect(synch_resp).to eq(
-        {"success" => false,
-         "errors" => [{"id" => 1001, "msg" => "Invalid OTA creds for property"}],}.to_json,
+        {
+          "success" => false,
+          "errors" => [{"id" => 1001, "msg" => "Invalid OTA creds for property"}],
+        }.to_json,
       )
     end
 

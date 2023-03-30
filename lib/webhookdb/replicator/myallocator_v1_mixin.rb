@@ -5,8 +5,6 @@ require "grape/util/env"
 module Webhookdb::Replicator::MyallocatorV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
-  # TODO: make sure matchers in upsert and synchronous response are gonna work in prod cases
-  #   (ending slashes?)
   CREATE_PROPERTY_PATH = "/CreateProperty"
   GET_BOOKING_PATHS = ["/GetBookingId", "/GetBookingList"].freeze
   GET_RATE_PLANS_PATH = "/GetRatePlans"
@@ -23,7 +21,7 @@ module Webhookdb::Replicator::MyallocatorV1Mixin
   end
 
   def _update_where_expr
-    # TODO: think this over
+    # TODO: double check this with rob
     return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
@@ -51,7 +49,6 @@ end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_create_state_machine
-    # can inherit the `.ASPXAUTH` piece of the cookie and the API url from the auth dependency
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end

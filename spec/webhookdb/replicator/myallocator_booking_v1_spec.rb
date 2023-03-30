@@ -10,9 +10,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
   let(:svc) { Webhookdb::Replicator.create(sint) }
 
   let(:booking_create_request_body) do
-    {"mya_property_id" => 998_201,
-     "shared_secret" => "s3cr3ts4uc3",
-     "booking_json" =>
+    {
+      "mya_property_id" => 998_201,
+      "shared_secret" => "s3cr3ts4uc3",
+      "booking_json" =>
        {"OrderId" => "123456789",
         "OrderDate" => "2018-04-22",
         "OrderTime" => "18:02:58",
@@ -45,9 +46,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
            "Price" => 134,
            "Units" => 2,},
         ],},
-     "booking_id" => "booking_abc",
-     "ota_property_id" => "ota_prop",
-     "ota_property_sub_id" => "",}
+      "booking_id" => "booking_abc",
+      "ota_property_id" => "ota_prop",
+      "ota_property_sub_id" => "",
+    }
   end
   let(:get_booking_id_request_body) do
     {

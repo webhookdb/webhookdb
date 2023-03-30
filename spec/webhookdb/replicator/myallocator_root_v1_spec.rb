@@ -55,11 +55,11 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
         sm = sint.calculate_create_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
-          prompt: "Paste or type your webhook secret here:",
+          prompt: "Paste or type your shared secret here:",
           prompt_is_secret: false,
           post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
           complete: false,
-          output: match("In order to authenticate information recieved from BookingPal"),
+          output: match("In order to authenticate information recieved from MyAllocator"),
         )
       end
 
