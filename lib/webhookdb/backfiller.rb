@@ -35,6 +35,7 @@ class Webhookdb::Backfiller
         break
       end
     end
+    self.flush_pending_inserts if self.respond_to?(:flush_pending_inserts)
   end
 
   def max_backfill_retry_attempts
