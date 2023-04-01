@@ -1,12 +1,8 @@
 name: Backend Checks
 on:
   pull_request:
-    paths-ignore:
-      - webhookdb-website/**
   push:
     branches: [main]
-    paths-ignore:
-      - webhookdb-website/**
 jobs:
   run-tests:
     runs-on: ubuntu-latest

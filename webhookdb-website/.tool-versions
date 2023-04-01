@@ -1,7 +1,0 @@
-# Update this in Netlify NODE_VERSION
-#
-nodejs 16.13.2
-# Update this in package.json
-yarn 1.22.19
-# Some version of Python is needed to compile gyp
-python 3.10.9
