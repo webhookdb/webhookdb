@@ -5,6 +5,7 @@ ruby "3.2.1"
 
 gem "activesupport"
 gem "appydays", ">= 0.6.0"
+gem "aws-sdk-pricing"
 gem "aws-sdk-sts"
 gem "barnes"
 gem "bcrypt"
