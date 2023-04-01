@@ -9,6 +9,7 @@ module Webhookdb::DBAdapter::ColumnTypes
   FLOAT = :float
   INTEGER = :int
   INTEGER_ARRAY = :intarray
+  TEXT_ARRAY = :textarray
   OBJECT = :object
   TEXT = :text
   TIMESTAMP = :timestamp
@@ -25,6 +26,7 @@ module Webhookdb::DBAdapter::ColumnTypes
       INTEGER_ARRAY,
       OBJECT,
       TEXT,
+      TEXT_ARRAY,
       TIMESTAMP,
     ],
   )

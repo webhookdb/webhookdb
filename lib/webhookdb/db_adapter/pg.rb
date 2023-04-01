@@ -80,6 +80,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     INTEGER_ARRAY => "integer[]",
     OBJECT => "jsonb",
     TEXT => "text",
+    TEXT_ARRAY => "text[]",
     TIMESTAMP => "timestamptz",
   }.freeze
 end
