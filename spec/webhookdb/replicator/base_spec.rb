@@ -139,4 +139,100 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       expect(prepared_hash).to eq({id: "productABC", item: "Banana", quantity: 11})
     end
   end
+
+  describe "backfill", :fake_replicator do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(backfill_key: "abc") }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    def body(id)
+      return {"my_id" => id, "at" => "Thu, 30 Jul 2016 21:12:33 +0000"}
+    end
+
+    describe "with parallelism" do
+      let(:fetches) { [] }
+      let(:upserts) { [] }
+
+      it "waits for all backfillers to return" do
+        cls = Class.new(Webhookdb::Backfiller) do
+          def initialize(sint, pages, all_fetches, upserts)
+            @sint = sint
+            @pages = pages
+            @fetches = []
+            @all_fetches = all_fetches
+            @upserts = upserts
+            super()
+          end
+
+          def handle_item(item) = @upserts << item
+
+          def fetch_backfill_page(*args)
+            @fetches << args
+            @all_fetches << args
+            return @pages[@fetches.size - 1]
+          end
+        end
+        bf1 = cls.new(
+          sint,
+          [
+            [[body("2"), body("3"), body("4")], "b"],
+            [[body("5")], nil],
+          ],
+          fetches,
+          upserts,
+        )
+        bf2 = cls.new(
+          sint,
+          [
+            [[body("15")], nil],
+          ],
+          fetches,
+          upserts,
+        )
+        bf3 = cls.new(
+          sint,
+          [
+            [[body("22"), body("23")], "a"],
+            [[body("25")], nil],
+          ],
+          fetches,
+          upserts,
+        )
+        replicator = sint.replicator
+        replicator.define_singleton_method(:_parallel_backfill) { 2 }
+        replicator.define_singleton_method(:_backfillers) { [bf1, bf2, bf3] }
+        replicator.backfill
+        expect(fetches).to contain_exactly(
+          [nil, {last_backfilled: nil}],
+          ["b", {last_backfilled: nil}],
+          [nil, {last_backfilled: nil}],
+          ["a", {last_backfilled: nil}],
+          [nil, {last_backfilled: nil}],
+        )
+        expect(upserts.map { |u| u["my_id"] }).to contain_exactly("2", "3", "4", "5", "22", "23", "25", "15")
+      end
+
+      it "reraises any errors" do
+        cls = Class.new(Webhookdb::Backfiller) do
+          def fetch_backfill_page(*)
+            raise "hello"
+          end
+        end
+        bf = cls.new
+        replicator = sint.replicator
+        replicator.define_singleton_method(:_parallel_backfill) { 2 }
+        replicator.define_singleton_method(:_backfillers) { [bf] }
+        expect do
+          replicator.backfill
+        end.to raise_error(RuntimeError, "hello")
+      end
+    end
+  end
 end

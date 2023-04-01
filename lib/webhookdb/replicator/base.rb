@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "appydays/loggable"
+require "concurrent-ruby"
 
 require "webhookdb/backfiller"
 require "webhookdb/db_adapter"
@@ -733,8 +734,43 @@ class Webhookdb::Replicator::Base
       sint.backfill_key.blank? && sint.backfill_secret.blank? && sint.depends_on.blank?
     new_last_backfilled = Time.now
 
-    self._backfillers.each do |backfiller|
-      backfiller.backfill(last_backfilled)
+    backfillers = self._backfillers
+    if self._parallel_backfill
+      # Create a dedicated threadpool for these backfillers,
+      # with max parallelism determined by the replicator.
+      pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
+      # Record any errors that occur, since they won't raise otherwise.
+      # Initialize a sized array to avoid any potential race conditions (though GIL should make it not an issue?).
+      errors = Array.new(backfillers.size)
+      backfillers.each_with_index do |bf, idx|
+        pool.post do
+          bf.backfill(last_backfilled)
+        rescue StandardError => e
+          errors[idx] = e
+        end
+      end
+      # We've enqueued all backfillers; do not accept anymore work.
+      pool.shutdown
+      loop do
+        # We want to stop early if we find an error, so check for errors every 10 seconds.
+        completed = pool.wait_for_termination(10)
+        first_error = errors.find { |e| !e.nil? }
+        if first_error.nil?
+          # No error, and wait_for_termination returned true, so all work is done.
+          break if completed
+          # No error, but work is still going on, so loop again.
+          next
+        end
+        # We have an error; don't run any more backfillers.
+        pool.kill
+        # Wait for all ongoing backfills before raising.
+        pool.wait_for_termination
+        raise first_error
+      end
+    else
+      backfillers.each do |backfiller|
+        backfiller.backfill(last_backfilled)
+      end
     end
 
     sint.update(last_backfilled_at: new_last_backfilled) if incremental
@@ -742,6 +778,17 @@ class Webhookdb::Replicator::Base
     sint.dependents.each do |dep|
       dep.publish_deferred("backfill", dep.id, {cascade: true, incremental:})
     end
+  end
+
+  # If this replicator supports backfilling in parallel (running multiple backfillers at a time),
+  # return the degree of paralellism (or nil if not running in parallel).
+  # We leave parallelism up to the replicator, not CPU count, since most work
+  # involves waiting on APIs to return.
+  #
+  # NOTE: These threads are in addition to any worker threads, so it's important
+  # to pay attention to memory use.
+  def _parallel_backfill
+    return nil
   end
 
   # Return backfillers for the replicator.
