@@ -19,7 +19,6 @@ require "webhookdb/api/stripe"
 require "webhookdb/api/subscriptions"
 require "webhookdb/api/sync_targets"
 require "webhookdb/api/system"
-require "webhookdb/api/uploads"
 require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
@@ -40,7 +39,6 @@ module Webhookdb::Apps
     mount Webhookdb::API::Subscriptions
     mount Webhookdb::API::SyncTargets
     mount Webhookdb::API::System
-    mount Webhookdb::API::Uploads
     mount Webhookdb::API::WebhookSubscriptions
     add_swagger_documentation if ENV["RACK_ENV"] == "development"
   end
