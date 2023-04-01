@@ -1,5 +1,5 @@
 *.local
-webhookdb-website/
+*.bak/
 vendor/
 temp/
 spec/
