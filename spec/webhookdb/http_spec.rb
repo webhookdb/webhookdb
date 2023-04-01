@@ -63,6 +63,16 @@ RSpec.describe Webhookdb::Http do
       expect(req).to have_been_made
       expect(resp).to have_attributes(code: 307)
     end
+
+    it "passes through a block" do
+      req = stub_request(:get, "https://a.b").to_return(status: 200, body: "abc")
+      t = +""
+      described_class.get("https://a.b", logger: nil) do |f|
+        t << f
+      end
+      expect(req).to have_been_made
+      expect(t).to eq("abc")
+    end
   end
 
   describe "post" do
@@ -134,6 +144,16 @@ RSpec.describe Webhookdb::Http do
       resp = described_class.post("https://a.b", logger: nil, follow_redirects: false)
       expect(req).to have_been_made
       expect(resp).to have_attributes(code: 307)
+    end
+
+    it "passes through a block" do
+      req = stub_request(:post, "https://a.b").to_return(status: 200, body: "abc")
+      t = +""
+      described_class.post("https://a.b", logger: nil) do |f|
+        t << f
+      end
+      expect(req).to have_been_made
+      expect(t).to eq("abc")
     end
   end
 
