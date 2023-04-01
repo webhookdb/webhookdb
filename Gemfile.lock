@@ -14,20 +14,16 @@ GEM
       semantic_logger (~> 4.6)
     ast (2.4.2)
     aws-eventstream (1.2.0)
-    aws-partitions (1.602.0)
-    aws-sdk-core (3.131.2)
+    aws-partitions (1.739.0)
+    aws-sdk-core (3.171.0)
       aws-eventstream (~> 1, >= 1.0.2)
-      aws-partitions (~> 1, >= 1.525.0)
-      aws-sigv4 (~> 1.1)
+      aws-partitions (~> 1, >= 1.651.0)
+      aws-sigv4 (~> 1.5)
       jmespath (~> 1, >= 1.6.1)
-    aws-sdk-kms (1.57.0)
-      aws-sdk-core (~> 3, >= 3.127.0)
+    aws-sdk-sts (1.9.0)
+      aws-sdk-core (~> 3, >= 3.110.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-s3 (1.114.0)
-      aws-sdk-core (~> 3, >= 3.127.0)
-      aws-sdk-kms (~> 1)
-      aws-sigv4 (~> 1.4)
-    aws-sigv4 (1.5.0)
+    aws-sigv4 (1.5.2)
       aws-eventstream (~> 1, >= 1.0.2)
     barnes (0.0.9)
       multi_json (~> 1)
@@ -110,7 +106,7 @@ GEM
     i18n (1.10.0)
       concurrent-ruby (~> 1.0)
     inflecto (0.0.2)
-    jmespath (1.6.1)
+    jmespath (1.6.2)
     json (2.6.3)
     jwt (2.4.1)
     liquid (5.4.0)
@@ -299,7 +295,7 @@ DEPENDENCIES
   activesupport
   amazing_print
   appydays (>= 0.6.0)
-  aws-sdk-s3
+  aws-sdk-sts
   barnes
   bcrypt
   biz
