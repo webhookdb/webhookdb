@@ -216,6 +216,8 @@ class Webhookdb::Replicator::Column
       v = self.converter.ruby.call(v, resource:, event:, enrichment:, service_integration:)
     elsif (self.type == INTEGER_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "integer")
+    elsif (self.type == TEXT_ARRAY) && !v.nil?
+      v = Sequel.pg_array(v, "text")
     end
     # pg_json doesn't handle thie ssuper well in our situation,
     # so JSON must be inserted as a string.

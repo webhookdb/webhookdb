@@ -140,6 +140,31 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         expect(v).to be_nil
       end
     end
+
+    describe "with a column type TEXT_ARRAY" do
+      let(:col) { described_class.new(:textarr, described_class::TEXT_ARRAY) }
+
+      def to_sql(pgarr)
+        ds = Webhookdb::Postgres::Model.db[:x]
+        s = +""
+        pgarr.sql_literal_append(ds, s)
+        return s
+      end
+      it "handles an array with values" do
+        v = to_ruby_value(col, {"textarr" => ["a", "b", "c"]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY['a','b','c']::text[]")
+      end
+
+      it "handles an empty array" do
+        v = to_ruby_value(col, {"textarr" => []}, nil, nil)
+        expect(to_sql(v)).to eq("'{}'::text[]")
+      end
+
+      it "uses null if null" do
+        v = to_ruby_value(col, {"textarr" => nil}, nil, nil)
+        expect(v).to be_nil
+      end
+    end
   end
 
   describe "to_sql_expr" do
