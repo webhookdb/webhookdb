@@ -60,22 +60,22 @@ module Webhookdb::Http
     raise Error, response
   end
 
-  def self.get(url, query={}, **options)
+  def self.get(url, query={}, **options, &)
     self._setup_logger_args(options)
     opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
-    r = HTTParty.get(url, **opts)
+    r = HTTParty.get(url, **opts, &)
     self.check!(r, **opts)
     return r
   end
 
-  def self.post(url, body={}, headers: {}, method: nil, **options)
+  def self.post(url, body={}, headers: {}, method: nil, **options, &)
     self._setup_logger_args(options)
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
     opts = {body:, headers:}.merge(**options)
-    r = HTTParty.send(method || :post, url, **opts)
+    r = HTTParty.send(method || :post, url, **opts, &)
     self.check!(r, **options)
     return r
   end
