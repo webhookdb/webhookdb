@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "oj"
 require "open3"
 
 class Webhookdb::Snowflake
@@ -79,7 +80,7 @@ class Webhookdb::Snowflake
           j = "[" + j
         end
       end
-      Yajl::Parser.parse(j.strip)
+      Oj.load(j.strip)
     end
     return result
   rescue StandardError => e

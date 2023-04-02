@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "grape"
+require "oj"
 
 require "webhookdb/api"
 require "webhookdb/formatting"
@@ -93,7 +94,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
 
       s_headers.each { |k, v| header k, v }
       if s_headers["Content-Type"] == "application/json"
-        body Yajl::Parser.parse(s_body)
+        body Oj.load(s_body)
       else
         env["api.format"] = :binary
         body s_body

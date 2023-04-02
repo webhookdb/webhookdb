@@ -274,7 +274,7 @@ It normally takes about 20 minutes to sync.
             meta_str << mline
           end
           meta_str << '"":""}'
-          meta = Yajl::Parser.parse(meta_str)
+          meta = Oj.load(meta_str)
           meta_str.clear
           publication_date = Time.parse(meta.fetch("publicationDate"))
           service_code = meta.fetch("offerCode")
@@ -286,7 +286,7 @@ It normally takes about 20 minutes to sync.
             products_str << pline
           end
           products_str << "}"
-          products = Yajl::Parser.parse(products_str)
+          products = Oj.load(products_str)
           products_str.clear
 
           # Read the rest of the file.
@@ -311,7 +311,7 @@ It normally takes about 20 minutes to sync.
               term_map_str << tline
             end
             term_map_str << "}"
-            term_map = Yajl::Parser.parse(term_map_str)
+            term_map = Oj.load(term_map_str)
             term_map_str.clear
             product = products.fetch(product_sku)
             product_family = product.fetch("productFamily", nil)

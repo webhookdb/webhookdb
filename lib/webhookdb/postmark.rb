@@ -4,7 +4,7 @@ require "appydays/configurable"
 require "appydays/loggable"
 require "postmark"
 
-Postmark.response_parser_class = :Yajl
+Postmark.response_parser_class = :Json
 
 module Webhookdb::Postmark
   include Appydays::Configurable
