@@ -25,6 +25,8 @@ if workers_count.zero?
 else
   before_fork do
     Barnes.start
+    require "webhookdb/async/autoscaler"
+    Webhookdb::Async::Autoscaler.start if Webhookdb::Async::Autoscaler.enabled?
   end
 end
 

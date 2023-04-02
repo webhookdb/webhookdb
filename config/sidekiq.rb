@@ -19,7 +19,5 @@ Sentry.configure_scope do |scope|
 end
 
 require "webhookdb/async"
-require "webhookdb/async/autoscaler"
 
-Webhookdb::Async::Autoscaler.start
 Webhookdb::Async.setup_workers
