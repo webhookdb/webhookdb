@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "appydays/configurable"
+require "json"
 require "sequel"
 require "sidekiq"
 require "sidekiq/api"
@@ -313,7 +314,7 @@ module Amigo::DurableJob
               # - The job was lost while processing, like due to a segfault.
               #   - We need to handle it.
               #
-              item = Yajl::Parser.parse(row[:job_item_json])
+              item = JSON.parse(row[:job_item_json])
               item["jid"] ||= job_id
               if row[:missing_at]
                 item["durable_killed_at"] = now

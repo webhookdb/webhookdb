@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
+require "active_support/json"
 require "appydays/loggable"
 require "pathname"
 require "rack/test"
 require "rspec"
 require "warden"
-require "yajl"
 
 require "webhookdb/spec_helpers"
 
@@ -163,8 +163,8 @@ module Webhookdb::SpecHelpers::Service
       return self.correct_content_type? &&
           self.correct_json_type? &&
           self.matches_additional_expectations?
-    rescue Yajl::ParseError => e
-      return self.fail_with "Response has invalid JSON body: %s" % [e.message]
+    rescue StandardError => e
+      return self.fail_with "Response has invalid JSON body: %s: %s" % [e.class.name, e.message]
     end
 
     ### RSpec matcher API -- return a message describing an expectation failure.
@@ -191,8 +191,7 @@ module Webhookdb::SpecHelpers::Service
 
     ### Return the response's body parsed as JSON.
     def parsed_response_body
-      return @parsed_response_body ||=
-               Yajl::Parser.parse(self.response.body, check_utf8: true, symbolize_keys: true)
+      return @parsed_response_body ||= JSON.parse(self.response.body, symbolize_names: true)
     end
 
     #
@@ -247,7 +246,7 @@ module Webhookdb::SpecHelpers::Service
 
     ### Return a String that contains a pretty-printed version of the response body.
     protected def pretty_print_response_body
-      return Yajl::Encoder.encode(@parsed_response_body, pretty: true, indent: "\t") if
+      return Webhookdb::Json.pretty_generate(@parsed_response_body) if
         @parsed_response_body
 
       data = self.response.body
@@ -356,7 +355,7 @@ module Webhookdb::SpecHelpers::Service
     end
 
     protected def parsed_body
-      return Yajl::Parser.parse(@response.body)
+      return Oj.load(@response.body)
     rescue StandardError
       return nil
     end
@@ -424,9 +423,7 @@ module Webhookdb::SpecHelpers::Service
 
     def make_json_request(env, params)
       env["CONTENT_TYPE"] ||= "application/json"
-
-      params = Yajl::Encoder.encode(params) if env["CONTENT_TYPE"] == "application/json" && !params.is_a?(String)
-
+      params = Webhookdb::Json.encode(params) if env["CONTENT_TYPE"] == "application/json" && !params.is_a?(String)
       return env, params
     end
   end

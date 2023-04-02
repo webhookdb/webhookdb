@@ -2,6 +2,7 @@
 
 require "appydays/configurable"
 require "appydays/loggable"
+require "oj"
 
 class Webhookdb::Cloudflare
   include Appydays::Configurable
@@ -32,6 +33,6 @@ class Webhookdb::Cloudflare
       headers: self.headers,
       logger: self.logger,
     )
-    return Yajl::Parser.parse(response.body)
+    return Oj.load(response.body)
   end
 end

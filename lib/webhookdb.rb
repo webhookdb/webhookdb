@@ -7,11 +7,12 @@ require "appydays/loggable"
 require "money"
 require "pathname"
 require "phony"
-require "yajl"
+
+require "webhookdb/json"
 
 if (heroku_app = ENV.fetch("MERGE_HEROKU_ENV", nil))
   text = `heroku config -j --app=#{heroku_app}`
-  json = Yajl::Parser.parse(text)
+  json = Oj.load(text)
   json.each do |k, v|
     ENV[k] = v
   end

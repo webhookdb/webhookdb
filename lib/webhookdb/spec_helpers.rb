@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
+require "oj"
 require "webhookdb"
-require "yajl"
 
 RSpec::Matchers.define_negated_matcher(:exclude, :include)
 RSpec::Matchers.define_negated_matcher(:not_include, :include)
@@ -53,7 +53,7 @@ module Webhookdb::SpecHelpers
 
     return case path.extname
       when ".json"
-        Yajl::Parser.parse(rawdata)
+        Oj.load(rawdata)
       when ".yml", ".yaml"
         YAML.safe_load(rawdata)
       else
