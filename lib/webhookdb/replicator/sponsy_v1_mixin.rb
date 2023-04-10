@@ -37,14 +37,12 @@ module Webhookdb::Replicator::SponsyV1Mixin
   end
 
   def root_integration
-    return @root_integration ||= Webhookdb::Replicator.find_root(self.service_integration)
+    return @root_integration ||= Webhookdb::Replicator.find_at_root!(self.service_integration,
+                                                                     service_name: "sponsy_publication_v1",)
   end
 
   def find_api_key
-    auth = self.root_integration
-    raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing a dependency with auth" if
-      auth.nil?
-    return auth.backfill_secret
+    return self.root_integration.backfill_secret
   end
 
   def _resource_and_event(request)
