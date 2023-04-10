@@ -68,12 +68,13 @@ module Webhookdb::SpecHelpers::Whdb
   # them recursively until all requirements are satisfied.
   module_function def create_all_dependencies(service_integration)
     sint = service_integration
-    dependency_descriptor = sint.replicator.descriptor.dependency_descriptor
-    while dependency_descriptor.present?
+    created = []
+    loop do
       sint = create_dependency(sint)
-      # now climb up the ladder
-      dependency_descriptor = sint.present? ? sint.replicator.descriptor.dependency_descriptor : nil
+      break if sint.nil?
+      created << sint
     end
+    return created
   end
 
   module_function def setup_dependency(service_integration, insert_required_data_callback=nil)

@@ -96,7 +96,8 @@ RSpec.shared_examples "a replicator" do |name|
     end.to_not publish("webhookdb.serviceintegration.rowupsert")
   end
 
-  it "can serve a webhook response webhooks" do
+  it "can serve a webhook response" do
+    create_all_dependencies(sint)
     request = fake_request
     whresp = svc.webhook_response(request)
     expect(whresp).to be_a(Webhookdb::WebhookResponse)
@@ -584,7 +585,7 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
   end
 end
 
-RSpec.shared_examples "a replicator that requires credentials from a dependency" do |name|
+RSpec.shared_examples "a backfill replicator that requires credentials from a dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:error_message) { raise NotImplementedError }
 
@@ -601,6 +602,29 @@ RSpec.shared_examples "a replicator that requires credentials from a dependency"
     expect do
       sint.replicator.backfill
     end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(error_message)
+  end
+end
+
+RSpec.shared_examples "a webhook validating replicator that uses credentials from a dependency" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+
+  before(:each) do
+    create_all_dependencies(sint)
+  end
+
+  def make_request_valid(_req) = raise NotImplementedError
+  def make_request_invalid(_req) = raise NotImplementedError
+
+  it "returns a validated webhook response the request is valid using credentials from the auth integration" do
+    request = fake_request
+    make_request_valid(request)
+    expect(sint.replicator.webhook_response(request)).to have_attributes(status: be >= 200)
+  end
+
+  it "returns an invalid webhook response if the request is is not valid" do
+    request = fake_request
+    make_request_invalid(request)
+    expect(sint.replicator.webhook_response(request)).to have_attributes(status: be_between(400, 499))
   end
 end
 

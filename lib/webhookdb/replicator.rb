@@ -140,7 +140,7 @@ class Webhookdb::Replicator
     end
 
     # @param sint [Webhookdb::ServiceIntegration]
-    # @return [Webhookdb::ServiceIntegration]
+    # @return [Webhookdb::ServiceIntegration,nil]
     def find_root(sint)
       max_depth = 15
       parent = sint.depends_on
@@ -150,6 +150,15 @@ class Webhookdb::Replicator
         parent = parent.depends_on
       end
       return nil
+    end
+
+    # @param sint [Webhookdb::ServiceIntegration]
+    # @return [Webhookdb::ServiceIntegration]
+    def find_at_root!(sint, service_name:)
+      root = self.find_root(sint)
+      bad_auth = root&.service_name != service_name
+      raise self::CredentialsMissing, "Could not find root integration for #{sint.inspect}" if bad_auth
+      return root
     end
   end
 

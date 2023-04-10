@@ -233,7 +233,7 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that requires credentials from a dependency", "sponsy_slot_v1" do
+  it_behaves_like "a backfill replicator that requires credentials from a dependency", "sponsy_slot_v1" do
     let(:error_message) { /This Sponsy/ }
     def strip_auth(sint)
       sint.replicator.root_integration.update(backfill_secret: "")
