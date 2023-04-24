@@ -112,9 +112,10 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     connection.execute(import_sql)
   end
 
-  def verify_connection(url)
+  def _verify_connection(url, timeout:, statement:)
+    _ = timeout
     conn = self.connection(url)
-    conn.execute("SELECT 1")
+    conn.execute(statement)
   end
 
   def identifier_quote_char

@@ -59,7 +59,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
           period_seconds: 600,
           table: "",
           schema: "",
-          page_size: 500, # the default
+          page_size: 200, # the default
         )
       end
 
@@ -251,12 +251,14 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "500s if new creds are invalid" do
+      it "400s if new creds are invalid" do
         post "/v1/organizations/#{org.key}/sync_targets/db/#{sync_tgt.opaque_id}/update_credentials",
              user: "user", password: "pass"
 
-        expect(last_response).to have_status(500)
-        expect(last_response).to have_json_body.that_includes(error: include(message: match("Could not SELECT 1")))
+        expect(last_response).to have_status(400)
+        expect(last_response).to have_json_body.that_includes(
+          error: include(message: start_with("Could not SELECT 1: could not translate host")),
+        )
       end
     end
 
@@ -534,7 +536,7 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "500s if the url verification request doesn't go through" do
+      it "400s if the url verification request doesn't go through" do
         req = stub_request(:post, "https://a.b/").
           with(
             body: {
@@ -544,14 +546,18 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
               table: "test",
             },
           ).
-          to_return(status: 404, body: "", headers: {})
+          to_return(status: 402, body: "", headers: {})
 
         post "/v1/organizations/#{org.key}/sync_targets/http/create",
              service_integration_identifier: sint.opaque_id,
              connection_url: "https://u:p@a.b",
              period_seconds: 600
 
-        expect(last_response).to have_status(500)
+        expect(last_response).to have_status(400)
+        expect(last_response).to have_json_body.
+          that_includes(
+            error: include(message: start_with("POST to https://a.b failed: HttpError(status: 402")),
+          )
         expect(sint.sync_targets).to be_empty
         expect(req).to have_been_made
       end

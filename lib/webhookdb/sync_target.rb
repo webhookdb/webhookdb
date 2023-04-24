@@ -27,6 +27,10 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
 
+  HTTP_VERIFY_TIMEOUT = 3
+  DB_VERIFY_TIMEOUT = 2000
+  DB_VERIFY_STATEMENT = "SELECT 1"
+
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync.
     # On production we use 1 minute as a default since it's faster than the replication delay
@@ -36,7 +40,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
     # How many items sent in each POST for http sync targets.
-    setting :default_page_size, 500
+    setting :default_page_size, 200
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
     # since it's convenient, but for tests, it could cause conflicts
@@ -136,9 +140,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   def self.verify_db_connection(url)
     adapter = Webhookdb::DBAdapter.adapter(url)
     begin
-      adapter.verify_connection(url)
+      adapter.verify_connection(url, timeout: DB_VERIFY_TIMEOUT, statement: DB_VERIFY_STATEMENT)
     rescue StandardError => e
-      raise InvalidConnection, "Could not SELECT 1: #{e.message}"
+      # noinspection RailsParamDefResolve
+      msg = e.try(:wrapped_exception).try(:to_s) || e.to_s
+      raise InvalidConnection, "Could not SELECT 1: #{msg.strip}"
     end
   end
 
@@ -156,8 +162,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         body,
         logger: self.logger,
         basic_auth: authparams,
+        timeout: HTTP_VERIFY_TIMEOUT,
         follow_redirects: true,
       )
+    rescue Timeout::Error => e
+      raise InvalidConnection, "POST to #{cleanurl} timed out: #{e.message}"
     rescue Webhookdb::Http::Error => e
       raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
     end

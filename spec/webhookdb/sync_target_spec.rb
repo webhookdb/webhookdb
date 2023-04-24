@@ -169,6 +169,14 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
           described_class.verify_db_connection("postgres://u:p@x.y")
         end.to raise_error(described_class::InvalidConnection, /Could not SELECT 1/)
       end
+
+      it "raises an error if the postgres connection times out" do
+        stub_const("Webhookdb::SyncTarget::DB_VERIFY_TIMEOUT", 0.001)
+        stub_const("Webhookdb::SyncTarget::DB_VERIFY_STATEMENT", "SELECT generate_series(0, 100000")
+        expect do
+          described_class.verify_db_connection("postgres://u:p@x.y")
+        end.to raise_error(described_class::InvalidConnection, start_with("Could not SELECT 1: could not "))
+      end
     end
   end
 
@@ -182,8 +190,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
             integration_service: "httpsync_test",
             table: "test",
           },
-        ).
-        to_return(status: 200, body: "", headers: {})
+        ).to_return(status: 200, body: "", headers: {})
 
       expect do
         described_class.verify_http_connection("https://u:p@a.b")
@@ -193,19 +200,26 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
 
     it "raises error if http connection is invalid" do
       req = stub_request(:post, "https://a.b/").
-        with(
-          body: {
-            rows: [],
-            integration_id: "svi_test",
-            integration_service: "httpsync_test",
-            table: "test",
-          },
-        ).
         to_return(status: 403, body: "", headers: {})
 
       expect do
         described_class.verify_http_connection("https://u:p@a.b")
-      end.to raise_error(described_class::InvalidConnection, %r{POST to https://a.b failed})
+      end.to raise_error(
+        described_class::InvalidConnection,
+        include("POST to https://a.b failed: HttpError(status: 403"),
+      )
+      expect(req).to have_been_made
+    end
+
+    it "raises error if http times out" do
+      req = stub_request(:post, "https://a.b/").to_timeout
+
+      expect do
+        described_class.verify_http_connection("https://u:p@a.b")
+      end.to raise_error(
+        described_class::InvalidConnection,
+        include("POST to https://a.b timed out: execution expired"),
+      )
       expect(req).to have_been_made
     end
   end
