@@ -27,6 +27,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
 
+  HTTP_VERIFY_TIMEOUT = 3
+  DB_VERIFY_TIMEOUT = 2000
+  DB_VERIFY_STATEMENT = "SELECT 1"
+  RAND = Random.new
+
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync.
     # On production we use 1 minute as a default since it's faster than the replication delay
@@ -36,7 +41,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     setting :default_min_period_seconds, 10.minutes.to_i
     setting :max_period_seconds, 24.hours.to_i
     # How many items sent in each POST for http sync targets.
-    setting :default_page_size, 500
+    setting :default_page_size, 200
     # Sync targets without an explicit schema set
     # will add tables into this schema. We use public by default
     # since it's convenient, but for tests, it could cause conflicts
@@ -136,9 +141,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   def self.verify_db_connection(url)
     adapter = Webhookdb::DBAdapter.adapter(url)
     begin
-      adapter.verify_connection(url)
+      adapter.verify_connection(url, timeout: DB_VERIFY_TIMEOUT, statement: DB_VERIFY_STATEMENT)
     rescue StandardError => e
-      raise InvalidConnection, "Could not SELECT 1: #{e.message}"
+      # noinspection RailsParamDefResolve
+      msg = e.try(:wrapped_exception).try(:to_s) || e.to_s
+      raise InvalidConnection, "Could not SELECT 1: #{msg.strip}"
     end
   end
 
@@ -156,8 +163,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         body,
         logger: self.logger,
         basic_auth: authparams,
+        timeout: HTTP_VERIFY_TIMEOUT,
         follow_redirects: true,
       )
+    rescue Timeout::Error => e
+      raise InvalidConnection, "POST to #{cleanurl} timed out: #{e.message}"
     rescue Webhookdb::Http::Error => e
       raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
     end
@@ -174,6 +184,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   protected def next_sync(period, now)
     return now if self.last_synced_at.nil?
     return [now, self.last_synced_at + period].max
+  end
+
+  # Return the jitter used for enqueing the next sync of the job.
+  # It should never be more than 20 seconds,
+  # nor should it be more than 1/4 of the total period,
+  # since it needs to run at a reasonably predictable time.
+  def jitter
+    max_jitter = [20, self.period_seconds / 4].min
+    return RAND.rand(0..max_jitter)
   end
 
   # Running a sync involves some work we always do (export, transform),
@@ -247,6 +266,17 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   def associated_id
     # Eventually we need to support orgs
     return self.service_integration.opaque_id
+  end
+
+  def associated_object_display
+    return "#{self.service_integration.opaque_id}/#{self.service_integration.table_name}"
+  end
+
+  # @return [String]
+  def schema_and_table_string
+    schema_name = self.schema.present? ? self.schema : self.class.default_schema
+    table_name = self.table.present? ? self.table : self.service_integration.table_name
+    return "#{schema_name}.#{table_name}"
   end
 
   # @return [Webhookdb::Organization]

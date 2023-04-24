@@ -69,6 +69,10 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                          connection_url_type: is_db ? "db" : "http"
               end
 
+              def entity
+                return db? ? Webhookdb::API::DbSyncTargetEntity : Webhookdb::API::HttpSyncTargetEntity
+              end
+
               def validate_period!(org, value)
                 r = Webhookdb::SyncTarget.valid_period_for(org)
                 return if r.cover?(value)
@@ -82,6 +86,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 else
                   Webhookdb::SyncTarget.verify_http_connection(url)
                 end
+              rescue Webhookdb::SyncTarget::InvalidConnection => e
+                merror!(400, e.to_s, code: "invalid_sync_target_connection")
               end
 
               def predicate = db? ? :db? : :http?
@@ -100,7 +106,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                           "Use `webhookdb #{cmd} create` to synchronization WebhookDB tables to your #{tgtname}."
               end
               status 200
-              present_collection subs, with: Webhookdb::API::SyncTargetEntity, message:
+              present_collection subs, with: entity, message:
             end
 
             params do
@@ -134,7 +140,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               message = "Every #{stgt.period_seconds} seconds, data from #{sint.service_name} " \
                         "in #{sint.table_name} will be synchronized to #{stgt.displaysafe_connection_url}"
               status 200
-              present stgt, with: Webhookdb::API::SyncTargetEntity, message:
+              present stgt, with: entity, message:
             rescue Grape::Exceptions::Validation => e
               merror!(400, e.message)
             end
@@ -163,7 +169,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 verify_connection(uri.to_s)
                 stgt.update(connection_url: uri.to_s)
                 status 200
-                present stgt, with: Webhookdb::API::SyncTargetEntity, message: "Connection URL has been updated."
+                present stgt, with: entity, message: "Connection URL has been updated."
               end
 
               params do
@@ -181,7 +187,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 end
                 save_or_error!(stgt)
                 status 200
-                present stgt, with: Webhookdb::API::SyncTargetEntity, message: "#{fullname.capitalize} sync target has been updated."
+                present stgt, with: entity, message: "#{fullname.capitalize} sync target has been updated."
               end
 
               params do
@@ -204,7 +210,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 stgt.destroy
                 status 200
                 message = "#{fullname.capitalize} sync target has been removed and will no longer sync."
-                present stgt, with: Webhookdb::API::SyncTargetEntity, message:
+                present stgt, with: entity, message:
               end
 
               route_setting :target_type, target_type_resource
@@ -214,7 +220,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 next_sync = stgt.next_possible_sync(now: Time.now)
                 Webhookdb::Jobs::SyncTargetRunSync.perform_at(next_sync, stgt.id)
                 message = "#{fullname.capitalize} sync has been scheduled. It should start at about #{next_sync}."
-                present stgt, with: Webhookdb::API::SyncTargetEntity, message:
+                present stgt, with: entity, message:
               end
             end
           end
