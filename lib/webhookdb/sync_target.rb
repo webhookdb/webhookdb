@@ -30,6 +30,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   HTTP_VERIFY_TIMEOUT = 3
   DB_VERIFY_TIMEOUT = 2000
   DB_VERIFY_STATEMENT = "SELECT 1"
+  RAND = Random.new
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync.
@@ -183,6 +184,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   protected def next_sync(period, now)
     return now if self.last_synced_at.nil?
     return [now, self.last_synced_at + period].max
+  end
+
+  # Return the jitter used for enqueing the next sync of the job.
+  # It should never be more than 20 seconds,
+  # nor should it be more than 1/4 of the total period,
+  # since it needs to run at a reasonably predictable time.
+  def jitter
+    max_jitter = [20, self.period_seconds / 4].min
+    return RAND.rand(0..max_jitter)
   end
 
   # Running a sync involves some work we always do (export, transform),

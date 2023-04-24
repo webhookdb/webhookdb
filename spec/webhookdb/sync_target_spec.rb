@@ -108,6 +108,31 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "jitter" do
+    before(:each) do
+      r = Random.new(5)
+      stub_const("Webhookdb::SyncTarget::RAND", r)
+    end
+
+    it "chooses a random value between 0 and 20 seconds" do
+      stgt = Webhookdb::Fixtures.sync_target(period_seconds: 600).instance
+      expect(stgt.jitter).to eq(3)
+      expect(stgt.jitter).to eq(14)
+    end
+
+    it "will never use a jitter greater than 1/4 of the period" do
+      stgt = Webhookdb::Fixtures.sync_target(period_seconds: 0).instance
+      expect(stgt.jitter).to eq(0)
+      stgt.period_seconds = 1
+      expect(stgt.jitter).to eq(0)
+      stgt.period_seconds = 3
+      expect(stgt.jitter).to eq(0)
+      stgt.period_seconds = 4
+      expect(stgt.jitter).to eq(1)
+      expect(stgt.jitter).to eq(0)
+    end
+  end
+
   describe "validate_db_url" do
     it "returns nil if the url is for a supported database" do
       expect(described_class.validate_db_url("postgres://u:p@x:5432/db")).to be_nil
