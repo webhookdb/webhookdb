@@ -258,6 +258,17 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return self.service_integration.opaque_id
   end
 
+  def associated_object_display
+    return "#{self.service_integration.opaque_id}/#{self.service_integration.table_name}"
+  end
+
+  # @return [String]
+  def schema_and_table_string
+    schema_name = self.schema.present? ? self.schema : self.class.default_schema
+    table_name = self.table.present? ? self.table : self.service_integration.table_name
+    return "#{schema_name}.#{table_name}"
+  end
+
   # @return [Webhookdb::Organization]
   def organization
     return self.service_integration.organization

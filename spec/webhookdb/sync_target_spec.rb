@@ -32,6 +32,29 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "schema_and_table_string" do
+    it "displays" do
+      described_class.default_schema = "defaultschema"
+      st = Webhookdb::Fixtures.sync_target(service_integration: sint).create
+      sint.table_name = "xyz"
+      expect(st.schema_and_table_string).to eq("defaultschema.xyz")
+      st.schema = "foo"
+      expect(st.schema_and_table_string).to eq("foo.xyz")
+      st.table = "bar"
+      expect(st.schema_and_table_string).to eq("foo.bar")
+    ensure
+      described_class.reset_configuration
+    end
+  end
+
+  describe "associated_object_display" do
+    it "displays service integrations" do
+      sint.update(table_name: "mytable", opaque_id: "svi_myid")
+      st = Webhookdb::Fixtures.sync_target(service_integration: sint).create
+      expect(st.associated_object_display).to eq("svi_myid/mytable")
+    end
+  end
+
   describe "next_possible_sync" do
     let(:stgt) { Webhookdb::Fixtures.sync_target.create(period_seconds: 500) }
     let(:now) { trunc_time(Time.now) }
