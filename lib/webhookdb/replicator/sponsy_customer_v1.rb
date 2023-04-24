@@ -10,7 +10,7 @@ class Webhookdb::Replicator::SponsyCustomerV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "sponsy_customer_v1",
       ctor: self,
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Sponsy Customer",
       dependency_descriptor: Webhookdb::Replicator::SponsySlotV1.descriptor,
     )

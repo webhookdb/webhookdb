@@ -12,7 +12,7 @@ class Webhookdb::Replicator::IncreaseAccountV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_account_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseAccountV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Increase Account",
     )
   end

@@ -12,7 +12,7 @@ class Webhookdb::Replicator::StripeInvoiceItemV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_invoice_item_v1",
       ctor: ->(sint) { Webhookdb::Replicator::StripeInvoiceItemV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Stripe Invoice Item",
     )
   end
