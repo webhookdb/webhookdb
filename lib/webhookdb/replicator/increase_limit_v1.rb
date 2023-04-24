@@ -12,7 +12,7 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_limit_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseLimitV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Increase Limit",
     )
   end

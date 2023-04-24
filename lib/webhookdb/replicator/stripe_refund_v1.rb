@@ -12,7 +12,7 @@ class Webhookdb::Replicator::StripeRefundV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_refund_v1",
       ctor: ->(sint) { Webhookdb::Replicator::StripeRefundV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Stripe Refund",
     )
   end

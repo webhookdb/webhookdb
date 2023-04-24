@@ -15,7 +15,7 @@ class Webhookdb::Replicator::AwsPricingV1 < Webhookdb::Replicator::Base
       name: "aws_pricing_v1",
       ctor: self,
       resource_name_singular: "AWS Price List",
-      feature_roles: ["beta"],
+      feature_roles: [],
     )
   end
 

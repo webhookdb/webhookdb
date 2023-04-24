@@ -12,7 +12,7 @@ class Webhookdb::Replicator::IncreaseWireTransferV1 < Webhookdb::Replicator::Bas
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_wire_transfer_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseWireTransferV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Increase Wire Transfer",
     )
   end

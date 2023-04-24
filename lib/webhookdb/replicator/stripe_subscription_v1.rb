@@ -12,7 +12,7 @@ class Webhookdb::Replicator::StripeSubscriptionV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "stripe_subscription_v1",
       ctor: ->(sint) { Webhookdb::Replicator::StripeSubscriptionV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Stripe Subscription",
     )
   end

@@ -12,7 +12,7 @@ class Webhookdb::Replicator::ShopifyCustomerV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "shopify_customer_v1",
       ctor: ->(sint) { Webhookdb::Replicator::ShopifyCustomerV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Shopify Customer",
     )
   end

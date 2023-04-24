@@ -12,7 +12,7 @@ class Webhookdb::Replicator::IncreaseCheckTransferV1 < Webhookdb::Replicator::Ba
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_check_transfer_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseCheckTransferV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Increase Check Transfer",
     )
   end
