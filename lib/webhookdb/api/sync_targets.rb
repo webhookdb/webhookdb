@@ -82,6 +82,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 else
                   Webhookdb::SyncTarget.verify_http_connection(url)
                 end
+              rescue Webhookdb::SyncTarget::InvalidConnection => e
+                merror!(400, e.to_s, code: "invalid_sync_target_connection")
               end
 
               def predicate = db? ? :db? : :http?
