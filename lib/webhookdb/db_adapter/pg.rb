@@ -8,6 +8,9 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   include Webhookdb::DBAdapter::ColumnTypes
   include Webhookdb::DBAdapter::DefaultSql
 
+  VERIFY_TIMEOUT = 2
+  VERIFY_STATEMENT = "SELECT 1"
+
   def identifier_quote_char
     return '"'
   end
@@ -64,9 +67,12 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     end
   end
 
-  def verify_connection(url)
+  def verify_connection(url, timeout: 2, statement: "SELECT 1")
     conn = self.connection(url)
-    conn.using { |c| c.execute("SELECT 1") }
+    conn.using(connect_timeout: timeout) do |c|
+      c.execute("SET statement_timeout TO #{timeout * 1000}")
+      c.execute(statement)
+    end
   end
 
   COLTYPE_MAP = {

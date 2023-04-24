@@ -125,7 +125,7 @@ module Webhookdb::API
     end
   end
 
-  class SyncTargetEntity < BaseEntity
+  class BaseSyncTargetEntity < BaseEntity
     expose :created_at
     expose :opaque_id
     expose :service_integration, with: ServiceIntegrationEntity
@@ -136,17 +136,34 @@ module Webhookdb::API
     expose :last_synced_at
     expose :associated_type
     expose :associated_id
+    expose :associated_object_display
+  end
+
+  class DbSyncTargetEntity < BaseSyncTargetEntity
+    expose :schema_and_table_string
 
     def self.display_headers
       return [
         [:opaque_id, "Id"],
         [:connection_url, "URL"],
-        [:period_seconds, "Period"],
-        [:table, "Table"],
-        [:schema, "Schema"],
+        [:associated_object_display, "Associated"],
+        [:schema_and_table_string, "Table"],
         [:last_synced_at, "Last Synced"],
-        [:associated_type, "Associated Type"],
-        [:associated_id, "Associated Id"],
+        [:period_seconds, "Period"],
+        [:page_size, "Page"],
+      ]
+    end
+  end
+
+  class HttpSyncTargetEntity < BaseSyncTargetEntity
+    def self.display_headers
+      return [
+        [:opaque_id, "Id"],
+        [:connection_url, "URL"],
+        [:associated_object_display, "Associated"],
+        [:last_synced_at, "Last Synced"],
+        [:period_seconds, "Period"],
+        [:page_size, "Page"],
       ]
     end
   end

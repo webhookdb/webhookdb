@@ -119,12 +119,12 @@ class Webhookdb::DBAdapter
       @url = url
     end
 
-    def using(&)
-      borrow_conn(@url, &)
+    def using(**kw, &)
+      borrow_conn(@url, **kw, &)
     end
 
-    def execute(sql)
-      borrow_conn(@url) do |db|
+    def execute(sql, **kw)
+      borrow_conn(@url, **kw) do |db|
         db << sql
       end
     end
@@ -182,8 +182,8 @@ class Webhookdb::DBAdapter
     raise NotImplementedError
   end
 
-  def verify_connection(url)
-    raise NotImplementedError
+  def verify_connection(url, timeout: 2, statement: "SELECT 1")
+    return self._verify_connection(url, timeout:, statement:)
   end
 
   # @param [String] url
