@@ -31,6 +31,13 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
+  # Create a table name for the service.
+  # Eventually we may want to not disambiguate the table name
+  # if this is the org's first service of this type.
+  def self.new_table_name(_org, service_name)
+    return service_name + "_#{SecureRandom.hex(2)}"
+  end
+
   # @return [Webhookdb::Replicator::StateMachineStep]
   def process_state_change(field, value)
     return Webhookdb::Replicator.create(self).process_state_change(field, value)

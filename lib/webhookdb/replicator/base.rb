@@ -180,6 +180,24 @@ class Webhookdb::Replicator::Base
     return dep_candidates[idx]
   end
 
+  # Find a dependent service integration with the given service name.
+  # If none are found, return nil. If multiple are found, raise,
+  # as this should only be used for automatically managed integrations.
+  # @return [Webhookdb::ServiceIntegration,nil]
+  def find_dependent(service_name)
+    sints = self.service_integration.dependents.filter { |si| si.service_name == service_name }
+    raise Webhookdb::InvalidPrecondition, "there are multiple #{service_name} integrations in dependents" if
+      sints.length > 1
+    return sints.first
+  end
+
+  # @return [Webhookdb::ServiceIntegration]
+  def find_dependent!(service_name)
+    sint = self.find_dependent(service_name)
+    raise Webhookdb::InvalidPrecondition, "there is no #{service_name} integration in dependents" if sint.nil?
+    return sint
+  end
+
   # Return the state machine that is used when setting up this integration.
   # Usually this entails providing the user the webhook url,
   # and providing or asking for a webhook secret. In some cases,

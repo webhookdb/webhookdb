@@ -161,7 +161,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               end
               sint = Webhookdb::ServiceIntegration.create(
                 organization: org,
-                table_name: (name + "_#{SecureRandom.hex(2)}"),
+                table_name: Webhookdb::ServiceIntegration.new_table_name(org),
                 service_name: name,
               )
               return sint.calculate_create_state_machine

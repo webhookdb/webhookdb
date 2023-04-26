@@ -133,5 +133,6 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     OBJECT => "object",
     TEXT => "text",
     TIMESTAMP => "timestamptz",
+    UUID => "text",
   }.freeze
 end

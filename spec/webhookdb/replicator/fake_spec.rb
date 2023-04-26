@@ -533,5 +533,34 @@ or leave blank to choose the first option.
         )
       end
     end
+
+    describe "find_dependent" do
+      let(:root_sint) do
+        Webhookdb::Fixtures.service_integration.create
+      end
+
+      it "returns expected dependent integration with given service name" do
+        child_sint = Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
+        expect(root_sint.dependents.first).to eq(child_sint)
+        result = root_sint.replicator.find_dependent("fake_v1")
+        expect(result).to eq(child_sint)
+      end
+
+      it "errors if there is no dependent integration with given service name" do
+        expect(root_sint.replicator.find_dependent("fake_v2")).to be_nil
+        expect do
+          root_sint.replicator.find_dependent!("fake_v2")
+        end.to raise_error(Webhookdb::InvalidPrecondition, /there is no fake_v2 integration/)
+      end
+
+      it "errors if there are multiple dependent integrations with given service name" do
+        Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
+        Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
+
+        expect do
+          root_sint.replicator.find_dependent("fake_v1")
+        end.to raise_error(Webhookdb::InvalidPrecondition, /there are multiple fake_v1 integrations/)
+      end
+    end
   end
 end
