@@ -223,6 +223,24 @@ class Webhookdb::Replicator::Base
     self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
   end
 
+  # Find a dependent service integration with the given service name.
+  # If none are found, return nil. If multiple are found, raise,
+  # as this should only be used for automatically managed integrations.
+  # @return [Webhookdb::ServiceIntegration,nil]
+  def find_dependent(service_name)
+    sints = self.service_integration.dependents.filter { |si| si.service_name == service_name }
+    raise Webhookdb::InvalidPrecondition, "there are multiple #{service_name} integrations in dependents" if
+      sints.length > 1
+    return sints.first
+  end
+
+  # @return [Webhookdb::ServiceIntegration]
+  def find_dependent!(service_name)
+    sint = self.find_dependent(service_name)
+    raise Webhookdb::InvalidPrecondition, "there is no #{service_name} integration in dependents" if sint.nil?
+    return sint
+  end
+
   # Use this to determine whether we should add an enrichment column in
   # the create table modification to store the enrichment body.
   def _store_enrichment_body?
