@@ -3,6 +3,10 @@
 require "support/shared_examples_for_columns"
 
 RSpec.describe Webhookdb::Replicator::Column, :db do
+  let(:identity_conv) do
+    described_class::IsomorphicProc.new(ruby: ->(v, *) { v }, sql: proc { raise NotImplementedError })
+  end
+
   describe "to_ruby_value" do
     def to_ruby_value(col, resource=nil, event=nil, enrichment=nil, service_integration=nil)
       col.to_ruby_value(resource:, event:, enrichment:, service_integration:)
@@ -139,6 +143,12 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         v = to_ruby_value(col, {"intarr" => nil}, nil, nil)
         expect(v).to be_nil
       end
+
+      it "applies to a column with a custom converter" do
+        col = described_class.new(:textarr, described_class::INTEGER_ARRAY, converter: identity_conv)
+        v = to_ruby_value(col, {"textarr" => [1]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1]::integer[]")
+      end
     end
 
     describe "with a column type TEXT_ARRAY" do
@@ -163,6 +173,12 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       it "uses null if null" do
         v = to_ruby_value(col, {"textarr" => nil}, nil, nil)
         expect(v).to be_nil
+      end
+
+      it "applies to a column with a custom converter" do
+        col = described_class.new(:textarr, described_class::TEXT_ARRAY, converter: identity_conv)
+        v = to_ruby_value(col, {"textarr" => ["a"]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY['a']::text[]")
       end
     end
   end
@@ -422,6 +438,36 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         sint = Webhookdb::Fixtures.service_integration.create
         sint.ensure_sequence(skip_check: true)
         expect(conv.ruby.call("/ab", service_integration: sint)).to eq(1)
+      end
+    end
+
+    describe "converter_strptime" do
+      it "converts the value using the specified format" do
+        conv = described_class.converter_strptime("%Y%m%dT%H%M%S%Z")
+        expect(conv.ruby.call("19970714T173000Z")).to eq(Time.rfc2822("Mon, 14 Jul 1997 17:30:00 -0000"))
+        conv = described_class.converter_strptime("%Y%m%d", cls: Date)
+        expect(conv.ruby.call("19970714")).to eq(Date.new(1997, 7, 14))
+      end
+
+      it "raises for an invalid value" do
+        conv = described_class.converter_strptime("%Y%m")
+        expect { conv.ruby.call("1") }.to raise_error(/invalid date or strptime format/)
+      end
+
+      it "uses nil if value is nil" do
+        conv = described_class.converter_strptime("%Y%m%d")
+        expect(conv.ruby.call(nil)).to be_nil
+      end
+    end
+
+    describe "CONV_COMMA_SEP" do
+      it "converts the value" do
+        conv = described_class::CONV_COMMA_SEP
+        expect(conv.ruby.call("a,b")).to eq(["a", "b"])
+        expect(conv.ruby.call(" a, b ")).to eq(["a", "b"])
+        expect(conv.ruby.call("a")).to eq(["a"])
+        expect(conv.ruby.call("")).to eq([])
+        expect(conv.ruby.call(nil)).to eq([])
       end
     end
 
