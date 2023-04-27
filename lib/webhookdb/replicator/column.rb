@@ -23,6 +23,7 @@ class Webhookdb::Replicator::Column
       Sequel.function(:to_timestamp, Sequel.cast(i, :double))
     end,
   )
+  # Parse a value as an integer. Remove surrounding quotes.
   CONV_TO_I = IsomorphicProc.new(
     ruby: ->(i, **_) { i.nil? ? nil : i.delete_prefix('"').delete_suffix('"').to_i },
     sql: ->(i) { Sequel.cast(i, :integer) },
@@ -36,10 +37,27 @@ class Webhookdb::Replicator::Column
       Sequel.cast(in_utc, :date)
     end,
   )
+  # Parse a value using Time.parse.
   CONV_PARSE_TIME = IsomorphicProc.new(
     ruby: ->(value, **_) { value.nil? ? nil : Time.parse(value) },
     sql: ->(i) { Sequel.cast(i, :timestamptz) },
   )
+
+  # Parse a value using Date.parse.
+  CONV_PARSE_DATE = IsomorphicProc.new(
+    ruby: ->(value, **_) { value.nil? ? nil : Date.parse(value) },
+    sql: ->(i) { Sequel.cast(i, :date) },
+  )
+
+  CONV_COMMA_SEP = IsomorphicProc.new(
+    ruby: ->(value, **_) { value.nil? ? [] : value.split(",").map(&:strip) },
+    sql: ->(*) { raise NotImplementedError },
+  )
+
+  # Return a converter that parses a value using the given regex,
+  # and returns the capture group at index.
+  # The 'coerce' function can be applied to, for example,
+  # capture a number from a request path and store it as an integer.
   def self.converter_from_regex(re, coerce: nil, index: -1)
     return IsomorphicProc.new(
       ruby: lambda do |value, **_|
@@ -64,7 +82,21 @@ class Webhookdb::Replicator::Column
     )
   end
 
-  KNOWN_CONVERTERS = {tsat: CONV_UNIX_TS}.freeze
+  def self.converter_strptime(format, cls: Time)
+    return Webhookdb::Replicator::Column::IsomorphicProc.new(
+      ruby: lambda do |value, **|
+        value.nil? ? nil : cls.strptime(value, format)
+      end,
+      sql: ->(*) { raise NotImplementedError },
+    )
+  end
+
+  KNOWN_CONVERTERS = {
+    date: CONV_PARSE_DATE,
+    time: CONV_PARSE_TIME,
+    to_i: CONV_TO_I,
+    tsat: CONV_UNIX_TS,
+  }.freeze
 
   DEFAULTER_NOW = IsomorphicProc.new(ruby: ->(*) { Time.now }, sql: ->(*) { Sequel.function(:now) })
   DEFAULTER_FALSE = IsomorphicProc.new(ruby: ->(*) { false }, sql: ->(*) { false })
@@ -212,9 +244,8 @@ class Webhookdb::Replicator::Column
       self._dig(resource, self.data_key, self.optional)
     end
     (v = self.defaulter.ruby.call(resource:, event:, enrichment:, service_integration:)) if self.defaulter && v.nil?
-    if self.converter
-      v = self.converter.ruby.call(v, resource:, event:, enrichment:, service_integration:)
-    elsif (self.type == INTEGER_ARRAY) && !v.nil?
+    v = self.converter.ruby.call(v, resource:, event:, enrichment:, service_integration:) if self.converter
+    if (self.type == INTEGER_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "integer")
     elsif (self.type == TEXT_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "text")
