@@ -155,22 +155,8 @@ The secret to use for signing is:
     if (dep = self.find_dependent("icalendar_event_v1"))
       upserter = Upserter.new(dep.replicator, row)
       io = Down::NetHttp.open(row.fetch(:ics_url), rewindable: false)
-      vevent_lines = []
-      in_vevent = false
-      while (line = io.gets)
-        line.rstrip!
-        if line == "BEGIN:VEVENT"
-          in_vevent = true
-          vevent_lines << line
-        elsif line == "END:VEVENT"
-          in_vevent = false
-          vevent_lines << line
-          h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
-          vevent_lines.clear
-          upserter.handle_item(h)
-        elsif in_vevent
-          vevent_lines << line
-        end
+      self.class.each_event(io) do |h|
+        upserter.handle_item(h)
       end
       upserter.flush_pending_inserts
     end
@@ -181,5 +167,25 @@ The secret to use for signing is:
     l = src.gets
     l&.chomp!
     return l
+  end
+
+  def self.each_event(io)
+    vevent_lines = []
+    in_vevent = false
+    while (line = io.gets)
+      line.rstrip!
+      if line == "BEGIN:VEVENT"
+        in_vevent = true
+        vevent_lines << line
+      elsif line == "END:VEVENT"
+        in_vevent = false
+        vevent_lines << line
+        h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
+        vevent_lines.clear
+        yield h
+      elsif in_vevent
+        vevent_lines << line
+      end
+    end
   end
 end

@@ -42,8 +42,15 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
         # While there's no formal naming scheme, we only really see normal forms like 'America/Los_Angeles'
         # or with different chars (like in the docs), 'US-Eastern'.
         # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
-        # We can solve for that if needed.
-        zone = Time.find_zone(tzid.tr("-", "/"))
+        # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
+        # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
+        unless (zone = Time.find_zone(tzid.tr("-", "/")))
+          Sentry.with_scope do |scope|
+            scope.set_extras(**entry)
+            Sentry.capture_message("Unhandled iCalendar timezone")
+          end
+          zone = Time.find_zone!("UTC")
+        end
         zone.parse(value)
       end
     end,
@@ -146,17 +153,14 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       next if nest_depth > 1
       line.strip!
       next if line.empty?
-      full_key, value = line.split(":", 2)
-      key_parts = full_key.split(";")
-      keyname = key_parts.shift
-      value.gsub!("\\r\\n", "\r\n")
-      value.gsub!("\\n", "\n")
-      value.gsub!("\\t", "\t")
-      entry = {"v" => value}
-      key_parts.each do |keypart|
-        keypart_name, keypart_val = keypart.split("=", 2)
-        entry[keypart_name] = keypart_val
+      keyname, value, params = self._parse_line(line)
+      unless value.nil?
+        value.gsub!("\\r\\n", "\r\n")
+        value.gsub!("\\n", "\n")
+        value.gsub!("\\t", "\t")
       end
+      entry = {"v" => value}
+      entry.merge!(params)
       if ARRAY_KEYS.include?(keyname)
         result[keyname] ||= []
         result[keyname] << entry
@@ -168,6 +172,33 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   end
 
   ARRAY_KEYS = ["ATTENDEE"].freeze
+
+  NAME = "[-a-zA-Z0-9]+"
+  QSTR = '"[^"]*"'
+  PTEXT = '[^";:,]*'
+  PVALUE = "(?:#{QSTR}|#{PTEXT})".freeze
+  PARAM = "(#{NAME})=(#{PVALUE}(?:,#{PVALUE})*)".freeze
+  VALUE = ".*"
+  LINE = "(?<name>#{NAME})(?<params>(?:;#{PARAM})*):(?<value>#{VALUE})".freeze
+
+  # @param input [String]
+  def self._parse_line(input)
+    parts = /#{LINE}/o.match(input)
+    return input, nil, {} if parts.nil?
+    params = {}
+    parts[:params].scan(/#{PARAM}/o) do |match|
+      param_name = match[0]
+      # params[param_name] ||= []
+      match[1].scan(/#{PVALUE}/o) do |param_value|
+        if param_value.size.positive?
+          param_value = param_value.gsub(/\A"|"\z/, "")
+          params[param_name] = param_value
+          # params["x-tz-info"] = timezone_store.retrieve param_value if param_name == "tzid"
+        end
+      end
+    end
+    return parts[:name], parts[:value], params
+  end
 
   def on_dependency_webhook_upsert(_ical_svc, _ical_row, **)
     # We use an async job to sync when the dependency syncs
