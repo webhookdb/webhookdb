@@ -202,6 +202,7 @@ It normally takes about 20 minutes to sync.
     def upsert_page_size = 500
     def prepare_body(_body) = nil
     def upserting_replicator = @replicator
+    def conditional_upsert? = true
 
     def fetch_backfill_page(pagination_token, **)
       # Fetch a page of price lists ARNs for this service

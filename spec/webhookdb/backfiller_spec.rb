@@ -41,6 +41,30 @@ RSpec.describe Webhookdb::Backfiller, :db do
 
   describe "with bulk" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create }
+    let(:backfiller_cls) do
+      Class.new(Webhookdb::Backfiller) do
+        include Webhookdb::Backfiller::Bulk
+        attr_reader :fetched
+
+        def initialize(sint, pages, conditional_upsert: false, page_size: 2)
+          @sint = sint
+          @pages = pages
+          @fetched = []
+          @conditional_upsert = conditional_upsert
+          @page_size = page_size
+          super()
+        end
+
+        def conditional_upsert? = @conditional_upsert
+        def upsert_page_size = @page_size
+        def prepare_body(_body) = nil
+        define_method(:upserting_replicator) { @sint.replicator }
+        def fetch_backfill_page(*args)
+          @fetched << args
+          return @pages[self.fetched.size - 1]
+        end
+      end
+    end
 
     before(:each) do
       sint.organization.prepare_database_connections
@@ -56,26 +80,7 @@ RSpec.describe Webhookdb::Backfiller, :db do
     end
 
     it "flushes pending inserts if backfill is bulk" do
-      cls = Class.new(Webhookdb::Backfiller) do
-        include Webhookdb::Backfiller::Bulk
-        attr_reader :fetched
-
-        def initialize(sint, pages)
-          @sint = sint
-          @pages = pages
-          @fetched = []
-          super()
-        end
-
-        def upsert_page_size = 2
-        def prepare_body(_body) = nil
-        define_method(:upserting_replicator) { @sint.replicator }
-        def fetch_backfill_page(*args)
-          @fetched << args
-          return @pages[self.fetched.size - 1]
-        end
-      end
-      bf = cls.new(
+      bf = backfiller_cls.new(
         sint,
         [
           [[body("1")], "a"],
@@ -88,6 +93,41 @@ RSpec.describe Webhookdb::Backfiller, :db do
         [[nil, {last_backfilled: nil}], ["a", {last_backfilled: nil}], ["b", {last_backfilled: nil}]],
       )
       expect(sint.replicator.readonly_dataset(&:all)).to have_length(5)
+    end
+
+    describe "conditional upserting" do
+      let(:pages) do
+        [
+          [[{"my_id" => "x", "v" => 1, "at" => "Thu, 30 Jul 2016 21:12:33 +0000"}], "a"],
+          [[{"my_id" => "x", "v" => 2, "at" => "Thu, 30 Jul 2016 21:12:33 +0000"}], nil],
+        ]
+      end
+
+      it "is used if enabled" do
+        bf = backfiller_cls.new(
+          sint,
+          pages,
+          conditional_upsert: true,
+          page_size: 1,
+        )
+        bf.backfill(nil)
+        expect(sint.replicator.readonly_dataset(&:all)).to contain_exactly(
+          include(data: hash_including("v" => 1)),
+        )
+      end
+
+      it "is not used if not enabled" do
+        bf = backfiller_cls.new(
+          sint,
+          pages,
+          conditional_upsert: false,
+          page_size: 1,
+        )
+        bf.backfill(nil)
+        expect(sint.replicator.readonly_dataset(&:all)).to contain_exactly(
+          include(data: hash_including("v" => 2)),
+        )
+      end
     end
   end
 end
