@@ -2,6 +2,7 @@
 
 require "support/shared_examples_for_replicators"
 
+# rubocop:disable Layout/LineLength
 RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
@@ -235,9 +236,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       org.remove_related_database
     end
 
-    let(:ical) do
+    it "upserts each vevent in the url" do
       literal = '\n\r\n\t\n'
-      <<~ICAL
+      body = <<~ICAL
         BEGIN:VCALENDAR
         VERSION:2.0
         PRODID:-//ZContent.net//Zap Calendar 1.0//EN
@@ -263,11 +264,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         END:VEVENT
         END:VCALENDAR
       ICAL
-    end
-
-    it "upserts each vevent in the url" do
       req = stub_request(:get, "https://feed.me").
-        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body: ical)
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
       expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
@@ -350,5 +348,157 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
       expect(req).to have_been_made.times(4)
     end
+
+    it "uses UTC for unregonized timezones" do
+      body = <<~ICAL
+        BEGIN:VCALENDAR
+        BEGIN:VEVENT
+        SUMMARY:Abraham Lincoln
+        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+        SEQUENCE:0
+        STATUS:CONFIRMED
+        TRANSP:TRANSPARENT
+        DTSTART;TZID=Unknown:19700101T000000
+        DTEND;TZID=Unknown:19710101T000000
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          calendar_external_id: "abc",
+          start_at: Time.parse("1970-01-01T00:00:00Z"),
+          end_at: Time.parse("1971-01-01T00:00:00Z"),
+          uid: "c7614cff-3549-4a00-9152-d25cc1fe077d",
+        ),
+      )
+    end
+  end
+
+  # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
+  describe "icalendar parser tests" do
+    let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
+
+    def events
+      arr = []
+      described_class.each_event(source) { |a| arr << a }
+      arr
+    end
+
+    context "single_event.ics" do
+      let(:fn) { "single_event.ics" }
+
+      it "returns an array of calendars" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          {
+            "DTSTAMP" => {"v" => "20050118T211523Z"},
+            "UID" => {"v" => "bsuidfortestabc123"},
+            "DTSTART" => {"v" => "20050120T170000", "TZID" => "US-Mountain"},
+            "DTEND" => {"v" => "20050120T184500", "TZID" => "US-Mountain"},
+            "CLASS" => {"v" => "PRIVATE"},
+            "GEO" => {"v" => "37.386013;-122.0829322"},
+            "ORGANIZER" => {"v" => "mailto:joebob@random.net", "CN" => "Joe Bob: Magician"},
+            "PRIORITY" => {"v" => "2"},
+            "SUMMARY" => {"v" => "This is a really long summary to test the method of unfolding lines\\, so I'm just going to make it a whole bunch of lines. With a twist: a \"ö\" takes up multiple bytes\\, and should be wrapped to the next line."},
+            "ATTACH" => {"v" => "http://corporations-dominate.existence.net/why.rhtml"},
+            "RDATE" => {"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"},
+            "X-TEST-COMPONENT" => {"v" => "Shouldn't double double quotes", "QTEST" => "Hello, World"},
+          },
+        )
+      end
+    end
+
+    context "event.ics" do
+      let(:fn) { "event.ics" }
+
+      it "returns an array of events" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          {
+            "DTSTAMP" => {"v" => "20050118T211523Z"},
+            "UID" => {"v" => "bsuidfortestabc123"},
+            "DTSTART" => {"v" => "20050120T170000", "TZID" => "US-Mountain"},
+            "DTEND" => {"v" => "20050120T184500", "TZID" => "US-Mountain"},
+            "CLASS" => {"v" => "PRIVATE"},
+            "GEO" => {"v" => "37.386013;-122.0829322"},
+            "ORGANIZER" => {"v" => "mailto:joebob@random.net"},
+            "PRIORITY" => {"v" => "2"},
+            "SUMMARY" => {"v" => "This is a really long summary to test the method of unfolding lines\\, so I'm just going to make it a whole bunch of lines."},
+            "ATTACH" => {"v" => "http://corporations-dominate.existence.net/why.rhtml"},
+            "RDATE" => {"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"},
+            "X-TEST-COMPONENT" => {"v" => "Shouldn't double double quotes", "QTEST" => "Hello, World"},
+          },
+        )
+      end
+    end
+
+    context "events.ics" do
+      let(:fn) { "two_events.ics" }
+
+      it "returns an array of events" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          hash_including("UID" => {"v" => "bsuidfortestabc123"}),
+          {
+            "DTSTAMP" => {"v" => "20110118T211523Z"},
+            "UID" => {"v" => "uid-1234-uid-4321"},
+            "DTSTART" => {"v" => "20110120T170000", "TZID" => "US-Mountain"},
+            "DTEND" => {"v" => "20110120T184500", "TZID" => "US-Mountain"},
+            "CLASS" => {"v" => "PRIVATE"},
+            "GEO" => {"v" => "37.386013;-122.0829322"},
+            "ORGANIZER" => {"v" => "mailto:jmera@jmera.human"},
+            "PRIORITY" => {"v" => "2"},
+            "SUMMARY" => {"v" => "This is a very short summary."},
+            "RDATE" => {"v" => "20110121T170000,20110122T170000", "TZID" => "US-Mountain"},
+          },
+        )
+      end
+    end
+
+    context "tzid_search.ics" do
+      let(:fn) { "tzid_search.ics" }
+
+      it "correctly sets the weird tzid" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          hash_including(
+            "DTEND" => {"v" => "20180104T130000", "TZID" => "(GMT-05:00) Eastern Time (US & Canada)"},
+            "RRULE" => {"v" => "FREQ=WEEKLY;INTERVAL=1"},
+            "SUMMARY" => {"v" => "Recurring on Wed"},
+            "DTSTART" => {"v" => "20180104T100000", "TZID" => "(GMT-05:00) Eastern Time (US & Canada)"},
+            "DTSTAMP" => {"v" => "20120104T231637Z"},
+          ),
+        )
+      end
+    end
+
+    describe "#parse with bad line" do
+      let(:fn) { "single_event_bad_line.ics" }
+
+      it "uses nil" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          hash_including(
+            "UID" => {"v" => "bsuidfortestabc123"},
+            "X-NO-VALUE" => {"v" => nil},
+          ),
+        )
+      end
+    end
+
+    describe "missing date value parameter" do
+      let(:fn) { "single_event_bad_dtstart.ics" }
+
+      it "falls back to date type for dtstart" do
+        parsed = events
+        expect(parsed).to contain_exactly(hash_including("DTSTART" => {"v" => "20050120"}))
+      end
+    end
   end
 end
+# rubocop:enable Layout/LineLength
