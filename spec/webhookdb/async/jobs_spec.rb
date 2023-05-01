@@ -144,6 +144,66 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "IcalendarEnqueueSyncs" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+
+    before(:each) do
+      org.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "enques a calendar sync for integration row needing a sync" do
+      sint.replicator.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          row_created_at: Time.now,
+          row_updated_at: Time.now,
+          external_id: "abc",
+        )
+      end
+      expect(Webhookdb::Jobs::IcalendarSync).to receive(:perform_async).with(sint.id, "abc")
+      Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform
+    end
+  end
+
+  describe "IcalendarSync" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+
+    before(:each) do
+      org.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "syncs the row" do
+      row = sint.replicator.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          row_created_at: Time.now,
+          row_updated_at: Time.now,
+          external_id: "abc",
+        )
+        ds.first
+      end
+      expect(row).to include(last_synced_at: nil)
+      Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, row.fetch(:external_id))
+      expect(sint.replicator.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
+    end
+  end
+
   describe "MessageDispatched", messaging: true do
     it "sends the delivery on create" do
       email = "wibble@lithic.tech"

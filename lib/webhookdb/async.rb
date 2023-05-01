@@ -32,6 +32,8 @@ module Webhookdb::Async
     "webhookdb/jobs/developer_alert_handle",
     "webhookdb/jobs/durable_job_recheck_poller",
     "webhookdb/jobs/emailer",
+    "webhookdb/jobs/icalendar_enqueue_syncs",
+    "webhookdb/jobs/icalendar_sync",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/nextpax_sync_property_changes",
     "webhookdb/jobs/organization_database_migration_notify_finished",

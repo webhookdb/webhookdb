@@ -48,6 +48,8 @@ GEM
       addressable
     diff-lcs (1.5.0)
     dotenv (2.8.1)
+    down (5.4.0)
+      addressable (~> 2.8)
     dry-core (1.0.0)
       concurrent-ruby (~> 1.0)
       zeitwerk (~> 2.6)
@@ -305,6 +307,7 @@ DEPENDENCIES
   concurrent-ruby
   connection_pool
   dotenv
+  down
   faker
   fluent_fixtures
   foreman
