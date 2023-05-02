@@ -110,6 +110,7 @@ GEM
       multi_xml (>= 0.5.2)
     i18n (1.10.0)
       concurrent-ruby (~> 1.0)
+    ice_cube (0.16.4)
     inflecto (0.0.2)
     jmespath (1.6.2)
     json (2.6.3)
@@ -316,6 +317,7 @@ DEPENDENCIES
   grape-swagger
   grape_logging
   httparty
+  ice_cube
   liquid
   mimemagic
   monetize

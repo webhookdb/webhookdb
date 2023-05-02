@@ -18,7 +18,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
 
   describe "upsert" do
     def upsert(s)
-      h = described_class.vevent_to_hash(s)
+      h = described_class.vevent_to_hash(s.lines)
       h["calendar_external_id"] = "123"
       return svc.upsert_webhook_body(h, upsert: false)
     end
@@ -140,7 +140,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         TRANSP:OPAQUE
         END:VEVENT
       ICAL
-      expect(described_class.vevent_to_hash(s)).to eq(
+      expect(described_class.vevent_to_hash(s.split("\n"))).to eq(
         {
           "DTSTART" => {"v" => "20200220T170000", "TZID" => "America/Los_Angeles"},
           "DTEND" => {"v" => "20190820T190000Z"},
@@ -156,7 +156,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
           "CREATED" => {"v" => "20190813T175204Z"},
           "DESCRIPTION" => {"v" => ""},
           "LAST-MODIFIED" => {"v" => "20230218T223450Z"},
-          "LOCATION" => {"v" => "Good Coffee\\n4747 SE Division St\\nPortland OR 97206-1509"},
+          "LOCATION" => {"v" => "Good Coffee\n4747 SE Division St\nPortland OR 97206-1509"},
           "SEQUENCE" => {"v" => "1"},
           "STATUS" => {"v" => "CONFIRMED"},
           "SUMMARY" => {"v" => "Rob/Chez coffee"},

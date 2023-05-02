@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 require "down"
+require "ice_cube"
 
 require "webhookdb/jobs/icalendar_sync"
 
 class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
+
+  RECURRENCE_PROJECTION = 5.years
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
@@ -156,7 +159,10 @@ The secret to use for signing is:
       upserter = Upserter.new(dep.replicator, row)
       io = Down::NetHttp.open(row.fetch(:ics_url), rewindable: false)
       self.class.each_event(io) do |h|
-        upserter.handle_item(h)
+        recur_result = self._expand_recurrence(h) { |e| upserter.handle_item(e) }
+        if recur_result[:delete_cond].present?
+          dep.replicator.admin_dataset { |ds| ds.where(recur_result[:delete_cond]).delete }
+        end
       end
       upserter.flush_pending_inserts
     end
@@ -167,6 +173,91 @@ The secret to use for signing is:
     l = src.gets
     l&.chomp!
     return l
+  end
+
+  private def _expand_recurrence(h)
+    raise LocalJumpError unless block_given?
+    recur_result = {}
+    unless h["RRULE"]
+      yield h
+      return recur_result
+    end
+
+    # We need to convert relevant parsed ical lines back to a string for use in ice_cube.
+    # There are other ways to handle this, but this is fine for now.
+    ical_params = {}
+    # These are taken from ice_cube ical_parser
+    ["RDATE", "EXDATE", "DURATION", "RRULE"].each do |propname|
+      ical_params[propname] = h[propname] if h[propname]
+    end
+
+    start_entry = h.fetch("DTSTART")
+    ev_replicator = Webhookdb::Replicator::IcalendarEventV1
+    # Use actual Times for start/end since ice_cube doesn't parse them well
+    ical_params["DTSTART"] = ev_replicator::CONV_DATETIME.ruby.call(start_entry) ||
+      ev_replicator::CONV_DATE.ruby.call(start_entry)
+    has_end_time = false
+    if (end_entry = h["DTEND"])
+      # the end date is optional. If we don't have one, we should never store one.
+      has_end_time = true
+      ical_params["DTEND"] = ev_replicator::CONV_DATETIME.ruby.call(end_entry) ||
+        ev_replicator::CONV_DATE.ruby.call(end_entry)
+    end
+
+    schedule = IceCube::Schedule.from_ical(self._unexplode_ical(ical_params))
+    formatter = ical_params["DTSTART"].is_a?(Date) ? :_format_date : :_format_datetime
+    # Don't project events further out than this
+    closing_time = Time.now + RECURRENCE_PROJECTION
+    uid = h.fetch("UID").fetch("v")
+    # Just like google, track the original event id.
+    h["recurring_event_id"] = uid
+    final_sequence = -1
+    schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
+      # Given the original hash, we will modify some fields.
+      e = h.dup
+      # Keep track of how many events we're managing.
+      e["recurring_event_sequence"] = idx
+      # The new UID has the sequence number.
+      e["UID"] = {"v" => "#{uid}-#{idx}"}
+      e["DTSTART"] = {"v" => self.send(formatter, occ.start_time)}
+      e["DTEND"] = {"v" => self.send(formatter, occ.end_time)} if has_end_time
+      yield e
+      final_sequence = idx
+      break if occ.start_time > closing_time
+    end
+    # If we're now projecting fewer rows, we need to clean up the ones we no longer update.
+    recur_result[:delete_cond] = Sequel[recurring_event_id: uid] & (Sequel[:recurring_event_sequence] > final_sequence)
+    return recur_result
+  end
+
+  def _format_datetime(t)
+    return t.utc.strftime("%Y%m%dT%H%M%SZ")
+  end
+
+  def _format_date(d)
+    return d.strftime("%Y%m%d")
+  end
+
+  # This is not entirely safe (double quotes, multiple lines), but it's fine for date use.
+  def _unexplode_ical(ical_hash)
+    lines = []
+    ical_hash.each do |k, h|
+      s = +k.to_s
+      if h.is_a?(Time)
+        s << ":#{self._format_datetime(h)}"
+      elsif h.is_a?(Date)
+        s << ":#{self._format_date(h)}"
+      else
+        h = h.dup
+        value = h.delete("v")
+        h.each do |hk, hv|
+          s << ";#{hk}=#{hv}"
+        end
+        s << ":#{value}"
+      end
+      lines << s
+    end
+    return lines.join("\r\n")
   end
 
   def self.each_event(io)

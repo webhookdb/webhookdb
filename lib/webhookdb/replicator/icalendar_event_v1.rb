@@ -104,6 +104,8 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       col.new(:geo_lat, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LAT),
       col.new(:geo_lng, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LNG),
       col.new(:classification, TEXT, data_key: ["CLASS", "v"], optional: true),
+      col.new(:recurring_event_id, TEXT, optional: true, index: true),
+      col.new(:recurring_event_sequence, INTEGER, optional: true),
     ]
   end
 
@@ -114,6 +116,8 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   def _resource_to_data(r, *)
     data = r.dup
     data.delete("calendar_external_id")
+    data.delete("recurring_event_id")
+    data.delete("recurring_event_sequence")
     return data
   end
 
