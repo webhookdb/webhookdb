@@ -250,7 +250,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         SEQUENCE:0
         STATUS:CONFIRMED
         TRANSP:TRANSPARENT
-        RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=2;BYMONTHDAY=12
         DTSTART:20080212
         DTEND:20080213
         DTSTAMP:20150421T141403
@@ -376,6 +375,184 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           uid: "c7614cff-3549-4a00-9152-d25cc1fe077d",
         ),
       )
+    end
+
+    describe "recurrence" do
+      def sync(body)
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(row)
+        end
+        expect(req).to have_been_made
+        events = event_svc.admin_dataset(&:all)
+        return events
+      end
+
+      it "projects all past events, and recurring events up to RECURRENCE_PROJECTION forward" do
+        stub_const("Webhookdb::Replicator::IcalendarCalendarV1::RECURRENCE_PROJECTION", 2.years)
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          DTEND:20180101T010000Z
+          RRULE:FREQ=YEARLY;UNTIL=30700101T000000Z
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z"), end_at: Time.parse("2018-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 0),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z"), end_at: Time.parse("2019-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 1),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z"), end_at: Time.parse("2020-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 2),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-3", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-3", start_at: Time.parse("2021-01-01 00:00:00Z"), end_at: Time.parse("2021-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 3),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-4", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-4", start_at: Time.parse("2022-01-01 00:00:00Z"), end_at: Time.parse("2022-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 4),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-5", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-5", start_at: Time.parse("2023-01-01 00:00:00Z"), end_at: Time.parse("2023-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 5),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-6", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-6", start_at: Time.parse("2024-01-01 00:00:00Z"), end_at: Time.parse("2024-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 6),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-7", calendar_external_id: "abc", uid: "c7614cff-3549-4a00-9152-d25cc1fe077d-7", start_at: Time.parse("2025-01-01 00:00:00Z"), end_at: Time.parse("2025-01-01 01:00:00Z"), recurring_event_id: "c7614cff-3549-4a00-9152-d25cc1fe077d", recurring_event_sequence: 7),
+        )
+      end
+
+      it "stops projecting at the UNTIL" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          DTEND:20180101T010000Z
+          RRULE:FREQ=YEARLY;UNTIL=20200101T000000Z
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z"), end_at: Time.parse("2018-01-01 01:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z"), end_at: Time.parse("2019-01-01 01:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z"), end_at: Time.parse("2020-01-01 01:00:00Z")),
+        )
+      end
+
+      it "can project dates" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART;VALUE=DATE:20180101
+          DTEND;VALUE=DATE:20180102
+          RRULE:FREQ=YEARLY;UNTIL=20191201T000000Z
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(start_date: Date.new(2018, 1, 1), end_date: Date.new(2018, 1, 2)),
+          hash_including(start_date: Date.new(2019, 1, 1), end_date: Date.new(2019, 1, 2)),
+        )
+      end
+
+      it "handles events with no end time" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          RRULE:FREQ=YEARLY;UNTIL=20200101T000000Z
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z"), end_at: nil),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z"), end_at: nil),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z"), end_at: nil),
+        )
+      end
+
+      it "deletes future, unmodified recurring events" do
+        body1 = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          RRULE:FREQ=YEARLY;UNTIL=20230101T000000Z
+          END:VEVENT
+        ICAL
+        body2 = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          RRULE:FREQ=YEARLY;UNTIL=20210101T000000Z
+          END:VEVENT
+        ICAL
+
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+          )
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(cal_row)
+        end
+        events1 = event_svc.admin_dataset(&:all)
+        expect(events1).to contain_exactly(
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-3", start_at: Time.parse("2021-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-4", start_at: Time.parse("2022-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-5", start_at: Time.parse("2023-01-01 00:00:00Z")),
+        )
+
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(cal_row)
+        end
+        events2 = event_svc.admin_dataset(&:all)
+        expect(events2).to contain_exactly(
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-3", start_at: Time.parse("2021-01-01 00:00:00Z")),
+        )
+
+        expect(req).to have_been_made.times(2)
+      end
+
+      it "deletes everything if the event does not recur" do
+        body1 = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          RRULE:FREQ=YEARLY;UNTIL=20230101T000000Z
+          END:VEVENT
+        ICAL
+        body2 = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          RRULE:FREQ=YEARLY;UNTIL=20100101T000000Z
+          END:VEVENT
+        ICAL
+
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+          )
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(cal_row)
+        end
+        events1 = event_svc.admin_dataset(&:all)
+        expect(events1).to have_length(6)
+
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(cal_row)
+        end
+        events2 = event_svc.admin_dataset(&:all)
+        expect(events2).to be_empty
+
+        expect(req).to have_been_made.times(2)
+      end
     end
   end
 
