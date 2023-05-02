@@ -68,24 +68,34 @@ class Webhookdb::Backfiller
     def remote_key_column_name = @remote_key_column_name ||= self.upserting_replicator._remote_key_column.name
 
     def pending_inserts = @pending_inserts ||= {}
+    # Should `_update_where_expr` be used or not?
+    # Default false, since most bulk upserting is backfill,
+    # which should only involve upserting new rows anyway.
+    def conditional_upsert? = false
 
+    # Add the item to pending upserts, and run the page upsert if needed.
+    # Return the key, and the item being upserted.
+    # @return [Array(String, Hash)]
     def handle_item(body)
       self.prepare_body(body)
       inserting = self.upserting_replicator.upsert_webhook_body(body, upsert: false)
       k = inserting.fetch(self.remote_key_column_name)
       self.pending_inserts[k] = inserting
-      self.flush_pending_inserts if self.pending_inserts.size > self.upsert_page_size
+      self.flush_pending_inserts if self.pending_inserts.size >= self.upsert_page_size
+      return k, inserting
     end
 
     def flush_pending_inserts
       return if self.pending_inserts.empty?
       rows_to_insert = self.pending_inserts.values
+      update_where = self.conditional_upsert? ? self.upserting_replicator._update_where_expr : nil
       self.upserting_replicator.admin_dataset(timeout: :fast) do |ds|
-        ds.
-          insert_conflict(
-            target: self.upserting_replicator._remote_key_column.name,
-            update: self.upserting_replicator._upsert_update_expr(rows_to_insert.first),
-          ).multi_insert(rows_to_insert)
+        insert_ds = ds.insert_conflict(
+          target: self.upserting_replicator._remote_key_column.name,
+          update: self.upserting_replicator._upsert_update_expr(rows_to_insert.first),
+          update_where:,
+        )
+        insert_ds.multi_insert(rows_to_insert)
       end
       self.pending_inserts.clear
     end
