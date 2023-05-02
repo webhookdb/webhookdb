@@ -48,6 +48,8 @@ GEM
       addressable
     diff-lcs (1.5.0)
     dotenv (2.8.1)
+    down (5.4.0)
+      addressable (~> 2.8)
     dry-core (1.0.0)
       concurrent-ruby (~> 1.0)
       zeitwerk (~> 2.6)
@@ -108,6 +110,7 @@ GEM
       multi_xml (>= 0.5.2)
     i18n (1.10.0)
       concurrent-ruby (~> 1.0)
+    ice_cube (0.16.4)
     inflecto (0.0.2)
     jmespath (1.6.2)
     json (2.6.3)
@@ -305,6 +308,7 @@ DEPENDENCIES
   concurrent-ruby
   connection_pool
   dotenv
+  down
   faker
   fluent_fixtures
   foreman
@@ -313,6 +317,7 @@ DEPENDENCIES
   grape-swagger
   grape_logging
   httparty
+  ice_cube
   liquid
   mimemagic
   monetize
