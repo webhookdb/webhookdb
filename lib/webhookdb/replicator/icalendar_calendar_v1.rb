@@ -158,13 +158,36 @@ The secret to use for signing is:
     if (dep = self.find_dependent("icalendar_event_v1"))
       upserter = Upserter.new(dep.replicator, row)
       io = Down::NetHttp.open(row.fetch(:ics_url), rewindable: false)
-      self.class.each_event(io) do |h|
-        recur_result = self._expand_recurrence(h) { |e| upserter.handle_item(e) }
-        if recur_result[:delete_cond].present?
-          dep.replicator.admin_dataset { |ds| ds.where(recur_result[:delete_cond]).delete }
+      # Keep track of everything we upsert. For any rows we aren't upserting,
+      # delete them if they're recurring, or cancel them if they're not recurring.
+      # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
+      upserted_identities = []
+
+      # Delete recurring event rows that we know are not going to be updated.
+      # Whenever we project a recurring event, we keep track of how many entries
+      # will be projected. We delete any entries beyond this.
+      delete_conds = []
+
+      self.class.each_event(io) do |ical_ev_hash|
+        # Add each event hash to pending upserts, and keep track of it for cancelation.
+        recur_result = self._expand_recurrence(ical_ev_hash) do |e|
+          ident, _h = upserter.handle_item(e)
+          upserted_identities << ident
+        end
+        if (delete_cond = recur_result[:delete_cond])
+          delete_conds << delete_cond
         end
       end
       upserter.flush_pending_inserts
+      # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
+      dep.replicator.admin_dataset do |ds|
+        ds.where(delete_conds.inject(&:|)).delete unless delete_conds.empty?
+        # Update both the status, and set the data json to match.
+        ds.exclude(compound_identity: upserted_identities).update(
+          status: "CANCELLED",
+          data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),
+        )
+      end
     end
     self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
   end

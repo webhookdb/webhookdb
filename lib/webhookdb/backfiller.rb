@@ -73,12 +73,16 @@ class Webhookdb::Backfiller
     # which should only involve upserting new rows anyway.
     def conditional_upsert? = false
 
+    # Add the item to pending upserts, and run the page upsert if needed.
+    # Return the key, and the item being upserted.
+    # @return [Array(String, Hash)]
     def handle_item(body)
       self.prepare_body(body)
       inserting = self.upserting_replicator.upsert_webhook_body(body, upsert: false)
       k = inserting.fetch(self.remote_key_column_name)
       self.pending_inserts[k] = inserting
       self.flush_pending_inserts if self.pending_inserts.size >= self.upsert_page_size
+      return k, inserting
     end
 
     def flush_pending_inserts

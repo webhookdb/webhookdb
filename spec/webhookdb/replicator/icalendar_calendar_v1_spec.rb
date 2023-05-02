@@ -377,6 +377,71 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "cancels events added previously no longer present in the calendar" do
+      body1 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep_existing
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:go_away
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:recurring1
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        RRULE:FREQ=YEARLY;UNTIL=20110101T000000Z
+        END:VEVENT
+      ICAL
+      body2 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep_existing
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:recurring2
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        RRULE:FREQ=YEARLY;UNTIL=20110101T000000Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+        )
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep_existing"),
+        hash_including(compound_identity: "abc-go_away"),
+        hash_including(compound_identity: "abc-recurring1-0"),
+        hash_including(compound_identity: "abc-recurring1-1"),
+        hash_including(compound_identity: "abc-recurring1-2"),
+      )
+      svc.sync_row(row)
+      expect(req).to have_been_made.times(2)
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep_existing", status: nil),
+        hash_including(compound_identity: "abc-go_away", status: "CANCELLED", data: hash_including("UID", "STATUS" => {"v" => "CANCELLED"})),
+        hash_including(compound_identity: "abc-recurring1-0", status: "CANCELLED", data: hash_including("UID", "STATUS" => {"v" => "CANCELLED"})),
+        hash_including(compound_identity: "abc-recurring1-1", status: "CANCELLED", data: hash_including("UID", "STATUS" => {"v" => "CANCELLED"})),
+        hash_including(compound_identity: "abc-recurring1-2", status: "CANCELLED", data: hash_including("UID", "STATUS" => {"v" => "CANCELLED"})),
+        hash_including(compound_identity: "abc-recurring2-0", status: nil),
+        hash_including(compound_identity: "abc-recurring2-1", status: nil),
+        hash_including(compound_identity: "abc-recurring2-2", status: nil),
+      )
+    end
+
     describe "recurrence" do
       def sync(body)
         req = stub_request(:get, "https://feed.me").
