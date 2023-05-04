@@ -75,5 +75,39 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
       status 200
       present({}, with: Webhookdb::API::BaseEntity, message: "You have logged out.")
     end
+
+    params do
+      requires :form_name, type: String
+      optional :email, type: String
+      optional :name, type: String
+      optional :message, type: String
+    end
+    post :contact do
+      fields = []
+      fields << {title: "Form", value: params[:form_name], short: true}
+      fields << {title: "IP", value: request.ip, short: true}
+      fields << {title: "User Agent", value: request.user_agent || "", short: false}
+      if (email = params[:email])
+        fields << {title: "Email", value: email, short: true}
+      end
+      if (name = params[:name])
+        fields << {title: "Name", value: name, short: true}
+      end
+      if (msg = params[:message])
+        fields << {title: "Message", value: msg, short: false}
+      end
+
+      Webhookdb::DeveloperAlert.new(
+        subsystem: "New Contact",
+        emoji: ":mailbox_with_mail:",
+        fallback: fields.
+          map { |f| "#{f[:title]}: #{f[:value]}" }.
+          join(", "),
+        fields:,
+      ).emit
+
+      status 200
+      present({message: "ok"})
+    end
   end
 end

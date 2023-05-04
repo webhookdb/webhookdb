@@ -181,4 +181,53 @@ RSpec.describe Webhookdb::API::Auth, :db do
       expect(last_response["Set-Cookie"]).to include("=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00")
     end
   end
+
+  describe "POST /v1/auth/contact" do
+    it "emits a developer alert for a minimal request", :async do
+      expect do
+        post "/v1/auth/contact", form_name: "x"
+
+        expect(last_response).to have_status(200)
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "New Contact",
+            "emoji" => ":mailbox_with_mail:",
+            "fallback" => "Form: x, IP: 127.0.0.1, User Agent: ",
+            "fields" => [
+              {"title" => "Form", "value" => "x", "short" => true},
+              {"title" => "IP", "value" => "127.0.0.1", "short" => true},
+              {"title" => "User Agent", "value" => "", "short" => false},
+            ],
+          },
+        ),
+      )
+    end
+
+    it "emits a developer alert for a maximal request", :async do
+      header "User-Agent", "mybrowser"
+
+      expect do
+        post "/v1/auth/contact", form_name: "x", email: "a@b.c", name: "nm", message: "msg"
+
+        expect(last_response).to have_status(200)
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "New Contact",
+            "emoji" => ":mailbox_with_mail:",
+            "fallback" => "Form: x, IP: 127.0.0.1, User Agent: mybrowser, Email: a@b.c, Name: nm, Message: msg",
+            "fields" => [
+              {"title" => "Form", "value" => "x", "short" => true},
+              {"title" => "IP", "value" => "127.0.0.1", "short" => true},
+              {"title" => "User Agent", "value" => "mybrowser", "short" => false},
+              {"title" => "Email", "value" => "a@b.c", "short" => true},
+              {"title" => "Name", "value" => "nm", "short" => true},
+              {"title" => "Message", "value" => "msg", "short" => false},
+            ],
+          },
+        ),
+      )
+    end
+  end
 end
