@@ -14,7 +14,17 @@ class Webhookdb::Jobs::SyncTargetRunSync
   end
 
   def perform(sync_target_id)
-    (stgt = Webhookdb::SyncTarget[sync_target_id]) or raise "no sync target with id #{sync_target_id}"
+    stgt = Webhookdb::SyncTarget[sync_target_id]
+    if stgt.nil?
+      if Webhookdb::RACK_ENV == "staging"
+        # We can end up with this race on staging, since we delete sync targets.
+        # It's possible in other environments, and maybe skip it in all cases,
+        # but for now it's just for staging.
+        self.logger.warn("missing_sync_target", sync_target_id:)
+        return
+      end
+      raise "no sync target with id #{sync_target_id}"
+    end
     self.with_log_tags(
       sync_target_id: stgt.id,
       sync_target_connection_url: stgt.displaysafe_connection_url,

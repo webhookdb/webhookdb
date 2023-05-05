@@ -619,6 +619,16 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       end
       expect(stgt.refresh).to have_attributes(last_synced_at: match_time(orig_sync))
     end
+
+    it "noops if the env is staging and sync target does not exist" do
+      expect do
+        Webhookdb::Jobs::SyncTargetRunSync.new.perform(0)
+      end.to raise_error(/no sync target/)
+      stub_const("Webhookdb::RACK_ENV", "staging")
+      expect do
+        Webhookdb::Jobs::SyncTargetRunSync.new.perform(0)
+      end.to_not raise_error
+    end
   end
 
   describe "Webhook Subscription jobs" do
