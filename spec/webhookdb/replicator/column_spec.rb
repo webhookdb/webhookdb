@@ -460,6 +460,18 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "converter_gsub" do
+      it "converts with gsub" do
+        conv = described_class.converter_gsub(/^xyz/, "abc")
+        expect(conv.ruby.call("xyz://123")).to eq("abc://123")
+        expect(conv.ruby.call("xyz://xyz")).to eq("abc://xyz")
+        expect(conv.ruby.call("abc://xyz")).to eq("abc://xyz")
+        conv = described_class.converter_gsub("xyz", "abc")
+        expect(conv.ruby.call("xyz://xyz")).to eq("abc://abc")
+        expect(conv.ruby.call(nil)).to be_nil
+      end
+    end
+
     describe "CONV_COMMA_SEP" do
       it "converts the value" do
         conv = described_class::CONV_COMMA_SEP

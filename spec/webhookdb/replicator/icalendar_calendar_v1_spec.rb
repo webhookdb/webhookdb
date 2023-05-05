@@ -127,6 +127,22 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "replaces webcal protocol with https" do
+        expect(Webhookdb::Jobs::IcalendarSync).to receive(:perform_async).
+          with(sint.id, "456")
+        body = {"ics_url" => "webcal://abc.url", "external_id" => "456", "type" => "SYNC"}
+        svc.upsert_webhook_body(body)
+
+        svc.readonly_dataset do |ds|
+          expect(ds.all).to contain_exactly(
+            include(
+              ics_url: "https://abc.url",
+              external_id: "456",
+            ),
+          )
+        end
+      end
+
       it "responds to `DELETE` request by deleting all relevant calendar data" do
         event_svc.create_table
 
