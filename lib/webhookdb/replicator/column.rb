@@ -91,6 +91,15 @@ class Webhookdb::Replicator::Column
     )
   end
 
+  def self.converter_gsub(pattern, replacement)
+    return Webhookdb::Replicator::Column::IsomorphicProc.new(
+      ruby: lambda do |value, **|
+        value&.gsub(pattern, replacement)
+      end,
+      sql: ->(*) { raise NotImplementedError },
+    )
+  end
+
   KNOWN_CONVERTERS = {
     date: CONV_PARSE_DATE,
     time: CONV_PARSE_TIME,
