@@ -39,19 +39,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       elsif value.length == 8
         nil
       elsif (tzid = entry["TZID"])
-        # While there's no formal naming scheme, we only really see normal forms like 'America/Los_Angeles'
-        # or with different chars (like in the docs), 'US-Eastern'.
-        # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
-        # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
-        # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
-        unless (zone = Time.find_zone(tzid.tr("-", "/")))
-          Sentry.with_scope do |scope|
-            scope.set_extras(**entry)
-            Sentry.capture_message("Unhandled iCalendar timezone")
-          end
-          zone = Time.find_zone!("UTC")
-        end
-        zone.parse(value)
+        self._parse_time_with_tzid(value, tzid)
       end
     end,
     sql: ->(_) { raise NotImplementedError },
@@ -202,6 +190,31 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       end
     end
     return parts[:name], parts[:value], params
+  end
+
+  # Given a tzid and value for a timestamp, return a Time (with a timezone).
+  # While there's no formal naming scheme, we see the following forms:
+  # - valid names like America/Los_Angeles, US/Eastern
+  # - dashes, like America-Los_Angeles, US-Eastern
+  # - Offsets, like GMT-0700'
+  #
+  # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
+  # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
+  # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
+  def self._parse_time_with_tzid(value, tzid)
+    if (zone = Time.find_zone(tzid.tr("-", "/")))
+      return zone.parse(value)
+    end
+    if /^(GMT|UTC)[+-]\d\d\d\d$/.match?(tzid)
+      offset = tzid[3..]
+      return Time.parse(value + offset)
+    end
+    Sentry.with_scope do |scope|
+      scope.set_extras(**entry)
+      Sentry.capture_message("Unhandled iCalendar timezone")
+    end
+    zone = Time.find_zone!("UTC")
+    return zone.parse(value)
   end
 
   def on_dependency_webhook_upsert(_ical_svc, _ical_row, **)

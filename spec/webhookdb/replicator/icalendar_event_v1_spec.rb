@@ -89,6 +89,22 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       )
     end
 
+    it "can handle weird TZ ids" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART;TZID=GMT-0400:20200520T170000
+        DTEND;TZID=UTC+0500:20190820T190000
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: match_time("2020-05-20T17:00:00-0400"),
+        end_at: match_time("2019-08-20T19:00:00+0500"),
+        start_date: nil,
+        end_date: nil,
+      )
+    end
+
     it "parses other fields" do
       s = <<~ICAL
         BEGIN:VEVENT
