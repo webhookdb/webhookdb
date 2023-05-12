@@ -270,27 +270,49 @@ RSpec.describe "fake implementations", :db do
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
       end
 
-      it "can build and execute SQL for columns that exist in code but not in the DB" do
+      it "can build and execute SQL for columns and indices that exist in code but not in the DB" do
         fake.service_integration.opaque_id = "svi_xyz"
+        table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
+        fake.define_singleton_method(:_compound_index_targets) do
+          [[:my_id, :at]]
+        end
+
+        expect(fake.ensure_all_columns_modification.to_s.strip).to eq(<<~SQL.strip)
+          CREATE TABLE #{table_str} (
+            pk bigserial PRIMARY KEY,
+            my_id text UNIQUE NOT NULL,
+            at timestamptz,
+            data jsonb NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
+          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_at_idx ON #{table_str} (my_id, at);
+        SQL
+
         fake.create_table
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
+        orig_cols = fake._denormalized_columns
         fake.define_singleton_method(:_denormalized_columns) do
-          [
+          orig_cols + [
             Webhookdb::Replicator::Column.new(:c2, Webhookdb::DBAdapter::ColumnTypes::TIMESTAMP, index: true),
             Webhookdb::Replicator::Column.new(:c3, Webhookdb::DBAdapter::ColumnTypes::DATE),
             Webhookdb::Replicator::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
           ]
         end
-        table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
-        expect(fake.ensure_all_columns_modification.to_s).to include(
-          %(ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
-ALTER TABLE #{table_str} ADD COLUMN c3 date;
-ALTER TABLE #{table_str} ADD COLUMN "from" text;),
-        )
-        expect(fake.ensure_all_columns_modification.to_s).to include(
-          %{CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_idx ON #{table_str} (c2);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from");},
-        )
+        fake.define_singleton_method(:_compound_index_targets) do
+          [[:c2, :at]]
+        end
+
+        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
+          ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
+          ALTER TABLE #{table_str} ADD COLUMN c3 date;
+          ALTER TABLE #{table_str} ADD COLUMN "from" text;
+          UPDATE
+        SQL
+        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_idx ON #{table_str} (c2);
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from");
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_at_idx ON #{table_str} (c2, at);
+        SQL
         fake.ensure_all_columns
         fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
       end
