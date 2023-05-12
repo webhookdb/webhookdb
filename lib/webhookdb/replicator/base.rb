@@ -265,8 +265,8 @@ class Webhookdb::Replicator::Base
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Replicator::SchemaModification.new
     result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
-    columns.select(&:index?).each do |col|
-      dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(col).to_sym, table:, targets: [col])
+    self.index_targets.each do |targets|
+      dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(targets).to_sym, table:, targets:)
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
@@ -275,12 +275,13 @@ class Webhookdb::Replicator::Base
 
   # We need to give indices a persistent name, unique across the schema,
   # since multiple indices within a schema cannot share a name.
-  # @param [Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column] column
+  # @param [Array<Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column>] columns
   #   Must have a :name
   # @return [String]
-  protected def index_name(column)
+  protected def index_name(columns)
     raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
-    return "#{self.service_integration.opaque_id}_#{column.name}_idx"
+    n = columns.map(&:name).join("_")
+    return "#{self.service_integration.opaque_id}_#{n}_idx"
   end
 
   # @return [Webhookdb::DBAdapter::Column]
@@ -308,6 +309,13 @@ class Webhookdb::Replicator::Base
   # @return [Array<Webhookdb::DBAdapter::Column>]
   def denormalized_columns
     return self._denormalized_columns.map(&:to_dbadapter)
+  end
+
+  # Names of columns for multi-column indices.
+  # Each one must be in +denormalized_columns+.
+  # @return [Array<Array<Symbol>>]
+  def _compound_index_targets
+    return []
   end
 
   # Denormalized columns, plus the enrichment column if supported.
@@ -356,6 +364,23 @@ class Webhookdb::Replicator::Base
   # @return [Array<Webhookdb::Replicator::Column]
   def _denormalized_columns
     return []
+  end
+
+  # Return the columns that need to be indexed for a given set of columns,
+  # plus +_compound_index_targets+.
+  # @param columns [Array<Webhookdb::Replicator::Column>]
+  # @return [Array<Array<Webhookdb::Replicator::Column>>]
+  protected def index_targets
+    columns = [self.primary_key_column, self.remote_key_column]
+    columns.concat(self.storable_columns)
+    cols_by_name = columns.index_by(&:name)
+    index_targets = columns.
+      select(&:index?).
+      map { |c| [c] }
+    self._compound_index_targets.each do |names|
+      index_targets << names.map { |n| cols_by_name.fetch(n) }
+    end
+    return index_targets
   end
 
   # We support adding columns to existing integrations without having to bump the version;
@@ -409,10 +434,10 @@ class Webhookdb::Replicator::Base
     end
 
     # Add missing indices
-    self._denormalized_columns.select(&:index?).map do |col|
-      idx_name = self.index_name(col)
+    self.index_targets.map do |targets|
+      idx_name = self.index_name(targets)
       next if existing_indices.include?(idx_name)
-      index = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets: [col])
+      index = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:)
       result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
     end
 
