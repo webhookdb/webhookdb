@@ -194,11 +194,16 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
             ensure_admin!
             verify_unique_integration(org)
+            step = nil
             customer.db.transaction do
-              state_machine = create_integration(org, params[:service_name])
-              status 200
-              present state_machine, with: Webhookdb::API::StateMachineEntity
+              step = create_integration(org, params[:service_name])
+              # No reason to create the integration when this happens.
+              # We may want to expand the situations we roll back,
+              # but we start by being targeted.
+              raise Sequel::Rollback if step.error_code == "no_candidate_dependency"
             end
+            status 200
+            present step, with: Webhookdb::API::StateMachineEntity
           end
         end
 
