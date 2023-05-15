@@ -139,13 +139,24 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
 
-      available_services = org.available_replicator_names.join("\n\t")
       expect(last_response).to have_status(200)
+      available_services = org.available_replicator_names.join("\n\t")
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
         output: match("currently supported by WebhookDB:\n\n\t#{available_services}"),
         complete: true,
       )
+    end
+
+    it "does not create an integration if dependencies are not met" do
+      membership.update(membership_role: admin_role)
+      org.add_feature_role(internal_role)
+
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_dependent_v1"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(error_code: "no_candidate_dependency")
+      expect(org.refresh.service_integrations).to be_empty
     end
 
     describe "when there is already an integration for the same service" do
