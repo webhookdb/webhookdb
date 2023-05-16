@@ -58,6 +58,12 @@ class Webhookdb::Organization::DbBuilder
     setting :cloudflare_dns_zone_id, "testdnszoneid"
     # See README for more details.
     setting :isolation_mode, "database+user"
+    # How many connections can each readonly user make?
+    setting :readonly_connection_limit, 50
+    # How long can the readonly user query before a timeout?
+    # Keep this low to avoid query pressure the database,
+    # especially when dealing with many tenants.
+    setting :readonly_connection_timeout, "15s"
 
     after_configured do
       unless VALID_ISOLATION_MODES.include?(self.isolation_mode)
@@ -69,8 +75,6 @@ class Webhookdb::Organization::DbBuilder
       self.available_server_urls.concat(self.server_env_vars.map { |e| ENV.fetch(e, nil) })
     end
   end
-
-  READONLY_CONN_LIMIT = 50
 
   def self.isolate?(type)
     return self.isolation_mode.include?(type)
@@ -124,7 +128,8 @@ class Webhookdb::Organization::DbBuilder
       conn << <<~SQL
         CREATE ROLE #{admin_user} PASSWORD '#{admin_pwd}' NOSUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
-        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{READONLY_CONN_LIMIT};
+        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{self.class.readonly_connection_limit};
+        ALTER ROLE #{ro_user} SET statement_timeout = '#{self.class.readonly_connection_timeout}';
         GRANT #{admin_user} TO CURRENT_USER;
       SQL
       # Cannot be in the same statement as above since that's one transaction.
@@ -190,7 +195,8 @@ class Webhookdb::Organization::DbBuilder
       conn << <<~SQL
         -- Create readonly role and make sure it cannot access public stuff
         CREATE ROLE #{ro_user} PASSWORD '#{ro_pwd}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN;
-        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{READONLY_CONN_LIMIT};
+        ALTER USER #{ro_user} WITH CONNECTION LIMIT #{self.class.readonly_connection_limit};
+        ALTER ROLE #{ro_user} SET statement_timeout = '#{self.class.readonly_connection_timeout}';
         REVOKE ALL ON SCHEMA public FROM #{ro_user};
         REVOKE CREATE ON SCHEMA public FROM #{ro_user};
         REVOKE ALL ON ALL TABLES IN SCHEMA public FROM #{ro_user};

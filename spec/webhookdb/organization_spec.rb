@@ -188,6 +188,29 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
       o.migrate_replication_tables
       expect { o.migrate_replication_tables }.to_not raise_error
     end
+
+    it "creates newly added indices" do
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: fake.service_integration.table_name).select_map(:indexname)
+        expect(indexes).to have_length(3)
+        expect(indexes).to include(end_with("_pkey"))
+        expect(indexes).to include(end_with("_my_id_key"))
+        expect(indexes).to include(end_with("_at_idx"))
+      end
+      expect(o.service_integrations.first).to receive(:replicator).and_return(fake)
+      fake.define_singleton_method(:_compound_index_targets) { [[:at, :my_id]] }
+
+      o.migrate_replication_tables
+
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: fake.service_integration.table_name).select_map(:indexname)
+        expect(indexes).to have_length(4)
+        expect(indexes).to include(end_with("_pkey"))
+        expect(indexes).to include(end_with("_my_id_key"))
+        expect(indexes).to include(end_with("_at_idx"))
+        expect(indexes).to include(end_with("_my_id_idx"))
+      end
+    end
   end
 
   describe "register_in_stripe" do

@@ -265,8 +265,7 @@ class Webhookdb::Replicator::Base
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Replicator::SchemaModification.new
     result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
-    self.index_targets.each do |targets|
-      dbindex = Webhookdb::DBAdapter::Index.new(name: self.index_name(targets).to_sym, table:, targets:)
+    self.indices(table).each do |dbindex|
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
@@ -368,8 +367,7 @@ class Webhookdb::Replicator::Base
 
   # Return the columns that need to be indexed for a given set of columns,
   # plus +_compound_index_targets+.
-  # @param columns [Array<Webhookdb::Replicator::Column>]
-  # @return [Array<Array<Webhookdb::Replicator::Column>>]
+  # @return [Array<Array<Webhookdb::DBAdapter::Column>>]
   protected def index_targets
     columns = [self.primary_key_column, self.remote_key_column]
     columns.concat(self.storable_columns)
@@ -381,6 +379,15 @@ class Webhookdb::Replicator::Base
       index_targets << names.map { |n| cols_by_name.fetch(n) }
     end
     return index_targets
+  end
+
+  # @return [Array<Webhookdb::DBAdapter::Index>]
+  def indices(table)
+    result = self.index_targets.map do |targets|
+      idx_name = self.index_name(targets)
+      Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:)
+    end
+    return result
   end
 
   # We support adding columns to existing integrations without having to bump the version;
@@ -434,10 +441,8 @@ class Webhookdb::Replicator::Base
     end
 
     # Add missing indices
-    self.index_targets.map do |targets|
-      idx_name = self.index_name(targets)
-      next if existing_indices.include?(idx_name)
-      index = Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:)
+    self.indices(table).map do |index|
+      next if existing_indices.include?(index.name.to_s)
       result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
     end
 

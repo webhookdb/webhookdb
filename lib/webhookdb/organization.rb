@@ -254,12 +254,14 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   # Ensure all columns for those integrations/tables.
   def migrate_replication_tables
     tables = self.service_integrations.map(&:table_name)
-    sequences = self.db[Sequel[:information_schema][:sequences]].
+    sequences_in_app_db = self.db[Sequel[:information_schema][:sequences]].
       grep(:sequence_name, "replicator_seq_org_#{self.id}_%").
       select_map(:sequence_name).
       to_set
-    cols_in_db = self.admin_connection do |db|
-      db[Sequel[:information_schema][:columns]].
+    cols_in_org_db = {}
+    indices_in_org_db = Set.new
+    self.admin_connection do |db|
+      cols_in_org_db = db[Sequel[:information_schema][:columns]].
         where(table_schema: self.replication_schema, table_name: tables).
         select(
           :table_name,
@@ -268,15 +270,26 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         group_by(:table_name).
         all.
         to_h { |c| [c[:table_name], c[:columns]] }
+      indices_in_org_db = db[Sequel[:pg_indexes]].
+        where(schemaname: self.replication_schema, tablename: tables).
+        select_map(:indexname).
+        to_set
     end
 
     self.service_integrations.each do |sint|
       svc = sint.replicator
-      existing_columns = cols_in_db.fetch(sint.table_name) { [] }
-      all_col_names = svc.storable_columns.map(&:name).map(&:to_s)
-      all_cols_exist_in_db = (all_col_names - existing_columns).empty?
-      svc.ensure_all_columns unless all_cols_exist_in_db
-      sint.ensure_sequence(skip_check: true) if svc.requires_sequence? && !sequences.include?(sint.sequence_name)
+      existing_columns = cols_in_org_db.fetch(sint.table_name) { [] }
+      cols_for_sint = svc.storable_columns.map(&:name).map(&:to_s)
+      all_sint_cols_exist = (cols_for_sint - existing_columns).empty?
+
+      all_indices_exist = svc.indices(svc.dbadapter_table).all? do |ind|
+        indices_in_org_db.include?(ind.name.to_s)
+      end
+
+      svc.ensure_all_columns unless all_sint_cols_exist && all_indices_exist
+      if svc.requires_sequence? && !sequences_in_app_db.include?(sint.sequence_name)
+        sint.ensure_sequence(skip_check: true)
+      end
     end
   end
 
