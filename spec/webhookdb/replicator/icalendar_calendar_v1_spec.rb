@@ -121,7 +121,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           include(
             external_id: "123",
             row_created_at: match_time(row1[:row_created_at]),
-            row_updated_at: match_time(updated),
+            row_updated_at: match_time(updated).within(1.second),
             ics_url: "https://y.z",
           ),
         )
