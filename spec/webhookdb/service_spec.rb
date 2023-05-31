@@ -29,6 +29,10 @@ class Webhookdb::API::TestService < Webhookdb::Service
     end
   end
 
+  post :merror_pass do
+    merror!(*params[:args], **params[:kwargs].symbolize_keys)
+  end
+
   params do
     requires :arg1
     requires :arg2
@@ -243,6 +247,16 @@ RSpec.describe Webhookdb::Service, :db do
 
     expect(last_response).to have_status(403)
     expect(c.refresh).to have_attributes(email: "x@y.zx")
+  end
+
+  it "can alert in Sentry", :sentry do
+    expect(Sentry).to receive(:capture_message).with("bye")
+
+    post "/merror_pass", args: [400, "hi"], kwargs: {code: "foo"}
+    expect(last_response).to have_status(400)
+
+    post "/merror_pass", args: [402, "bye"], kwargs: {alert: true}
+    expect(last_response).to have_status(402)
   end
 
   it "uses a consistent error shape for validation errors" do
@@ -717,7 +731,7 @@ RSpec.describe Webhookdb::Service, :db do
         error: {
           message: "Sorry, this action is unavailable.",
           status: 403,
-          code: "role_check",
+          code: "permission_check",
         },
       )
     end

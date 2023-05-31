@@ -54,8 +54,8 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         get do
           _customer = current_customer
           org = lookup_org!
-          fake_entities = org.available_replicator_names.map { |name| {name:} }
-          message = "Run `webhookdb integrations create <service name>` to start mirroring webhooks to your database."
+          fake_entities = org.available_replicator_names.sort.map { |name| {name:} }
+          message = "Run `webhookdb integrations create [service name]` to start replicating data to your database."
           present_collection fake_entities, with: Webhookdb::API::ServiceEntity, message:
         end
       end
@@ -192,8 +192,18 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       desc "Request closure of an organization"
       post :close do
         org = lookup_org!
-        ensure_admin!
-        Sentry.capture_message("Org #{org.key} requested removal")
+        c = current_customer
+        ensure_admin!(org, customer: c)
+        Webhookdb::DeveloperAlert.new(
+          subsystem: "Close Account",
+          emoji: ":no_pedestrians:",
+          fallback: "Org #{org.key} requested removal",
+          fields: [
+            {title: "Org Key", value: org.key, short: true},
+            {title: "Org Name", value: org.name, short: true},
+            {title: "Customer", value: "(#{c.id}) #{c.email}", short: false},
+          ],
+        ).emit
         step = Webhookdb::Replicator::StateMachineStep.new.completed
         step.output = "Thanks! We've received the request to close your #{org.name} organization. " \
                       "We'll be in touch within 2 business days confirming removal."
@@ -230,7 +240,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       customer = current_customer
       customer.db.transaction do
         membership = customer.invited_memberships_dataset[invitation_code: params[:invitation_code]]
-        merror!(400, "Looks like that invite code is invalid. Please try again.") if membership.nil?
+        merror!(400, "Looks like that invite code is invalid. Please try again.", alert: true) if membership.nil?
         membership.verified = true
         membership.invitation_code = ""
         membership.save_changes

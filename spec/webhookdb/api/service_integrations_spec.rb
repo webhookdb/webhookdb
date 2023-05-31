@@ -95,7 +95,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "fails if creating the service integration requires a subscription" do
+    it "fails if creating the service integration requires a subscription", :sentry do
       org.add_feature_role(internal_role)
 
       _twilio_sint = Webhookdb::ServiceIntegration.new(
@@ -112,6 +112,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
         organization: org,
       ).save_changes
 
+      expect(Sentry).to receive(:capture_message).with(/maximum number of free/)
+
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(402)
@@ -124,28 +126,24 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       membership.update(membership_role: admin_role)
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
-      available_services = org.available_replicator_names.join("\n\t")
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         needs_input: false,
-        output: match("you currently have access to:\n\n\t#{available_services}"),
+        output: match("you currently have access to"),
         complete: true,
       )
     end
 
-    it "returns a state machine step if the given service name is not valid" do
+    it "errors if the given service name is not valid", :sentry do
       membership.update(membership_role: admin_role)
       org.add_feature_role(internal_role)
 
+      expect(Sentry).to receive(:capture_message).with(/to see available services/)
+
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "faake_v1"
 
-      expect(last_response).to have_status(200)
-      available_services = org.available_replicator_names.join("\n\t")
-      expect(last_response).to have_json_body.that_includes(
-        needs_input: false,
-        output: match("currently supported by WebhookDB:\n\n\t#{available_services}"),
-        complete: true,
-      )
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(error: include(code: "invalid_service"))
     end
 
     it "does not create an integration if dependencies are not met" do
@@ -545,7 +543,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+        error: include(message: /to manage your subscription/),
       )
     end
   end
@@ -670,7 +668,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+        error: include(message: /to manage your subscription/),
       )
     end
   end
@@ -701,14 +699,16 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "fails if service integration is not supported by subscription plan" do
+    it "fails if service integration is not supported by subscription plan", :sentry do
       maxed = max_out_plan_integrations(org)
+
+      expect(Sentry).to receive(:capture_message).with(/no longer supported/)
 
       post "/v1/organizations/#{org.key}/service_integrations/#{maxed.opaque_id}/backfill/reset"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+        error: include(message: /to manage your subscription/),
       )
     end
   end
@@ -759,15 +759,16 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "fails if service integration is not supported by subscription plan" do
+    it "fails if service integration is not supported by subscription plan", :sentry do
       maxed = max_out_plan_integrations(org)
+      expect(Sentry).to receive(:capture_message).with(/no longer supported/)
 
       post "/v1/organizations/#{org.key}/service_integrations/#{maxed.opaque_id}/transition/webhook_secret",
            value: "open_sesame"
 
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: "Integration no longer supported--please visit website to activate subscription."),
+        error: include(message: /to manage your subscription/),
       )
     end
   end

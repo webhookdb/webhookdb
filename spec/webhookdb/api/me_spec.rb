@@ -126,7 +126,7 @@ RSpec.describe Webhookdb::API::Me, :db do
             {type: "line", value: ""},
             {
               type: "line",
-              value: "To join an invited org, use: webhookdb org join <join code>.",
+              value: "To join an invited org, use: webhookdb org join [join code]",
             },
           ),
         )
@@ -203,7 +203,7 @@ RSpec.describe Webhookdb::API::Me, :db do
             {type: "line", value: ""},
             {
               type: "line",
-              value: "To join an invited org, use: webhookdb org join <join code>.",
+              value: "To join an invited org, use: webhookdb org join [join code]",
             },
           ),
         )

@@ -244,7 +244,7 @@ RSpec.describe "Webhookdb::Customer", :db do
 
   Blah (blah): abcd
 
-Use `webhookdb org join <code>` to accept an invitation.
+Use `webhookdb org join [code]` to accept an invitation.
 ",
       )
     end
