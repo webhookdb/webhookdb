@@ -99,12 +99,18 @@ module Webhookdb::Service::Helpers
     return if has_role
     role_exists = !Webhookdb::Role.where(name: role_name).empty?
     raise "The role '#{role_name}' does not exist so cannot be checked. You need to create it first." unless role_exists
-    merror!(403, "Sorry, this action is unavailable.", code: "role_check")
+    permission_error!("Sorry, this action is unavailable.")
   end
 
-  def merror!(status, message, code: nil, more: {}, headers: {}, rollback_db: nil)
+  def merror!(status, message, code: nil, more: {}, headers: {}, rollback_db: nil, alert: false)
     header "Content-Type", "application/json"
     body = Webhookdb::Service.error_body(status, message, code:, more:)
+    if alert
+      Sentry.with_scope do |scope|
+        scope.set_extras(**body)
+        Sentry.capture_message(message)
+      end
+    end
     if rollback_db
       Webhookdb::Postgres.defer_after_rollback(rollback_db) do
         error!(body, status, headers)
@@ -130,6 +136,10 @@ module Webhookdb::Service::Helpers
 
   def not_found!
     merror!(404, "Not Found", code: "not_found")
+  end
+
+  def permission_error!(message)
+    merror!(403, message, code: "permission_check")
   end
 
   # Raise a 400 error for unstructured validation.

@@ -119,7 +119,7 @@ It contains a One Time Password used to log in.
       step = Webhookdb::Replicator::StateMachineStep.new
       step.output = %(Sorry, no one with that email exists. Try running:
 
-  webhookdb auth login <email>
+  webhookdb auth login [email]
       )
       step.needs_input = false
       step.complete = true
@@ -156,7 +156,7 @@ If you have not gotten a code, use Ctrl+C to close this prompt and request a new
     if me.invited_memberships.present?
       welcome_tutorial = "You have the following pending invites:\n\n" +
         me.invited_memberships.map { |om| "  #{om.organization.display_string}: #{om.invitation_code}" }.join("\n") +
-        "\n\nUse `webhookdb org join <code>` to accept an invitation."
+        "\n\nUse `webhookdb org join [code]` to accept an invitation."
     end
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Welcome! For help getting started, please check out

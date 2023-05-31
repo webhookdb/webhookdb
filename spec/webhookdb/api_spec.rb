@@ -338,7 +338,7 @@ RSpec.describe Webhookdb::API, :db do
 
       expect(last_response).to have_status(409)
       expect(last_response.body).to include(
-        "multiple integrations with that service name. Try against using an integration id, or a table name",
+        "multiple integrations with that service name. Try again using an integration id, or a table name",
       )
     end
 

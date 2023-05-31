@@ -50,8 +50,8 @@ module Webhookdb::API
               # This is scoped to just orgs the user can access. We check if the identifier
               # matches multiple orgs, in which case it's ambiguous.
               memberships = customer.verified_memberships_dataset.where(organization: orgs).limit(2).all
-              merror!(403, "You don't have permissions with that organization.") if memberships.empty?
-              merror!(403, "ambiguous") if memberships.size > 1 # TODO: better message, tests
+              permission_error!("You don't have permissions with that organization.") if memberships.empty?
+              merror!(500, "ambiguous", alert: true) if memberships.size > 1 # TODO: better message, tests
               return memberships.first.organization
             end
             raise "something went wrong" unless allow_connstr_auth
@@ -66,7 +66,7 @@ module Webhookdb::API
             has_no_admin = org.verified_memberships_dataset.
               where(customer:, membership_role: Webhookdb::Role.admin_role).
               empty?
-            merror!(403, "You don't have admin privileges with #{org.name}.") if has_no_admin
+            permission_error!("You don't have admin privileges with #{org.name}.") if has_no_admin
           end
         end
 
