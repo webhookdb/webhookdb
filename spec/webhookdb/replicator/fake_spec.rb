@@ -346,6 +346,18 @@ RSpec.describe "fake implementations", :db do
         end
       end
 
+      it "handles legacy opaque ids starting with numbers" do
+        fake.service_integration.update(opaque_id: "012abc", table_name: "xtbl")
+        fake.define_singleton_method(:_denormalized_columns) do
+          [Webhookdb::Replicator::Column.new(:c1, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true)]
+        end
+        fake.create_table
+        fake.readonly_dataset do |ds|
+          indices = ds.db[:pg_indexes].where(tablename: "xtbl").select_map(:indexname)
+          expect(indices).to contain_exactly("idx012abc_c1_idx", "xtbl_my_id_key", "xtbl_pkey")
+        end
+      end
+
       it "can backfill values for columns that exist in code but not in the DB" do
         fake.create_table
         fake.admin_dataset do |ds|

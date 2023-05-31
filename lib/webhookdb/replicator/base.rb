@@ -280,7 +280,9 @@ class Webhookdb::Replicator::Base
   protected def index_name(columns)
     raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
     n = columns.map(&:name).join("_")
-    return "#{self.service_integration.opaque_id}_#{n}_idx"
+    opaque_id = self.service_integration.opaque_id
+    opaque_id = "idx#{opaque_id}" if /\d/.match?(opaque_id[0])
+    return "#{opaque_id}_#{n}_idx"
   end
 
   # @return [Webhookdb::DBAdapter::Column]
