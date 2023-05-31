@@ -42,7 +42,7 @@ class Webhookdb::API::Me < Webhookdb::API::V1
           end
           blocks.table(["Name", "Key", "Join Code"], rows)
           blocks.blank
-          blocks.line("To join an invited org, use: webhookdb org join <join code>.")
+          blocks.line("To join an invited org, use: webhookdb org join [join code]")
         end
         blocks.line("You aren't affiliated with any organizations yet.") if memberships.empty? && invited.empty?
         r = {blocks: blocks.as_json}
