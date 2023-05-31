@@ -86,7 +86,9 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       post :migrate_database do
         unless Webhookdb::Organization::DbBuilder.allow_public_migrations
           merror!(403,
-                  "Public database migrations are not enabled",)
+                  "Public database migrations are not enabled. Email support@webhookdb.com for more information.",
+                  code: "migrations_disabled",
+                  alert: true,)
         end
         ensure_admin!
         org = lookup_org!

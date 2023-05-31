@@ -307,23 +307,34 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
     end
   end
 
-  describe "POST /v1/organizations/:org_identifier/close" do
-    it "sends a message to Sentry" do
+  describe "POST /v1/organizations/:org_identifier/close", :async do
+    it "sends a developer alert" do
       membership.update(membership_role: admin_role)
 
-      expect(Sentry).to receive(:capture_message)
+      expect do
+        post "/v1/organizations/#{org.key}/close"
 
-      post "/v1/organizations/#{org.key}/close"
-
-      expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(
-        output: include("received the request"),
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(
+          output: include("received the request"),
+        )
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "Close Account",
+            "emoji" => ":no_pedestrians:",
+            "fallback" => "Org fake_lithic_tech_org requested removal",
+            "fields" => [
+              {"title" => "Org Key", "value" => "fake_lithic_tech_org", "short" => true},
+              {"title" => "Org Name", "value" => "fake@lithic.tech Org", "short" => true},
+              {"title" => "Customer", "value" => "(#{customer.id}) #{customer.email}", "short" => false},
+            ],
+          },
+        ),
       )
     end
 
     it "fails if request customer doesn't have admin privileges" do
-      expect(Sentry).to_not receive(:capture_message)
-
       post "/v1/organizations/#{org.key}/close"
 
       expect(last_response).to have_status(403)

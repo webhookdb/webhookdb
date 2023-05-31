@@ -24,15 +24,15 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
         end
         post :open_portal do
           org = lookup_org!
-          merror!(409, "This organization is not registered with Stripe.") if org.stripe_customer_id.blank?
+          merror!(409, "This organization is not registered with Stripe.", alert: true) if org.stripe_customer_id.blank?
           subscription = Webhookdb::Subscription[stripe_customer_id: org.stripe_customer_id]
           if subscription
             if params[:plan] && !params.key?(:guard_confirm)
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :guard_confirm,
-                "WARNING: You already have a subscription, but have specified a plan. " \
-                "You will be brought to your subscription so you can modify or cancel it. " \
+                "WARNING: You already have a subscription, but have specified a plan.\n" \
+                "You will be brought to your subscription so you can modify or cancel it.\n" \
                 "Press Enter to continue:",
               )
             end
@@ -44,7 +44,7 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :plan,
-                "Enter the plan you want to subscribe to (#{plans.map(&:key).join(', ')}):",
+                "Available plans: #{plans.map(&:key).join(', ')}\nEnter the plan you want to subscribe to:",
               )
             end
             session_url = org.get_stripe_checkout_url(real_plan.stripe_price_id)

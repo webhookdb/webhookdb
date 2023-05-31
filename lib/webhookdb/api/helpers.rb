@@ -130,7 +130,7 @@ module Webhookdb::API::Helpers
       alternative = "service name"
     end
     msg403 = "There are multiple integrations with that #{dupe_attr}. " \
-             "Try against using an integration id, or a #{alternative}. " \
+             "Try again using an integration id, or a #{alternative}. " \
              "Use `webhookdb integrations list` to see all integrations."
     merror!(409, msg403)
   end

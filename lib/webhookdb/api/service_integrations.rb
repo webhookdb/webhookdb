@@ -122,23 +122,17 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         resource :create do
           helpers do
             def create_integration(org, name)
-              available_services_list = org.available_replicator_names.join("\n\t")
+              available_services_list = org.available_replicator_names.sort.join("\n\t")
 
-              # If provided service name is invalid
-              if Webhookdb::Replicator.registered(name).nil?
-                step = Webhookdb::Replicator::StateMachineStep.new
-                step.needs_input = false
-                step.output =
-                  %(
-WebhookDB doesn't support a service called '#{name}.' These are all the services
-currently supported by WebhookDB:
+              service_name_invalid = Webhookdb::Replicator.registered(name).nil?
+              if service_name_invalid
+                message = %(WebhookDB doesn't support a service called '#{name}.'
+These are all the services currently supported by WebhookDB:
 
 \t#{available_services_list}
 
-You can run `webhookdb services list` at any time to see our list of available services.
-                    )
-                step.complete = true
-                return step
+Run `webhookdb services list` to see available services, and try again with the new name.)
+                merror!(400, message, code: "invalid_service", alert: true)
               end
 
               # If org does not have access to the given service
@@ -176,7 +170,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :guard_confirm,
-                "WARNING: #{org.name} already has an integration for service #{params[:service_name]}. " \
+                "WARNING: #{org.name} already has an integration for service #{params[:service_name]}.\n" \
                 "Press Enter to create another, or Ctrl+C to quit:",
               )
             end
@@ -184,14 +178,15 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           desc "Create service integration on a given organization"
           params do
             optional :service_name, type: String,
-                                    prompt: "Enter the name of the service to create an integration for. " \
+                                    prompt: "Enter the name of the service to create an integration for.\n" \
                                             "Run 'webhookdb services list' to see available services:"
             optional :guard_confirm
           end
           post do
             customer = current_customer
             org = lookup_org!
-            merror!(402, "You have reached the maximum number of free integrations") unless org.can_add_new_integration?
+            merror!(402, "You have reached the maximum number of free integrations", alert: true) unless
+              org.can_add_new_integration?
             ensure_admin!
             verify_unique_integration(org)
             step = nil
@@ -212,8 +207,14 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             def ensure_plan_supports!
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
-              err_msg = "Integration no longer supported--please visit website to activate subscription."
-              merror!(402, err_msg) unless sint.plan_supports_integration?
+              return if sint.plan_supports_integration?
+              err_msg = "This integration is no longer supported. " \
+                        "Run `webhookdb subscription edit` to manage your subscription."
+              merror!(402, err_msg, alert: true)
+            end
+
+            def ensure_can_be_modified!(sint, c)
+              permission_error!("Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
             end
           end
 
@@ -286,7 +287,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
               svc = Webhookdb::Replicator.create(sint)
-              merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+              ensure_can_be_modified!(sint, c)
               state_machine = svc.calculate_and_backfill_state_machine
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
@@ -298,7 +299,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
               svc = Webhookdb::Replicator.create(sint)
-              merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+              ensure_can_be_modified!(sint, c)
               svc.clear_backfill_information
               # It's possible some integrations can be backfilled, but don't have their own credentials,
               # so we do need to emit the backfill event on success.
@@ -318,7 +319,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 c = current_customer
                 org = lookup_org!
                 sint = lookup_service_integration!(org, params[:sint_identifier])
-                merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+                ensure_can_be_modified!(sint, c)
                 state_machine = sint.process_state_change(params[:field], params[:value])
                 status 200
                 present state_machine, with: Webhookdb::API::StateMachineEntity
