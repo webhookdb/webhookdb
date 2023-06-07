@@ -219,6 +219,90 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
     end
   end
 
+  describe "backfill behavior" do
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "sponsy_publication_v1",
+        backfill_key: "bfkey",
+        backfill_secret: "bfsek",
+      )
+    end
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "marks publications no longer appearing as deleted" do
+      svc.create_table
+      two_items = {status: 200, headers: json_headers, body: <<~R}
+        {
+          "data": [
+            {
+              "id": "a283ce57-d5a9-4a33-87b9-817226631c3e",
+              "createdAt": "2022-04-26T18:15:48.737Z",
+              "updatedAt": "2022-08-09T19:18:31.215Z",
+              "name": "SITC Podcast",
+              "slug": "sitc-podcast",
+              "type": "PODCAST",
+              "days": [3,1]
+            },
+            {
+              "id": "8c930673-8c26-40e7-8868-83c6ee731931",
+              "createdAt": "2022-05-23T17:19:31.668Z",
+              "updatedAt": "2022-05-23T17:19:31.668Z",
+              "name": "LWIA Podcast",
+              "slug": "lwia-podcast",
+              "type": "PODCAST",
+              "days": []
+            }
+          ]
+        }
+      R
+      one_item = {status: 200, headers: json_headers, body: <<~R}
+        {
+          "data": [
+            {
+              "id": "a283ce57-d5a9-4a33-87b9-817226631c3e",
+              "createdAt": "2022-04-26T18:15:48.737Z",
+              "updatedAt": "2022-08-09T19:18:31.215Z",
+              "name": "SITC Podcast",
+              "slug": "sitc-podcast",
+              "type": "PODCAST",
+              "days": [3,1]
+            }
+          ]
+        }
+      R
+      req = stub_request(:get, "https://api.getsponsy.com/v1/publications?afterCursor=&limit=100&orderBy=updatedAt&orderDirection=DESC").
+        to_return(two_items, one_item, one_item)
+      svc.backfill
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(slug: "lwia-podcast", deleted_at: nil),
+        include(slug: "sitc-podcast", deleted_at: nil),
+      )
+
+      svc.backfill
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(slug: "lwia-podcast", deleted_at: match_time(:now).within(5)),
+        include(slug: "sitc-podcast", deleted_at: nil),
+      )
+
+      orig_deleted_time = svc.readonly_dataset { |ds| ds[slug: "lwia-podcast"][:deleted_at] }
+
+      svc.backfill
+      expect(req).to have_been_made.times(3)
+      expect(svc.readonly_dataset(&:all)).to contain_exactly(
+        include(slug: "lwia-podcast", deleted_at: orig_deleted_time),
+        include(slug: "sitc-podcast", deleted_at: nil),
+      )
+    end
+  end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }

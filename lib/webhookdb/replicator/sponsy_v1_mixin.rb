@@ -92,19 +92,26 @@ module Webhookdb::Replicator::SponsyV1Mixin
   #   meaning we probably already saw this update.
   def fetch_sponsy_page(tail, pagination_token, last_backfilled)
     url = self.api_url + tail
-    response = Webhookdb::Http.get(
-      url,
-      query: {
-        limit: Webhookdb::Sponsy.page_size.to_s,
-        afterCursor: pagination_token,
-        orderBy: "updatedAt",
-        orderDirection: "DESC",
-      },
-      headers: self.auth_headers,
-      logger: self.logger,
-    )
+    begin
+      response = Webhookdb::Http.get(
+        url,
+        query: {
+          limit: Webhookdb::Sponsy.page_size.to_s,
+          afterCursor: pagination_token,
+          orderBy: "updatedAt",
+          orderDirection: "DESC",
+        },
+        headers: self.auth_headers,
+        logger: self.logger,
+      )
+    rescue Webhookdb::Http::Error => e
+      raise e unless e.status == 404
+      self.logger.warn("sponsy_404", error: e)
+      return [], nil
+    end
+
     data = response.parsed_response.fetch("data")
-    after_cursor = response.parsed_response.fetch("cursor").fetch("afterCursor", nil)
+    after_cursor = response.parsed_response.fetch("cursor", {}).fetch("afterCursor", nil)
     return data, nil if after_cursor.nil?
     return [], nil if data.empty?
     last_updated = data.last.fetch("updatedAt")
