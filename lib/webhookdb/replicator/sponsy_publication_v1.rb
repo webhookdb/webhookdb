@@ -21,7 +21,12 @@ class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
       Webhookdb::Replicator::Column.new(:slug, TEXT),
       Webhookdb::Replicator::Column.new(:type, TEXT),
       Webhookdb::Replicator::Column.new(:days, INTEGER_ARRAY),
+      Webhookdb::Replicator::Column.new(:deleted_at, TIMESTAMP, optional: true),
     ].concat(self._ts_columns)
+  end
+
+  def _backfillers
+    return [Backfiller.new(self)]
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
@@ -62,5 +67,21 @@ Run `webhookdb services list` to see what's available.
   def _verify_backfill_401_err_msg
     return "It looks like that API Key is invalid. Head back to https://getsponsy.com/settings/workspace, " \
            "copy the API key, and try again:"
+  end
+
+  # Normal backfiller that keeps track of inserted items,
+  # and marks anything not backfilled as deleted.
+  class Backfiller < Webhookdb::Replicator::Base::ServiceBackfiller
+    def handle_item(item)
+      super
+      @seen_ids ||= []
+      @seen_ids << item.fetch("id")
+    end
+
+    def flush_pending_inserts
+      self.svc.admin_dataset do |ds|
+        ds.exclude(sponsy_id: @seen_ids).where(deleted_at: nil).update(deleted_at: Sequel.function(:now))
+      end
+    end
   end
 end

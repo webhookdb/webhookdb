@@ -132,9 +132,22 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
       ]
     end
 
-    def stub_service_request_error
-      return stub_request(:get, "#{root_url}/#{publication_id1}/placements?afterCursor=&#{querystr}").
-          to_return(status: 503, body: "woah")
+    def stub_service_request_error(status: 503, publication_id: publication_id1)
+      return stub_request(:get, "#{root_url}/#{publication_id}/placements?afterCursor=&#{querystr}").
+          to_return(status:, body: "woah")
+    end
+
+    it "does not fail on 404" do
+      svc.create_table
+      create_all_dependencies(sint)
+      setup_dependency(sint, insert_required_data_callback)
+      reqs = [
+        stub_service_request_error(status: 404),
+        stub_service_request_error(status: 404, publication_id: publication_id2),
+      ]
+      svc.backfill
+      expect(reqs).to all(have_been_made)
+      svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
     end
   end
 

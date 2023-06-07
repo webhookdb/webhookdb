@@ -857,6 +857,7 @@ class Webhookdb::Replicator::Base
   class ServiceBackfiller < Webhookdb::Backfiller
     # @!attribute svc
     #   @return [Webhookdb::Replicator::Base]
+    attr_reader :svc
 
     def initialize(svc)
       @svc = svc
