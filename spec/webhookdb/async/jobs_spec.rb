@@ -559,6 +559,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "RssBackfillPoller" do
+    it "backfills relevant service integrations" do
+      Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_broadcast_v1")
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "atom_single_feed_v1")
+
+      expect do
+        Webhookdb::Jobs::RssBackfillPoller.new.perform(true)
+      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id, {"incremental" => true}])
+    end
+  end
+
   describe "SendInvite" do
     it "sends an email with an invitation code" do
       membership = Webhookdb::Fixtures.organization_membership.

@@ -45,6 +45,7 @@ module Webhookdb::Async
     "webhookdb/jobs/renew_watch_channel",
     "webhookdb/jobs/replication_migration",
     "webhookdb/jobs/reset_code_create_dispatch",
+    "webhookdb/jobs/rss_backfill_poller",
     "webhookdb/jobs/send_invite",
     "webhookdb/jobs/send_webhook",
     "webhookdb/jobs/send_test_webhook",
