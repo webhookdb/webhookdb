@@ -100,6 +100,35 @@ class Webhookdb::Replicator::Column
     )
   end
 
+  def self.converter_array_element(index:, sep:, cls: DECIMAL)
+    case cls
+      when DECIMAL
+        to_ruby = ->(v) { BigDecimal(v) }
+        to_sql = ->(e) { Sequel.cast(e, :decimal) }
+      else
+        raise ArgumentError, "Unsupported cls" unless valid_cls.include?(cls)
+    end
+
+    return IsomorphicProc.new(
+      ruby: lambda do |value, **|
+        break nil if value.nil?
+        parts = value.split(sep)
+        break nil if index >= parts.size
+        to_ruby.call(parts[index])
+      end,
+      sql: lambda do |expr|
+        # The expression may be a JSONB field, of the type jsonb (accessed with -> rather than ->>).
+        # Make sure it's text. The CAST will turn 'a' into '"a"' though, so we also need to trim quotes.
+        str_expr = Sequel.cast(expr, :text)
+        str_expr = Sequel.function(:btrim, str_expr, '"')
+        field_expr = Sequel.function(:split_part, str_expr, sep, index + 1)
+        # If the field is invalid, we get ''. Use nil in this case.
+        case_expr = Sequel.case({Sequel[field_expr => ""] => nil}, field_expr)
+        to_sql.call(case_expr)
+      end,
+    )
+  end
+
   KNOWN_CONVERTERS = {
     date: CONV_PARSE_DATE,
     time: CONV_PARSE_TIME,

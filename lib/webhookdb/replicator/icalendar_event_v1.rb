@@ -44,20 +44,8 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     end,
     sql: ->(_) { raise NotImplementedError },
   )
-  CONV_GEO_LAT = Webhookdb::Replicator::Column::IsomorphicProc.new(
-    ruby: lambda do |value, **|
-      break nil if value.nil?
-      BigDecimal(value.split(";")[0])
-    end,
-    sql: ->(_) { raise NotImplementedError },
-  )
-  CONV_GEO_LNG = Webhookdb::Replicator::Column::IsomorphicProc.new(
-    ruby: lambda do |value, **|
-      break nil if value.nil?
-      BigDecimal(value.split(";")[1])
-    end,
-    sql: ->(_) { raise NotImplementedError },
-  )
+  CONV_GEO_LAT = Webhookdb::Replicator::Column.converter_array_element(index: 0, sep: ";", cls: DECIMAL)
+  CONV_GEO_LNG = Webhookdb::Replicator::Column.converter_array_element(index: 1, sep: ";", cls: DECIMAL)
 
   def _remote_key_column
     return Webhookdb::Replicator::Column.new(

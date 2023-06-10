@@ -483,6 +483,47 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "converter_array_element" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
+      it "converts ruby value" do
+        conv = described_class.converter_array_element(index: 0, sep: ";", cls: described_class::DECIMAL)
+        expect(conv.ruby.call("1.1;5.3")).to eq(BigDecimal("1.1"))
+
+        conv = described_class.converter_array_element(index: 1, sep: " ", cls: described_class::DECIMAL)
+        expect(conv.ruby.call("1.1 5.3")).to eq(BigDecimal("5.3"))
+
+        expect(conv.ruby.call("")).to be_nil
+        expect(conv.ruby.call(nil)).to be_nil
+      end
+
+      it "converts sql value" do
+        conv = described_class.converter_array_element(index: 0, sep: ";", cls: described_class::DECIMAL)
+        e = conv.sql.call("1.1;5.3")
+        expect(db.select(e).first.to_a[0][1]).to eq(BigDecimal("1.1"))
+
+        conv = described_class.converter_array_element(index: 1, sep: " ", cls: described_class::DECIMAL)
+        e = conv.sql.call("1.1 5.3")
+        expect(db.select(e).first.to_a[0][1]).to eq(BigDecimal("5.3"))
+
+        e = conv.sql.call(Sequel.pg_json('"1.1 5.3"'))
+        expect(db.select(e).first.to_a[0][1]).to eq(BigDecimal("5.3"))
+
+        e = conv.sql.call("")
+        expect(db.select(e).first.to_a[0][1]).to be_nil
+        e = conv.sql.call("1")
+        expect(db.select(e).first.to_a[0][1]).to be_nil
+        e = conv.sql.call(nil)
+        expect(db.select(e).first.to_a[0][1]).to be_nil
+      end
+
+      conv = described_class.converter_array_element(index: 1, sep: ";", cls: described_class::DECIMAL)
+      it_behaves_like "a service column converter", conv do
+        let(:initial_value) { "1.1;5.3" }
+        let(:expected_value) { BigDecimal("5.3") }
+      end
+    end
+
     describe "Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT" do
       let(:conv) { Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT }
 

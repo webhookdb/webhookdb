@@ -64,6 +64,9 @@ module Webhookdb::Http
     self._setup_logger_args(options)
     opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
+    # See https://github.com/jnunemaker/httparty/issues/784#issuecomment-1585714745
+    # I *think* this should be safe to always use.
+    opts[:headers]["Connection"] ||= "keep-alive"
     r = HTTParty.get(url, **opts, &)
     self.check!(r, **opts)
     return r
