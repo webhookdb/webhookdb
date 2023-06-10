@@ -297,12 +297,16 @@ RSpec.shared_examples "a replicator that verifies backfill secrets" do
     expect(result).to have_attributes(verified: false, message: be_a(String).and(be_present))
   end
 
+  let(:failed_step_matchers) do
+    {output: include("It looks like "), prompt_is_secret: true}
+  end
+
   it "returns a failed backfill message if the credentials aren't verified when building the state machine" do
     res = stub_service_request_error
     svc = Webhookdb::Replicator.create(incorrect_creds_sint)
     result = svc.calculate_backfill_state_machine
     expect(res).to have_been_made
-    expect(result).to have_attributes(needs_input: true, output: include("It looks like "), prompt_is_secret: true)
+    expect(result).to have_attributes(needs_input: true, **failed_step_matchers)
   end
 end
 
