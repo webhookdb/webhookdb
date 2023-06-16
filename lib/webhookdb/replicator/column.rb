@@ -129,6 +129,39 @@ class Webhookdb::Replicator::Column
     )
   end
 
+  DAYS_OF_WEEK = [
+    "SUNDAY",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+  ].freeze
+
+  # Convert a value or array by looking up its value in a map.
+  # Does not yet support SQL conversions.
+  def self.converter_map_lookup(array:, map:)
+    empty = array ? Sequel.pg_array([]) : nil
+    return IsomorphicProc.new(
+      ruby: lambda do |value, **|
+        break empty if value.nil?
+        is_ary = value.respond_to?(:to_ary)
+        r = (is_ary ? value : [value]).map do |v|
+          if (mapval = map[v])
+            mapval
+          else
+            v
+          end
+        end
+        break is_ary ? r : r[0]
+      end,
+      sql: lambda do |_expr|
+        raise NotImplementedError
+      end,
+    )
+  end
+
   KNOWN_CONVERTERS = {
     date: CONV_PARSE_DATE,
     time: CONV_PARSE_TIME,
@@ -216,6 +249,16 @@ class Webhookdb::Replicator::Column
   attr_reader :skip_nil
   alias skip_nil? skip_nil
 
+  # If provided, run this before backfilling as part of UPDATE.
+  # Usually used to add functions into pg_temp schema.
+  # This is an advanced use case; see unit tests for examples.
+  attr_reader :backfill_statement
+
+  # If provided, use this expression as the UPDATE value when adding the column
+  # to an existing table.
+  # @return [String,Sequel,Sequel::SQL::Expression]
+  attr_reader :backfill_expr
+
   def initialize(
     name,
     type,
@@ -226,7 +269,9 @@ class Webhookdb::Replicator::Column
     converter: nil,
     defaulter: nil,
     index: false,
-    skip_nil: false
+    skip_nil: false,
+    backfill_statement: nil,
+    backfill_expr: nil
   )
     raise ArgumentError, "name must be a symbol" unless name.is_a?(Symbol)
     raise ArgumentError, "type #{type.inspect} is not supported" unless COLUMN_TYPES.include?(type)
@@ -241,10 +286,12 @@ class Webhookdb::Replicator::Column
     @defaulter = KNOWN_DEFAULTERS[defaulter] || defaulter
     @index = index
     @skip_nil = skip_nil
+    @backfill_statement = backfill_statement
+    @backfill_expr = backfill_expr
   end
 
   def to_dbadapter(**more)
-    kw = {name: self.name, type: self.type, index: self.index}
+    kw = {name:, type:, index:, backfill_expr:, backfill_statement:}
     kw.merge!(more)
     return Webhookdb::DBAdapter::Column.new(**kw)
   end
