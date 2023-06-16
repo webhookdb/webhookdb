@@ -431,9 +431,10 @@ class Webhookdb::Replicator::Base
       missing_columns.each do |whcol|
         # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
         result.transaction_statements << adapter.add_column_sql(table, whcol.to_dbadapter)
+        result.transaction_statements << whcol.backfill_statement if whcol.backfill_statement
       end
       self.admin_dataset do |ds|
-        update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.to_sql_expr] })
+        update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.backfill_expr || col.to_sql_expr] })
         result.transaction_statements << update_query
       end
     end
