@@ -2,6 +2,8 @@
 
 require "support/shared_examples_for_replicators"
 
+# rubocop:disable Layout/LineLength
+
 RSpec.describe "fake implementations", :db do
   describe Webhookdb::Replicator::Fake do
     before(:each) do
@@ -272,7 +274,17 @@ RSpec.describe "fake implementations", :db do
 
       it "can build and execute SQL for columns and indices that exist in code but not in the DB" do
         fake.service_integration.opaque_id = "svi_xyz"
+        orig_cols = fake._denormalized_columns + [
+          Webhookdb::Replicator::Column.new(:bf1,
+                                            Webhookdb::DBAdapter::ColumnTypes::INTEGER_ARRAY,
+                                            backfill_expr: Sequel.lit("never see me"),),
+        ]
+        fake.define_singleton_method(:_denormalized_columns) do
+          orig_cols
+        end
+
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
+        fqtable_str = '"' + fake.schema_and_table_symbols.map(&:to_s).join('"."') + '"'
         fake.define_singleton_method(:_compound_index_targets) do
           [[:my_id, :at]]
         end
@@ -282,6 +294,7 @@ RSpec.describe "fake implementations", :db do
             pk bigserial PRIMARY KEY,
             my_id text UNIQUE NOT NULL,
             at timestamptz,
+            bf1 integer[],
             data jsonb NOT NULL
           );
           CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
@@ -289,13 +302,19 @@ RSpec.describe "fake implementations", :db do
         SQL
 
         fake.create_table
-        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data]) }
-        orig_cols = fake._denormalized_columns
+        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :bf1, :data]) }
         fake.define_singleton_method(:_denormalized_columns) do
           orig_cols + [
             Webhookdb::Replicator::Column.new(:c2, Webhookdb::DBAdapter::ColumnTypes::TIMESTAMP, index: true),
             Webhookdb::Replicator::Column.new(:c3, Webhookdb::DBAdapter::ColumnTypes::DATE),
             Webhookdb::Replicator::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
+            Webhookdb::Replicator::Column.new(
+              :bf2,
+              Webhookdb::DBAdapter::ColumnTypes::INTEGER_ARRAY,
+              backfill_statement: Sequel.lit("CREATE OR REPLACE FUNCTION pg_temp.faketest_mapper(integer[])\n" \
+                                             "RETURNS integer[] AS 'SELECT ARRAY(SELECT (n * 2) FROM unnest($1) AS n)' LANGUAGE sql IMMUTABLE"),
+              backfill_expr: Sequel.lit("pg_temp.faketest_mapper(bf1)"),
+            ),
           ]
         end
         fake.define_singleton_method(:_compound_index_targets) do
@@ -306,15 +325,22 @@ RSpec.describe "fake implementations", :db do
           ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
           ALTER TABLE #{table_str} ADD COLUMN c3 date;
           ALTER TABLE #{table_str} ADD COLUMN "from" text;
-          UPDATE
+          ALTER TABLE #{table_str} ADD COLUMN bf2 integer[];
+          CREATE OR REPLACE FUNCTION pg_temp.faketest_mapper(integer[])
+          RETURNS integer[] AS 'SELECT ARRAY(SELECT (n * 2) FROM unnest($1) AS n)' LANGUAGE sql IMMUTABLE;
         SQL
         expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_idx ON #{table_str} (c2);
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from");
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_at_idx ON #{table_str} (c2, at);
         SQL
+        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
+          UPDATE #{fqtable_str} SET "c2" = CAST(("data" ->> 'c2') AS timestamptz), "c3" = CAST(("data" ->> 'c3') AS date), "from" = CAST(("data" ->> 'from') AS text), "bf2" = pg_temp.faketest_mapper(bf1);
+        SQL
         fake.ensure_all_columns
-        fake.readonly_dataset { |ds| expect(ds.columns).to eq([:pk, :my_id, :at, :data, :c2, :c3, :from]) }
+        fake.readonly_dataset do |ds|
+          expect(ds.columns).to eq([:pk, :my_id, :at, :bf1, :data, :c2, :c3, :from, :bf2])
+        end
       end
 
       it "can build and execute SQL for indices that exist in code but not in the DB" do
@@ -598,3 +624,5 @@ or leave blank to choose the first option.
     end
   end
 end
+
+# rubocop:enable Layout/LineLength
