@@ -20,6 +20,71 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
         }
       J
     end
+
+    it "handles string days on insert" do
+      stringdays = JSON.parse(<<~J)
+        {
+          "id": "a283ce57-d5a9-4a33-87b9-817226631c3e",
+          "createdAt": "2022-04-26T18:15:48.737Z",
+          "updatedAt": "2022-08-09T19:18:31.215Z",
+          "name": "SITC Podcast",
+          "slug": "sitc-podcast",
+          "type": "PODCAST",
+          "days": [
+            "THURSDAY",
+            "MONDAY",
+            0,
+            6
+          ]
+        }
+      J
+
+      svc.create_table
+      upsert_webhook(svc, body: stringdays)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        expect(ds.first).to include(
+          days: [3, 0, 0, 6],
+          days_normalized: [4, 1, 1, 0],
+          # day_names: ["THURSDAY", "MONDAY", "MONDAY", "SUNDAY"],
+        )
+      end
+    end
+
+    it "can backfill days from existing rows" do
+      stringdays = JSON.parse(<<~J)
+        {
+          "id": "a283ce57-d5a9-4a33-87b9-817226631c3e",
+          "createdAt": "2022-04-26T18:15:48.737Z",
+          "updatedAt": "2022-08-09T19:18:31.215Z",
+          "name": "SITC Podcast",
+          "slug": "sitc-podcast",
+          "type": "PODCAST",
+          "days": [
+            0,
+            6
+          ]
+        }
+      J
+      all_cols = svc._denormalized_columns
+      current_cols = all_cols.dup
+      current_cols.delete_if { |c| c.name == :day_names || c.name == :days_normalized }
+
+      expect(svc).to receive(:_denormalized_columns).at_least(:once).and_return(current_cols)
+
+      svc.create_table
+      upsert_webhook(svc, body: stringdays)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to_not include(:day_names)
+      end
+
+      current_cols.clear
+      current_cols.push(*all_cols)
+      svc.ensure_all_columns
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(days_normalized: [1, 0])
+      end
+    end
   end
 
   it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_publication_v1" do

@@ -16,12 +16,52 @@ class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
   end
 
   def _denormalized_columns
+    col = Webhookdb::Replicator::Column
     return [
-      Webhookdb::Replicator::Column.new(:name, TEXT),
-      Webhookdb::Replicator::Column.new(:slug, TEXT),
-      Webhookdb::Replicator::Column.new(:type, TEXT),
-      Webhookdb::Replicator::Column.new(:days, INTEGER_ARRAY),
-      Webhookdb::Replicator::Column.new(:deleted_at, TIMESTAMP, optional: true),
+      col.new(:name, TEXT),
+      col.new(:slug, TEXT),
+      col.new(:type, TEXT),
+      col.new(:deleted_at, TIMESTAMP, optional: true),
+      col.new(
+        :days,
+        INTEGER_ARRAY,
+        converter: col.converter_map_lookup(
+          array: true,
+          # 'MONDAY' => 0, 0 defaults to 0
+          map: col::DAYS_OF_WEEK.rotate.each_with_index.to_h { |dow, idx| [dow, idx] },
+        ),
+      ),
+      col.new(
+        :days_normalized,
+        INTEGER_ARRAY,
+        data_key: "days",
+        converter: col.converter_map_lookup(
+          array: true,
+          # 'MONDAY' => 1, 0 => 1
+          map: col::DAYS_OF_WEEK.each_with_index.to_a.concat((0..6).zip((0..6).to_a.rotate)).to_h,
+        ),
+        backfill_statement: Sequel.lit(<<~SQL),
+          CREATE OR REPLACE FUNCTION pg_temp.sponsy_publication_v1_normalize_days(integer[])
+            RETURNS integer[] AS 'SELECT ARRAY(SELECT ((n + 1) % 7) FROM unnest($1) AS n)' LANGUAGE sql IMMUTABLE
+        SQL
+        backfill_expr: Sequel.lit("pg_temp.sponsy_publication_v1_normalize_days(days)"),
+      ),
+      col.new(
+        :day_names,
+        TEXT_ARRAY,
+        data_key: "days",
+        converter: col.converter_map_lookup(
+          array: true,
+          # 0 => 'MONDAY'
+          map: col::DAYS_OF_WEEK.rotate.each_with_index.to_h { |dow, idx| [idx, dow] },
+        ),
+        # Big switch statement to map dow number to name
+        backfill_statement: Sequel.lit(<<~SQL),
+          CREATE OR REPLACE FUNCTION pg_temp.sponsy_publication_v1_day_names(integer[])
+            RETURNS text[] AS 'SELECT ARRAY(SELECT (CASE WHEN n = 0 THEN ''MONDAY'' WHEN n = 1 THEN ''TUESDAY'' WHEN n = 2 THEN ''WEDNESDAY'' WHEN n = 3 THEN ''THURSDAY'' WHEN n = 4 THEN ''FRIDAY'' WHEN n = 5 THEN ''SATURDAY'' WHEN n = 6 THEN ''SUNDAY'' END) FROM unnest($1) AS n)' LANGUAGE sql IMMUTABLE
+        SQL
+        backfill_expr: Sequel.lit("pg_temp.sponsy_publication_v1_day_names(days)"),
+      ),
     ].concat(self._ts_columns)
   end
 

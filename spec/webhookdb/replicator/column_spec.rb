@@ -524,6 +524,22 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "converter_map_lookup" do
+      it "converts ruby value" do
+        conv = described_class.converter_map_lookup(array: true, map: {1 => "z", "x" => "y"})
+        expect(conv.ruby.call([1, "x", "f"])).to eq(["z", "y", "f"])
+        expect(conv.ruby.call(nil)).to eq([])
+        expect(conv.ruby.call([])).to eq([])
+
+        conv = described_class.converter_map_lookup(array: false, map: {1 => "z", "x" => "y"})
+        expect(conv.ruby.call(1)).to eq("z")
+        expect(conv.ruby.call("x")).to eq("y")
+        expect(conv.ruby.call("f")).to eq("f")
+
+        expect(conv.ruby.call(nil)).to be_nil
+      end
+    end
+
     describe "Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT" do
       let(:conv) { Webhookdb::Replicator::ConvertkitV1Mixin::CONV_FIND_CANCELED_AT }
 
