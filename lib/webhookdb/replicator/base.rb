@@ -153,9 +153,15 @@ class Webhookdb::Replicator::Base
         meth = :calculate_backfill_state_machine
         can_trigger_backfill = true
       when "dependency_choice"
+        # Choose an upstream dependency for an integration.
+        # See where this is used for more details.
         meth = :calculate_create_state_machine
         value = self._find_dependency_candidate(value)
         field = "depends_on"
+      when "noop_create"
+        # Use this to just recalculate the state machine,
+        # not make any changes to the data.
+        return self.calculate_create_state_machine
       else
         raise ArgumentError, "Field '#{field}' is not valid for a state change"
     end
@@ -931,7 +937,7 @@ or leave blank to choose the first option.
   end
 
   protected def _webhook_endpoint
-    return "#{Webhookdb.api_url}#{self.service_integration.unauthed_webhook_path}"
+    return self.service_integration.unauthed_webhook_endpoint
   end
 
   protected def _backfill_command
