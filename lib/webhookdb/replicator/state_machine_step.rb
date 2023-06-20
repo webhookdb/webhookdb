@@ -50,26 +50,20 @@ class Webhookdb::Replicator::StateMachineStep
   end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def backfill_secret(sint)
-    self.post_to_url = sint.authed_api_path + "/transition/backfill_secret"
-    return self
-  end
+  def backfill_secret(sint) = self.transition_field(sint, "backfill_secret")
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def backfill_key(sint)
-    self.post_to_url = sint.authed_api_path + "/transition/backfill_key"
-    return self
-  end
+  def backfill_key(sint) = self.transition_field(sint, "backfill_key")
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def webhook_secret(sint)
-    self.post_to_url = sint.authed_api_path + "/transition/webhook_secret"
-    return self
-  end
+  def webhook_secret(sint) = self.transition_field(sint, "webhook_secret")
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def api_url(sint)
-    self.post_to_url = sint.authed_api_path + "/transition/api_url"
+  def api_url(sint) = self.transition_field(sint, "api_url")
+
+  # @return [Webhookdb::Replicator::StateMachineStep]
+  def transition_field(sint, field)
+    self.post_to_url = sint.authed_api_path + "/transition/#{field}"
     return self
   end
 end

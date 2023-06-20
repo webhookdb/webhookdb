@@ -72,6 +72,10 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return "/v1/service_integrations/#{self.opaque_id}"
   end
 
+  def unauthed_webhook_endpoint
+    return Webhookdb.api_url + self.unauthed_webhook_path
+  end
+
   def plan_supports_integration?
     # if the sint's organization has an active subscription, return true
     return true if self.organization.active_subscription?
