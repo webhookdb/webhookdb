@@ -931,7 +931,7 @@ or leave blank to choose the first option.
   end
 
   protected def _webhook_endpoint
-    return "#{Webhookdb.api_url}#{self.service_integration.unauthed_webhook_path}"
+    return self.service_integration.unauthed_webhook_endpoint
   end
 
   protected def _backfill_command
