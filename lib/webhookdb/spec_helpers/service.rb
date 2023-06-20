@@ -239,9 +239,10 @@ module Webhookdb::SpecHelpers::Service
 
     ### Return a String that contains a pretty-printed version of the response headers.
     protected def pretty_print_response_headers
-      return self.response.headers.map do |name, val|
+      s = self.response.headers.map do |name, val|
         "%s: %s" % [name, val]
       end.join("\n")
+      return s
     end
 
     ### Return a String that contains a pretty-printed version of the response body.
@@ -313,10 +314,11 @@ module Webhookdb::SpecHelpers::Service
     ### Check that any additional matchers registered via the `.and` mutator also
     ### match the parsed response body.
     protected def matches_additional_expectations?
-      return self.additional_expectations.all? do |matcher|
+      r = self.additional_expectations.all? do |matcher|
         matcher.matches?(self.parsed_response_body) ||
-            fail_with(matcher.failure_message)
+          fail_with(matcher.failure_message)
       end
+      return r
     end
   end
 
