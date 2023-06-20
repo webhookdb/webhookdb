@@ -66,6 +66,40 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       expect(v).to be(true)
     end
 
+    describe "with array indices in data keys" do
+      it "uses the value at the index" do
+        col = described_class.new(
+          :membership_active,
+          described_class::BOOLEAN,
+          data_key: ["memberships", 1, "active"],
+        )
+        v = to_ruby_value(col, {"memberships" => [{}, {"active" => true}, {}]}, nil, nil)
+        expect(v).to be(true)
+      end
+
+      it "errors if the index is out of range" do
+        col = described_class.new(
+          :membership_active,
+          described_class::BOOLEAN,
+          data_key: ["memberships", 1, "active"],
+        )
+        expect do
+          to_ruby_value(col, {"memberships" => [{}]}, nil, nil)
+        end.to raise_error(IndexError)
+      end
+
+      it "uses nil if the index is out of range and the value is optional" do
+        col = described_class.new(
+          :membership_active,
+          described_class::BOOLEAN,
+          data_key: ["memberships", 1, "active"],
+          optional: true,
+        )
+        v = to_ruby_value(col, {"memberships" => [{"active" => true}]}, nil, nil)
+        expect(v).to be_nil
+      end
+    end
+
     it "will use nil if an intermediate key is missing and optional" do
       col = described_class.new(
         :end_date,
@@ -294,6 +328,35 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         col_object: '{"x": 1}',
         col_text: "hi",
         col_timestamp: Time.parse("2020-10-31T12:00:00Z"),
+      )
+    end
+
+    it "can extract array indices" do
+      ds.insert(
+        data: {
+          items: [
+            {},
+            {
+              col_bigint: 1,
+              col_bool: true,
+              col_date: "2020-10-31",
+            },
+            {},
+          ],
+        }.to_json,
+      )
+      to_expr = proc do |n, t|
+        described_class.new(n, t, data_key: ["items", 1, n.to_s]).to_sql_expr
+      end
+      ds.update(
+        col_bigint: to_expr.call(:col_bigint, described_class::BIGINT),
+        col_bool: to_expr.call(:col_bool, described_class::BOOLEAN),
+        col_date: to_expr.call(:col_date, described_class::DATE),
+      )
+      expect(ds.first).to include(
+        col_bigint: 1,
+        col_bool: true,
+        col_date: Date.new(2020, 10, 31),
       )
     end
 

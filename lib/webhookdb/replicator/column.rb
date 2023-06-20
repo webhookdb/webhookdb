@@ -306,11 +306,13 @@ class Webhookdb::Replicator::Column
   def to_sql_expr
     source_col = @from_enrichment ? :enrichment : :data
     expr = Sequel.pg_json(source_col)
+    # Have to use string keys here, PG handles it alright though.
+    dkey = @data_key.respond_to?(:to_ary) ? @data_key.map(&:to_s) : @data_key
     expr = case self.type
       when TIMESTAMP, DATE, TEXT
-        expr.get_text(@data_key)
+        expr.get_text(dkey)
       else
-        expr[Array(@data_key)]
+        expr[Array(dkey)]
     end
     (expr = self.converter.sql.call(expr)) if self.converter
     pgcol = Webhookdb::DBAdapter::PG::COLTYPE_MAP.fetch(self.type)
