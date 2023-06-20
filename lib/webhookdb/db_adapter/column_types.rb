@@ -13,6 +13,7 @@ module Webhookdb::DBAdapter::ColumnTypes
   OBJECT = :object
   TEXT = :text
   TIMESTAMP = :timestamp
+  UUID = :uuid
 
   COLUMN_TYPES = Set.new(
     [
@@ -28,6 +29,7 @@ module Webhookdb::DBAdapter::ColumnTypes
       TEXT,
       TEXT_ARRAY,
       TIMESTAMP,
+      UUID,
     ],
   )
 end
