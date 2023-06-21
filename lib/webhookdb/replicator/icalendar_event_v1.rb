@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webhookdb/windows_tz"
+
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
@@ -197,8 +199,11 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       offset = tzid[3..]
       return Time.parse(value + offset)
     end
+    if (zone = Webhookdb::WindowsTZ.windows_name_to_tz[tzid])
+      return zone.parse(value)
+    end
     Sentry.with_scope do |scope|
-      scope.set_extras(**entry)
+      scope.set_extras(timezone_id: tzid, time_value: value)
       Sentry.capture_message("Unhandled iCalendar timezone")
     end
     zone = Time.find_zone!("UTC")

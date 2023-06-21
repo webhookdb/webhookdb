@@ -105,6 +105,36 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       )
     end
 
+    it "can handle outlook TZ ids" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART;TZID=Eastern Standard Time:20230616T220000
+        DTEND;TZID=Eastern Standard Time:20230616T223000
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: match_time("2023-06-16 22:00:00-0400"),
+        end_at: match_time("2023-06-16 22:30:00-0400"),
+        start_date: nil,
+        end_date: nil,
+      )
+    end
+
+    it "can handle invalid tzids" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART;TZID=Invalid Time:20230616T220000
+        DTEND;TZID=Invalid Time:20230616T223000
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: match_time("2023-06-16 22:00:00+0000"),
+        end_at: match_time("2023-06-16 22:30:00+0000"),
+      )
+    end
+
     it "parses other fields" do
       s = <<~ICAL
         BEGIN:VEVENT
