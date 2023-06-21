@@ -433,19 +433,28 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       req = stub_request(:get, "https://feed.me").
         and_return(
           {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
           {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
         )
-      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-      svc.sync_row(row)
+      abc_cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      # Make sure these events are not canceled while we cancel abc's (ensure we limit the dataset)
+      xyz_cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "xyz")
+      svc.sync_row(abc_cal_row)
+      svc.sync_row(xyz_cal_row)
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
         hash_including(compound_identity: "abc-keep_existing"),
         hash_including(compound_identity: "abc-go_away"),
         hash_including(compound_identity: "abc-recurring1-0"),
         hash_including(compound_identity: "abc-recurring1-1"),
         hash_including(compound_identity: "abc-recurring1-2"),
+        hash_including(compound_identity: "xyz-keep_existing"),
+        hash_including(compound_identity: "xyz-go_away"),
+        hash_including(compound_identity: "xyz-recurring1-0"),
+        hash_including(compound_identity: "xyz-recurring1-1"),
+        hash_including(compound_identity: "xyz-recurring1-2"),
       )
-      svc.sync_row(row)
-      expect(req).to have_been_made.times(2)
+      svc.sync_row(abc_cal_row)
+      expect(req).to have_been_made.times(3)
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
         hash_including(compound_identity: "abc-keep_existing", status: nil),
         hash_including(compound_identity: "abc-go_away", status: "CANCELLED", data: hash_including("UID", "STATUS" => {"v" => "CANCELLED"})),
@@ -455,6 +464,11 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         hash_including(compound_identity: "abc-recurring2-0", status: nil),
         hash_including(compound_identity: "abc-recurring2-1", status: nil),
         hash_including(compound_identity: "abc-recurring2-2", status: nil),
+        hash_including(compound_identity: "xyz-keep_existing", status: nil),
+        hash_including(compound_identity: "xyz-go_away", status: nil),
+        hash_including(compound_identity: "xyz-recurring1-0", status: nil),
+        hash_including(compound_identity: "xyz-recurring1-1", status: nil),
+        hash_including(compound_identity: "xyz-recurring1-2", status: nil),
       )
     end
 

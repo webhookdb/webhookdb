@@ -140,7 +140,7 @@ The secret to use for signing is:
 
   class Upserter
     include Webhookdb::Backfiller::Bulk
-    attr_reader :upserting_replicator
+    attr_reader :upserting_replicator, :calendar_external_id
 
     def initialize(replicator, calendar_row)
       @upserting_replicator = replicator
@@ -182,6 +182,7 @@ The secret to use for signing is:
       upserter.flush_pending_inserts
       # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
       dep.replicator.admin_dataset do |ds|
+        ds = ds.where(calendar_external_id: upserter.calendar_external_id)
         ds.where(delete_conds.inject(&:|)).delete unless delete_conds.empty?
         # Update both the status, and set the data json to match.
         ds.exclude(compound_identity: upserted_identities).update(
