@@ -138,9 +138,8 @@ RSpec.describe Webhookdb::Replicator::SponsyStatusV1, :db do
     end
 
     it "does not fail on 404" do
-      svc.create_table
       create_all_dependencies(sint)
-      setup_dependency(sint, insert_required_data_callback)
+      setup_dependencies(sint, insert_required_data_callback)
       reqs = [
         stub_service_request_error(status: 404),
         stub_service_request_error(status: 404, publication_id: publication_id2),
@@ -206,10 +205,9 @@ RSpec.describe Webhookdb::Replicator::SponsyStatusV1, :db do
       req = stub_request(:get, "#{root_url}/#{publication_id1}/status?afterCursor=&#{querystr}").
         to_return(status: 200, body: make_body(["2022-09-02"], nil), headers:)
       create_all_dependencies(sint)
-      setup_dependency(sint, lambda do |dep_svc|
+      setup_dependencies(sint, lambda do |dep_svc|
         dep_svc.admin_dataset { |ds| ds.insert(data: "{}", sponsy_id: publication_id1) }
       end,)
-      svc.create_table
       svc.backfill
       expect(req).to have_been_made
       expect(svc.admin_dataset(&:all)).to contain_exactly(

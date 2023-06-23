@@ -329,7 +329,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     # For instances where our custom backfillers use info from rows in the dependency table to make requests.
     # The function should take a replicator of the dependency.
     # Something like: `return ->(dep_svc) { insert_some_info }`
-    return ->(_dep_svc) { return }
+    return ->(*) { return }
   end
 
   def stub_service_requests
@@ -353,9 +353,8 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   end
 
   it "upsert records for pages of results" do
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -369,9 +368,8 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     # APIs in the first group can reuse structured responses. That is, we do not need every replicator
     # to work against an empty response shape just because we can.
     next if has_no_logical_empty_state
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_empty_requests
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -379,9 +377,8 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   end
 
   it "retries the page fetch" do
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     backfillers = svc._backfillers
     expect(svc).to receive(:_backfillers).and_return(backfillers)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).
@@ -407,9 +404,8 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   end
 
   it "errors if fetching page errors" do
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     response = stub_service_request_error
     expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
@@ -434,7 +430,7 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
 
   def insert_required_data_callback
     # See backfiller example
-    return ->(_dep_svc) { return }
+    return ->(*) { return }
   end
 
   def stub_service_requests(partial:)
@@ -455,9 +451,8 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 
   it "upserts records created since last backfill if incremental is true" do
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: true)
     svc.backfill(incremental: true)
     expect(responses).to all(have_been_made)
@@ -465,9 +460,8 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 
   it "upserts all records if incremental is not true" do
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: false)
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -476,9 +470,8 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
 
   it "upserts all records if last_backfilled_at == nil" do
     sint.update(last_backfilled_at: nil)
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: false)
     svc.backfill
     expect(responses).to all(have_been_made)
@@ -502,7 +495,7 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
 
   def insert_required_data_callback
     # See backfiller example
-    return ->(_dep_svc) { return }
+    return ->(*) { return }
   end
 
   def stub_service_requests
@@ -511,9 +504,8 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
 
   before(:each) do
     sint.organization.prepare_database_connections
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
   end
 
   after(:each) do
@@ -559,9 +551,9 @@ RSpec.shared_examples "a replicator that ignores HTTP errors during backfill" do
 
   def insert_required_data_callback
     # For instances where our custom backfillers use info from rows in the dependency table to make requests.
-    # The function should take a replicator of the dependency.
-    # Something like: `return ->(dep_svc) { insert_some_info }`
-    return ->(_dep_svc) { return }
+    # The function should take the chain of replicator dependencies.
+    # Something like: `return ->(direct_dep_replicator, grandparent_dep_replicator) { insert_some_info }`
+    return ->(*) { return }
   end
 
   def stub_error_requests
@@ -578,9 +570,8 @@ RSpec.shared_examples "a replicator that ignores HTTP errors during backfill" do
 
   it "does not error for any of the configured responses" do
     allow(Webhookdb::Backfiller).to receive(:do_retry_wait).at_least(:once)
-    svc.create_table
     create_all_dependencies(sint)
-    setup_dependency(sint, insert_required_data_callback)
+    setup_dependencies(sint, insert_required_data_callback)
     responses = stub_error_requests
     Array.new(responses.size) { svc.backfill }
     expect(responses).to all(have_been_made.at_least_times(1))
@@ -596,9 +587,8 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
 
   before(:each) do
     sint.organization.prepare_database_connections
-    svc.create_table
     create_all_dependencies(sint)
-    @dep_svc = setup_dependency(sint)
+    @dep_svc = setup_dependencies(sint).first
   end
 
   after(:each) do
