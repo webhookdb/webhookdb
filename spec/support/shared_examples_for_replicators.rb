@@ -520,7 +520,7 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
     sint.organization.remove_related_database
   end
 
-  it "upserts records created since last backfill if incremental is true" do
+  it "marks the deleted timestamp column as deleted" do
     responses = stub_service_requests
     svc.backfill
     first_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
