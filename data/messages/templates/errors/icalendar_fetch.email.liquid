@@ -1,0 +1,29 @@
+{% expose subject %}WebhookDB: ICalendar Error{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    WebhookDB encountered an error syncing an ICalendar feed. We have the following information about the failure:
+</p>
+<ul>
+    <li>Service Integration Name: {{ service_name }}, ID: <code>{{ opaque_id }}</code></li>
+    <li>Calendar ID (you send this to us when adding the calendar): <code>{{ external_calendar_id }}</code></li>
+    <li>Request: <code>{{ request_method }} {{ request_url }}</code></li>
+    <li>Response Status: <code>{{ response_status }}</code></li>
+    <li>Body: <code>{{  response_body }}</code></li>
+</ul>
+<p>
+    You should be able to reproduce this error by fetching the request URL above.
+</p>
+<p>
+    Usually errors like this indicate the calendar is no longer shared or available,
+    rather than being an error in WebhookDB.
+</p>
+<p>
+    If this calendar is no longer shared, it should be removed.
+    Use a DELETE request, as per <a href="https://webhookdb.com/docs/icalendar#delete">https://webhookdb.com/docs/icalendar#delete</a>.
+</p>
+<p>We'll continue to send daily emails when this happens, so please do fix this up when you get a chance.</p>
+<p>Please respond to this email if you have any questions.</p>
+
+{% partial 'signoff' %}
