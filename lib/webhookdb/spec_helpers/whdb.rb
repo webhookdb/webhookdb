@@ -77,12 +77,26 @@ module Webhookdb::SpecHelpers::Whdb
     return created
   end
 
-  module_function def setup_dependency(service_integration, insert_required_data_callback=nil)
-    return if service_integration.depends_on.nil?
-    dependency_svc = service_integration.depends_on.replicator
-    dependency_svc.create_table
-    insert_required_data_callback&.call(dependency_svc)
-    return dependency_svc
+  module_function def setup_dependencies(service_integration, insert_required_data_callback=nil)
+    service_integration.replicator.create_table
+    dep_sint = service_integration.depends_on
+    return [] if dep_sint.nil?
+    org = service_integration.organization
+    dep_repls = []
+    while dep_sint
+      # Make sure all service integration orgs are the same instance, since it may be mutated
+      # when we set up urls.
+      raise Webhookdb::InvariantViolation, "service integration orgs must match" unless
+        dep_sint.organization === org
+      dep_sint.organization = org
+      dep_repl = dep_sint.replicator
+      dep_repl.create_table
+      dep_repls << dep_repl
+      dep_sint = dep_sint.depends_on
+      break if dep_sint.nil?
+    end
+    insert_required_data_callback&.call(*dep_repls)
+    return dep_repls
   end
 
   module_function def setup_upsert_webhook_example(this)
