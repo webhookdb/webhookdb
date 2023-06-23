@@ -472,6 +472,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "alerts on Down 400 errors", :no_transaction_check do
+      Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 403, headers: {"Content-Type" => "text/plain"}, body: "whoops")
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+        have_attributes(template: "errors/icalendar_fetch"),
+      )
+    end
+
     describe "recurrence" do
       def sync(body)
         req = stub_request(:get, "https://feed.me").

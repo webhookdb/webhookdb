@@ -3,6 +3,8 @@
 require "down"
 require "ice_cube"
 
+require "webhookdb/messages/error_icalendar_fetch"
+
 require "webhookdb/jobs/icalendar_sync"
 
 class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
@@ -158,7 +160,28 @@ The secret to use for signing is:
   def sync_row(row)
     if (dep = self.find_dependent("icalendar_event_v1"))
       upserter = Upserter.new(dep.replicator, row)
-      io = Down::NetHttp.open(row.fetch(:ics_url), rewindable: false)
+      calendar_external_id = upserter.calendar_external_id
+      request_url = row.fetch(:ics_url)
+      begin
+        io = Down::NetHttp.open(request_url, rewindable: false)
+      rescue Down::ClientError => e
+        raise e if e.response.nil?
+        response_status = e.response.code.to_i
+        raise e if response_status > 404 || response_status < 400
+        response_body = e.response.body.to_s
+        self.logger.warn("icalendar_fetch_error",
+                         response_body:, response_status:, request_url:, calendar_external_id:,)
+        message = Webhookdb::Messages::ErrorIcalendarFetch.new(
+          self.service_integration,
+          calendar_external_id,
+          response_status:,
+          response_body:,
+          request_url:,
+          request_method: "GET",
+        )
+        self.service_integration.organization.alerting.dispatch_alert(message)
+        return
+      end
       # Keep track of everything we upsert. For any rows we aren't upserting,
       # delete them if they're recurring, or cancel them if they're not recurring.
       # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
@@ -171,8 +194,8 @@ The secret to use for signing is:
 
       self.class.each_event(io) do |ical_ev_hash|
         # Add each event hash to pending upserts, and keep track of it for cancelation.
-        recur_result = self._expand_recurrence(ical_ev_hash) do |e|
-          ident, _h = upserter.handle_item(e)
+        recur_result = self._expand_recurrence(ical_ev_hash) do |ev|
+          ident, _h = upserter.handle_item(ev)
           upserted_identities << ident
         end
         if (delete_cond = recur_result[:delete_cond])
@@ -182,7 +205,7 @@ The secret to use for signing is:
       upserter.flush_pending_inserts
       # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
       dep.replicator.admin_dataset do |ds|
-        ds = ds.where(calendar_external_id: upserter.calendar_external_id)
+        ds = ds.where(calendar_external_id:)
         ds.where(delete_conds.inject(&:|)).delete unless delete_conds.empty?
         # Update both the status, and set the data json to match.
         ds.exclude(compound_identity: upserted_identities).update(
