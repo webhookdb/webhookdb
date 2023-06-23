@@ -7,7 +7,7 @@ class Webhookdb::Organization::Alerting
   include Appydays::Configurable
 
   configurable(:alerting) do
-    setting :interval, 60 * 5
+    setting :interval, 24.hours.to_i
   end
 
   attr_reader :org
