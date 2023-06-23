@@ -24,25 +24,38 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     sql: ->(_) { Sequel.lit("'do not use'") },
   )
 
+  def self.value_is_date_str?(v)
+    return v.length === 8
+  end
+
+  # @return [Time,nil]
+  def self.entry_to_datetime(entry)
+    return entry if entry.nil? || entry.is_a?(Time) # If the default was used or there's no value
+    value = entry.fetch("v")
+    return Time.strptime(value, "%Y%m%dT%H%M%S%Z") if value.end_with?("Z")
+    return nil if self.value_is_date_str?(value)
+    tzid = entry["TZID"]
+    return self._parse_time_with_tzid(value, tzid) if tzid
+    raise ArgumentError, "cannot convert #{entry} to datetime"
+  end
+
+  # @return [Date,nil]
+  def self.entry_to_date(entry)
+    return nil if entry.nil?
+    value = entry.fetch("v")
+    return nil unless self.value_is_date_str?(value)
+    return Date.strptime(value, "%Y%m%d")
+  end
+
   CONV_DATE = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
-      break nil if entry.nil?
-      value = entry.fetch("v")
-      value.length == 8 ? Date.strptime(value, "%Y%m%d") : nil
+      self.entry_to_date(entry)
     end,
     sql: ->(_) { raise NotImplementedError },
   )
   CONV_DATETIME = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
-      break entry if entry.nil? || entry.is_a?(Time) # If the default was used or there's no value
-      value = entry.fetch("v")
-      if value.end_with?("Z")
-        Time.strptime(value, "%Y%m%dT%H%M%S%Z")
-      elsif value.length == 8
-        nil
-      elsif (tzid = entry["TZID"])
-        self._parse_time_with_tzid(value, tzid)
-      end
+      self.entry_to_datetime(entry)
     end,
     sql: ->(_) { raise NotImplementedError },
   )
