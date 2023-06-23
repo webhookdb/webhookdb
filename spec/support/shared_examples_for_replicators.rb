@@ -486,6 +486,64 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 end
 
+RSpec.shared_examples "a backfill replicator that marks missing rows as deleted" do |name|
+  let(:deleted_column_name) { raise NotImplementedError }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url: "https://fake-url.com",
+    )
+  end
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  let(:undeleted_count_after_first_backfill) { 2 }
+  let(:undeleted_count_after_second_backfill) { 1 }
+
+  def insert_required_data_callback
+    # See backfiller example
+    return ->(_dep_svc) { return }
+  end
+
+  def stub_service_requests
+    raise NotImplementedError, "return all stub_requests for two backfill calls"
+  end
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+    svc.create_table
+    create_all_dependencies(sint)
+    setup_dependency(sint, insert_required_data_callback)
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "upserts records created since last backfill if incremental is true" do
+    responses = stub_service_requests
+    svc.backfill
+    first_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
+    expect(first_backfill_items).to have_length(undeleted_count_after_first_backfill)
+    svc.backfill
+    second_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
+    expect(second_backfill_items).to have_length(undeleted_count_after_second_backfill)
+    expect(responses).to all(have_been_made.twice)
+  end
+
+  it "does not modify the deleted timestamp column once set" do
+    responses = stub_service_requests
+    svc.backfill
+    ts = Time.parse("1999-04-20T12:00:00Z")
+    svc.admin_dataset { |ds| ds.update(deleted_column_name => ts) }
+    svc.backfill
+    expect(responses).to all(have_been_made.twice)
+    svc.admin_dataset do |ds|
+      expect(ds.all).to all(include(deleted_column_name => match_time(ts)))
+    end
+  end
+end
+
 RSpec.shared_examples "a replicator that ignores HTTP errors during backfill" do |name|
   let(:api_url) { "https://fake-url.com" }
   let(:sint) do
