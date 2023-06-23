@@ -6,6 +6,8 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::IcalendarSync
   extend Webhookdb::Async::Job
 
+  sidekiq_options retry: false
+
   def perform(sint_id, external_id)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
     self.with_log_tags(sint.log_tags) do
