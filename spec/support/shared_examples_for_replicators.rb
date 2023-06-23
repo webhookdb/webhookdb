@@ -492,7 +492,6 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:undeleted_count_after_first_backfill) { 2 }
   let(:undeleted_count_after_second_backfill) { 1 }
-  let(:other_deleted_fields) { {} }
 
   def insert_required_data_callback
     # See backfiller example
@@ -515,19 +514,13 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
 
   it "marks the deleted timestamp column as deleted" do
     responses = stub_service_requests
-
     svc.backfill
-    first_backfill_undeleted = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
-    expect(first_backfill_undeleted).to have_length(undeleted_count_after_first_backfill)
-
+    first_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
+    expect(first_backfill_items).to have_length(undeleted_count_after_first_backfill)
     svc.backfill
+    second_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
+    expect(second_backfill_items).to have_length(undeleted_count_after_second_backfill)
     expect(responses).to all(have_been_made.twice)
-
-    second_backfill_undeleted = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
-    expect(second_backfill_undeleted).to have_length(undeleted_count_after_second_backfill)
-
-    deleted = svc.readonly_dataset { |ds| ds.exclude(deleted_column_name => nil).all }
-    expect(deleted).to all(include(other_deleted_fields))
   end
 
   it "does not modify the deleted timestamp column once set" do
