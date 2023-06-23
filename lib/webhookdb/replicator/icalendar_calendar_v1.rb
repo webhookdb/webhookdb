@@ -187,6 +187,11 @@ The secret to use for signing is:
       # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
       upserted_identities = []
 
+      # Keep track of all upserted recurring items.
+      # If we find a RECURRENCE-ID on a later item,
+      # we need to modify the item from the sequence by stealing its compound identity.
+      upserted_recurring_items_by_uid = {}
+
       # Delete recurring event rows that we know are not going to be updated.
       # Whenever we project a recurring event, we keep track of how many entries
       # will be projected. We delete any entries beyond this.
@@ -194,9 +199,13 @@ The secret to use for signing is:
 
       self.class.each_event(io) do |ical_ev_hash|
         # Add each event hash to pending upserts, and keep track of it for cancelation.
-        recur_result = self._expand_recurrence(ical_ev_hash) do |ev|
-          ident, _h = upserter.handle_item(ev)
+        recur_result = self._expand_recurrence(ical_ev_hash, upserted_recurring_items_by_uid) do |ev|
+          ident, upserted = upserter.handle_item(ev)
           upserted_identities << ident
+          if (recurring_uid = upserted.fetch(:recurring_event_id))
+            upserted_recurring_items_by_uid[recurring_uid] ||= []
+            upserted_recurring_items_by_uid[recurring_uid] << upserted
+          end
         end
         if (delete_cond = recur_result[:delete_cond])
           delete_conds << delete_cond
@@ -223,9 +232,50 @@ The secret to use for signing is:
     return l
   end
 
-  private def _expand_recurrence(h)
+  private def _expand_recurrence(h, upserted_recurring_items_by_uid)
     raise LocalJumpError unless block_given?
+
+    uid = h.fetch("UID").fetch("v")
     recur_result = {}
+
+    if (recurrence_id = h["RECURRENCE-ID"])
+      # Track down the original item in the projected sequence, so we can update it.
+      if (start = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(recurrence_id))
+        startfield = :start_at
+      elsif (start = Webhookdb::Replicator::IcalendarEventV1.entry_to_date(recurrence_id))
+        startfield = :start_date
+      else
+        raise ArgumentError, "invalid recurrence-id: #{recurrence_id}"
+      end
+      candidates = upserted_recurring_items_by_uid.fetch(uid)
+      unless (match = candidates.find { |c| c[startfield] == start })
+        # If there's no matching event that we're overriding, log a warning.
+        # It could be far in the future. The worst case here is is that we will
+        # have a standalone event, which is sort of the point.
+        self.logger.warn("icalendar_recurrence_id_missing", vevent: h)
+        Sentry.with_scope do |scope|
+          scope.set_extras(vevent: h)
+          Sentry.capture_message("icalendar_recurrence_id_missing")
+        end
+        yield h
+        return recur_result
+      end
+
+      # Steal the UID to overwrite the original, and record where it came from.
+      # Note that all other fields, like categories, will be overwritten with the fields in this exclusion.
+      # This seems to be correct, but we should keep an eye open in case we need to merge
+      # these exclusion events into the originals.
+      h["UID"] = {"v" => match[:uid]}
+      h["recurring_event_sequence"] = match[:recurring_event_sequence]
+      # Usually the recurrent event and exclusion have the same last-modified.
+      # But we need to set the last-modified to AFTER the original,
+      # to make sure it replaces what's in the database (the original un-excluded event
+      # may already be present in the database).
+      h["LAST-MODIFIED"] = match.fetch(:last_modified_at) + 1.second
+      yield h
+      return recur_result
+    end
+
     unless h["RRULE"]
       yield h
       return recur_result
@@ -256,7 +306,6 @@ The secret to use for signing is:
     formatter = ical_params["DTSTART"].is_a?(Date) ? :_format_date : :_format_datetime
     # Don't project events further out than this
     closing_time = Time.now + RECURRENCE_PROJECTION
-    uid = h.fetch("UID").fetch("v")
     # Just like google, track the original event id.
     h["recurring_event_id"] = uid
     final_sequence = -1
