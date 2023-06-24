@@ -660,6 +660,123 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
         expect(req).to have_been_made.times(2)
       end
+
+      it "handles exception dates via recurrence-id field" do
+        body1 = <<~ICAL
+          BEGIN:VCALENDAR
+          PRODID:-//Google Inc//Google Calendar 70.9054//EN
+          VERSION:2.0
+          BEGIN:VEVENT
+          DTSTART;TZID=America/New_York:20230623T163000
+          DTEND;TZID=America/New_York:20230623T170000
+          RRULE:FREQ=DAILY;COUNT=4
+          DTSTAMP:20230623T215026Z
+          UID:73k3lgpbrb53fvdlv4m4jq9a5e@google.com
+          CREATED:20230623T214717Z
+          LAST-MODIFIED:20230623T214935Z
+          SEQUENCE:0
+          STATUS:CONFIRMED
+          SUMMARY:Test Recur
+          TRANSP:OPAQUE
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        body2 = <<~ICAL
+          BEGIN:VCALENDAR
+          PRODID:-//Google Inc//Google Calendar 70.9054//EN
+          VERSION:2.0
+          BEGIN:VEVENT
+          DTSTART;TZID=America/New_York:20230623T163000
+          DTEND;TZID=America/New_York:20230623T170000
+          RRULE:FREQ=DAILY;COUNT=4
+          DTSTAMP:20230623T215026Z
+          UID:73k3lgpbrb53fvdlv4m4jq9a5e@google.com
+          CREATED:20230623T214717Z
+          LAST-MODIFIED:20230623T214935Z
+          SEQUENCE:0
+          STATUS:CONFIRMED
+          SUMMARY:Test Recur
+          TRANSP:OPAQUE
+          END:VEVENT
+          BEGIN:VEVENT
+          DTSTART;TZID=America/New_York:20230624T163000
+          DTEND;TZID=America/New_York:20230624T171500
+          DTSTAMP:20230623T215026Z
+          UID:73k3lgpbrb53fvdlv4m4jq9a5e@google.com
+          RECURRENCE-ID;TZID=America/New_York:20230624T163000
+          CREATED:20230623T214717Z
+          LAST-MODIFIED:20230623T214935Z
+          SEQUENCE:0
+          STATUS:CONFIRMED
+          SUMMARY:Test Recur - Exception
+          TRANSP:OPAQUE
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+            {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+          )
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        Timecop.freeze("2023-06-20") do
+          svc.sync_row(cal_row)
+        end
+        events1 = event_svc.admin_dataset { |ds| ds.select(:compound_identity, :start_at, :end_at).all }
+        expect(events1).to contain_exactly(
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-0",
+            start_at: match_time("2023-06-23 20:30:00 +0000"),
+            end_at: match_time("2023-06-23 21:00:00 +0000"),
+          ),
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-1",
+            start_at: match_time("2023-06-24 20:30:00 +0000"),
+            end_at: match_time("2023-06-24 21:00:00 +0000"),
+          ),
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-2",
+            start_at: match_time("2023-06-25 20:30:00 +0000"),
+            end_at: match_time("2023-06-25 21:00:00 +0000"),
+          ),
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-3",
+            start_at: match_time("2023-06-26 20:30:00 +0000"),
+            end_at: match_time("2023-06-26 21:00:00 +0000"),
+          ),
+        )
+
+        Timecop.freeze("2022-06-06") do
+          svc.sync_row(cal_row)
+        end
+        events2 = event_svc.admin_dataset { |ds| ds.select(:compound_identity, :start_at, :end_at).all }
+        expect(events2).to contain_exactly(
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-0",
+            start_at: match_time("2023-06-23 20:30:00 +0000"),
+            end_at: match_time("2023-06-23 21:00:00 +0000"),
+          ),
+          # This is the modified event, with a new end time (9:15)
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-1",
+            start_at: match_time("2023-06-24 20:30:00 +0000"),
+            end_at: match_time("2023-06-24 21:15:00 +0000"),
+          ),
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-2",
+            start_at: match_time("2023-06-25 20:30:00 +0000"),
+            end_at: match_time("2023-06-25 21:00:00 +0000"),
+          ),
+          hash_including(
+            compound_identity: "abc-73k3lgpbrb53fvdlv4m4jq9a5e@google.com-3",
+            start_at: match_time("2023-06-26 20:30:00 +0000"),
+            end_at: match_time("2023-06-26 21:00:00 +0000"),
+          ),
+        )
+
+        expect(req).to have_been_made.times(2)
+      end
     end
   end
 
