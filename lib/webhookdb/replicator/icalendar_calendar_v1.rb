@@ -144,9 +144,9 @@ The secret to use for signing is:
     include Webhookdb::Backfiller::Bulk
     attr_reader :upserting_replicator, :calendar_external_id
 
-    def initialize(replicator, calendar_row)
+    def initialize(replicator, calendar_external_id)
       @upserting_replicator = replicator
-      @calendar_external_id = calendar_row.fetch(:external_id)
+      @calendar_external_id = calendar_external_id
     end
 
     def upsert_page_size = 500
@@ -159,8 +159,7 @@ The secret to use for signing is:
 
   def sync_row(row)
     if (dep = self.find_dependent("icalendar_event_v1"))
-      upserter = Upserter.new(dep.replicator, row)
-      calendar_external_id = upserter.calendar_external_id
+      calendar_external_id = row.fetch(:external_id)
       request_url = row.fetch(:ics_url)
       begin
         io = Down::NetHttp.open(request_url, rewindable: false)
@@ -182,42 +181,18 @@ The secret to use for signing is:
         self.service_integration.organization.alerting.dispatch_alert(message)
         return
       end
-      # Keep track of everything we upsert. For any rows we aren't upserting,
-      # delete them if they're recurring, or cancel them if they're not recurring.
-      # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
-      upserted_identities = []
 
-      # Keep track of all upserted recurring items.
-      # If we find a RECURRENCE-ID on a later item,
-      # we need to modify the item from the sequence by stealing its compound identity.
-      upserted_recurring_items_by_uid = {}
-
-      # Delete recurring event rows that we know are not going to be updated.
-      # Whenever we project a recurring event, we keep track of how many entries
-      # will be projected. We delete any entries beyond this.
-      delete_conds = []
-
-      self.class.each_event(io) do |ical_ev_hash|
-        # Add each event hash to pending upserts, and keep track of it for cancelation.
-        recur_result = self._expand_recurrence(ical_ev_hash, upserted_recurring_items_by_uid) do |ev|
-          ident, upserted = upserter.handle_item(ev)
-          upserted_identities << ident
-          if (recurring_uid = upserted.fetch(:recurring_event_id))
-            upserted_recurring_items_by_uid[recurring_uid] ||= []
-            upserted_recurring_items_by_uid[recurring_uid] << upserted
-          end
-        end
-        if (delete_cond = recur_result[:delete_cond])
-          delete_conds << delete_cond
-        end
-      end
-      upserter.flush_pending_inserts
+      upserter = Upserter.new(dep.replicator, calendar_external_id)
+      processor = EventProcessor.new(io, upserter)
+      processor.process
       # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
       dep.replicator.admin_dataset do |ds|
         ds = ds.where(calendar_external_id:)
-        ds.where(delete_conds.inject(&:|)).delete unless delete_conds.empty?
+        if (delete_condition = processor.delete_condition)
+          ds.where(delete_condition).delete
+        end
         # Update both the status, and set the data json to match.
-        ds.exclude(compound_identity: upserted_identities).update(
+        ds.exclude(compound_identity: processor.upserted_identities).update(
           status: "CANCELLED",
           data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),
         )
@@ -226,153 +201,173 @@ The secret to use for signing is:
     self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
   end
 
-  private def gets(src)
-    l = src.gets
-    l&.chomp!
-    return l
-  end
+  class EventProcessor
+    attr_reader :upserted_identities
 
-  private def _expand_recurrence(h, upserted_recurring_items_by_uid)
-    raise LocalJumpError unless block_given?
+    def initialize(io, upserter)
+      @io = io
+      @upserter = upserter
+      # Keep track of everything we upsert. For any rows we aren't upserting,
+      # delete them if they're recurring, or cancel them if they're not recurring.
+      # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
+      @upserted_identities = []
+      # Keep track of all upserted recurring items.
+      # If we find a RECURRENCE-ID on a later item,
+      # we need to modify the item from the sequence by stealing its compound identity.
+      @expanded_events_by_uid = {}
+      # Delete 'extra' recurring event rows.
+      # We need to keep track of how many events each UID spawns,
+      # so we can delete any with a higher count.
+      @max_sequence_num_by_uid = {}
+    end
 
-    uid = h.fetch("UID").fetch("v")
-    recur_result = {}
+    def delete_condition
+      return nil if @max_sequence_num_by_uid.empty?
+      return @max_sequence_num_by_uid.map do |uid, n|
+        Sequel[recurring_event_id: uid] & (Sequel[:recurring_event_sequence] > n)
+      end.inject(&:|)
+    end
 
-    if (recurrence_id = h["RECURRENCE-ID"])
-      # Track down the original item in the projected sequence, so we can update it.
-      if (start = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(recurrence_id))
-        startfield = :start_at
-      elsif (start = Webhookdb::Replicator::IcalendarEventV1.entry_to_date(recurrence_id))
-        startfield = :start_date
-      else
-        raise ArgumentError, "invalid recurrence-id: #{recurrence_id}"
-      end
-      candidates = upserted_recurring_items_by_uid.fetch(uid)
-      unless (match = candidates.find { |c| c[startfield] == start })
-        # If there's no matching event that we're overriding, log a warning.
-        # It could be far in the future. The worst case here is is that we will
-        # have a standalone event, which is sort of the point.
-        self.logger.warn("icalendar_recurrence_id_missing", vevent: h)
-        Sentry.with_scope do |scope|
-          scope.set_extras(vevent: h)
-          Sentry.capture_message("icalendar_recurrence_id_missing")
+    def process
+      self.each_feed_event do |feed_event|
+        self.each_projected_event(feed_event) do |ev|
+          ident, upserted = @upserter.handle_item(ev)
+          @upserted_identities << ident
+          if (recurring_uid = upserted.fetch(:recurring_event_id))
+            @expanded_events_by_uid[recurring_uid] ||= []
+            @expanded_events_by_uid[recurring_uid] << upserted
+          end
         end
+      end
+      @upserter.flush_pending_inserts
+    end
+
+    def each_projected_event(h)
+      raise LocalJumpError unless block_given?
+
+      uid = h.fetch("UID").fetch("v")
+      recur_result = {}
+
+      if (recurrence_id = h["RECURRENCE-ID"])
+        # Track down the original item in the projected sequence, so we can update it.
+        if Webhookdb::Replicator::IcalendarEventV1.value_is_date_str?(recurrence_id.fetch("v"))
+          start = Webhookdb::Replicator::IcalendarEventV1.entry_to_date(recurrence_id)
+          startfield = :start_date
+        else
+          startfield = :start_at
+          start = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(recurrence_id).first
+        end
+        candidates = @expanded_events_by_uid.fetch(uid)
+        unless (match = candidates.find { |c| c[startfield] == start })
+          # There are some providers (like Apple) where an excluded event
+          # will be outside the bounds of the RRULE of its owner.
+          # Usually the RRULE has an UNTIL that is before the RECURRENCE-ID datetime.
+          #
+          # In these cases, we can use the event as-is, but we need to
+          # make sure it is treated as part of the sequence.
+          # So increment the last-seen sequence number for the UID and use that.
+          max_seq_num = @max_sequence_num_by_uid[uid] += 1
+          h["UID"] = {"v" => "#{uid}-#{max_seq_num}"}
+          h["recurring_event_id"] = uid
+          h["recurring_event_sequence"] = max_seq_num
+          yield h
+          return recur_result
+        end
+
+        # Steal the UID to overwrite the original, and record where it came from.
+        # Note that all other fields, like categories, will be overwritten with the fields in this exclusion.
+        # This seems to be correct, but we should keep an eye open in case we need to merge
+        # these exclusion events into the originals.
+        h["UID"] = {"v" => match[:uid]}
+        h["recurring_event_sequence"] = match[:recurring_event_sequence]
+        # Usually the recurrent event and exclusion have the same last-modified.
+        # But we need to set the last-modified to AFTER the original,
+        # to make sure it replaces what's in the database (the original un-excluded event
+        # may already be present in the database).
+        h["LAST-MODIFIED"] = match.fetch(:last_modified_at) + 1.second
         yield h
         return recur_result
       end
 
-      # Steal the UID to overwrite the original, and record where it came from.
-      # Note that all other fields, like categories, will be overwritten with the fields in this exclusion.
-      # This seems to be correct, but we should keep an eye open in case we need to merge
-      # these exclusion events into the originals.
-      h["UID"] = {"v" => match[:uid]}
-      h["recurring_event_sequence"] = match[:recurring_event_sequence]
-      # Usually the recurrent event and exclusion have the same last-modified.
-      # But we need to set the last-modified to AFTER the original,
-      # to make sure it replaces what's in the database (the original un-excluded event
-      # may already be present in the database).
-      h["LAST-MODIFIED"] = match.fetch(:last_modified_at) + 1.second
-      yield h
-      return recur_result
-    end
-
-    unless h["RRULE"]
-      yield h
-      return recur_result
-    end
-
-    # We need to convert relevant parsed ical lines back to a string for use in ice_cube.
-    # There are other ways to handle this, but this is fine for now.
-    ical_params = {}
-    # These are taken from ice_cube ical_parser
-    ["RDATE", "EXDATE", "DURATION", "RRULE"].each do |propname|
-      ical_params[propname] = h[propname] if h[propname]
-    end
-
-    start_entry = h.fetch("DTSTART")
-    ev_replicator = Webhookdb::Replicator::IcalendarEventV1
-    # Use actual Times for start/end since ice_cube doesn't parse them well
-    ical_params["DTSTART"] = ev_replicator::CONV_DATETIME.ruby.call(start_entry) ||
-      ev_replicator::CONV_DATE.ruby.call(start_entry)
-    has_end_time = false
-    if (end_entry = h["DTEND"])
-      # the end date is optional. If we don't have one, we should never store one.
-      has_end_time = true
-      ical_params["DTEND"] = ev_replicator::CONV_DATETIME.ruby.call(end_entry) ||
-        ev_replicator::CONV_DATE.ruby.call(end_entry)
-    end
-
-    schedule = IceCube::Schedule.from_ical(self._unexplode_ical(ical_params))
-    formatter = ical_params["DTSTART"].is_a?(Date) ? :_format_date : :_format_datetime
-    # Don't project events further out than this
-    closing_time = Time.now + RECURRENCE_PROJECTION
-    # Just like google, track the original event id.
-    h["recurring_event_id"] = uid
-    final_sequence = -1
-    schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
-      # Given the original hash, we will modify some fields.
-      e = h.dup
-      # Keep track of how many events we're managing.
-      e["recurring_event_sequence"] = idx
-      # The new UID has the sequence number.
-      e["UID"] = {"v" => "#{uid}-#{idx}"}
-      e["DTSTART"] = {"v" => self.send(formatter, occ.start_time)}
-      e["DTEND"] = {"v" => self.send(formatter, occ.end_time)} if has_end_time
-      yield e
-      final_sequence = idx
-      break if occ.start_time > closing_time
-    end
-    # If we're now projecting fewer rows, we need to clean up the ones we no longer update.
-    recur_result[:delete_cond] = Sequel[recurring_event_id: uid] & (Sequel[:recurring_event_sequence] > final_sequence)
-    return recur_result
-  end
-
-  def _format_datetime(t)
-    return t.utc.strftime("%Y%m%dT%H%M%SZ")
-  end
-
-  def _format_date(d)
-    return d.strftime("%Y%m%d")
-  end
-
-  # This is not entirely safe (double quotes, multiple lines), but it's fine for date use.
-  def _unexplode_ical(ical_hash)
-    lines = []
-    ical_hash.each do |k, h|
-      s = +k.to_s
-      if h.is_a?(Time)
-        s << ":#{self._format_datetime(h)}"
-      elsif h.is_a?(Date)
-        s << ":#{self._format_date(h)}"
-      else
-        h = h.dup
-        value = h.delete("v")
-        h.each do |hk, hv|
-          s << ";#{hk}=#{hv}"
-        end
-        s << ":#{value}"
-      end
-      lines << s
-    end
-    return lines.join("\r\n")
-  end
-
-  def self.each_event(io)
-    vevent_lines = []
-    in_vevent = false
-    while (line = io.gets)
-      line.rstrip!
-      if line == "BEGIN:VEVENT"
-        in_vevent = true
-        vevent_lines << line
-      elsif line == "END:VEVENT"
-        in_vevent = false
-        vevent_lines << line
-        h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
-        vevent_lines.clear
+      unless h["RRULE"]
         yield h
-      elsif in_vevent
-        vevent_lines << line
+        return recur_result
+      end
+
+      # We need to convert relevant parsed ical lines back to a string for use in ice_cube.
+      # There are other ways to handle this, but this is fine for now.
+      ical_params = {}
+      ical_params[:rtimes] = self._time_array(h["RDATE"]["v"]) if h["RDATE"]
+      ical_params[:extimes] = self._time_array(h["EXDATE"]["v"]) if h["EXDATE"]
+      ical_params[:rrules] = [IceCube::IcalParser.rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
+      # DURATION is not supported
+
+      start_entry = h.fetch("DTSTART")
+      ev_replicator = Webhookdb::Replicator::IcalendarEventV1
+      is_date = ev_replicator.entry_is_date_str?(start_entry)
+      # Use actual Times for start/end since ice_cube doesn't parse them well
+      ical_params[:start_time] = ev_replicator.entry_to_date_or_datetime(start_entry).first
+      has_end_time = false
+      if (end_entry = h["DTEND"])
+        # the end date is optional. If we don't have one, we should never store one.
+        has_end_time = true
+        ical_params[:end_time] = ev_replicator.entry_to_date_or_datetime(end_entry).first
+      end
+
+      schedule = IceCube::Schedule.from_hash(ical_params)
+      # Don't project events further out than this
+      closing_time = Time.now + RECURRENCE_PROJECTION
+      # Just like google, track the original event id.
+      h["recurring_event_id"] = uid
+      final_sequence = -1
+      schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
+        # Given the original hash, we will modify some fields.
+        e = h.dup
+        # Keep track of how many events we're managing.
+        e["recurring_event_sequence"] = idx
+        # The new UID has the sequence number.
+        e["UID"] = {"v" => "#{uid}-#{idx}"}
+        e["DTSTART"] = self._ical_entry_from_ruby(occ.start_time, start_entry, is_date)
+        e["DTEND"] = self._ical_entry_from_ruby(occ.end_time, end_entry, is_date) if has_end_time
+        yield e
+        final_sequence = idx
+        break if occ.start_time > closing_time
+      end
+      @max_sequence_num_by_uid[uid] = final_sequence
+      # If we're now projecting fewer rows, we need to clean up the ones we no longer update.
+      recur_result[:delete_cond] =
+        Sequel[recurring_event_id: uid] & (Sequel[:recurring_event_sequence] > final_sequence)
+      return recur_result
+    end
+
+    # We need is_date because the recurrence/IceCube schedule may be using times, not date.
+    def _ical_entry_from_ruby(r, entry, is_date)
+      return {"v" => r.strftime("%Y%m%d")} if is_date
+      return {"v" => r.strftime("%Y%m%dT%H%M%SZ")} if r.zone == "UTC"
+      return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => entry.fetch("TZID")}
+    end
+
+    def _time_array(s)
+      return s.split(",").map { |v| IceCube::TimeUtil.deserialize_time(v) }
+    end
+
+    def each_feed_event
+      vevent_lines = []
+      in_vevent = false
+      while (line = @io.gets)
+        line.rstrip!
+        if line == "BEGIN:VEVENT"
+          in_vevent = true
+          vevent_lines << line
+        elsif line == "END:VEVENT"
+          in_vevent = false
+          vevent_lines << line
+          h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
+          vevent_lines.clear
+          yield h
+        elsif in_vevent
+          vevent_lines << line
+        end
       end
     end
   end

@@ -777,6 +777,129 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
         expect(req).to have_been_made.times(2)
       end
+
+      it "handles invalid recurrence-id dates" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          PRODID:-//Google Inc//Google Calendar 70.9054//EN
+          VERSION:2.0
+          BEGIN:VEVENT
+          CREATED:20160921T163517Z
+          DTEND;TZID=America/New_York:20160923T200000
+          DTSTAMP:20161111T235102Z
+          DTSTART;TZID=America/New_York:20160923T190000
+          LAST-MODIFIED:20160921T163518Z
+          RRULE:FREQ=WEEKLY;UNTIL=20161007T230000Z
+          SEQUENCE:0
+          SUMMARY:Boys MA
+          UID:2A389DBC-C85E-4A98-8817-8F5C0059DEB6
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20161111T232837Z
+          DTEND;TZID=America/New_York:20161111T200000
+          DTSTAMP:20161111T235102Z
+          DTSTART;TZID=America/New_York:20161111T190000
+          LAST-MODIFIED:20161111T232837Z
+          RECURRENCE-ID;TZID=America/New_York:20161111T190000
+          SEQUENCE:0
+          SUMMARY:Boys MA
+          UID:2A389DBC-C85E-4A98-8817-8F5C0059DEB6
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        event_svc.admin_dataset do |ds|
+          # Make sure this gets deleted
+          ds.insert(
+            data: "{}",
+            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-4",
+            calendar_external_id: "abc",
+            recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
+            recurring_event_sequence: 4,
+          )
+        end
+
+        svc.sync_row(cal_row)
+        expect(req).to have_been_made
+
+        events = event_svc.admin_dataset { |ds| ds.select(:compound_identity, :start_at, :end_at).all }
+        expect(events).to contain_exactly(
+          include(
+            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-0",
+            start_at: match_time("2016-09-23 23:00:00 +0000"),
+            end_at: match_time("2016-09-24 00:00:00 +0000"),
+          ),
+          include(
+            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-1",
+            start_at: match_time("2016-09-30 23:00:00 +0000"),
+            end_at: match_time("2016-10-01 00:00:00 +0000"),
+          ),
+          include(
+            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-2",
+            start_at: match_time("2016-10-07 23:00:00 +0000"),
+            end_at: match_time("2016-10-08 00:00:00 +0000"),
+          ),
+          include(
+            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-3",
+            start_at: match_time("2016-11-12 00:00:00 +0000"),
+            end_at: match_time("2016-11-12 01:00:00 +0000"),
+          ),
+        )
+      end
+
+      it "handles times without zones" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          PRODID:-//Google Inc//Google Calendar 70.9054//EN
+          VERSION:2.0
+          BEGIN:VEVENT
+          CREATED:20161111T232837Z
+          DTEND:20161111T200000
+          DTSTAMP:20161111T235102Z
+          DTSTART:20161111T190000
+          LAST-MODIFIED:20161111T232837Z
+          SEQUENCE:0
+          SUMMARY:Boys MA
+          UID:missingtz
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20161111T232837Z
+          DTEND:20161111T200000Z
+          DTSTAMP:20161111T235102Z
+          DTSTART:20161111T190000Z
+          LAST-MODIFIED:20161111T232837Z
+          SEQUENCE:0
+          SUMMARY:Boys MA
+          UID:hastz
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        svc.sync_row(cal_row)
+        expect(req).to have_been_made
+
+        events = event_svc.admin_dataset(&:all)
+        expect(events).to contain_exactly(
+          include(
+            compound_identity: "abc-missingtz",
+            start_at: match_time("2016-11-11 19:00:00 +0000"),
+            end_at: match_time("2016-11-11 20:00:00 +0000"),
+            missing_timezone: true,
+          ),
+          include(
+            compound_identity: "abc-hastz",
+            start_at: match_time("2016-11-11 19:00:00 +0000"),
+            end_at: match_time("2016-11-11 20:00:00 +0000"),
+            missing_timezone: false,
+          ),
+        )
+      end
     end
   end
 
@@ -786,7 +909,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
     def events
       arr = []
-      described_class.each_event(source) { |a| arr << a }
+      described_class::EventProcessor.new(source, nil).each_feed_event { |a| arr << a }
       arr
     end
 
