@@ -24,40 +24,69 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     sql: ->(_) { Sequel.lit("'do not use'") },
   )
 
-  def self.value_is_date_str?(v)
-    return v.length === 8
+  # Return tuple of parsed date or datetime, and a boolean of whether
+  # the timezone could be parsed (true if date was parsed).
+  # @return [Array<Time,Date,true,false,nil>]
+  def self.entry_to_date_or_datetime(entry)
+    return [self.entry_to_date(entry), true] if self.value_is_date_str?(entry.fetch("v"))
+    return self.entry_to_datetime(entry)
   end
 
-  # @return [Time,nil]
+  def self.entry_is_date_str?(e) = self.value_is_date_str?(e.fetch("v"))
+  def self.value_is_date_str?(v) = v.length === 8
+
+  # Return tuple of parsed datetime, and a boolean of whether
+  # the timezone could be parsed.
+  # @return [Array<Time,true,false,nil>]
   def self.entry_to_datetime(entry)
-    return entry if entry.nil? || entry.is_a?(Time) # If the default was used or there's no value
     value = entry.fetch("v")
-    return Time.strptime(value, "%Y%m%dT%H%M%S%Z") if value.end_with?("Z")
-    return nil if self.value_is_date_str?(value)
-    tzid = entry["TZID"]
-    return self._parse_time_with_tzid(value, tzid) if tzid
-    raise ArgumentError, "cannot convert #{entry} to datetime"
+    raise ArgumentError, "do not pass a date string" if self.value_is_date_str?(value)
+    return [Time.strptime(value, "%Y%m%dT%H%M%S%Z"), true] if value.end_with?("Z")
+    if (tzid = entry["TZID"])
+      return self._parse_time_with_tzid(value, tzid)
+    end
+    return [Time.find_zone!("UTC").parse(value), false]
   end
 
   # @return [Date,nil]
   def self.entry_to_date(entry)
-    return nil if entry.nil?
     value = entry.fetch("v")
-    return nil unless self.value_is_date_str?(value)
+    raise ArgumentError, "must pass a date string" unless self.value_is_date_str?(value)
     return Date.strptime(value, "%Y%m%d")
   end
 
   CONV_DATE = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
-      self.entry_to_date(entry)
+      self.entry_to_date(entry) if entry.is_a?(Hash) && self.entry_is_date_str?(entry)
     end,
     sql: ->(_) { raise NotImplementedError },
   )
   CONV_DATETIME = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
-      self.entry_to_datetime(entry)
+      if entry.is_a?(Hash)
+        if self.entry_is_date_str?(entry)
+          nil
+        else
+          self.entry_to_datetime(entry).first
+        end
+      else
+        # Entry may be a time if this was from the defaulter
+        entry
+      end
     end,
     sql: ->(_) { raise NotImplementedError },
+  )
+  CONV_MISSING_TZ = Webhookdb::Replicator::Column::IsomorphicProc.new(
+    ruby: lambda do |entry, **|
+      may_have_missing_tz = entry.is_a?(Hash) && !self.entry_is_date_str?(entry)
+      if may_have_missing_tz
+        tzparsed = self.entry_to_datetime(entry)[1]
+        !tzparsed
+      else
+        false
+      end
+    end,
+    sql: ->(_) { Sequel[false] },
   )
   CONV_GEO_LAT = Webhookdb::Replicator::Column.converter_array_element(index: 0, sep: ";", cls: DECIMAL)
   CONV_GEO_LNG = Webhookdb::Replicator::Column.converter_array_element(index: 1, sep: ";", cls: DECIMAL)
@@ -75,22 +104,33 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
 
   def _denormalized_columns
     col = Webhookdb::Replicator::Column
-    tsopts = {converter: CONV_DATETIME}
-    dateopts = {converter: CONV_DATE}
+    tsconv = {converter: CONV_DATETIME}
+    dateconv = {converter: CONV_DATE}
     return [
       col.new(:calendar_external_id, TEXT, index: true),
       col.new(:uid, TEXT, data_key: ["UID", "v"], index: true),
       col.new(:row_updated_at, TIMESTAMP, index: true, defaulter: :now, optional: true),
-      col.new(:last_modified_at, TIMESTAMP, index: true, data_key: "LAST-MODIFIED",
-                                            defaulter: :now, optional: true, **tsopts,),
-      col.new(:created_at, TIMESTAMP, optional: true, data_key: "CREATED", **tsopts),
-      col.new(:start_at, TIMESTAMP, index: true, data_key: "DTSTART", **tsopts),
-      col.new(:end_at, TIMESTAMP, index: true, data_key: "DTEND", optional: true, **tsopts),
-      col.new(:start_date, DATE, index: true, data_key: "DTSTART", **dateopts),
-      col.new(:end_date, DATE, index: true, data_key: "DTEND", optional: true, **dateopts),
+      col.new(:last_modified_at,
+              TIMESTAMP,
+              index: true,
+              data_key: "LAST-MODIFIED",
+              defaulter: :now,
+              optional: true,
+              **tsconv,),
+      col.new(:created_at, TIMESTAMP, optional: true, data_key: "CREATED", **tsconv),
+      col.new(:start_at, TIMESTAMP, index: true, data_key: "DTSTART", **tsconv),
+      # This is True when start/end at fields are missing timezones in the underlying feed.
+      # Their timestamps are in UTC.
+      col.new(:missing_timezone, BOOLEAN, data_key: "DTSTART", converter: CONV_MISSING_TZ),
+      col.new(:end_at, TIMESTAMP, index: true, data_key: "DTEND", optional: true, **tsconv),
+      col.new(:start_date, DATE, index: true, data_key: "DTSTART", **dateconv),
+      col.new(:end_date, DATE, index: true, data_key: "DTEND", optional: true, **dateconv),
       col.new(:status, TEXT, data_key: ["STATUS", "v"], optional: true),
-      col.new(:categories, TEXT_ARRAY, data_key: ["CATEGORIES", "v"],
-                                       optional: true, converter: col::CONV_COMMA_SEP,),
+      col.new(:categories,
+              TEXT_ARRAY,
+              data_key: ["CATEGORIES", "v"],
+              optional: true,
+              converter: col::CONV_COMMA_SEP,),
       col.new(:priority, INTEGER, data_key: ["PRIORITY", "v"], optional: true, converter: col::CONV_TO_I),
       col.new(:geo_lat, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LAT),
       col.new(:geo_lng, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LNG),
@@ -204,23 +244,24 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
   # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
   # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
+  #
+  # If the zone cannot be parsed, assume UTC.
+  #
+  # Return a tuple of [Time, true if the zone could be parsed].
+  # If the zone cannot be parsed, you usually want to log or store it.
   def self._parse_time_with_tzid(value, tzid)
     if (zone = Time.find_zone(tzid.tr("-", "/")))
-      return zone.parse(value)
+      return [zone.parse(value), true]
     end
     if /^(GMT|UTC)[+-]\d\d\d\d$/.match?(tzid)
       offset = tzid[3..]
-      return Time.parse(value + offset)
+      return [Time.parse(value + offset), true]
     end
     if (zone = Webhookdb::WindowsTZ.windows_name_to_tz[tzid])
-      return zone.parse(value)
-    end
-    Sentry.with_scope do |scope|
-      scope.set_extras(timezone_id: tzid, time_value: value)
-      Sentry.capture_message("Unhandled iCalendar timezone")
+      return [zone.parse(value), true]
     end
     zone = Time.find_zone!("UTC")
-    return zone.parse(value)
+    return [zone.parse(value), false]
   end
 
   def on_dependency_webhook_upsert(_ical_svc, _ical_row, **)
