@@ -246,7 +246,6 @@ The secret to use for signing is:
       raise LocalJumpError unless block_given?
 
       uid = h.fetch("UID").fetch("v")
-      recur_result = {}
 
       if (recurrence_id = h["RECURRENCE-ID"])
         # Track down the original item in the projected sequence, so we can update it.
@@ -257,7 +256,13 @@ The secret to use for signing is:
           startfield = :start_at
           start = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(recurrence_id).first
         end
-        candidates = @expanded_events_by_uid.fetch(uid)
+        candidates = @expanded_events_by_uid[uid]
+        if candidates.nil?
+          # We can have no recurring events, even with the exclusion date.
+          # Not much we can do here- just treat it as a standalone event.
+          yield h
+          return
+        end
         unless (match = candidates.find { |c| c[startfield] == start })
           # There are some providers (like Apple) where an excluded event
           # will be outside the bounds of the RRULE of its owner.
@@ -271,7 +276,7 @@ The secret to use for signing is:
           h["recurring_event_id"] = uid
           h["recurring_event_sequence"] = max_seq_num
           yield h
-          return recur_result
+          return
         end
 
         # Steal the UID to overwrite the original, and record where it came from.
@@ -286,12 +291,12 @@ The secret to use for signing is:
         # may already be present in the database).
         h["LAST-MODIFIED"] = match.fetch(:last_modified_at) + 1.second
         yield h
-        return recur_result
+        return
       end
 
       unless h["RRULE"]
         yield h
-        return recur_result
+        return
       end
 
       # We need to convert relevant parsed ical lines back to a string for use in ice_cube.
@@ -334,10 +339,7 @@ The secret to use for signing is:
         break if occ.start_time > closing_time
       end
       @max_sequence_num_by_uid[uid] = final_sequence
-      # If we're now projecting fewer rows, we need to clean up the ones we no longer update.
-      recur_result[:delete_cond] =
-        Sequel[recurring_event_id: uid] & (Sequel[:recurring_event_sequence] > final_sequence)
-      return recur_result
+      return
     end
 
     # We need is_date because the recurrence/IceCube schedule may be using times, not date.

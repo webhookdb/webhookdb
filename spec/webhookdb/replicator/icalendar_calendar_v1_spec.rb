@@ -778,7 +778,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(req).to have_been_made.times(2)
       end
 
-      it "handles invalid recurrence-id dates" do
+      it "handles recurrence-id datetimes that do not match any RRULE" do
         body = <<~ICAL
           BEGIN:VCALENDAR
           PRODID:-//Google Inc//Google Calendar 70.9054//EN
@@ -825,7 +825,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         svc.sync_row(cal_row)
         expect(req).to have_been_made
 
-        events = event_svc.admin_dataset { |ds| ds.select(:compound_identity, :start_at, :end_at).all }
+        events = event_svc.admin_dataset(&:all)
         expect(events).to contain_exactly(
           include(
             compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-0",
@@ -846,6 +846,52 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-3",
             start_at: match_time("2016-11-12 00:00:00 +0000"),
             end_at: match_time("2016-11-12 01:00:00 +0000"),
+            recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
+            recurring_event_sequence: 3,
+          ),
+        )
+      end
+
+      it "handles recurrence-id that does not have a corresponding UID" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          PRODID:-//Google Inc//Google Calendar 70.9054//EN
+          VERSION:2.0
+          BEGIN:VEVENT
+          DTEND;VALUE=DATE:20110215
+          DTSTAMP:20111029T235747Z
+          DTSTART;VALUE=DATE:20110214
+          LAST-MODIFIED:20110131T011428Z
+          RECURRENCE-ID:20110214T000000
+          SEQUENCE:0
+          STATUS:CONFIRMED
+          SUMMARY:Valentines day!
+          TRANSP:OPAQUE
+          UID:09490091-F30F-4391-AEB4-945A3EAFC2D1
+          BEGIN:VALARM
+          ACTION:DISPLAY
+          DESCRIPTION:Event reminder
+          TRIGGER;VALUE=DURATION:-P2D
+          X-WR-ALARMUID:F25C19ED-F345-4B11-A71C-6F9B354ABD41
+          END:VALARM
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+
+        svc.sync_row(cal_row)
+        expect(req).to have_been_made
+
+        events = event_svc.admin_dataset(&:all)
+        expect(events).to contain_exactly(
+          include(
+            compound_identity: "abc-09490091-F30F-4391-AEB4-945A3EAFC2D1",
+            start_date: Date.parse("20110214"),
+            end_date: Date.parse("20110215"),
+            recurring_event_id: nil,
+            recurring_event_sequence: nil,
           ),
         )
       end
