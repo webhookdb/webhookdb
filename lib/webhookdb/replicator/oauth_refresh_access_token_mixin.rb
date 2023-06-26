@@ -16,14 +16,14 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
   def delete_oauth_access_token(oauth_user_id)
     key = self.oauth_access_token_cache_key(oauth_user_id)
     Webhookdb::Redis.cache.with do |r|
-      r.del(key)
+      r.call("DEL", key)
     end
   end
 
   def _with_oauth_access_token(oauth_user_id, get_refresh_token)
     key = self.oauth_access_token_cache_key(oauth_user_id)
     Webhookdb::Redis.cache.with do |r|
-      got = r.get(key)
+      got = r.call("GET", key)
       if got
         yield got
       else
@@ -46,7 +46,7 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
           logger: self.logger,
         )
         access_token = resp.parsed_response.fetch("access_token")
-        r.setex(key, resp.parsed_response["expires_in"] - EXPIRATION_BUFFER, access_token)
+        r.call("SETEX", key, resp.parsed_response["expires_in"] - EXPIRATION_BUFFER, access_token)
         yield access_token
       end
     end
@@ -55,7 +55,7 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
   def force_set_oauth_access_token(oauth_user_id, access_token, expires_in: 60.minutes.to_i)
     key = self.oauth_access_token_cache_key(oauth_user_id)
     Webhookdb::Redis.cache.with do |r|
-      r.setex(key, expires_in, access_token)
+      r.call("SETEX", key, expires_in, access_token)
       return access_token
     end
   end
