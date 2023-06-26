@@ -354,8 +354,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         # This is important because other we'd keep trying to sync the last row synced.
         self.record(self.now)
       end
-    rescue Webhookdb::Http::Error => e
-      # This is expected. We already committed the last page that was successful,
+    rescue Webhookdb::Http::Error, Errno::ECONNRESET => e
+      # This is handled well so no need to re-raise.
+      # We already committed the last page that was successful,
       # so we can just stop syncing at this point to try again later.
       self.sync_target.logger.error("sync_target_http_error", error: e)
     end

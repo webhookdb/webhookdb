@@ -496,6 +496,14 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
       end
 
+      it "logs and does not reraise ECONNRESET" do
+        sync_tgt.update(page_size: 2)
+        reqs = stub_request(:post, "https://sync-target-webhook/xyz").and_raise(Errno::ECONNRESET)
+        sync_tgt.run_sync(now: Time.now)
+        expect(reqs).to have_been_made
+        expect(sync_tgt).to have_attributes(last_synced_at: be_nil)
+      end
+
       it "records timestamp of last successful synced item and raises if a non-http error occurs" do
         sync_tgt.update(page_size: 2)
         rte = RuntimeError.new("hi")
