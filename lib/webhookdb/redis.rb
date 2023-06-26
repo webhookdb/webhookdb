@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "appydays/configurable"
-require "redis"
+require "redis_client"
 
 module Webhookdb::Redis
   include Appydays::Configurable
@@ -15,14 +15,12 @@ module Webhookdb::Redis
 
     after_configured do
       cache_params = {url: self.cache_redis_url}
-      if self.cache_redis_url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
-        cache_params[:ssl_params] = {verify_mode: OpenSSL::SSL::VERIFY_NONE}
-      end
+      cache_params[:ssl] = false if self.cache_redis_url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
       self.cache = ConnectionPool.new(
         size: Webhookdb::Dbutil.max_connections,
         timeout: Webhookdb::Dbutil.pool_timeout,
       ) do
-        Redis.new(cache_params)
+        RedisClient.new(cache_params)
       end
     end
   end
