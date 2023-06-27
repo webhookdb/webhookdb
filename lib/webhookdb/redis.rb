@@ -16,12 +16,11 @@ module Webhookdb::Redis
     after_configured do
       cache_params = {url: self.cache_redis_url}
       cache_params[:ssl] = false if self.cache_redis_url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
-      self.cache = ConnectionPool.new(
-        size: Webhookdb::Dbutil.max_connections,
+      redis_config = RedisClient.config(**cache_params)
+      self.cache = redis_config.new_pool(
         timeout: Webhookdb::Dbutil.pool_timeout,
-      ) do
-        RedisClient.new(cache_params)
-      end
+        size: Webhookdb::Dbutil.max_connections,
+      )
     end
   end
 

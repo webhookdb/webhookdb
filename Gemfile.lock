@@ -308,7 +308,6 @@ DEPENDENCIES
   biz
   clipboard
   concurrent-ruby
-  connection_pool
   dotenv
   down
   faker
