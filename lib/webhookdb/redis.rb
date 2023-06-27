@@ -11,11 +11,13 @@ module Webhookdb::Redis
   end
 
   configurable(:redis) do
-    setting :cache_redis_url, "redis://localhost:6379/0", key: ["CACHE_REDIS_URL", "REDIS_URL"]
+    setting :cache_url, "redis://localhost:6379/0"
+    setting :cache_url_provider, "REDIS_URL"
+    setting :verify_ssl, false
 
     after_configured do
-      cache_params = {url: self.cache_redis_url, reconnect_attempts: 1}
-      cache_params[:ssl] = false if self.cache_redis_url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
+      url = ENV.fetch(self.cache_url_provider, self.cache_url)
+      cache_params = {url:, reconnect_attempts: 1, ssl: self.verify_ssl}
       redis_config = RedisClient.config(**cache_params)
       self.cache = redis_config.new_pool(
         timeout: Webhookdb::Dbutil.pool_timeout,
