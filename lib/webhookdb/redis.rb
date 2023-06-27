@@ -17,7 +17,9 @@ module Webhookdb::Redis
 
     after_configured do
       url = ENV.fetch(self.cache_url_provider, self.cache_url)
-      cache_params = {url:, reconnect_attempts: 1, ssl: self.verify_ssl}
+      cache_params = {url:, reconnect_attempts: 1}
+      cache_params[:ssl_params] = {verify_mode: OpenSSL::SSL::VERIFY_NONE} unless
+        self.verify_ssl
       redis_config = RedisClient.config(**cache_params)
       self.cache = redis_config.new_pool(
         timeout: Webhookdb::Dbutil.pool_timeout,
