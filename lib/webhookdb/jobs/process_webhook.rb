@@ -14,9 +14,8 @@ class Webhookdb::Jobs::ProcessWebhook
   on "webhookdb.serviceintegration.webhook"
   sidekiq_options queue: "webhook" # This is usually overridden.
 
-  def dependent_queues
-    return ["critical"]
-  end
+  def semaphore_expiry = 5.minutes.to_i
+  def dependent_queues = ["critical"]
 
   def before_perform(*args)
     event = Amigo::Event.from_json(args[0])
