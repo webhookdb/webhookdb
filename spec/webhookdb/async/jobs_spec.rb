@@ -528,15 +528,41 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       o.remove_related_database
     end
 
-    it "migrates the org replication tables" do
+    it "migrates the org replication tables if the target release_created_at (RCA) matches the current RCA" do
       fake.admin_dataset do |ds|
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
+        # Drop a column to make sure it gets migrated back in
         ds.db << "ALTER TABLE #{fake_sint.table_name} DROP COLUMN at"
       end
-      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id)
+      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:migrate_org).and_call_original
+      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:perform_in)
+
+      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, Webhookdb::RELEASE_CREATED_AT)
+
       fake.admin_dataset do |ds|
+        # Assert the dropped column is restored
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
       end
+    end
+
+    it "re-enqueues the job to the future if the target RCA is after the current RCA" do
+      stub_const("Webhookdb::RELEASE_CREATED_AT", "2000-01-01T00:00:00Z")
+      target_rca = "2001-01-01T00:00:00Z"
+
+      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:migrate_org)
+      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_in).with(1, o.id, target_rca)
+
+      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, target_rca)
+    end
+
+    it "drops the job if the target RCA is before the current RCA" do
+      stub_const("Webhookdb::RELEASE_CREATED_AT", "2000-01-01T00:00:00Z")
+      target_rca = "1999-01-01T00:00:00Z"
+
+      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:migrate_org)
+      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:perform_in)
+
+      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, target_rca)
     end
   end
 
