@@ -21,8 +21,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Appydays::Configurable
   include Webhookdb::Dbutil
 
-  class SyncInProgress < StandardError; end
+  class Deleted < StandardError; end
   class InvalidConnection < StandardError; end
+  class SyncInProgress < StandardError; end
 
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
@@ -337,6 +338,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
     def record(last_synced_at)
       self.sync_target.update(last_synced_at:)
+    rescue Sequel::NoExistingObject => e
+      raise Webhookdb::SyncTarget::Deleted, e
     end
   end
 

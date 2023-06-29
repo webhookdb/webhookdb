@@ -16,14 +16,11 @@ class Webhookdb::Jobs::SyncTargetRunSync
   def perform(sync_target_id)
     stgt = Webhookdb::SyncTarget[sync_target_id]
     if stgt.nil?
-      if Webhookdb::RACK_ENV == "staging"
-        # We can end up with this race on staging, since we delete sync targets.
-        # It's possible in other environments, and maybe skip it in all cases,
-        # but for now it's just for staging.
-        self.logger.warn("missing_sync_target", sync_target_id:)
-        return
-      end
-      raise "no sync target with id #{sync_target_id}"
+      # A sync target may be enqueued, but destroyed before the sync runs.
+      # If so, log a warning. We see this on staging a lot,
+      # but it does happen on production too, and should be expected.
+      self.logger.warn("missing_sync_target", sync_target_id:)
+      return
     end
     self.with_log_tags(
       sync_target_id: stgt.id,
@@ -33,7 +30,9 @@ class Webhookdb::Jobs::SyncTargetRunSync
     ) do
       stgt.run_sync(now: Time.now)
     rescue Webhookdb::SyncTarget::SyncInProgress
-      Webhookdb::Async::JobLogger.logger.warn("sync_target_already_in_progress")
+      self.logger.warn("sync_target_already_in_progress")
+    rescue Webhookdb::SyncTarget::Deleted
+      self.logger.warn("sync_target_deleted")
     end
   end
 end

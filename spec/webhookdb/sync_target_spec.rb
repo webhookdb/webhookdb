@@ -516,6 +516,17 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         expect(req).to have_been_made.times(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
       end
+
+      it "raises a Deleted error if the sync target is destroyed during the sync" do
+        req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return do
+            # Destroy this while the sync is running
+            Webhookdb::SyncTarget[sync_tgt.id]&.destroy
+            {status: 200, body: "", headers: {}}
+          end
+        expect { sync_tgt.run_sync(now: Time.now) }.to raise_error(Webhookdb::SyncTarget::Deleted)
+        expect(req).to have_been_made
+      end
     end
   end
 end
