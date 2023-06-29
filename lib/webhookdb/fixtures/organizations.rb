@@ -25,8 +25,8 @@ module Webhookdb::Fixtures::Organizations
     Webhookdb::Fixtures.organization_membership.invite.create(customer: c, organization: self)
   end
 
-  decorator :with_urls do
-    self.admin_connection_url_raw ||= Faker::Webhookdb.pg_connection
-    self.readonly_connection_url_raw ||= Faker::Webhookdb.pg_connection
+  decorator :with_urls do |admin: nil, readonly: nil|
+    self.admin_connection_url_raw ||= admin || Faker::Webhookdb.pg_connection
+    self.readonly_connection_url_raw ||= readonly || Faker::Webhookdb.pg_connection
   end
 end
