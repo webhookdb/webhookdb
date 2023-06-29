@@ -13,7 +13,7 @@ module Webhookdb::Replicator::MicrosoftCalendarV1Mixin
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! You are all set.
 Refer to https://webhookdb.com/docs/outlook-calendar for detailed instructions
-on syncing data for your linked Outlook accounts.
+on replicating data for your linked Outlook accounts.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}")})
     return step.completed

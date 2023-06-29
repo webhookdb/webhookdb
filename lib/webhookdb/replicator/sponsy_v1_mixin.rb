@@ -75,7 +75,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
   # @return [Webhookdb::Replicator::StateMachineStep]
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(We will start backfilling #{self.resource_name_plural} into your WebhookDB database.
+    step.output = %(We will start replicating #{self.resource_name_plural} into your WebhookDB database.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
     return step.completed

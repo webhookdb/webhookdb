@@ -346,7 +346,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
           prompt_is_secret: true,
           post_to_url: end_with("/transition/webhook_secret"),
           complete: false,
-          output: match("add support for syncing Outlook Calendar Users").and(match("generate a secret")),
+          output: match("add support for replicating Outlook Calendar Users").and(match("generate a secret")),
         )
       end
 
@@ -400,7 +400,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     it "uses the create state machine" do
       sm = sint.calculate_backfill_state_machine
       expect(sm).to have_attributes(
-        output: match("You are about to add support for syncing Outlook Calendar Users"),
+        output: match("You are about to add support for replicating Outlook Calendar Users"),
         needs_input: true,
       )
     end

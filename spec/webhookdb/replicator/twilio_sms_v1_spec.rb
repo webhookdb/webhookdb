@@ -570,7 +570,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Twilio SMS information."),
+          output: match("We are going to start replicating your Twilio SMS information."),
         )
       end
     end

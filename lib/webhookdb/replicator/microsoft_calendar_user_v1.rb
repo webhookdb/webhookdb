@@ -57,8 +57,8 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
     if self.service_integration.webhook_secret.blank?
       self.service_integration.data_encryption_secret ||= Webhookdb::Crypto.encryption_key.base64
       self.service_integration.save_changes
-      step.output = %(You are about to add support for syncing Outlook Calendar Users into WebhookDB,
-which is required for syncing the calendars and events themselves.
+      step.output = %(You are about to add support for replicating Outlook Calendar Users into WebhookDB,
+which is required for replicating the calendars and events themselves.
 
 We have detailed instructions on this process
 at https://webhookdb.com/docs/outlook-calendar.

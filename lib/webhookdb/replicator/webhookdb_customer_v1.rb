@@ -29,7 +29,7 @@ class Webhookdb::Replicator::WebhookdbCustomerV1 < Webhookdb::Replicator::Base
     self.service_integration.update(webhook_secret: Webhookdb::Id.rand_enc(16)) if
       self.service_integration.webhook_secret.blank?
     step.output = %(WebhookDB is now listening for changes to #{self.resource_name_plural}
-and will reflect them into the table for this service integration.
+and will replicate them into the table for this service integration.
 
 Whenever a #{self.resource_name_singular} changes, a request will be sent to:
 

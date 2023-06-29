@@ -424,7 +424,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("Great! We are going to start backfilling your Sponsy Publications"),
+          output: match("We are going to start replicating your Sponsy Publications"),
         )
       end
     end

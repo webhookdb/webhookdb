@@ -96,7 +96,7 @@ https://getsponsy.com/settings/workspace
       return step.secret_prompt("API Key").backfill_secret(self.service_integration)
     end
 
-    step.output = %(Great! We are going to start backfilling your Sponsy Publications,
+    step.output = %(We are going to start replicating your Sponsy Publications
 and will keep them updated. You can can also add more Sponsy integrations.
 Run `webhookdb services list` to see what's available.
 #{self._query_help_output}

@@ -182,7 +182,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(sm).to have_attributes(
           needs_input: true,
           complete: false,
-          output: include("about to add support for syncing iCalendar"),
+          output: include("about to add support for replicating iCalendar"),
           prompt: include("secret"),
         )
       end
@@ -204,7 +204,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(sm).to have_attributes(
           needs_input: true,
           complete: false,
-          output: include("add support for syncing iCalendar"),
+          output: include("add support for replicating iCalendar"),
         )
       end
     end
