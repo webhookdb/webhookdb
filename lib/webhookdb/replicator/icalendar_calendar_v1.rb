@@ -39,7 +39,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.webhook_secret.blank?
       self.service_integration.save_changes
-      step.output = %(You are about to add support for syncing iCalendar (.ics) URLs into WebhookDB.
+      step.output = %(You are about to add support for replicating iCalendar (.ics) URLs into WebhookDB.
 
 We have detailed instructions on this process
 at https://webhookdb.com/docs/icalendar.

@@ -424,7 +424,7 @@ RSpec.describe Webhookdb::Replicator::TransistorShowV1, :db do
           prompt_is_secret: false,
           post_to_url: "",
           complete: true,
-          output: match("We are going to start backfilling your Transistor Shows"),
+          output: match("We are going to start replicating your Transistor Shows"),
         )
       end
     end

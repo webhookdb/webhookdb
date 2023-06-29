@@ -246,7 +246,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
-          output: /We will start backfilling Sponsy Placements into your WebhookDB database/,
+          output: /We will start replicating Sponsy Placements into your WebhookDB database/,
         )
       end
     end

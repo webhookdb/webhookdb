@@ -53,7 +53,7 @@ Copy that API key.
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
-    step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
+    step.output = %(Great! We are going to start replicating your #{self.resource_name_plural}.
 #{self._query_help_output}
     )
     return step.completed

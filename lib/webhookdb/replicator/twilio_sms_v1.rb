@@ -68,7 +68,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
-    step.output = %(Great! We are going to start backfilling your Twilio SMS information, and will keep it updated.
+    step.output = %(We are going to start replicating your Twilio SMS information, and will keep it updated.
 #{self._query_help_output}
       )
     return step.completed

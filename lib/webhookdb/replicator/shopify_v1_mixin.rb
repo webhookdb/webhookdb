@@ -53,7 +53,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
       step.needs_input = true
-      step.output = %(You are about to start reflecting #{self.resource_name_plural} into webhookdb.
+      step.output = %(You are about to start replicating #{self.resource_name_plural} into WebhookDB.
 We've made an endpoint available for #{self.resource_name_singular} webhooks:
 
 #{self._webhook_endpoint}
