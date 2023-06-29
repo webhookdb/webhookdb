@@ -243,9 +243,49 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  # As part of the release process, we enqueue a job that will migrate the replication schemas
+  # for all organizations. However this job must use the NEW code being released;
+  # it should not use the CURRENT code the workers may be using when this method is run
+  # during the release process.
+  #
+  # We can get around this by enqueing the jobs with the 'target' release creation date.
+  # Only jobs that execute with this release creation date will perform the migration;
+  # if the job is running using an older release creation date (ie still running old code),
+  # it will re-enqueue the migration to run in the future, using a worker that will eventually
+  # be using newer code.
+  #
+  # For example:
+  #
+  # - We have Release A, created at 0, currently running.
+  # - Release B, created at 1, runs this method.
+  # - The workers, using Release A code (with a release_created_at of 0),
+  #   run the ReplicationMigration job.
+  #   They see the target release_created_at of 1 is greater than/after the current release_created_at of 0,
+  #   so re-enqueue the job.
+  # - Eventually the workers are using Release B code, which has a release_created_at of 1.
+  #   This matches the target, so the job is run.
+  #
+  # For a more complex example, which involves releases created in quick succession
+  # (we need to be careful to avoid jobs that never run):
+  #
+  # - We have Release A, created at 0, currently running.
+  # - Release B, created at 1, runs this method.
+  # - Release C, created at 2, runs this method.
+  # - Workers are backed up, so nothing is processed until all workers are using Release C.
+  # - Workers using Release C code process two sets of jobs:
+  #   - Jobs with a target release_created_at of 1
+  #   - Jobs with a target release_created_at of 2
+  # - Jobs with a target of 2 run the actual migration, because the times match.
+  # - Jobs with a target of 1, see that the target is less than/before current release_created_at of 2.
+  #   This indicates the migration is stale, and the job is discarded.
+  #
+  # NOTE: There will always be a race condition where we may process webhooks using the new code,
+  # before we've migrated the replication schemas into the new code. This will error during the upsert
+  # because the column doesn't yet exist. However these will be retried automatically,
+  # and quickly, so we don't worry about them yet.
   def self.enqueue_migrate_all_replication_tables
     Webhookdb::Organization.each do |org|
-      Webhookdb::Jobs::ReplicationMigration.perform_async(org.id)
+      Webhookdb::Jobs::ReplicationMigration.perform_in(2, org.id, Webhookdb::RELEASE_CREATED_AT)
     end
   end
 
