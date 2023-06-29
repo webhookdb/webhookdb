@@ -211,3 +211,18 @@ class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fak
     return super
   end
 end
+
+class Webhookdb::Replicator::FakeNoManualBackfill < Webhookdb::Replicator::Fake
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_no_manual_backfill_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeNoManualBackfill.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "Fake (No Manual Backfill)",
+    )
+  end
+
+  def supports_manual_backfill? = false
+
+  def documentation_url = "https://abc.xyz"
+end

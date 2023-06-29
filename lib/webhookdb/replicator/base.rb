@@ -778,6 +778,9 @@ class Webhookdb::Replicator::Base
     raise NotImplementedError, "each integration must provide an error message for unanticipated errors"
   end
 
+  def supports_manual_backfill? = true
+  def documentation_url = nil
+
   # In order to backfill, we need to:
   # - Iterate through pages of records from the external service
   # - Upsert each record
@@ -785,6 +788,8 @@ class Webhookdb::Replicator::Base
   # - The backfill method should take care of retrying fetches for failed pages.
   # - That means it needs to keep track of some pagination token.
   def backfill(incremental: false, cascade: false)
+    raise Webhookdb::InvariantViolation, "manual backfill not supported" unless self.supports_manual_backfill?
+
     sint = self.service_integration
     last_backfilled = incremental ? sint.last_backfilled_at : nil
     raise Webhookdb::Replicator::CredentialsMissing if

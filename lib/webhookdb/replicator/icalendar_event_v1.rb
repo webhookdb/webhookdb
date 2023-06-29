@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require "webhookdb/icalendar"
 require "webhookdb/windows_tz"
 
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
+
+  def supports_manual_backfill? = false
+  def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor

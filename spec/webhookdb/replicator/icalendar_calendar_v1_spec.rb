@@ -73,6 +73,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
+  it_behaves_like "a replicator that does not support manual backfill", "icalendar_calendar_v1"
+
   describe "upsert behavior" do
     describe "upsert_webhook" do
       let(:base_request) do
