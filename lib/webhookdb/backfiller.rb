@@ -73,6 +73,8 @@ class Webhookdb::Backfiller
     # which should only involve upserting new rows anyway.
     def conditional_upsert? = false
 
+    def dry_run? = false
+
     # Add the item to pending upserts, and run the page upsert if needed.
     # Return the key, and the item being upserted.
     # @return [Array(String, Hash)]
@@ -86,6 +88,7 @@ class Webhookdb::Backfiller
     end
 
     def flush_pending_inserts
+      return if self.dry_run?
       return if self.pending_inserts.empty?
       rows_to_insert = self.pending_inserts.values
       update_where = self.conditional_upsert? ? self.upserting_replicator._update_where_expr : nil
