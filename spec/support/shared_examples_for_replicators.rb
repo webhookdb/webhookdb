@@ -637,6 +637,19 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
   end
 end
 
+RSpec.shared_examples "a replicator that does not support manual backfill" do |name|
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+
+  it "raises InvariantViolation on backfill" do
+    expect { svc.backfill }.to raise_error(Webhookdb::InvariantViolation, "manual backfill not supported")
+  end
+
+  it "has a documentation url" do
+    expect(svc).to have_attributes(documentation_url: be_present)
+  end
+end
+
 RSpec.shared_examples "a backfill replicator that requires credentials from a dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:error_message) { raise NotImplementedError }

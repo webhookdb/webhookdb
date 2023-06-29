@@ -10,6 +10,10 @@ module Webhookdb::Plaid
     setting :sync_timeout, 10
   end
 
+  # Manual backfilling is not supported on Plaid integrations.
+  # If a manual backfill is attempted, direct customer to this url.
+  DOCUMENTATION_URL = "https://webhookdb.com/docs/plaid"
+
   def self.webhook_response(request, webhook_secret)
     # Eventually we can figure out how to verify Plaid webhooks,
     # but it's sort of crazy so ignore it for now.

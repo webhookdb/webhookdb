@@ -661,7 +661,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(last_response).to have_json_body.that_includes(output: /backfill flow is working/)
     end
 
-    it "fails if service integration is not supported by subscription plan" do
+    it "402s if service integration is not supported by subscription plan" do
       maxed = max_out_plan_integrations(org)
 
       post "/v1/organizations/#{org.key}/service_integrations/#{maxed.opaque_id}/backfill"
@@ -669,6 +669,18 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(last_response).to have_status(402)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /to manage your subscription/),
+      )
+    end
+
+    it "409s if service integration does not support manual backfilling" do
+      no_backfill = Webhookdb::Fixtures.service_integration.create(organization: org,
+                                                                   service_name: "fake_no_manual_backfill_v1",)
+
+      post "/v1/organizations/#{org.key}/service_integrations/#{no_backfill.opaque_id}/backfill"
+
+      expect(last_response).to have_status(409)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: %r{Please refer to the documentation at https://abc.xyz}),
       )
     end
   end

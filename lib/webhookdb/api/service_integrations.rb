@@ -287,6 +287,11 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               org = lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
               svc = Webhookdb::Replicator.create(sint)
+              unless svc.supports_manual_backfill?
+                msg = "Sorry, you cannot manually backfill this integration. Please refer to the documentation " \
+                      "at #{svc.documentation_url} for information on how to refresh data."
+                merror!(409, msg)
+              end
               ensure_can_be_modified!(sint, c)
               state_machine = svc.calculate_and_backfill_state_machine
               status 200

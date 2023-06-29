@@ -19,4 +19,8 @@ module Webhookdb::GoogleCalendar
     # but set shorter when testing.
     setting :watch_ttl, 604_800
   end
+
+  # Manual backfilling is not supported on Google Calendar integrations.
+  # If a manual backfill is attempted, direct customer to this url.
+  DOCUMENTATION_URL = "https://webhookdb.com/docs/google-calendar"
 end

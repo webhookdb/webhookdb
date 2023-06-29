@@ -3,14 +3,17 @@
 require "down"
 require "ice_cube"
 
-require "webhookdb/messages/error_icalendar_fetch"
-
+require "webhookdb/icalendar"
 require "webhookdb/jobs/icalendar_sync"
+require "webhookdb/messages/error_icalendar_fetch"
 
 class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
   RECURRENCE_PROJECTION = 5.years
+
+  def supports_manual_backfill? = false
+  def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor

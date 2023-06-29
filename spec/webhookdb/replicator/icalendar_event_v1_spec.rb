@@ -16,6 +16,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
     let(:no_dependencies_message) { "" }
   end
 
+  it_behaves_like "a replicator that does not support manual backfill", "icalendar_event_v1"
+
   describe "upsert" do
     def upsert(s)
       h = described_class.vevent_to_hash(s.lines)
