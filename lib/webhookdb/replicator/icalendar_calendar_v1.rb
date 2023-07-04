@@ -166,6 +166,21 @@ The secret to use for signing is:
       request_url = row.fetch(:ics_url)
       begin
         io = Down::NetHttp.open(request_url, rewindable: false)
+      rescue Down::TooManyRedirects
+        response_status = 301
+        response_body = "<too many redirects>"
+        self.logger.warn("icalendar_fetch_error",
+                         response_body:, response_status:, request_url:, calendar_external_id:,)
+        message = Webhookdb::Messages::ErrorIcalendarFetch.new(
+          self.service_integration,
+          calendar_external_id,
+          response_status:,
+          response_body:,
+          request_url:,
+          request_method: "GET",
+        )
+        self.service_integration.organization.alerting.dispatch_alert(message)
+        return
       rescue Down::ClientError => e
         raise e if e.response.nil?
         response_status = e.response.code.to_i
