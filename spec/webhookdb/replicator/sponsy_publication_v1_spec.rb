@@ -345,13 +345,13 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
       R
       req = stub_request(:get, "https://api.getsponsy.com/v1/publications?afterCursor=&limit=100&orderBy=updatedAt&orderDirection=DESC").
         to_return(two_items, one_item, one_item)
-      svc.backfill
+      backfill(svc)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(slug: "lwia-podcast", deleted_at: nil),
         include(slug: "sitc-podcast", deleted_at: nil),
       )
 
-      svc.backfill
+      backfill(sint)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(slug: "lwia-podcast", deleted_at: match_time(:now).within(5)),
         include(slug: "sitc-podcast", deleted_at: nil),
@@ -359,7 +359,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
 
       orig_deleted_time = svc.readonly_dataset { |ds| ds[slug: "lwia-podcast"][:deleted_at] }
 
-      svc.backfill
+      backfill(sint)
       expect(req).to have_been_made.times(3)
       expect(svc.readonly_dataset(&:all)).to contain_exactly(
         include(slug: "lwia-podcast", deleted_at: orig_deleted_time),

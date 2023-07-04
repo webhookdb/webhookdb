@@ -15,7 +15,7 @@ class Webhookdb::Jobs::RssBackfillPoller
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: SERVICES) do |sint|
-      sint.publish_immediate("backfill", sint.id, {incremental: true})
+      Webhookdb::BackfillJob.create(service_integration: sint, incremental: true).enqueue
     end
   end
 end

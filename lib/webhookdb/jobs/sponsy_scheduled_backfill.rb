@@ -12,7 +12,7 @@ class Webhookdb::Jobs::SponsyScheduledBackfill
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "sponsy_publication_v1") do |sint|
-      sint.publish_immediate("backfill", sint.id, {cascade: true, incremental: true})
+      Webhookdb::BackfillJob.create_recursive(service_integration: sint, incremental: true).enqueue
     end
   end
 end

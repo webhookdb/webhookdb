@@ -11,7 +11,7 @@ class Webhookdb::Jobs::ConvertkitBroadcastBackfill
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "convertkit_broadcast_v1") do |sint|
-      sint.publish_immediate("backfill", sint.id)
+      Webhookdb::BackfillJob.create(service_integration: sint, incremental: false).enqueue
     end
   end
 end

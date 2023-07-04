@@ -129,10 +129,10 @@ RSpec.describe "fake implementations", :db do
           headers: {"Content-Type" => "application/json"},
         )
 
+      bfjob = Webhookdb::Fixtures.backfill_job.for(sint).cascade.create
       expect do
-        svc.backfill(cascade: true)
-      end.to publish("webhookdb.serviceintegration.backfill").
-        with_payload([dependent_sint.id, {"cascade" => true, "incremental" => false}])
+        svc.backfill(bfjob)
+      end.to publish("webhookdb.backfilljob.run").with_payload([bfjob.child_jobs.first.id])
       expect(backfill_req).to have_been_made
     end
 
@@ -153,7 +153,7 @@ RSpec.describe "fake implementations", :db do
           headers: {"Content-Type" => "application/json"},
         )
 
-      sint.replicator.backfill
+      backfill(sint)
       expect(req).to have_been_made
     end
   end

@@ -651,14 +651,19 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "starts backfill process if setup is complete", :async, :do_not_defer_events do
+    it "enqueues backfilling if setup is complete", :async, :do_not_defer_events do
       sint.update(backfill_secret: "sek")
 
       expect do
-        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill"
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id, {"cascade" => true}])
-      expect(last_response).to have_status(200)
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill", incremental: false
+        expect(last_response).to have_status(200)
+      end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
       expect(last_response).to have_json_body.that_includes(output: /backfill flow is working/)
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === sint,
+        incremental: false,
+        created_by: be === customer,
+      )
     end
 
     it "402s if service integration is not supported by subscription plan" do
@@ -725,6 +730,123 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
   end
 
+  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill/job" do
+    before(:each) do
+      login_as(customer)
+      _ = sint
+    end
+
+    it "returns a new backfill job", :async, :do_not_defer_events do
+      sint.update(backfill_secret: "sek")
+
+      expect do
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job"
+        expect(last_response).to have_status(200)
+      end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
+      bfj = Webhookdb::BackfillJob.first
+      expect(last_response).to have_json_body.that_includes(status: "enqueued", id: bfj.opaque_id)
+      expect(bfj).to have_attributes(
+        service_integration: be === sint,
+        incremental: true,
+      )
+    end
+
+    it "409s if the backfill state machine is not complete" do
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job"
+
+      expect(last_response).to have_status(409)
+      expect(last_response).to have_json_body.that_includes(error: include(message: /not set up to/))
+    end
+
+    it "402s if service integration is not supported by subscription plan" do
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/organizations/#{org.key}/service_integrations/#{maxed.opaque_id}/backfill/job"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: /to manage your subscription/),
+      )
+    end
+
+    it "409s if service integration does not support manual backfilling" do
+      no_backfill = Webhookdb::Fixtures.service_integration.create(
+        organization: org, service_name: "fake_no_manual_backfill_v1",
+      )
+
+      post "/v1/organizations/#{org.key}/service_integrations/#{no_backfill.opaque_id}/backfill/job"
+
+      expect(last_response).to have_status(409)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: /Please refer to the documentation/),
+      )
+    end
+
+    it "can use connection string auth" do
+      sint.update(backfill_secret: "sek")
+
+      logout
+      org.update(
+        readonly_connection_url_raw: Faker::Webhookdb.pg_connection,
+        admin_connection_url_raw: Faker::Webhookdb.pg_connection,
+      )
+
+      header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(status: "enqueued", id: be_present)
+    end
+  end
+
+  describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill/job/:id" do
+    before(:each) do
+      login_as(customer)
+      _ = sint
+    end
+
+    it "returns details about the job" do
+      job = Webhookdb::Fixtures.backfill_job.for(sint).create
+
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job/#{job.opaque_id}"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(status: "enqueued")
+    end
+
+    it "can use connection string auth" do
+      job = Webhookdb::Fixtures.backfill_job.for(sint).create
+
+      logout
+      org.update(
+        readonly_connection_url_raw: Faker::Webhookdb.pg_connection,
+        admin_connection_url_raw: Faker::Webhookdb.pg_connection,
+      )
+
+      header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
+
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job/#{job.opaque_id}"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(status: "enqueued")
+    end
+
+    it "403s if the job does not exist" do
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job/abc"
+
+      expect(last_response).to have_status(403)
+    end
+
+    it "403s if the job is not accessible to the org" do
+      job = Webhookdb::Fixtures.backfill_job.create
+
+      get "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job/#{job.opaque_id}"
+
+      expect(last_response).to have_status(403)
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/transition/:field" do
     before(:each) do
       login_as(customer)
@@ -745,7 +867,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "starts backfill process when backfill setup is complete", :async, :do_not_defer_events do
+    it "enqueues backfilling when backfill setup is complete", :async, :do_not_defer_events do
       new_sint = Webhookdb::Fixtures.service_integration.create(
         opaque_id: "abc",
         organization: org,
@@ -754,9 +876,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
       expect do
         post "/v1/organizations/#{org.key}/service_integrations/abc/transition/backfill_secret", value: "bfsek"
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([new_sint.id, {"cascade" => true}])
+      end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(output: /backfill flow is working/)
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === new_sint,
+        incremental: true,
+      )
     end
 
     it "403s if the current user cannot modify the integration due to org permissions" do

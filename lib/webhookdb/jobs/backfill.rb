@@ -10,7 +10,7 @@ class Webhookdb::Jobs::Backfill
   include Amigo::DurableJob
   include Amigo::QueueBackoffJob
 
-  on "webhookdb.serviceintegration.backfill"
+  on "webhookdb.backfilljob.run"
   sidekiq_options queue: "netout"
 
   def dependent_queues
@@ -19,11 +19,10 @@ class Webhookdb::Jobs::Backfill
   end
 
   def _perform(event)
-    sint = self.lookup_model(Webhookdb::ServiceIntegration, event.payload[0])
-    svc = Webhookdb::Replicator.create(sint)
-    backfill_kwargs = event.payload[1] || {}
+    bfjob = self.lookup_model(Webhookdb::BackfillJob, event.payload)
+    sint = bfjob.service_integration
     self.with_log_tags(sint.log_tags) do
-      svc.backfill(**backfill_kwargs.symbolize_keys)
+      sint.replicator.backfill(bfjob)
     end
   end
 end

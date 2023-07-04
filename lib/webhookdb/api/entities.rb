@@ -187,4 +187,12 @@ module Webhookdb::API
       ]
     end
   end
+
+  class BackfillJobEntity < BaseEntity
+    expose :opaque_id, as: :id
+    expose :status
+    expose :started_at
+    expose :fully_finished_at, as: :finished_at
+    expose :service_integration, with: ServiceIntegrationEntity
+  end
 end

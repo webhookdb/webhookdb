@@ -59,7 +59,8 @@ module Webhookdb::Tasks
           opaque_id = args.fetch(:opaque_id)
           Webhookdb.load_app
           sint = Webhookdb::ServiceIntegration[opaque_id:] or raise "No service integration for #{opaque_id}"
-          sint.replicator.backfill
+          bfjob = Webhookdb::BackfillJob.create_recursive(service_integration: sint, incremental: false)
+          sint.replicator.backfill(bfjob)
         end
       end
     end
