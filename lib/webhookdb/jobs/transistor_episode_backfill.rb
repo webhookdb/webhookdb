@@ -11,7 +11,7 @@ class Webhookdb::Jobs::TransistorEpisodeBackfill
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "transistor_episode_v1") do |sint|
-      sint.publish_immediate("backfill", sint.id, {incremental: true})
+      Webhookdb::BackfillJob.create_recursive(service_integration: sint, incremental: true).enqueue
     end
   end
 end

@@ -144,7 +144,7 @@ RSpec.describe Webhookdb::Replicator::SponsyStatusV1, :db do
         stub_service_request_error(status: 404),
         stub_service_request_error(status: 404, publication_id: publication_id2),
       ]
-      svc.backfill
+      backfill(sint)
       expect(reqs).to all(have_been_made)
       svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
     end
@@ -208,7 +208,7 @@ RSpec.describe Webhookdb::Replicator::SponsyStatusV1, :db do
       setup_dependencies(sint, lambda do |dep_svc|
         dep_svc.admin_dataset { |ds| ds.insert(data: "{}", sponsy_id: publication_id1) }
       end,)
-      svc.backfill
+      backfill(sint)
       expect(req).to have_been_made
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(

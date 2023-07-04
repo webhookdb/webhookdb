@@ -206,9 +206,10 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
           upserts,
         )
         replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
         replicator.define_singleton_method(:_parallel_backfill) { 2 }
         replicator.define_singleton_method(:_backfillers) { [bf1, bf2, bf3] }
-        replicator.backfill
+        backfill(replicator)
         expect(fetches).to contain_exactly(
           [nil, {last_backfilled: nil}],
           ["b", {last_backfilled: nil}],
@@ -227,10 +228,11 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
         end
         bf = cls.new
         replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
         replicator.define_singleton_method(:_parallel_backfill) { 2 }
         replicator.define_singleton_method(:_backfillers) { [bf] }
         expect do
-          replicator.backfill
+          backfill(replicator)
         end.to raise_error(RuntimeError, "hello")
       end
     end

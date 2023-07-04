@@ -352,13 +352,17 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     sint.organization.remove_related_database
   end
 
-  it "upsert records for pages of results" do
+  it "upsert records for pages of results and updates the backfill job" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests
-    svc.backfill
+    bfjob = backfill(sint)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
+    expect(bfjob.refresh).to have_attributes(
+      started_at: be_present,
+      finished_at: be_present,
+    )
   end
 
   it "handles empty responses" do
@@ -371,7 +375,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_empty_requests
-    svc.backfill
+    backfill(sint)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
   end
@@ -380,6 +384,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     backfillers = svc._backfillers
+    expect(sint).to receive(:replicator).and_return(svc)
     expect(svc).to receive(:_backfillers).and_return(backfillers)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).
       exactly(backfillers.size * 2).times # Each backfiller sleeps twice
@@ -391,7 +396,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     end
     # rubocop:enable RSpec/IteratedExpectation
     responses = stub_service_requests
-    svc.backfill
+    backfill(svc)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
   end
@@ -400,7 +405,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     svc.service_integration.backfill_key = ""
     svc.service_integration.backfill_secret = ""
     # `depends_on` is nil because we haven't created dependencies in this test
-    expect { svc.backfill }.to raise_error(Webhookdb::Replicator::CredentialsMissing)
+    expect { backfill(sint) }.to raise_error(Webhookdb::Replicator::CredentialsMissing)
   end
 
   it "errors if fetching page errors" do
@@ -408,7 +413,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     setup_dependencies(sint, insert_required_data_callback)
     expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice # Mock out the sleep
     response = stub_service_request_error
-    expect { svc.backfill }.to raise_error(Webhookdb::Http::Error)
+    expect { backfill(sint) }.to raise_error(Webhookdb::Http::Error)
     expect(response).to have_been_made.at_least_once
   end
 end
@@ -454,16 +459,16 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: true)
-    svc.backfill(incremental: true)
+    backfill(sint, incremental: true)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count) }
   end
 
-  it "upserts all records if incremental is not true" do
+  it "upserts all records if incremental is false" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: false)
-    svc.backfill
+    backfill(sint, incremental: false)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
   end
@@ -473,7 +478,7 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_service_requests(partial: false)
-    svc.backfill
+    backfill(sint)
     expect(responses).to all(have_been_made)
     svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_new_items_count + expected_old_items_count) }
   end
@@ -514,10 +519,10 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
 
   it "marks the deleted timestamp column as deleted" do
     responses = stub_service_requests
-    svc.backfill
+    backfill(sint)
     first_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
     expect(first_backfill_items).to have_length(undeleted_count_after_first_backfill)
-    svc.backfill
+    backfill(sint)
     second_backfill_items = svc.readonly_dataset { |ds| ds.where(deleted_column_name => nil).all }
     expect(second_backfill_items).to have_length(undeleted_count_after_second_backfill)
     expect(responses).to all(have_been_made.twice)
@@ -525,10 +530,10 @@ RSpec.shared_examples "a backfill replicator that marks missing rows as deleted"
 
   it "does not modify the deleted timestamp column once set" do
     responses = stub_service_requests
-    svc.backfill
+    backfill(sint)
     ts = Time.parse("1999-04-20T12:00:00Z")
     svc.admin_dataset { |ds| ds.update(deleted_column_name => ts) }
-    svc.backfill
+    backfill(sint)
     expect(responses).to all(have_been_made.twice)
     svc.admin_dataset do |ds|
       expect(ds.all).to all(include(deleted_column_name => match_time(ts)))
@@ -573,7 +578,7 @@ RSpec.shared_examples "a replicator that ignores HTTP errors during backfill" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     responses = stub_error_requests
-    Array.new(responses.size) { svc.backfill }
+    Array.new(responses.size) { backfill(sint) }
     expect(responses).to all(have_been_made.at_least_times(1))
     svc.readonly_dataset { |ds| expect(ds.all).to be_empty }
   end
@@ -606,7 +611,7 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
       ds.insert(create_dependency_row("dep3", 3.hours.ago))
     end
     sint.update(last_backfilled_at: 2.5.hours.ago)
-    svc.backfill(incremental: true)
+    backfill(sint, incremental: true)
     expect(svc.readonly_dataset(&:all)).to contain_exactly(
       include(external_id_col => "dep1"),
       include(external_id_col => "dep2"),
@@ -614,14 +619,14 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
     )
   end
 
-  it "upserts all records if incremental is not true" do
+  it "upserts all records if incremental is false" do
     dep_svc.admin_dataset do |ds|
       ds.insert(create_dependency_row("dep1", 1.hours.ago))
       ds.insert(create_dependency_row("dep2", 2.hours.ago))
       ds.insert(create_dependency_row("dep3", 3.hours.ago))
     end
     sint.update(last_backfilled_at: 2.5.hours.ago)
-    svc.backfill
+    backfill(sint, incremental: false)
     expect(svc.readonly_dataset(&:all)).to have_length(3)
   end
 
@@ -632,7 +637,7 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
       ds.insert(create_dependency_row("dep3", 3.hours.ago))
     end
     sint.update(last_backfilled_at: nil)
-    svc.backfill(incremental: true)
+    backfill(sint, incremental: true)
     expect(svc.readonly_dataset(&:all)).to have_length(3)
   end
 end
@@ -642,7 +647,9 @@ RSpec.shared_examples "a replicator that does not support manual backfill" do |n
   let(:svc) { Webhookdb::Replicator.create(sint) }
 
   it "raises InvariantViolation on backfill" do
-    expect { svc.backfill }.to raise_error(Webhookdb::InvariantViolation, "manual backfill not supported")
+    expect do
+      backfill(sint)
+    end.to raise_error(Webhookdb::InvariantViolation, "manual backfill not supported")
   end
 
   it "has a documentation url" do
@@ -665,7 +672,7 @@ RSpec.shared_examples "a backfill replicator that requires credentials from a de
   it "raises if credentials are not set" do
     strip_auth(sint)
     expect do
-      sint.replicator.backfill
+      backfill(sint)
     end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(error_message)
   end
 end
