@@ -204,8 +204,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
         route_param :sint_identifier, type: String do
           helpers do
-            def ensure_plan_supports!
-              org = lookup_org!
+            def ensure_plan_supports!(org=nil)
+              org ||= lookup_org!
               sint = lookup_service_integration!(org, params[:sint_identifier])
               return if sint.plan_supports_integration?
               err_msg = "This integration is no longer supported. " \
@@ -281,36 +281,70 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
 
           resource :backfill do
-            post do
-              ensure_plan_supports!
-              c = current_customer
-              org = lookup_org!
-              sint = lookup_service_integration!(org, params[:sint_identifier])
-              svc = Webhookdb::Replicator.create(sint)
-              unless svc.supports_manual_backfill?
+            helpers do
+              def lookup_backfillable_replicator(customer:, allow_connstr_auth: false)
+                org = lookup_org!(allow_connstr_auth:)
+                ensure_plan_supports!(org)
+                sint = lookup_service_integration!(org, params[:sint_identifier])
+                ensure_can_be_modified!(sint, customer) if customer
+                return sint.replicator
+              end
+
+              def check_can_manual_backfill(rep)
+                return if rep.supports_manual_backfill?
                 msg = "Sorry, you cannot manually backfill this integration. Please refer to the documentation " \
-                      "at #{svc.documentation_url} for information on how to refresh data."
+                      "at #{rep.documentation_url} for information on how to refresh data."
                 merror!(409, msg)
               end
-              ensure_can_be_modified!(sint, c)
-              state_machine = svc.calculate_and_backfill_state_machine
+            end
+
+            params do
+              optional :incremental, type: Boolean
+            end
+            post do
+              rep = lookup_backfillable_replicator(customer: current_customer)
+              check_can_manual_backfill(rep)
+              state_machine, _ = rep.calculate_and_backfill_state_machine(incremental: params.fetch(:incremental, true))
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
             end
 
             post :reset do
-              ensure_plan_supports!
-              c = current_customer
-              org = lookup_org!
-              sint = lookup_service_integration!(org, params[:sint_identifier])
-              svc = Webhookdb::Replicator.create(sint)
-              ensure_can_be_modified!(sint, c)
+              svc = lookup_backfillable_replicator(customer: current_customer)
               svc.clear_backfill_information
               # It's possible some integrations can be backfilled, but don't have their own credentials,
               # so we do need to emit the backfill event on success.
-              state_machine = svc.calculate_and_backfill_state_machine
+              state_machine, _ = svc.calculate_and_backfill_state_machine(incremental: true)
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
+            end
+
+            resource :job do
+              params do
+                optional :incremental, type: Boolean
+              end
+              post do
+                rep = lookup_backfillable_replicator(customer: nil, allow_connstr_auth: true)
+                check_can_manual_backfill(rep)
+                _, job = rep.calculate_and_backfill_state_machine(incremental: params.fetch(:incremental, true))
+                if job.nil?
+                  msg = "Sorry, this integration is not set up to backfill. " \
+                        "Run `webhookdb backfill #{rep.service_integration.opaque_id}` to finish setup."
+                  merror!(409, msg, code: "backfill_not_set_up")
+                end
+                status 200
+                present job, with: Webhookdb::API::BackfillJobEntity
+              end
+
+              route_param :job_id, type: String do
+                get do
+                  org = lookup_org!(allow_connstr_auth: true)
+                  job = Webhookdb::BackfillJob[service_integration: org.service_integrations_dataset,
+                                               opaque_id: params[:job_id]]
+                  forbidden! if job.nil?
+                  present job, with: Webhookdb::API::BackfillJobEntity
+                end
+              end
             end
           end
 

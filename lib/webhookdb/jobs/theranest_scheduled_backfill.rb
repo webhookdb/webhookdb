@@ -12,7 +12,7 @@ class Webhookdb::Jobs::TheranestScheduledBackfill
 
   def _perform
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "theranest_auth_v1") do |sint|
-      sint.publish_immediate("backfill", sint.id, {cascade: true})
+      Webhookdb::BackfillJob.create_recursive(service_integration: sint, incremental: false).enqueue
     end
   end
 end

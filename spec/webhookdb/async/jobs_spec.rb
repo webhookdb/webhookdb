@@ -24,28 +24,9 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint.organization.prepare_database_connections
       req = Webhookdb::Replicator::Fake.stub_backfill_request(page1_items)
       Webhookdb::Replicator.create(sint).create_table
+      bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
       expect do
-        Amigo.publish(
-          "webhookdb.serviceintegration.backfill", sint.id,
-        )
-      end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      expect(req).to have_been_made
-      Webhookdb::Replicator.create(sint).readonly_dataset do |ds|
-        expect(ds.all).to have_length(2)
-      end
-    ensure
-      sint.organization.remove_related_database
-    end
-
-    it "can specify incremental" do
-      sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
-      sint.organization.prepare_database_connections
-      req = Webhookdb::Replicator::Fake.stub_backfill_request(page1_items)
-      Webhookdb::Replicator.create(sint).create_table
-      expect do
-        Amigo.publish(
-          "webhookdb.serviceintegration.backfill", sint.id, {incremental: true},
-        )
+        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
       expect(req).to have_been_made
       Webhookdb::Replicator.create(sint).readonly_dataset do |ds|
@@ -592,7 +573,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
       expect do
         Webhookdb::Jobs::RssBackfillPoller.new.perform(true)
-      end.to publish("webhookdb.serviceintegration.backfill").with_payload([sint.id, {"incremental" => true}])
+      end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === sint,
+        incremental: true,
+      )
     end
   end
 
@@ -722,9 +707,10 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       auth_sint = Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1")
       expect do
         Webhookdb::Jobs::SponsyScheduledBackfill.new.perform
-      end.to publish(
-        "webhookdb.serviceintegration.backfill",
-        [auth_sint.id, {"cascade" => true, "incremental" => true}],
+      end.to publish("webhookdb.backfilljob.run", contain_exactly(be_positive))
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === auth_sint,
+        incremental: true,
       )
     end
   end
@@ -736,7 +722,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       )
       expect do
         Webhookdb::Jobs::TheranestScheduledBackfill.new.perform
-      end.to publish("webhookdb.serviceintegration.backfill", [auth_sint.id, {"cascade" => true}])
+      end.to publish("webhookdb.backfilljob.run", contain_exactly(be_positive))
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === auth_sint,
+        incremental: false,
+      )
     end
   end
 
@@ -756,7 +746,11 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       )
       expect do
         Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
-      end.to publish("webhookdb.serviceintegration.backfill", [twilio_sint.id, {"incremental" => true}])
+      end.to publish("webhookdb.backfilljob.run", contain_exactly(be_positive))
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === twilio_sint,
+        incremental: true,
+      )
     end
   end
 

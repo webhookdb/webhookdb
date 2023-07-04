@@ -44,6 +44,7 @@ module Webhookdb::Postgres
 
   # Require paths for all Sequel models used by the app.
   MODELS = [
+    "webhookdb/backfill_job",
     "webhookdb/customer",
     "webhookdb/customer/reset_code",
     "webhookdb/database_document",

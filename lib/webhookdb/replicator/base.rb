@@ -169,7 +169,7 @@ class Webhookdb::Replicator::Base
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
       step = self.send(meth)
-      self.service_integration.publish_deferred("backfill", self.service_integration.id, cascade: true) if
+      Webhookdb::BackfillJob.create_recursive(service_integration:, incremental: true).enqueue if
         can_trigger_backfill && step.successful?
       return step
     end
@@ -209,14 +209,24 @@ class Webhookdb::Replicator::Base
     raise NotImplementedError
   end
 
-  def calculate_and_backfill_state_machine
+  # Run calculate_backfill_state_machine.
+  # Then create and enqueue a new BackfillJob if it's successful.
+  # Returns a tuple of the StateMachineStep and BackfillJob.
+  # If the BackfillJob is returned, the StateMachineStep was successful;
+  # otherwise no job is created and the second item is nil.
+  # @return [Array<Webhookdb::StateMachineStep, Webhookdb::BackfillJob>]
+  def calculate_and_backfill_state_machine(incremental:)
     step = self.calculate_backfill_state_machine
+    bfjob = nil
     if step.successful?
-      # We should always cascade manual backfills.
-      # In the future we may need a way to trigger a full backfill.
-      self.service_integration.publish_deferred("backfill", self.service_integration.id, cascade: true)
+      bfjob = Webhookdb::BackfillJob.create_recursive(
+        service_integration:,
+        incremental:,
+        created_by: Webhookdb.request_user_and_admin[0],
+      )
+      bfjob.enqueue
     end
-    return step
+    return step, bfjob
   end
 
   # Remove all the information used in the initial creation of the integration so that it can be re-entered
@@ -787,14 +797,19 @@ class Webhookdb::Replicator::Base
   # The caveats/complexities are:
   # - The backfill method should take care of retrying fetches for failed pages.
   # - That means it needs to keep track of some pagination token.
-  def backfill(incremental: false, cascade: false)
+  # @param job [Webhookdb::BackfillJob]
+  def backfill(job)
+    raise Webhookdb::InvalidPrecondition, "job is for different service integration" unless
+      job.service_integration === self.service_integration
+
     raise Webhookdb::InvariantViolation, "manual backfill not supported" unless self.supports_manual_backfill?
 
     sint = self.service_integration
-    last_backfilled = incremental ? sint.last_backfilled_at : nil
     raise Webhookdb::Replicator::CredentialsMissing if
       sint.backfill_key.blank? && sint.backfill_secret.blank? && sint.depends_on.blank?
+    last_backfilled = job.incremental? ? sint.last_backfilled_at : nil
     new_last_backfilled = Time.now
+    job.update(started_at: Time.now)
 
     backfillers = self._backfillers
     if self._parallel_backfill && self._parallel_backfill > 1
@@ -835,11 +850,9 @@ class Webhookdb::Replicator::Base
       end
     end
 
-    sint.update(last_backfilled_at: new_last_backfilled) if incremental
-    return unless cascade
-    sint.dependents.each do |dep|
-      dep.publish_deferred("backfill", dep.id, {cascade: true, incremental:})
-    end
+    sint.update(last_backfilled_at: new_last_backfilled) if job.incremental?
+    job.update(finished_at: Time.now)
+    job.enqueue_children
   end
 
   # If this replicator supports backfilling in parallel (running multiple backfillers at a time),
