@@ -8,5 +8,6 @@ module Webhookdb::Sponsy
   configurable(:sponsy) do
     setting :cron_expression, "*/30 */4 * * *" # “At every 30th minute past every 4th hour.”
     setting :page_size, 100
+    setting :parallel_backfill, 3
   end
 end

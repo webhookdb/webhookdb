@@ -253,8 +253,15 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
   end
 
   describe "specialized backfill behavior" do
-    it "inserts the publication id into the body before upsert" do
+    before(:each) do
       sint.organization.prepare_database_connections
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "inserts the publication id into the body before upsert" do
       req = stub_request(:get, "#{root_url}/#{publication_id1}/slots?afterCursor=&#{querystr}").
         to_return(status: 200, body: make_body(["2022-09-02"], nil), headers:)
       create_all_dependencies(sint)
@@ -269,8 +276,15 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
           publication_id: "pubid1",
         ),
       )
-    ensure
-      sint.organization.remove_related_database
+    end
+
+    it "skips deleted publications" do
+      create_all_dependencies(sint)
+      setup_dependencies(sint, lambda do |dep_svc|
+        dep_svc.admin_dataset { |ds| ds.insert(data: "{}", deleted_at: Time.now, sponsy_id: publication_id1) }
+      end,)
+      backfill(sint)
+      expect(svc.admin_dataset(&:all)).to be_empty
     end
   end
 

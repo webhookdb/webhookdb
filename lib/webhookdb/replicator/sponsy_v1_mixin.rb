@@ -85,6 +85,8 @@ module Webhookdb::Replicator::SponsyV1Mixin
     return
   end
 
+  def _parallel_backfill = Webhookdb::Sponsy.parallel_backfill
+
   # Paginate from most recently updated.
   # We paginate until either:
   # - There are no more pages (the 'after cursor' is nil), or
@@ -125,7 +127,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
 
     publications_svc = self.service_integration.depends_on.replicator
     backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|
-      pub_ds.select(:sponsy_id).map do |publication|
+      pub_ds.where(deleted_at: nil).select(:sponsy_id).map do |publication|
         PublicationChildBackfiller.new(
           service: self,
           publication_id: publication.fetch(:sponsy_id),
@@ -137,16 +139,24 @@ module Webhookdb::Replicator::SponsyV1Mixin
   end
 
   class PublicationChildBackfiller < Webhookdb::Backfiller
+    include Webhookdb::Backfiller::Bulk
+
+    attr_reader :upserting_replicator
+
     def initialize(service:, publication_id:, tail:)
       @service = service
+      @upserting_replicator = @service
       @publication_id = publication_id
       @tail = tail
       super()
     end
 
-    def handle_item(body)
+    def upsert_page_size = 500
+    def conditional_upsert? = true
+
+    def prepare_body(body)
       body["publication_id"] = @publication_id
-      @service.upsert_webhook_body(body)
+      body
     end
 
     def fetch_backfill_page(pagination_token, last_backfilled:)

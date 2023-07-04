@@ -797,7 +797,7 @@ class Webhookdb::Replicator::Base
     new_last_backfilled = Time.now
 
     backfillers = self._backfillers
-    if self._parallel_backfill
+    if self._parallel_backfill && self._parallel_backfill > 1
       # Create a dedicated threadpool for these backfillers,
       # with max parallelism determined by the replicator.
       pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
