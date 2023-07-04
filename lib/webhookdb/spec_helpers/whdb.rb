@@ -115,4 +115,13 @@ module Webhookdb::SpecHelpers::Whdb
       svc.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(**params))
     end
   end
+
+  # Creates and returns a new backfill job for the given integration or replicator,
+  # and also runs the backfill.
+  module_function def backfill(sint, **kw)
+    sint = sint.service_integration if sint.respond_to?(:service_integration)
+    bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create(**kw)
+    sint.replicator.backfill(bfjob)
+    return bfjob
+  end
 end

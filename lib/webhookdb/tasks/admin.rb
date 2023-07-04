@@ -22,7 +22,7 @@ module Webhookdb::Tasks
           self.setup
           org = self.find_org(args)
           org.service_integrations.each do |sint|
-            sint.publish_immediate("backfill", sint.id)
+            Webhookdb::BackfillJob.create(service_integration: sint, incremental: false).enqueue
           end
         end
 
