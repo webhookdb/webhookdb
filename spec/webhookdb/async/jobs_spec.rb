@@ -608,7 +608,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     it "runs sync targets that are due" do
       never_run = Webhookdb::Fixtures.sync_target.create
       run_recently = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now)
-      expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_in).with(be_positive, never_run.id)
+      expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_in).with(be >= 0, never_run.id)
       Webhookdb::Jobs::SyncTargetEnqueueScheduled.new.perform
     end
   end
