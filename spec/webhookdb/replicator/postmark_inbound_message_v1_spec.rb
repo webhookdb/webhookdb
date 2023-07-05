@@ -93,6 +93,68 @@ RSpec.describe Webhookdb::Replicator::PostmarkInboundMessageV1, :db do
     let(:expected_data) { bod }
   end
 
+  describe "unsuaul bodies" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "postmark_inbound_message_v1") }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "can handle (UTC) tz" do
+      body = JSON.parse(<<~J)
+        {
+          "FromName": "Lime",
+          "MessageStream": "inbound",
+          "From": "no-reply@li.me",
+          "FromFull": {
+            "Email": "no-reply@li.me",
+            "Name": "Lime",
+            "MailboxHash": ""
+          },
+          "To": "\\"Lime Rider\\" \u003cu1@in-dev.mysuma.org\u003e",
+          "ToFull": [
+            {
+              "Email": "u1@in-dev.mysuma.org",
+              "Name": "Lime Rider",
+              "MailboxHash": ""
+            }
+          ],
+          "Cc": "",
+          "CcFull": [],
+          "Bcc": "",
+          "BccFull": [],
+          "OriginalRecipient": "u1@in-dev.mysuma.org",
+          "Subject": "Lime - Sign In",
+          "MessageID": "1cc276c0-fae9-4793-b2c7-71c9cd45e023",
+          "ReplyTo": "",
+          "MailboxHash": "",
+          "Date": "Wed, 05 Jul 2023 22:27:31 +0000 (UTC)",
+          "TextBody": "Hello Lime Rider!",
+          "HtmlBody": "\\u003c!DOCTYPE html PUBLIC \\"",
+          "StrippedTextReply": "",
+          "Tag": "",
+          "Headers": [
+            {
+              "Name": "X-Entity-ID",
+              "Value": "L3Sx1tGADZEBfpfajFv1Pw=="
+            }
+          ],
+          "Attachments": []
+        }
+      J
+      svc.upsert_webhook_body(body)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(timestamp: match_time("2023-07-05T22:27:31Z"))
+      end
+    end
+  end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "postmark_inbound_message_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
