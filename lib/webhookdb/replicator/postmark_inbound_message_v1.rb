@@ -28,6 +28,16 @@ class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::B
     ]
   end
 
+  def _prepare_for_insert(*)
+    h = super
+    ts_str = h[:timestamp]
+    # We get some weird time formats, like 'Wed, 05 Jul 2023 22:27:31 +0000 (UTC)'.
+    # Ruby can parse these, but PG cannot, so sanitize the ' (UTC)' out of here.
+    # Depending on what other random stuff we see, we can make this more general later.
+    h[:timestamp] = ts_str.gsub(/ \(UTC\)$/, "")
+    return h
+  end
+
   def _timestamp_column_name
     return :timestamp
   end
@@ -52,7 +62,9 @@ class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::B
 When emails are sent to the email address configured in Postmark,
 they will show up in WebhookDB automatically.
 
-1. In the Postmark UI, locate the server and choose the Inbound Stream to record.
+1. Go to https://account.postmarkapp.com/servers
+2. Choose the server you want to replicator.
+3. Choose the Inbound Stream to replicate.
 2. Go to the 'Settings' tab.
 3. Use this Webhook URL: #{self.webhook_endpoint}
 5. Hit 'Check' and verify it works. If it does not, double check your settings.
