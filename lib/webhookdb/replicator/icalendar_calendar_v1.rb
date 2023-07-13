@@ -320,8 +320,12 @@ The secret to use for signing is:
       # We need to convert relevant parsed ical lines back to a string for use in ice_cube.
       # There are other ways to handle this, but this is fine for now.
       ical_params = {}
-      ical_params[:rtimes] = self._time_array(h["RDATE"]["v"]) if h["RDATE"]
-      ical_params[:extimes] = self._time_array(h["EXDATE"]["v"]) if h["EXDATE"]
+      if (exdates = h["RDATE"])
+        ical_params[:rtimes] = exdates.map { |d| self._time_array(d["v"]) }.flatten
+      end
+      if (exdates = h["EXDATE"])
+        ical_params[:extimes] = exdates.map { |d| self._time_array(d["v"]) }.flatten
+      end
       ical_params[:rrules] = [IceCube::IcalParser.rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
       # DURATION is not supported
 
