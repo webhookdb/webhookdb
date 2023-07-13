@@ -153,7 +153,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         END:VEVENT
       ICAL
       expect(upsert(s)).to include(
-        categories: ["x", "y"],
+        categories: contain_exactly("x", "y"),
         classification: "PRIVATE",
         created_at: match_time("2021-02-18 22:36:14Z"),
         geo_lat: 45.55,

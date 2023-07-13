@@ -572,6 +572,46 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "handles EXDATE (exclusion dates)" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          DTEND:20180101T010000Z
+          RRULE:FREQ=YEARLY;UNTIL=20210101T000000Z
+          EXDATE:20180101T000000Z
+          EXDATE:20200101T000000Z
+          END:VEVENT
+        ICAL
+        rows = sync(body)
+        expect(rows).to contain_exactly(
+          hash_including(start_at: match_time("2019-01-01T00:00:00Z")),
+          hash_including(start_at: match_time("2021-01-01T00:00:00Z")),
+        )
+      end
+
+      it "handles RDATE (inclusion dates)" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20180101T000000Z
+          DTEND:20180101T010000Z
+          RRULE:FREQ=YEARLY;UNTIL=20190101T000000Z
+          RDATE:20180301T000000Z
+          RDATE:20200401T000000Z
+          END:VEVENT
+        ICAL
+        rows = sync(body)
+        expect(rows).to contain_exactly(
+          hash_including(start_at: match_time("2018-01-01T00:00:00Z")),
+          hash_including(start_at: match_time("2018-03-01T00:00:00Z")),
+          hash_including(start_at: match_time("2019-01-01T00:00:00Z")),
+          hash_including(start_at: match_time("2020-04-01T00:00:00Z")),
+        )
+      end
+
       it "handles events with no end time" do
         body = <<~ICAL
           BEGIN:VEVENT
@@ -994,8 +1034,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             "ORGANIZER" => {"v" => "mailto:joebob@random.net", "CN" => "Joe Bob: Magician"},
             "PRIORITY" => {"v" => "2"},
             "SUMMARY" => {"v" => "This is a really long summary to test the method of unfolding lines\\, so I'm just going to make it a whole bunch of lines. With a twist: a \"ö\" takes up multiple bytes\\, and should be wrapped to the next line."},
-            "ATTACH" => {"v" => "http://corporations-dominate.existence.net/why.rhtml"},
-            "RDATE" => {"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"},
+            "ATTACH" => [{"v" => "http://bush.sucks.org/impeach/him.rhtml"}, {"v" => "http://corporations-dominate.existence.net/why.rhtml"}],
+            "RDATE" => [{"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"}],
             "X-TEST-COMPONENT" => {"v" => "Shouldn't double double quotes", "QTEST" => "Hello, World"},
           },
         )
@@ -1018,8 +1058,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             "ORGANIZER" => {"v" => "mailto:joebob@random.net"},
             "PRIORITY" => {"v" => "2"},
             "SUMMARY" => {"v" => "This is a really long summary to test the method of unfolding lines\\, so I'm just going to make it a whole bunch of lines."},
-            "ATTACH" => {"v" => "http://corporations-dominate.existence.net/why.rhtml"},
-            "RDATE" => {"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"},
+            "ATTACH" => [{"v" => "http://bush.sucks.org/impeach/him.rhtml"}, {"v" => "http://corporations-dominate.existence.net/why.rhtml"}],
+            "RDATE" => [{"v" => "20050121T170000,20050122T170000", "TZID" => "US-Mountain"}],
             "X-TEST-COMPONENT" => {"v" => "Shouldn't double double quotes", "QTEST" => "Hello, World"},
           },
         )
@@ -1043,7 +1083,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             "ORGANIZER" => {"v" => "mailto:jmera@jmera.human"},
             "PRIORITY" => {"v" => "2"},
             "SUMMARY" => {"v" => "This is a very short summary."},
-            "RDATE" => {"v" => "20110121T170000,20110122T170000", "TZID" => "US-Mountain"},
+            "RDATE" => [{"v" => "20110121T170000,20110122T170000", "TZID" => "US-Mountain"}],
           },
         )
       end

@@ -184,6 +184,9 @@ class Webhookdb::Replicator::Column
   end
   KNOWN_DEFAULTERS = {now: DEFAULTER_NOW, tofalse: DEFAULTER_FALSE}.freeze
 
+  # Use in data_key when a value is an array, and you want to map a value from the array.
+  EACH_ITEM = :_each_item
+
   # @return [Symbol]
   attr_reader :name
   # @return [Symbol]

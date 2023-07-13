@@ -94,6 +94,17 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   )
   CONV_GEO_LAT = Webhookdb::Replicator::Column.converter_array_element(index: 0, sep: ";", cls: DECIMAL)
   CONV_GEO_LNG = Webhookdb::Replicator::Column.converter_array_element(index: 1, sep: ";", cls: DECIMAL)
+  CONV_COMMA_SEP_ARRAY = Webhookdb::Replicator::Column::IsomorphicProc.new(
+    ruby: lambda do |entry, **|
+      next [] if entry.nil?
+      entries = []
+      entry.each do |e|
+        entries.concat(e.fetch("v").split(",").map(&:strip))
+      end
+      entries
+    end,
+    sql: ->(_) { raise NotImplementedError },
+  )
 
   def _remote_key_column
     return Webhookdb::Replicator::Column.new(
@@ -130,11 +141,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       col.new(:start_date, DATE, index: true, data_key: "DTSTART", **dateconv),
       col.new(:end_date, DATE, index: true, data_key: "DTEND", optional: true, **dateconv),
       col.new(:status, TEXT, data_key: ["STATUS", "v"], optional: true),
-      col.new(:categories,
-              TEXT_ARRAY,
-              data_key: ["CATEGORIES", "v"],
-              optional: true,
-              converter: col::CONV_COMMA_SEP,),
+      col.new(:categories, TEXT_ARRAY, data_key: ["CATEGORIES"], optional: true, converter: CONV_COMMA_SEP_ARRAY),
       col.new(:priority, INTEGER, data_key: ["PRIORITY", "v"], optional: true, converter: col::CONV_TO_I),
       col.new(:geo_lat, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LAT),
       col.new(:geo_lng, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LNG),
@@ -210,7 +217,22 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     return result
   end
 
-  ARRAY_KEYS = ["ATTENDEE"].freeze
+  # https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.1
+  # The following are OPTIONAL, and MAY occur more than once.
+  ARRAY_KEYS = [
+    "ATTACH",
+    "ATTENDEE",
+    "CATEGORIES",
+    "COMMENT",
+    "CONTACT",
+    "EXDATE",
+    "RSTATUS",
+    "RELATED",
+    "RESOURCES",
+    "RDATE",
+    "X-PROP",
+    "IANA-PROP",
+  ].freeze
 
   NAME = "[-a-zA-Z0-9]+"
   QSTR = '"[^"]*"'
