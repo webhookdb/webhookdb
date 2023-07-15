@@ -15,7 +15,15 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       other_sint_for_org = Webhookdb::Fixtures.service_integration(organization: org).create
       _other_sint_sub = Webhookdb::Fixtures.webhook_subscription.create(service_integration: other_sint_for_org)
 
+      unrelated_org = Webhookdb::Fixtures.webhook_subscription.for_org.create
+      unrelated_sint = Webhookdb::Fixtures.webhook_subscription.for_service_integration.create
+
       expect(sint.all_webhook_subscriptions).to have_same_ids_as(sint_sub, org_sub)
+      # Test eagering
+      eo_sint = Webhookdb::Organization.where(id: sint.organization_id).all.first.service_integrations.first
+      expect(eo_sint.all_webhook_subscriptions).to have_same_ids_as(
+        sint_sub, org_sub,
+      )
     end
   end
 

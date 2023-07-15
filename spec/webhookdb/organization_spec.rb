@@ -17,11 +17,14 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
       sint = Webhookdb::Fixtures.service_integration(organization: o).create
       sint_sub = Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
       org_sub = Webhookdb::Fixtures.webhook_subscription(organization: o).create
+
+      unrelated_org = Webhookdb::Fixtures.webhook_subscription.for_org.create
+      unrelated_sint = Webhookdb::Fixtures.webhook_subscription.for_service_integration.create
+
       expect(o.refresh.all_webhook_subscriptions).to have_same_ids_as(sint_sub, org_sub)
       # Test eager loader
-      expect(Webhookdb::ServiceIntegration.all.first.organization.all_webhook_subscriptions).to have_same_ids_as(
-        sint_sub, org_sub,
-      )
+      eager_org = Webhookdb::ServiceIntegration.where(id: sint.id).all.first.organization
+      expect(eager_org.all_webhook_subscriptions).to have_same_ids_as(sint_sub, org_sub)
     end
   end
 
