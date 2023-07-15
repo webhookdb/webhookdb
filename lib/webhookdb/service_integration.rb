@@ -24,9 +24,42 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription"
   one_to_many :all_webhook_subscriptions,
               class: "Webhookdb::WebhookSubscription",
-              readonly: true do |ds|
-    ds.or(Sequel[organization_id: :organization_id])
-  end
+              readonly: true,
+              dataset: (
+                lambda do |r|
+                  r.associated_dataset.where(
+                    Sequel[organization_id:] | Sequel[service_integration_id: id],
+                  )
+                end),
+              eager_loader: (
+                lambda do |eo|
+                  sint_ids = eo[:id_map].keys
+                  org_ids_for_sints = eo[:rows].to_h { |r| [r.id, r.organization_id] }
+                  all_subs = Webhookdb::WebhookSubscription.
+                    left_join(:service_integrations, {id: :service_integration_id}).
+                    select(Sequel[:webhook_subscriptions][Sequel.lit("*")]).
+                    where(
+                      Sequel[Sequel[:webhook_subscriptions][:organization_id] => org_ids_for_sints.values.uniq] |
+                        Sequel[Sequel[:webhook_subscriptions][:service_integration_id] => sint_ids],
+                    ).all
+                  subs_by_sint = {}
+                  subs_by_org = {}
+                  all_subs.each do |sub|
+                    if (orgid = sub[:organization_id])
+                      subs = subs_by_org[orgid] ||= []
+                    else
+                      sint_id = sub[:service_integration_id]
+                      subs = subs_by_sint[sint_id] ||= []
+                    end
+                    subs << sub
+                  end
+                  eo[:rows].each do |sint|
+                    subs = subs_by_sint.fetch(sint.id, [])
+                    subs.concat(subs_by_org.fetch(sint.organization_id, []))
+                    sint.associations[:all_webhook_subscriptions] = subs
+                  end
+                end)
+
   many_to_one :depends_on, class: self
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"

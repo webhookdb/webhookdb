@@ -562,17 +562,17 @@ class Webhookdb::Replicator::Base
 
   def _publish_rowupsert(row, check_for_subscriptions: true)
     return unless check_for_subscriptions && self._any_subscriptions_to_notify?
+    payload = [
+      self.service_integration.id,
+      {
+        row:,
+        external_id_column: self._remote_key_column.name,
+        external_id: row[self._remote_key_column.name],
+      },
+    ]
     # We AVOID pubsub here because we do NOT want to go through the router
     # and audit logger for this.
-    event = Amigo::Event.create(
-      "webhookdb.serviceintegration.rowupsert",
-      [self.service_integration.id,
-       {
-         row:,
-         external_id_column: self._remote_key_column.name,
-         external_id: row[self._remote_key_column.name],
-       },],
-    )
+    event = Amigo::Event.create("webhookdb.serviceintegration.rowupsert", payload.as_json)
     Webhookdb::Jobs::SendWebhook.perform_async(event.as_json)
   end
 
