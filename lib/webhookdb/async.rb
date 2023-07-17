@@ -32,6 +32,7 @@ module Webhookdb::Async
     "webhookdb/jobs/developer_alert_handle",
     "webhookdb/jobs/durable_job_recheck_poller",
     "webhookdb/jobs/emailer",
+    "webhookdb/jobs/google_calendar_sync",
     "webhookdb/jobs/icalendar_enqueue_syncs",
     "webhookdb/jobs/icalendar_sync",
     "webhookdb/jobs/message_dispatched",
@@ -56,6 +57,7 @@ module Webhookdb::Async
     "webhookdb/jobs/transistor_episode_backfill",
     "webhookdb/jobs/trim_logged_webhooks",
     "webhookdb/jobs/twilio_scheduled_backfill",
+    "webhookdb/jobs/unwatchable_google_calendar_enqueue",
     "webhookdb/jobs/webhook_resource_notify_integrations",
   ].freeze
 

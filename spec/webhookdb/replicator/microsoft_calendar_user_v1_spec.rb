@@ -420,11 +420,11 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     end
 
     def refreshed(row)
-      return svc.readonly_dataset { |ds| ds[pk: row.fetch(:pk)] }
+      refresh_row(row, replicator: svc)
     end
 
     def update(row, **fields)
-      return svc.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(fields) }
+      update_row(row, replicator: svc, **fields)
     end
 
     describe "create_or_update_event_change_subscription" do

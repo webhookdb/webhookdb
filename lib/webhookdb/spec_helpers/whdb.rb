@@ -124,4 +124,16 @@ module Webhookdb::SpecHelpers::Whdb
     sint.replicator.backfill(bfjob)
     return bfjob
   end
+
+  def refresh_row(row, replicator: nil)
+    replicator ||= svc
+    raise "Must provide :replicator or have :svc available" if replicator.nil?
+    return replicator.readonly_dataset { |ds| ds[pk: row.fetch(:pk)] }
+  end
+
+  def update_row(row, replicator: nil, **fields)
+    replicator ||= svc
+    raise "Must provide :replicator or have :svc available" if replicator.nil?
+    return replicator.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(fields) }
+  end
 end
