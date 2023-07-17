@@ -87,7 +87,7 @@ RSpec.shared_examples "a replicator" do |name|
     )
   end
 
-  fit "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events, sidekiq: :fake do
+  it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events, sidekiq: :fake do
     if supports_row_diff
       Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
       expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).once
