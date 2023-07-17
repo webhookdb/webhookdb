@@ -93,9 +93,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         org.remove_related_database
       end
 
-      it "responds to `SYNC` requests by upserting and enqueing a sync" do
-        expect(Webhookdb::Jobs::IcalendarSync).to receive(:perform_async).
-          with(sint.id, "456")
+      it "responds to `SYNC` requests by upserting and enqueing a sync", sidekiq: :fake do
         body = {"ics_url" => "https://abc.url", "external_id" => "456", "type" => "SYNC"}
         svc.upsert_webhook_body(body)
 
@@ -107,6 +105,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
+        expect(Sidekiq).to have_queue.consisting_of(
+          job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
+        )
       end
 
       it "selectively stomps fields" do
@@ -129,9 +130,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "replaces webcal protocol with https" do
-        expect(Webhookdb::Jobs::IcalendarSync).to receive(:perform_async).
-          with(sint.id, "456")
+      it "replaces webcal protocol with https", sidekiq: :fake do
         body = {"ics_url" => "webcal://abc.url", "external_id" => "456", "type" => "SYNC"}
         svc.upsert_webhook_body(body)
 
@@ -143,6 +142,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
+        expect(Sidekiq).to have_queue.consisting_of(
+          job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
+        )
       end
 
       it "responds to `DELETE` request by deleting all relevant calendar data" do

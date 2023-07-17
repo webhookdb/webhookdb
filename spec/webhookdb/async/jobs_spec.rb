@@ -140,7 +140,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       org.remove_related_database
     end
 
-    it "enques a calendar sync for integration row needing a sync" do
+    it "enques a calendar sync for integration row needing a sync", sidekiq: :fake do
       sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
@@ -149,8 +149,10 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           external_id: "abc",
         )
       end
-      expect(Webhookdb::Jobs::IcalendarSync).to receive(:perform_async).with(sint.id, "abc")
-      Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform
+      Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
+      expect(Sidekiq).to have_queue.consisting_of(
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "abc"]),
+      )
     end
   end
 
@@ -509,14 +511,14 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       o.remove_related_database
     end
 
-    it "migrates the org replication tables if the target release_created_at (RCA) matches the current RCA" do
+    it "migrates the org replication tables if the target release_created_at (RCA) matches the current RCA",
+       sidekiq: :fake do
       fake.admin_dataset do |ds|
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
         # Drop a column to make sure it gets migrated back in
         ds.db << "ALTER TABLE #{fake_sint.table_name} DROP COLUMN at"
       end
       expect(Webhookdb::Jobs::ReplicationMigration).to receive(:migrate_org).and_call_original
-      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:perform_in)
 
       Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, Webhookdb::RELEASE_CREATED_AT)
 
@@ -524,26 +526,37 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         # Assert the dropped column is restored
         expect(ds.columns).to contain_exactly(:pk, :my_id, :at, :data)
       end
+      expect(Sidekiq).to have_empty_queues
     end
 
-    it "re-enqueues the job to the future if the target RCA is after the current RCA" do
+    it "re-enqueues the job to the future if the target RCA is after the current RCA", sidekiq: :fake do
       stub_const("Webhookdb::RELEASE_CREATED_AT", "2000-01-01T00:00:00Z")
       target_rca = "2001-01-01T00:00:00Z"
 
       expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:migrate_org)
-      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_in).with(1, o.id, target_rca)
 
-      Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, target_rca)
+      t = Time.now
+      Timecop.freeze(t) do
+        Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, target_rca)
+      end
+
+      expect(Sidekiq).to have_queue.consisting_of(
+        job_hash(
+          Webhookdb::Jobs::ReplicationMigration,
+          at: match_time(t + 1.second),
+          args: [o.id, target_rca],
+        ),
+      )
     end
 
-    it "drops the job if the target RCA is before the current RCA" do
+    it "drops the job if the target RCA is before the current RCA", sidekiq: :fake do
       stub_const("Webhookdb::RELEASE_CREATED_AT", "2000-01-01T00:00:00Z")
       target_rca = "1999-01-01T00:00:00Z"
 
       expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:migrate_org)
-      expect(Webhookdb::Jobs::ReplicationMigration).to_not receive(:perform_in)
 
       Webhookdb::Jobs::ReplicationMigration.new.perform(o.id, target_rca)
+      expect(Sidekiq).to have_empty_queues
     end
   end
 
@@ -605,11 +618,14 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "SyncTargetEnqueueScheduled" do
-    it "runs sync targets that are due" do
+    it "runs sync targets that are due", sidekiq: :fake do
       never_run = Webhookdb::Fixtures.sync_target.create
       run_recently = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now)
-      expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_in).with(be >= 0, never_run.id)
-      Webhookdb::Jobs::SyncTargetEnqueueScheduled.new.perform
+      Webhookdb::Jobs::SyncTargetEnqueueScheduled.new.perform(true)
+      expect(Sidekiq).to have_queue("netout").consisting_of(
+        # jitter is random, so must use be_positive
+        job_hash(Webhookdb::Jobs::SyncTargetRunSync, at: be_positive, args: [never_run.id]),
+      )
     end
   end
 

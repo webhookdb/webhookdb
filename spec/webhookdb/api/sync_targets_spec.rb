@@ -358,15 +358,22 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         Webhookdb::Fixtures.sync_target(service_integration: sint).create(connection_url: "postgres://a:b@pg/db")
       end
 
-      it "scheduled the sync job" do
+      it "scheduled the sync job", sidekiq: :fake do
         Timecop.freeze("2022-05-05T10:00:00Z") do
           sync_tgt.update(last_synced_at: 3.minutes.ago)
-          expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_at).
-            with(Time.parse("2022-05-05T10:07:00Z"), sync_tgt.id)
+
           post "/v1/organizations/#{org.key}/sync_targets/db/#{sync_tgt.opaque_id}/sync"
           expect(last_response).to have_status(200)
           expect(last_response).to have_json_body.
             that_includes(message: /start at about 2022-05-05 10:07:00 \+0000/)
+
+          expect(Sidekiq).to have_queue("netout").consisting_of(
+            job_hash(
+              Webhookdb::Jobs::SyncTargetRunSync,
+              at: match_time("2022-05-05T10:07:00Z"),
+              args: [sync_tgt.id],
+            ),
+          )
         end
       end
 
@@ -749,15 +756,16 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         Webhookdb::Fixtures.sync_target(service_integration: sint).create(connection_url: "https://u:p@a.b")
       end
 
-      it "scheduled the sync job" do
+      it "scheduled the sync job", sidekiq: :fake do
         Timecop.freeze("2022-05-05T10:00:00Z") do
           sync_tgt.update(last_synced_at: 3.minutes.ago)
-          expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_at).
-            with(Time.parse("2022-05-05T10:07:00Z"), sync_tgt.id)
           post "/v1/organizations/#{org.key}/sync_targets/http/#{sync_tgt.opaque_id}/sync"
           expect(last_response).to have_status(200)
           expect(last_response).to have_json_body.
             that_includes(message: "Http sync has been scheduled. It should start at about 2022-05-05 10:07:00 +0000.")
+          expect(Sidekiq).to have_queue("netout").consisting_of(
+            job_hash(Webhookdb::Jobs::SyncTargetRunSync, args: [sync_tgt.id], at: match_time("2022-05-05T10:07:00Z")),
+          )
         end
       end
 

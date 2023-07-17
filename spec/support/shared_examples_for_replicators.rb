@@ -66,22 +66,28 @@ RSpec.shared_examples "a replicator" do |name|
     end
   end
 
-  it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events do
+  it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events, sidekiq: :fake do
     Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
     svc.create_table
-    j = Webhookdb::Jobs::SendWebhook.new
-    expect(j).to receive(:perform).with(
-      hash_including(
-        "id",
-        "name" => "webhookdb.serviceintegration.rowupsert",
-        "payload" => [sint.id, hash_including("external_id", "external_id_column", "row" => hash_including("data"))],
+    upsert_webhook(svc, body:)
+    expect(Sidekiq).to have_queue.consisting_of(
+      job_hash(
+        Webhookdb::Jobs::SendWebhook,
+        args: contain_exactly(
+          hash_including(
+            "id",
+            "name" => "webhookdb.serviceintegration.rowupsert",
+            "payload" => [
+              sint.id,
+              hash_including("external_id", "external_id_column", "row" => hash_including("data")),
+            ],
+          ),
+        ),
       ),
     )
-    expect(Webhookdb::Jobs::SendWebhook).to receive(:new).and_return(j)
-    upsert_webhook(svc, body:)
   end
 
-  it "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events do
+  fit "does not emit the rowupsert event if the row has not changed", :async, :do_not_defer_events, sidekiq: :fake do
     if supports_row_diff
       Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
       expect(Webhookdb::Jobs::SendWebhook).to receive(:perform_async).once
@@ -90,6 +96,7 @@ RSpec.shared_examples "a replicator" do |name|
       expect do
         upsert_webhook(svc, body:)
       end.to_not publish("webhookdb.serviceintegration.rowupsert")
+      expect(Sidekiq).to have_empty_queues
     end
   end
 

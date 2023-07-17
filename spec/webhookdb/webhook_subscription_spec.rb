@@ -52,11 +52,12 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
     end
 
     describe "enqueue_delivery" do
-      it "creates a Delivery instance and enqueues the job" do
-        expect(Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent).to receive(:perform_async).
-          with(have_attributes(positive?: true))  # Work around numeric predicate for 'be > 0'.
+      it "creates a Delivery instance and enqueues the job", sidekiq: :fake do
         del = webhook_sub.enqueue_delivery(**params)
         expect(del).to be_a(Webhookdb::WebhookSubscription::Delivery)
+        expect(Sidekiq).to have_queue("netout").consisting_of(
+          job_hash(Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent, args: [del.id]),
+        )
       end
     end
 
@@ -77,23 +78,27 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
         expect(req).to have_been_made
       end
 
-      it "enqueues a later retries on delivery failure" do
-        expect(Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent).to receive(:perform_in).
-          with(1, delivery.id)
-
+      it "enqueues a later retries on delivery failure", sidekiq: :fake do
         req = stub_request(:post, "https://example.com/").to_return(status: 400, body: "", headers: {})
 
-        delivery.attempt_delivery
+        t = Time.now
+        Timecop.freeze(t) do
+          delivery.attempt_delivery
+        end
         expect(req).to have_been_made
         expect(webhook_sub).to be_active
-        expect(delivery.attempt_timestamps).to contain_exactly(be_within(5).of(Time.now))
+        expect(delivery.attempt_timestamps).to contain_exactly(be_within(5).of(t))
         expect(delivery.attempt_http_response_statuses).to contain_exactly(400)
+
+        expect(Sidekiq).to have_queue("netout").consisting_of(
+          job_hash(
+            Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent,
+            args: [delivery.id], at: match_time(t + 1),
+          ),
+        )
       end
 
-      it "uses proper backoff" do
-        expect(Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent).to receive(:perform_in).
-          with(33, delivery.id)
-
+      it "uses proper backoff", sidekiq: :fake do
         delivery.update(
           attempt_timestamps: Array.new(10) { Time.now },
           attempt_http_response_statuses: Array.new(10) { 400 },
@@ -101,13 +106,21 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
 
         req = stub_request(:post, "https://example.com/").to_return(status: 400, body: "", headers: {})
 
-        delivery.attempt_delivery
+        t = Time.now
+        Timecop.freeze(t) do
+          delivery.attempt_delivery
+        end
         expect(req).to have_been_made
+
+        expect(Sidekiq).to have_queue("netout").consisting_of(
+          job_hash(
+            Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent,
+            args: [delivery.id], at: match_time(t + 33.seconds),
+          ),
+        )
       end
 
-      it "emits developer event and does not reenqueue after max attempts have been tried", :async do
-        expect(Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent).to_not receive(:perform_in)
-
+      it "emits developer event and does not reenqueue after max attempts have been tried", :async, sidekiq: :fake do
         req = stub_request(:post, "https://example.com/").to_return(status: 400, body: "", headers: {})
 
         Array.new(described_class::MAX_DELIVERY_ATTEMPTS) { delivery.add_attempt(status: 400) }
@@ -120,6 +133,8 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
         )
 
         expect(req).to have_been_made
+
+        expect(Sidekiq).to have_empty_queues
       end
 
       it "noops if the subscription is deactivated" do
