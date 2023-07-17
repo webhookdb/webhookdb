@@ -106,13 +106,26 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
   describe "enqueue_migrate_all_replication_tables" do
     let(:org2) { Webhookdb::Fixtures.organization.create }
 
-    it "enqueues replication table migrations for all organizations" do
+    it "enqueues replication table migrations for all organizations", sidekiq: :fake do
       o.prepare_database_connections
       org2.prepare_database_connections
+      t = trunc_time(Time.now)
+      Timecop.freeze(t) do
+        Webhookdb::Organization.enqueue_migrate_all_replication_tables
+      end
 
-      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_in).with(2, o.id, "1970-01-01T00:00:00Z")
-      expect(Webhookdb::Jobs::ReplicationMigration).to receive(:perform_in).with(2, org2.id, "1970-01-01T00:00:00Z")
-      Webhookdb::Organization.enqueue_migrate_all_replication_tables
+      expect(Sidekiq).to have_queue.consisting_of(
+        job_hash(
+          Webhookdb::Jobs::ReplicationMigration,
+          args: [o.id, "1970-01-01T00:00:00Z"],
+          at: match_time(t + 2.seconds),
+        ),
+        job_hash(
+          Webhookdb::Jobs::ReplicationMigration,
+          args: [org2.id, "1970-01-01T00:00:00Z"],
+          at: match_time(t + 2.seconds),
+        ),
+      )
     end
   end
 
