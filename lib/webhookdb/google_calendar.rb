@@ -23,4 +23,6 @@ module Webhookdb::GoogleCalendar
   # Manual backfilling is not supported on Google Calendar integrations.
   # If a manual backfill is attempted, direct customer to this url.
   DOCUMENTATION_URL = "https://webhookdb.com/docs/google-calendar"
+
+  PUSH_NOT_SUPPORTED_SENTINEL_WATCH_ID = "ech-push-not-supported-for-requested-resource"
 end

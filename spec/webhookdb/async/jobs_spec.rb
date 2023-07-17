@@ -770,6 +770,169 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "UnwatchableGoogleCalendarEnqueue" do
+    let(:calendar_sint) { Webhookdb::Fixtures.service_integration.create(service_name: "google_calendar_v1") }
+    let(:org) { calendar_sint.organization }
+    let(:calendar_svc) { calendar_sint.replicator }
+
+    before(:each) do
+      org.prepare_database_connections
+      calendar_svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "enqueues sync jobs, spread over several hours", sidekiq: :fake do
+      rows = calendar_svc.admin_dataset do |ds|
+        datas = (1..6).map do |i|
+          {
+            data: "{}",
+            google_id: i.to_s,
+            external_owner_id: "456",
+            compound_identity: "456-#{i}",
+            events_watch_channel_id: i.even? ? Webhookdb::GoogleCalendar::PUSH_NOT_SUPPORTED_SENTINEL_WATCH_ID : "w1",
+          }
+        end
+        ds.multi_insert(datas)
+        ds.order(:pk).all
+      end
+      t = trunc_time(Time.now)
+      Timecop.freeze(t) { Webhookdb::Jobs::UnwatchableGoogleCalendarEnqueue.new.perform(true) }
+      expect(Sidekiq).to have_queue.consisting_of(
+        job_hash(
+          Webhookdb::Jobs::GoogleCalendarSync,
+          args: contain_exactly(hash_including("payload" => [calendar_sint.id, {"pk" => rows[1].fetch(:pk)}])),
+          # The interval is 0, so it gets no 'at' which Sidekiq only uses for the future
+          # at: match_time(t),
+        ),
+        job_hash(
+          Webhookdb::Jobs::GoogleCalendarSync,
+          args: contain_exactly(hash_including("payload" => [calendar_sint.id, {"pk" => rows[3].fetch(:pk)}])),
+          at: match_time(t + 30.seconds),
+        ),
+        job_hash(
+          Webhookdb::Jobs::GoogleCalendarSync,
+          args: contain_exactly(hash_including("payload" => [calendar_sint.id, {"pk" => rows[5].fetch(:pk)}])),
+          at: match_time(t + 60.seconds),
+        ),
+      )
+    end
+
+    describe "calculate_timing" do
+      def t(x) = Webhookdb::Jobs::UnwatchableGoogleCalendarEnqueue.calculate_timing(x)
+      it "adheres to its docs" do
+        # 960 events fit in 8 hours
+        expect(t(1)).to eq(0)
+        expect(t(2)).to eq(30)
+        expect(t(959)).to eq(28_740)
+        expect(t(960)).to eq(28_770)
+        expect(t(961)).to eq(28_800)
+        # Further events must be randomly spaced
+        (961..1000).each do |i|
+          expect(t(i)).to be_positive.and(be <= 28_800)
+        end
+      end
+    end
+  end
+
+  describe "GoogleCalendarSync" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+    let(:calendar_list_sint) { fac.stable_encryption_secret.create(service_name: "google_calendar_list_v1") }
+    let(:calendar_list_svc) { calendar_list_sint.replicator }
+    let(:calendar_sint) { fac.depending_on(calendar_list_sint).create(service_name: "google_calendar_v1") }
+    let(:calendar_svc) { calendar_sint.replicator }
+    let(:event_sint) { fac.depending_on(calendar_sint).create(service_name: "google_calendar_event_v1").refresh }
+    let(:event_svc) { event_sint.replicator }
+    let(:access_token) { "myaccesstok" }
+    let(:external_owner_id) { "456" }
+
+    let(:page1_response) do
+      JSON.parse(<<~J)
+        {
+          "kind": "calendar#events",
+          "etag": "p33henrvrsb0fo0g",
+          "summary": "Holidays in United States",
+          "updated": "2023-01-11T09:35:16.470Z",
+          "timeZone": "America/Los_Angeles",
+          "accessRole": "reader",
+          "defaultReminders": [],
+          "items": [
+            {
+              "kind": "calendar#event",
+              "etag": "3262600847118000",
+              "id": "20220417_3s7sr1qa2d9o9oe5cbgd3b6ju0",
+              "status": "confirmed",
+              "created": "2021-09-10T19:00:23.000Z",
+              "updated": "2021-09-10T19:00:23.559Z",
+              "start": {
+                "date": "2022-04-17"
+              },
+              "end": {
+                "date": "2022-04-18"
+              },
+              "eventType": "default"
+            }
+          ]
+        }
+      J
+    end
+
+    before(:each) do
+      org.prepare_database_connections
+      calendar_list_svc.create_table
+      calendar_svc.create_table
+      event_svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    def stub_service_request(calendar_row, jbody, status: 200)
+      calid = URI.encode_www_form_component(calendar_row[:google_id])
+      url = "https://www.googleapis.com/calendar/v3/calendars/#{calid}/events?" \
+            "maxResults=2000&showDeleted=true&showHiddenInvitations=true&singleEvents=true"
+      return stub_request(:get, url).to_return(json_response(jbody, status:))
+    end
+
+    it "runs sync on specified unwatchable calendar" do
+      calendar_list_svc.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          encrypted_refresh_token: "WxQFR-78if2_60yEY3RgrA==",
+          external_owner_id:,
+          row_updated_at: Time.now,
+        )
+      end
+      calendar_google_id = SecureRandom.hex(4) + "#contacts@group.v.calendar.google.com"
+      calendar_row = calendar_svc.admin_dataset do |ds|
+        ds.insert(
+          compound_identity: "#{external_owner_id}-#{calendar_google_id}",
+          data: "{}",
+          external_owner_id:,
+          google_id: calendar_google_id,
+          row_updated_at: Time.now,
+          events_watch_channel_id: Webhookdb::GoogleCalendar::PUSH_NOT_SUPPORTED_SENTINEL_WATCH_ID,
+        )
+        ds.order(:pk).last
+      end
+
+      calendar_list_svc.force_set_oauth_access_token(external_owner_id, access_token)
+
+      sync_req = stub_service_request(calendar_row, page1_response.merge({"nextSyncToken" => "sync_token_1"}))
+      Webhookdb::Jobs::GoogleCalendarSync.new.perform(
+        Amigo::Event.create(
+          "test",
+          [calendar_sint.id, {pk: calendar_row.fetch(:pk)}],
+        ).as_json,
+      )
+      expect(sync_req).to have_been_made
+    end
+  end
+
   describe "WebhookdbResourceNotifyIntegrations" do
     it "POSTs to webhookdb service integrations on change" do
       sint = Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1")
