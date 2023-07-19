@@ -16,6 +16,7 @@ class Webhookdb::Replicator::AwsPricingV1 < Webhookdb::Replicator::Base
       ctor: self,
       resource_name_singular: "AWS Price List",
       feature_roles: [],
+      supports_backfill: true,
     )
   end
 
@@ -82,7 +83,7 @@ class Webhookdb::Replicator::AwsPricingV1 < Webhookdb::Replicator::Base
   end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.backfill_key.blank?
       step.output = %(In order to populate AWS prices, you'll need to allow WebhookDB
@@ -132,11 +133,6 @@ It normally takes about 20 minutes to sync.
 
 #{self._query_help_output})
     return step.completed
-  end
-
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_backfill_state_machine
-    return self.calculate_create_state_machine
   end
 
   def _parallel_backfill = 3

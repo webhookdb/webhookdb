@@ -15,6 +15,7 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
       ctor: Webhookdb::Replicator::MicrosoftCalendarUserV1,
       feature_roles: ["microsoft", "beta"],
       resource_name_singular: "Outlook Calendar User",
+      supports_webhooks: true,
     )
   end
 
@@ -52,7 +53,7 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
     return data
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.webhook_secret.blank?
       self.service_integration.data_encryption_secret ||= Webhookdb::Crypto.encryption_key.base64
@@ -90,10 +91,6 @@ The secret to use for signing is:
 
     #{self._query_help_output})
     return step.completed
-  end
-
-  def calculate_backfill_state_machine
-    return self.calculate_create_state_machine
   end
 
   def upsert_webhook(request)

@@ -491,16 +491,6 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
-      it "returns a backfill state machine" do
-        sint.webhook_secret = "whsec_abcasdf"
-        sm = sint.calculate_create_state_machine
-        expect(sm).to have_attributes(
-          output: match("Rather than using your Twilio Webhooks"),
-        )
-      end
-    end
-
     describe "calculate_backfill_state_machine" do
       let(:today) { Time.parse("2020-11-22T18:00:00Z") }
       let(:success_body) do
@@ -534,7 +524,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
       end
 
       it "asks for backfill key" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: start_with("Paste or type"),
@@ -547,7 +537,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
 
       it "asks for backfill secret" do
         sint.backfill_key = "bfkey"
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your Auth Token here:",
@@ -562,7 +552,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
         sint.backfill_key = "bfkey"
         sint.backfill_secret = "bfsek"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

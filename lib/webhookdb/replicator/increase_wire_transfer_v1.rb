@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseWireTransferV1 < Webhookdb::Replicator::Bas
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseWireTransferV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Wire Transfer",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

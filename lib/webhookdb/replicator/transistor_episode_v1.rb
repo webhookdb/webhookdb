@@ -14,6 +14,7 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::TransistorEpisodeV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Transistor Episode",
+      supports_backfill: true,
     )
   end
 

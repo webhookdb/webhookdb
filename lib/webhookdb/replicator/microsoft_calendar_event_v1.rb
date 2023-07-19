@@ -15,6 +15,7 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
       feature_roles: ["microsoft", "beta"],
       resource_name_singular: "Outlook Calendar Event",
       dependency_descriptor: Webhookdb::Replicator::MicrosoftCalendarV1.descriptor,
+      supports_webhooks: true,
     )
   end
 
@@ -61,8 +62,8 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
     return update
   end
 
-  def calculate_create_state_machine
-    return self._calculate_dependent_replicator_create_state_machine
+  def calculate_webhook_state_machine
+    return self._calculate_dependent_replicator_webhook_state_machine
   end
 
   def _resource_to_data(resource, _event, _request)

@@ -5,7 +5,7 @@ module Webhookdb::Replicator::MicrosoftCalendarV1Mixin
     return request.body, nil
   end
 
-  def _calculate_dependent_replicator_create_state_machine
+  def _calculate_dependent_replicator_webhook_state_machine
     # TODO: Revisit this copy
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
@@ -19,19 +19,13 @@ on replicating data for your linked Outlook accounts.
     return step.completed
   end
 
-  def calculate_backfill_state_machine
-    # TODO: Revisit this copy
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(#{self.resource_name_singular} does not support backfilling.
+  def backfill_not_supported_message
+    return %(#{self.resource_name_singular} does not support backfilling.
 See https://webhookdb.com/docs/outlook-calendar for instructions on setting up your integration.
 You can send WebhookDB the 'REFRESH' and 'RESYNC' messages to refresh a user's access token,
 and resync all their Outlook Calendar data, respectively.
 
-Run `webhookdb integrations reset` if you need to modify the secret for this integration.
-
-#{self._query_help_output(prefix: "You can query available #{self.resource_name_plural}")})
-    step.error_code = "mscal_no_backfill"
-    return step.completed
+Run `webhookdb integrations reset` if you need to modify the secret for this integration.)
   end
 
   def on_dependency_webhook_upsert(_replicator, _payload, **)

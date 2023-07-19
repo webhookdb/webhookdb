@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeCustomerV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripeCustomerV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Customer",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

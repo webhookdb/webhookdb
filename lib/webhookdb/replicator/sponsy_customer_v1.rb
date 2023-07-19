@@ -13,6 +13,7 @@ class Webhookdb::Replicator::SponsyCustomerV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Sponsy Customer",
       dependency_descriptor: Webhookdb::Replicator::SponsySlotV1.descriptor,
+      supports_backfill: true,
     )
   end
 

@@ -337,9 +337,9 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "sets the encryption secret and prompts for a webhook secret" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your secret here:",
@@ -352,7 +352,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
 
       it "prompts for the client id" do
         sint.webhook_secret = "abc"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: include("Client ID"),
@@ -366,7 +366,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
       it "prompts for the client secret" do
         sint.webhook_secret = "abc"
         sint.backfill_key = "def"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: include("Client Secret"),
@@ -381,7 +381,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
         sint.webhook_secret = "abc"
         sint.backfill_key = "def"
         sint.backfill_secret = "xyz"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",
@@ -396,15 +396,7 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarUserV1, :db do
     end
   end
 
-  describe "calculate_backfill_state_machine" do
-    it "uses the create state machine" do
-      sm = sint.calculate_backfill_state_machine
-      expect(sm).to have_attributes(
-        output: match("You are about to add support for replicating Outlook Calendar Users"),
-        needs_input: true,
-      )
-    end
-  end
+  it_behaves_like "a replicator with a custom backfill not supported message", "microsoft_calendar_user_v1"
 
   describe "subscription management" do
     let(:access_token) { "accesstok" }

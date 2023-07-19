@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseACHTransferV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase ACH Transfer",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

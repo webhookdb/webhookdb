@@ -10,6 +10,7 @@ class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::TwilioSmsV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Twilio SMS Message",
+      supports_backfill: true,
     )
   end
 
@@ -37,10 +38,6 @@ class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
       headers: {"Content-Type" => "text/xml"},
       body: "<Response></Response>",
     )
-  end
-
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
   end
 
   def calculate_backfill_state_machine

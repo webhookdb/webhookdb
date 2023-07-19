@@ -17,6 +17,8 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::Fake.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "Fake",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 
@@ -48,7 +50,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
     return self.class.process_webhooks_synchronously
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?
@@ -143,6 +145,8 @@ class Webhookdb::Replicator::FakeWithEnrichments < Webhookdb::Replicator::Fake
       ctor: ->(sint) { Webhookdb::Replicator::FakeWithEnrichments.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "Enriched Fake",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 
@@ -170,6 +174,8 @@ class Webhookdb::Replicator::FakeDependent < Webhookdb::Replicator::Fake
       feature_roles: ["internal"],
       resource_name_singular: "FakeDependent",
       dependency_descriptor: Webhookdb::Replicator::Fake.descriptor,
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 
@@ -177,7 +183,7 @@ class Webhookdb::Replicator::FakeDependent < Webhookdb::Replicator::Fake
     self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     dependency_help = "This is where you would explain things like the relationship between stripe cards and customers."
     if (step = self.calculate_dependency_state_machine_step(dependency_help:))
       return step
@@ -196,6 +202,8 @@ class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fak
       feature_roles: ["internal"],
       resource_name_singular: "FakeDependentDependent",
       dependency_descriptor: Webhookdb::Replicator::FakeDependent.descriptor,
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 
@@ -203,7 +211,7 @@ class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fak
     self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     dependency_help = "This is where you would explain things like the relationship between stripe cards and customers."
     if (step = self.calculate_dependency_state_machine_step(dependency_help:))
       return step
@@ -212,17 +220,34 @@ class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fak
   end
 end
 
-class Webhookdb::Replicator::FakeNoManualBackfill < Webhookdb::Replicator::Fake
+class Webhookdb::Replicator::FakeWebhooksOnly < Webhookdb::Replicator::Fake
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_no_manual_backfill_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeNoManualBackfill.new(sint) },
+      name: "fake_webhooks_only_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeWebhooksOnly.new(sint) },
       feature_roles: ["internal"],
-      resource_name_singular: "Fake (No Manual Backfill)",
+      resource_name_singular: "Fake Webhooks Only (No Backfill)",
+      supports_webhooks: true,
+      supports_backfill: false,
     )
   end
 
-  def supports_manual_backfill? = false
-
   def documentation_url = "https://abc.xyz"
+
+  def calculate_backfill_state_machine = raise NotImplementedError
+end
+
+class Webhookdb::Replicator::FakeBackfillOnly < Webhookdb::Replicator::Fake
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_backfill_only_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeBackfillOnly.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "Fake Backfill Only (No Webhooks)",
+      supports_webhooks: false,
+      supports_backfill: true,
+    )
+  end
+
+  def calculate_webhook_state_machine = raise NotImplementedError
 end

@@ -431,9 +431,9 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_subscriber_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "returns the expected step" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",
@@ -451,7 +451,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
             to_return(status: 200, body: "", headers: {})
       end
       it "asks for backfill secret" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: start_with("Paste or type"),
@@ -465,7 +465,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
       it "returns backfill in progress message" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

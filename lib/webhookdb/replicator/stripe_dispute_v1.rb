@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeDisputeV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripeDisputeV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Dispute",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

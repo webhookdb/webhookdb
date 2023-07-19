@@ -15,11 +15,8 @@ class Webhookdb::Replicator::ConvertkitBroadcastV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::ConvertkitBroadcastV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "ConvertKit Broadcast",
+      supports_backfill: true,
     )
-  end
-
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
   end
 
   def _denormalized_columns

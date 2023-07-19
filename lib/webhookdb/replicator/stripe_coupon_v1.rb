@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeCouponV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripeCouponV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Coupon",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseAccountNumberV1 < Webhookdb::Replicator::Ba
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseAccountNumberV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Account Number",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

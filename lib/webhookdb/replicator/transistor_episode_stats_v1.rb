@@ -15,6 +15,7 @@ class Webhookdb::Replicator::TransistorEpisodeStatsV1 < Webhookdb::Replicator::B
       resource_name_singular: "Transistor Episode Stats",
       resource_name_plural: "Transistor Episode Stats",
       dependency_descriptor: Webhookdb::Replicator::TransistorEpisodeV1.descriptor,
+      supports_backfill: true,
     )
   end
 
@@ -66,14 +67,6 @@ class Webhookdb::Replicator::TransistorEpisodeStatsV1 < Webhookdb::Replicator::B
   end
 
   def calculate_backfill_state_machine
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(We will start backfilling #{self.resource_name_singular} information into your WebhookDB database.
-
-#{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
-    return step.completed
-  end
-
-  def calculate_create_state_machine
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end

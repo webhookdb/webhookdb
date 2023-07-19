@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseLimitV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Limit",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

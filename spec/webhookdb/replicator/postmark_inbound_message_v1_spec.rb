@@ -186,9 +186,9 @@ RSpec.describe Webhookdb::Replicator::PostmarkInboundMessageV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "postmark_inbound_message_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "prompts with instructions" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Press Enter after Save Webhook succeeds:",
@@ -201,7 +201,7 @@ RSpec.describe Webhookdb::Replicator::PostmarkInboundMessageV1, :db do
 
       it "says all set once webhook secret is set" do
         sint.webhook_secret = "foo"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",
@@ -209,18 +209,6 @@ RSpec.describe Webhookdb::Replicator::PostmarkInboundMessageV1, :db do
           post_to_url: "",
           complete: true,
           output: match("Inbound Messages will be synced as they come in."),
-        )
-      end
-    end
-
-    describe "calculate_backfill_state_machine" do
-      it "errors since backfill is not supported" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          needs_input: false,
-          complete: true,
-          error_code: "postmark_no_inbound_backfill",
-          output: match("yet support backfilling"),
         )
       end
     end

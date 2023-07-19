@@ -12,7 +12,6 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
 
   RECURRENCE_PROJECTION = 5.years
 
-  def supports_manual_backfill? = false
   def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
 
   # @return [Webhookdb::Replicator::Descriptor]
@@ -22,6 +21,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::IcalendarCalendarV1.new(sint) },
       feature_roles: ["beta"],
       resource_name_singular: "iCalendar Calendar",
+      supports_webhooks: true,
     )
   end
 
@@ -31,11 +31,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
     return Webhookdb::WebhookResponse.for_standard_secret(request, self.service_integration.webhook_secret)
   end
 
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
-  end
-
-  def calculate_backfill_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.webhook_secret.blank?
       self.service_integration.save_changes

@@ -152,9 +152,9 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
       sint.update(api_url: "")
     end
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_backfill_state_machine" do
       it "prompts for the api url" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           complete: false,
@@ -167,7 +167,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
         req = stub_request(:get, "https://foo.bar").
           to_return(status: 200, body: "<feed />", headers: {"Content-Type" => "application/xml"})
         sint.api_url = "https://foo.bar"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
@@ -177,20 +177,9 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
       end
 
       it "sets placeholder backfill key" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(needs_input: true)
         expect(sint.refresh).to have_attributes(backfill_key: be_present)
-      end
-    end
-
-    describe "calculate_backfill_state_machine" do
-      it "uses the create state machine" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          needs_input: true,
-          complete: false,
-          output: include("entries from an Atom URL"),
-        )
       end
     end
   end

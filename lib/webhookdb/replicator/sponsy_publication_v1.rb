@@ -12,6 +12,7 @@ class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
       ctor: self,
       feature_roles: [],
       resource_name_singular: "Sponsy Publication",
+      supports_backfill: true,
     )
   end
 
@@ -71,10 +72,6 @@ class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     return self.fetch_sponsy_page("/v1/publications", pagination_token, last_backfilled)
-  end
-
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
   end
 
   def calculate_backfill_state_machine

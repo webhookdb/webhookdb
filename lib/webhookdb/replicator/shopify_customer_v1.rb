@@ -14,6 +14,8 @@ class Webhookdb::Replicator::ShopifyCustomerV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::ShopifyCustomerV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Shopify Customer",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

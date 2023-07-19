@@ -163,6 +163,8 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
     let(:no_dependencies_message) { "" }
   end
 
+  it_behaves_like "a replicator with a custom backfill not supported message", "microsoft_calendar_event_v1"
+
   describe "sync behavior" do
     before(:each) do
       org.prepare_database_connections
@@ -365,33 +367,21 @@ RSpec.describe Webhookdb::Replicator::MicrosoftCalendarEventV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "prompts for dependencies" do
         sint.update(depends_on: nil)
         calendar_sint.destroy
         calendar_user_sint.destroy
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(output: /You don't have any Outlook Calendar integrations yet/)
       end
 
       it "returns a generic message" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           output: match("Great! You are all set."),
           complete: true,
           needs_input: false,
-        )
-      end
-    end
-
-    describe "calculate_backfill_state_machine" do
-      it "errors as not available" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          output: match("Outlook Calendar Event does not support backfilling"),
-          complete: true,
-          needs_input: false,
-          error_code: "mscal_no_backfill",
         )
       end
     end

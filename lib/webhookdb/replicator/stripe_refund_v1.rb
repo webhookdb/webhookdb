@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeRefundV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripeRefundV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Refund",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

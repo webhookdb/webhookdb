@@ -503,21 +503,42 @@ or leave blank to choose the first option.
     end
 
     describe "process_state_change" do
-      let(:sint) { Webhookdb::Fixtures.service_integration.create }
-
-      it "sets and returns the create state machine for relevant fields" do
+      it "sets and returns the webhook state machine for relevant fields" do
+        sint = Webhookdb::Fixtures.service_integration.create
         step = sint.replicator.process_state_change("webhook_secret", "abcd")
         expect(step).to have_attributes(output: include("The integration creation flow is working correctly"))
         expect(sint).to have_attributes(webhook_secret: "abcd")
+        expect(Webhookdb::BackfillJob.all).to be_empty
+      end
+
+      it "can use the backfill state machine for webhook fields if webhooks are unsupported" do
+        sint = Webhookdb::Fixtures.service_integration.
+          create(backfill_secret: "x", service_name: "fake_backfill_only_v1")
+        step = sint.replicator.process_state_change("webhook_secret", "abcd")
+        expect(step).to have_attributes(output: include("The backfill flow is working correctly"))
+        expect(sint).to have_attributes(webhook_secret: "abcd")
+        expect(Webhookdb::BackfillJob.all).to have_length(1)
       end
 
       it "returns the backfill state machine for relevant fields" do
+        sint = Webhookdb::Fixtures.service_integration.create
         step = sint.replicator.process_state_change("backfill_secret", "abcd")
         expect(step).to have_attributes(output: include("The backfill flow is working correctly"))
         expect(sint).to have_attributes(backfill_secret: "abcd")
+        expect(Webhookdb::BackfillJob.all).to have_length(1)
+      end
+
+      it "can use the webhook state machine for backfill fields if backfilling is not supported" do
+        sint = Webhookdb::Fixtures.service_integration.
+          create(webhook_secret: "x", service_name: "fake_webhooks_only_v1")
+        step = sint.replicator.process_state_change("backfill_secret", "abcd")
+        expect(step).to have_attributes(output: include("The integration creation flow is working correctly"))
+        expect(sint).to have_attributes(backfill_secret: "abcd")
+        expect(Webhookdb::BackfillJob.all).to be_empty
       end
 
       it "raises error for unhandled fields" do
+        sint = Webhookdb::Fixtures.service_integration.create
         expect do
           sint.replicator.process_state_change("updated_at", Time.now)
         end.to raise_error(ArgumentError)
@@ -552,6 +573,24 @@ or leave blank to choose the first option.
           expect do
             dependent.replicator.process_state_change("dependency_choice", "abc")
           end.to raise_error(Webhookdb::InvalidInput)
+        end
+      end
+
+      describe "setting noop_create" do
+        it "can return the webhook state machine" do
+          sint = Webhookdb::Fixtures.service_integration.
+            create(service_name: "fake_webhooks_only_v1", webhook_secret: "x")
+          step = sint.replicator.process_state_change("noop_create", nil)
+          expect(step).to have_attributes(output: include("The integration creation flow is working correctly"))
+          expect(Webhookdb::BackfillJob.all).to be_empty
+        end
+
+        it "can return the backfill state machine" do
+          sint = Webhookdb::Fixtures.service_integration.
+            create(service_name: "fake_backfill_only_v1", backfill_secret: "x")
+          step = sint.replicator.process_state_change("noop_create", nil)
+          expect(step).to have_attributes(output: include("The backfill flow is working correctly"))
+          expect(Webhookdb::BackfillJob.all).to have_length(1)
         end
       end
     end
@@ -621,6 +660,35 @@ or leave blank to choose the first option.
           root_sint.replicator.find_dependent("fake_v1")
         end.to raise_error(Webhookdb::InvalidPrecondition, /there are multiple fake_v1 integrations/)
       end
+    end
+  end
+
+  describe "when backfill is not supported" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_webhooks_only_v1") }
+    let(:repl) { sint.replicator }
+
+    it "raises an invariant violation when backfilling" do
+      expect do
+        backfill(sint)
+      end.to raise_error(Webhookdb::InvariantViolation, "manual backfill not supported")
+    end
+
+    it "can generate documentation without a documentation url" do
+      expect(repl).to receive(:documentation_url).and_return(nil)
+      expect(repl.backfill_not_supported_message.strip).to eq(<<~S.strip)
+        Sorry, you cannot backfill this integration. You may be looking for one of the following:
+
+          webhookdb integrations reset #{sint.table_name}
+      S
+    end
+
+    it "can generate documentation with a url" do
+      expect(repl).to receive(:documentation_url).and_return("http://a.b")
+      expect(repl.backfill_not_supported_message.strip).to eq(<<~S.strip)
+        Sorry, you cannot manually backfill this integration.
+        Please refer to the documentation at http://a.b
+        for information on how to refresh data.
+      S
     end
   end
 end

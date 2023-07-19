@@ -7,6 +7,7 @@ class Webhookdb::Replicator::PluginTester < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::PluginTester.new(sint) },
       resource_name_singular: "PluginTester",
       feature_roles: [],
+      supports_backfill: true,
     )
   end
 end

@@ -48,7 +48,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
     return super(field, value)
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     # if the service integration doesn't exist, create it with some standard values
     unless self.service_integration.webhook_secret.present?

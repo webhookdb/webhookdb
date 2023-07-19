@@ -17,6 +17,7 @@ class Webhookdb::Replicator::MicrosoftCalendarV1 < Webhookdb::Replicator::Base
       feature_roles: ["microsoft", "beta"],
       resource_name_singular: "Outlook Calendar",
       dependency_descriptor: Webhookdb::Replicator::MicrosoftCalendarUserV1.descriptor,
+      supports_webhooks: true,
     )
   end
 
@@ -59,8 +60,8 @@ class Webhookdb::Replicator::MicrosoftCalendarV1 < Webhookdb::Replicator::Base
     return data
   end
 
-  def calculate_create_state_machine
-    return self._calculate_dependent_replicator_create_state_machine
+  def calculate_webhook_state_machine
+    return self._calculate_dependent_replicator_webhook_state_machine
   end
 
   # @param calendar_user_row [Hash<Symbol, Any>]

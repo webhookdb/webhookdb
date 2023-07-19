@@ -165,11 +165,11 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_create_state_machine" do
+    describe "calculate_backfill_state_machine" do
       it "prompts for dependencies" do
         sint.update(depends_on: nil)
         episode_sint.destroy
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           output: match("This integration requires Transistor Episodes to sync"),
         )
@@ -177,24 +177,11 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
 
       it "succeeds and prints a success response if the dependency is set" do
         sint.webhook_secret = "whsec_abcasdf"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
           output: match("Great! That's all the information we need."),
-        )
-      end
-    end
-
-    describe "calculate_backfill_state_machine" do
-      it "returns org database info" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          needs_input: false,
-          complete: true,
-          output: match("We will start backfilling Transistor Episode Stats").and(
-            match("you can query Transistor Episode Stats"),
-          ),
         )
       end
     end

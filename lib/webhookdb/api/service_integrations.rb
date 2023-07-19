@@ -158,7 +158,10 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 table_name: (name + "_#{SecureRandom.hex(2)}"),
                 service_name: name,
               )
-              return sint.calculate_create_state_machine
+              replicator = sint.replicator
+              # Prefer creating using webhooks, not backfilling, but fall back to backfilling.
+              return replicator.calculate_webhook_state_machine if replicator.descriptor.supports_webhooks?
+              return replicator.calculate_and_backfill_state_machine(incremental: true)[0]
             end
 
             def verify_unique_integration(org)
@@ -225,8 +228,8 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             sint = lookup_service_integration!(org, params[:sint_identifier])
             svc = Webhookdb::Replicator.create(sint)
             merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
-            svc.clear_create_information
-            state_machine = svc.calculate_create_state_machine
+            svc.clear_webhook_information
+            state_machine = svc.calculate_preferred_create_state_machine
             status 200
             present state_machine, with: Webhookdb::API::StateMachineEntity
           end
@@ -290,10 +293,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 return sint.replicator
               end
 
-              def check_can_manual_backfill(rep)
-                return if rep.supports_manual_backfill?
-                msg = "Sorry, you cannot manually backfill this integration. Please refer to the documentation " \
-                      "at #{rep.documentation_url} for information on how to refresh data."
+              def ensure_backfill_supported!(rep)
+                return if rep.descriptor.supports_backfill?
+                msg = rep.backfill_not_supported_message
                 merror!(409, msg)
               end
             end
@@ -303,18 +305,20 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
             post do
               rep = lookup_backfillable_replicator(customer: current_customer)
-              check_can_manual_backfill(rep)
+              ensure_backfill_supported!(rep)
               state_machine, _ = rep.calculate_and_backfill_state_machine(incremental: params.fetch(:incremental, true))
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
             end
 
             post :reset do
-              svc = lookup_backfillable_replicator(customer: current_customer)
-              svc.clear_backfill_information
-              # It's possible some integrations can be backfilled, but don't have their own credentials,
-              # so we do need to emit the backfill event on success.
-              state_machine, _ = svc.calculate_and_backfill_state_machine(incremental: true)
+              repl = lookup_backfillable_replicator(customer: current_customer)
+              ensure_backfill_supported!(repl)
+              state_machine = repl.service_integration.db.transaction do
+                repl.clear_backfill_information
+                step, _ = repl.calculate_and_backfill_state_machine(incremental: true)
+                step
+              end
               status 200
               present state_machine, with: Webhookdb::API::StateMachineEntity
             end
@@ -325,7 +329,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               end
               post do
                 rep = lookup_backfillable_replicator(customer: nil, allow_connstr_auth: true)
-                check_can_manual_backfill(rep)
+                ensure_backfill_supported!(rep)
                 _, job = rep.calculate_and_backfill_state_machine(incremental: params.fetch(:incremental, true))
                 if job.nil?
                   msg = "Sorry, this integration is not set up to backfill. " \
@@ -359,7 +363,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 org = lookup_org!
                 sint = lookup_service_integration!(org, params[:sint_identifier])
                 ensure_can_be_modified!(sint, c)
-                state_machine = sint.process_state_change(params[:field], params[:value])
+                state_machine = sint.replicator.process_state_change(params[:field], params[:value])
                 status 200
                 present state_machine, with: Webhookdb::API::StateMachineEntity
               end

@@ -14,6 +14,7 @@ class Webhookdb::Replicator::SponsyStatusV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Sponsy Status",
       resource_name_plural: "Sponsy Statuses",
       dependency_descriptor: Webhookdb::Replicator::SponsyPublicationV1.descriptor,
+      supports_backfill: true,
     )
   end
 

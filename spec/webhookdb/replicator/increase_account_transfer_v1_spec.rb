@@ -353,14 +353,14 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
 
     describe "process_state_change" do
       it "uses a default api url if value is blank" do
-        sint.process_state_change("api_url", "")
+        sint.replicator.process_state_change("api_url", "")
         expect(sint.api_url).to eq("https://api.increase.com")
       end
     end
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "asks for webhook secret" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your secret here:",
@@ -373,7 +373,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "whsec_abcasdf"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",
@@ -402,7 +402,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
       end
 
       it "asks for backfill key" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your API Key here:",
@@ -415,7 +415,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
 
       it "asks for api url" do
         sint.backfill_key = "bfkey"
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your API url here:",
@@ -430,7 +430,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
         sint.backfill_key = "bfkey"
         sint.api_url = "https://api.increase.com"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

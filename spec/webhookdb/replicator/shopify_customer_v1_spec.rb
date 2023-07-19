@@ -453,14 +453,14 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
 
     describe "process_state_change" do
       it "converts a shop name into an api url and updates the object" do
-        sint.process_state_change("shop_name", "looney-tunes")
+        sint.replicator.process_state_change("shop_name", "looney-tunes")
         expect(sint.api_url).to eq("https://looney-tunes.myshopify.com")
       end
     end
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "asks for webhook secret" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: be(true),
           prompt: eq("Paste or type your secret here:"),
@@ -473,7 +473,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "whsec_abcasdf"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: be(false),
           prompt: "",
@@ -500,7 +500,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
             to_return(status: 200, body: success_body, headers: {})
       end
       it "asks for backfill key" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: start_with("Paste or type"),
@@ -513,7 +513,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
 
       it "asks for backfill secret" do
         sint.backfill_key = "key_ghjkl"
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: start_with("Paste or type"),
@@ -527,7 +527,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
       it "asks for store name" do
         sint.backfill_key = "key_ghjkl"
         sint.backfill_secret = "whsec_abcasdf"
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: start_with("Paste or type"),
@@ -543,7 +543,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
         sint.backfill_secret = "whsec_abcasdf"
         sint.api_url = "https://shopify_test.myshopify.com"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,
