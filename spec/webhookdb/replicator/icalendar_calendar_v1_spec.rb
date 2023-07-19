@@ -996,6 +996,27 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           ),
         )
       end
+
+      describe "IceCube fixes" do
+        it "handles BYSETPOS=2" do
+          # See https://github.com/ice-cube-ruby/ice_cube/pull/449
+          body = <<~ICAL
+            BEGIN:VEVENT
+            SUMMARY:Bug Person
+            UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+            DTSTART:20230711T120000Z
+            DTEND:20230711T130000Z
+            RRULE:FREQ=MONTHLY;BYSETPOS=2;BYDAY=TU;INTERVAL=1;COUNT=4
+            END:VEVENT
+          ICAL
+          expect(sync(body)).to contain_exactly(
+            hash_including(start_at: Time.parse("2023-07-11 12:00:00Z"), end_at: Time.parse("2023-07-11 13:00:00Z"), recurring_event_sequence: 0),
+            hash_including(start_at: Time.parse("2023-08-08 12:00:00Z"), end_at: Time.parse("2023-08-08 13:00:00Z"), recurring_event_sequence: 1),
+            hash_including(start_at: Time.parse("2023-09-12 12:00:00Z"), end_at: Time.parse("2023-09-12 13:00:00Z"), recurring_event_sequence: 2),
+            hash_including(start_at: Time.parse("2023-10-10 12:00:00Z"), end_at: Time.parse("2023-10-10 13:00:00Z"), recurring_event_sequence: 3),
+          )
+        end
+      end
     end
   end
 
