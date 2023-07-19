@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 module Webhookdb::Crypto
+  def self.bin2hex(s)
+    return s.unpack1("H*")
+  end
+
   def self.cipher
     return OpenSSL::Cipher.new("aes-256-cbc")
   end
