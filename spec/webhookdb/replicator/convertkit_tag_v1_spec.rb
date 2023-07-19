@@ -116,23 +116,13 @@ RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_tag_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
-      it "returns a backfill state" do
-        sm = sint.calculate_create_state_machine
-        expect(sm).to have_attributes(
-          complete: false,
-          output: match("we need to use the API to make requests"),
-        )
-      end
-    end
-
     describe "calculate_backfill_state_machine" do
       def stub_service_request
         return stub_request(:get, "https://api.convertkit.com/v3/tags?api_secret=bfsek").
             to_return(status: 200, body: "", headers: {})
       end
       it "asks for backfill secret" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: include("Paste or type"),
@@ -146,7 +136,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
       it "returns a complete step if it has a secret" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

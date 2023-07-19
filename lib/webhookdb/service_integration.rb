@@ -64,21 +64,6 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def process_state_change(field, value)
-    return Webhookdb::Replicator.create(self).process_state_change(field, value)
-  end
-
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_create_state_machine
-    return Webhookdb::Replicator.create(self).calculate_create_state_machine
-  end
-
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_backfill_state_machine
-    return Webhookdb::Replicator.create(self).calculate_backfill_state_machine
-  end
-
   def can_be_modified_by?(customer)
     return customer.verified_member_of?(self.organization)
   end

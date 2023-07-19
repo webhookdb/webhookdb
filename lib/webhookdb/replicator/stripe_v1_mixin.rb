@@ -27,7 +27,7 @@ module Webhookdb::Replicator::StripeV1Mixin
     return :updated
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
       step.output = %{You are about to start replicating #{self.resource_name_singular} info into WebhookDB.

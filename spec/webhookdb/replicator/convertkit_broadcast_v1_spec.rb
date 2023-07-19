@@ -120,13 +120,6 @@ RSpec.describe Webhookdb::Replicator::ConvertkitBroadcastV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_broadcast_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
-      it "returns the backfill state machine" do
-        sm = sint.calculate_create_state_machine
-        expect(sm).to have_attributes(output: match(/ConvertKit Broadcast webhooks are not/))
-      end
-    end
-
     describe "calculate_backfill_state_machine" do
       def stub_service_request
         return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
@@ -134,7 +127,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitBroadcastV1, :db do
       end
 
       it "asks for backfill secret" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: be_present,
@@ -148,7 +141,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitBroadcastV1, :db do
       it "returns backfill in progress message" do
         sint.backfill_secret = "bfsek"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

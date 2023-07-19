@@ -122,7 +122,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "clears setup information" do
     sint.update(webhook_secret: "wh_sek")
-    svc.clear_create_information
+    svc.clear_webhook_information
     expect(sint).to have_attributes(webhook_secret: "")
   end
 
@@ -132,6 +132,40 @@ RSpec.shared_examples "a replicator" do |name|
     expect(sint).to have_attributes(api_url: "")
     expect(sint).to have_attributes(backfill_key: "")
     expect(sint).to have_attributes(backfill_secret: "")
+  end
+
+  # rubocop:disable Lint/RescueException
+  def expect_implemented
+    # Same as expect { x }.to_not raise_error(NotImplementedError)
+    yield
+    # No error is good.
+  rescue Exception => e
+    # Any other error except NotImplementedError is fine.
+    # For example we may error verifying credentials; that's fine.
+    raise "method is unimplemented" if e.is_a?(NotImplementedError)
+  end
+  # rubocop:enable Lint/RescueException
+
+  it "adheres to whether it supports webhooks and backfilling" do
+    if svc.descriptor.supports_webhooks_and_backfill?
+      expect_implemented { svc.calculate_webhook_state_machine }
+      expect_implemented { svc.calculate_backfill_state_machine }
+    elsif svc.descriptor.webhooks_only?
+      expect_implemented { svc.calculate_webhook_state_machine }
+      expect { svc.calculate_backfill_state_machine }.to raise_error(NotImplementedError)
+    elsif svc.descriptor.backfill_only?
+      expect { svc.calculate_webhook_state_machine }.to raise_error(NotImplementedError)
+      expect_implemented { svc.calculate_backfill_state_machine }
+    else
+      raise TypeError, "invalid ingest behavior"
+    end
+  end
+end
+
+RSpec.shared_examples "a replicator with a custom backfill not supported message" do |name|
+  it "has a custom message" do
+    sint = Webhookdb::Fixtures.service_integration.create(service_name: name)
+    expect(sint.replicator.backfill_not_supported_message).to_not include("You may be looking for one of the following")
   end
 end
 
@@ -654,21 +688,6 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
   end
 end
 
-RSpec.shared_examples "a replicator that does not support manual backfill" do |name|
-  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
-  let(:svc) { Webhookdb::Replicator.create(sint) }
-
-  it "raises InvariantViolation on backfill" do
-    expect do
-      backfill(sint)
-    end.to raise_error(Webhookdb::InvariantViolation, "manual backfill not supported")
-  end
-
-  it "has a documentation url" do
-    expect(svc).to have_attributes(documentation_url: be_present)
-  end
-end
-
 RSpec.shared_examples "a backfill replicator that requires credentials from a dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:error_message) { raise NotImplementedError }
@@ -829,7 +848,7 @@ RSpec.shared_examples "a replicator dependent on another" do |service_name, depe
   end
 
   it "errors if there are no dependency candidates" do
-    step = sint.replicator.calculate_create_state_machine
+    step = sint.replicator.send(sint.replicator.preferred_create_state_machine_method)
     expect(step).to have_attributes(
       output: match(no_dependencies_message),
     )
@@ -838,7 +857,7 @@ RSpec.shared_examples "a replicator dependent on another" do |service_name, depe
   it "asks for the dependency as the first step of its state machine" do
     create_dependency(sint)
     sint.depends_on = nil
-    step = sint.replicator.calculate_create_state_machine
+    step = sint.replicator.send(sint.replicator.preferred_create_state_machine_method)
     expect(step).to have_attributes(
       output: match("Enter the number for the"),
     )

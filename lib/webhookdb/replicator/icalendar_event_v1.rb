@@ -6,7 +6,6 @@ require "webhookdb/windows_tz"
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
-  def supports_manual_backfill? = false
   def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
 
   # @return [Webhookdb::Replicator::Descriptor]
@@ -17,6 +16,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       dependency_descriptor: Webhookdb::Replicator::IcalendarCalendarV1.descriptor,
       feature_roles: ["beta"],
       resource_name_singular: "iCalendar Event",
+      supports_webhooks: true,
     )
   end
 
@@ -295,7 +295,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     return
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end
@@ -308,15 +308,11 @@ on syncing data from iCalendar/ics feeds.
     return step.completed
   end
 
-  def calculate_backfill_state_machine
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(#{self.resource_name_singular} does not support backfilling.
+  def backfill_not_supported_message
+    return %(#{self.resource_name_singular} does not support backfilling.
 See https://webhookdb.com/docs/icalendar for instructions on setting up your integration.
-You can POST 'SYNC' messages to WebhookDB to force-sync a user's feed,
-though keep in mind calendar providers only refresh feeds periodically.
 
-#{self._query_help_output(prefix: "You can query available #{self.resource_name_plural}")})
-    step.error_code = "icalendar_no_backfill"
-    return step.completed
+You can POST 'SYNC' messages to WebhookDB to force-sync a user's feed,
+though keep in mind calendar providers only refresh feeds periodically.)
   end
 end

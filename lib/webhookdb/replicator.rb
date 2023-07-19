@@ -59,15 +59,39 @@ class Webhookdb::Replicator
     #   @return [Webhookdb::Replicator::Descriptor]
     attr_reader :dependency_descriptor
 
+    # True if this integration supports webhooks (real-time or user-built webhook payloads).
+    attr_reader :supports_webhooks
+    # True if this integration supports user-driven backfilling,
+    # usually by paginating all resources.
+    attr_reader :supports_backfill
+
+    # If this integration has specific documentation,
+    # link its url here. It is used to build custom error messages,
+    # for example in case 'backfill' is called but not supported.
+    attr_reader :documentation_url
+
     def initialize(
       name:,
       ctor:,
       resource_name_singular:,
       feature_roles:,
+      supports_webhooks: false,
+      supports_backfill: false,
       resource_name_plural: nil,
-      dependency_descriptor: nil
+      dependency_descriptor: nil,
+      documentation_url: nil
     )
-      super(name:, resource_name_singular:, feature_roles:, dependency_descriptor:)
+      raise ArgumentError, "must support one or both of webhooks and backfill" unless
+        supports_webhooks || supports_backfill
+      super(
+        name:,
+        resource_name_singular:,
+        feature_roles:,
+        supports_webhooks:,
+        supports_backfill:,
+        dependency_descriptor:,
+        documentation_url:,
+      )
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
       @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
       self.feature_roles
@@ -82,6 +106,12 @@ class Webhookdb::Replicator
           self.name == other.name &&
           self.resource_name_singular == other.resource_name_singular
     end
+
+    alias supports_webhooks? supports_webhooks
+    alias supports_backfill? supports_backfill
+    def webhooks_only? = self.supports_webhooks? && !self.supports_backfill?
+    def backfill_only? = !self.supports_webhooks? && self.supports_backfill?
+    def supports_webhooks_and_backfill? = self.supports_webhooks? && self.supports_backfill?
   end
 
   class << self

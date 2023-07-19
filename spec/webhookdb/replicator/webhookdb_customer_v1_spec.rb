@@ -73,9 +73,9 @@ RSpec.describe Webhookdb::Replicator::WebhookdbCustomerV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "webhookdb_customer_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "sets the secret and confirms the result" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",

@@ -73,8 +73,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that does not support manual backfill", "icalendar_calendar_v1"
-
   describe "upsert behavior" do
     describe "upsert_webhook" do
       let(:base_request) do
@@ -178,9 +176,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "prompts for the secret" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           complete: false,
@@ -191,7 +189,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
       it "completes if secret is set" do
         sint.webhook_secret = "abc"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
@@ -199,18 +197,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
     end
-
-    describe "calculate_backfill_state_machine" do
-      it "uses the create state machine" do
-        sm = sint.calculate_backfill_state_machine
-        expect(sm).to have_attributes(
-          needs_input: true,
-          complete: false,
-          output: include("add support for replicating iCalendar"),
-        )
-      end
-    end
   end
+
+  it_behaves_like "a replicator with a custom backfill not supported message", "icalendar_calendar_v1"
 
   describe "webhook_response" do
     it "validates using Whdb-Webhook-Secret" do

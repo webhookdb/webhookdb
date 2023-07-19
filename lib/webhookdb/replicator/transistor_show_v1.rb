@@ -13,6 +13,7 @@ class Webhookdb::Replicator::TransistorShowV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::TransistorShowV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Transistor Show",
+      supports_backfill: true,
     )
   end
 

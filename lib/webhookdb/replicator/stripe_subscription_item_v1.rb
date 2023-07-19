@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeSubscriptionItemV1 < Webhookdb::Replicator::B
       ctor: ->(sint) { Webhookdb::Replicator::StripeSubscriptionItemV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Subscription Item",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

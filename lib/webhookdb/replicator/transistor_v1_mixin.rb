@@ -26,10 +26,6 @@ module Webhookdb::Replicator::TransistorV1Mixin
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
-  end
-
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.backfill_key.blank?

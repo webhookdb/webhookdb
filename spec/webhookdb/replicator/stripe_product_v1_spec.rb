@@ -406,9 +406,9 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_product_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
-    describe "calculate_create_state_machine" do
+    describe "calculate_webhook_state_machine" do
       it "asks for webhook secret" do
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your secret here:",
@@ -421,7 +421,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "whsec_abcasdf"
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",
@@ -451,7 +451,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
             to_return(status: 200, body: success_body, headers: {})
       end
       it "asks for backfill key" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your Restricted Key here:",
@@ -465,7 +465,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
       it "confirms reciept of backfill key, returns org database info" do
         sint.backfill_key = "whsec_abcasdf"
         res = stub_service_request
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(res).to have_been_made
         expect(sm).to have_attributes(
           needs_input: false,

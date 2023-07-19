@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseTransactionV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseTransactionV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Transaction",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

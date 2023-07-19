@@ -10,6 +10,7 @@ class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::B
       ctor: ->(sint) { Webhookdb::Replicator::PostmarkInboundMessageV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Postmark Inbound Message",
+      supports_webhooks: true,
     )
   end
 
@@ -55,7 +56,7 @@ class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::B
     return Webhookdb::Postmark.webhook_response(request)
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     if self.service_integration.webhook_secret.blank?
       step.output = %(You are about to set up webhooks for Postmark Inbound Messages.
@@ -81,15 +82,10 @@ All set! Inbound Messages will be synced as they come in.
     return step.completed
   end
 
-  def calculate_backfill_state_machine
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(We don't yet support backfilling Postmark Inbound Messages.
+  def backfill_not_supported_message
+    return %(We don't yet support backfilling Postmark Inbound Messages.
 Please email hello@webhookdb.com to let us know if this is something you want!
 
-Run `webhookdb integration reset #{self.service_integration.opaque_id}` to go through webhook setup.
-
-#{self._query_help_output(prefix: "You can query available #{self.resource_name_plural}")})
-    step.error_code = "postmark_no_inbound_backfill"
-    return step.completed
+Run `webhookdb integration reset #{self.service_integration.opaque_id}` to go through webhook setup.)
   end
 end

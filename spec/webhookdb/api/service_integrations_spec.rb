@@ -60,20 +60,31 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
   describe "POST v1/organizations/:org_identifier/service_integrations/create" do
     let(:internal_role) { Webhookdb::Role.create(name: "internal") }
 
-    it "creates a service integration" do
+    def setup_roles
       membership.update(membership_role: admin_role)
       org.add_feature_role(internal_role)
+    end
+
+    it "creates a service integration" do
+      setup_roles
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
       expect(last_response).to have_status(200)
-      new_integration = Webhookdb::ServiceIntegration.where(service_name: "fake_v1", organization: org).first
-      expect(new_integration).to_not be_nil
+      expect(Webhookdb::ServiceIntegration.where(organization: org).all).to have_length(1)
+    end
+
+    it "creates and backfills a backfill-only integration" do
+      setup_roles
+
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_backfill_only_v1"
+
+      expect(last_response).to have_status(200)
+      expect(Webhookdb::ServiceIntegration.where(organization: org).all).to have_length(1)
     end
 
     it "returns a state machine step" do
-      membership.update(membership_role: admin_role)
-      org.add_feature_role(internal_role)
+      setup_roles
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
@@ -135,8 +146,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
 
     it "errors if the given service name is not valid", :sentry do
-      membership.update(membership_role: admin_role)
-      org.add_feature_role(internal_role)
+      setup_roles
 
       expect(Sentry).to receive(:capture_message).with(/to see available services/)
 
@@ -147,8 +157,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
 
     it "does not create an integration if dependencies are not met" do
-      membership.update(membership_role: admin_role)
-      org.add_feature_role(internal_role)
+      setup_roles
 
       post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_dependent_v1"
 
@@ -160,12 +169,10 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     describe "when there is already an integration for the same service" do
       before(:each) do
         _ = sint
+        setup_roles
       end
 
       it "422s and asks for confirmation before creating second integration" do
-        membership.update(membership_role: admin_role)
-        org.add_feature_role(internal_role)
-
         post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
         expect(last_response).to have_status(422)
@@ -175,18 +182,12 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       end
 
       it "creates second integration if confirmation is recieved" do
-        membership.update(membership_role: admin_role)
-        org.add_feature_role(internal_role)
-
         post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1", guard_confirm: true
 
         expect(org.service_integrations(reload: true)).to have_length(2)
       end
 
       it "does not create second integration if confirmation is not recieved" do
-        membership.update(membership_role: admin_role)
-        org.add_feature_role(internal_role)
-
         post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_v1"
 
         expect(org.service_integrations(reload: true)).to have_length(1)
@@ -517,14 +518,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       _ = sint
     end
 
-    it "clears the webhook setup information" do
-      sint.update(webhook_secret: "whsek")
-      post "/v1/organizations/#{org.key}/service_integrations/xyz/reset"
-      sint = Webhookdb::ServiceIntegration[opaque_id: "xyz"]
-      expect(sint).to have_attributes(webhook_secret: "")
-    end
+    it "clears the webhook setup information and returns a step" do
+      sint.update(webhook_secret: "whsek", backfill_secret: "abc")
 
-    it "returns a state machine step" do
       post "/v1/organizations/#{org.key}/service_integrations/xyz/reset"
 
       expect(last_response).to have_status(200)
@@ -534,6 +530,26 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
         prompt: "Paste or type your fake API secret here:",
         prompt_is_secret: false, post_to_url: match("/transition/webhook_secret"), complete: false,
       )
+
+      expect(sint.refresh).to have_attributes(webhook_secret: "", backfill_secret: "abc")
+    end
+
+    it "clears all setup information from a backfill-only integration" do
+      sint.update(webhook_secret: "whsek", backfill_secret: "abc", service_name: "fake_backfill_only_v1")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/reset"
+
+      expect(last_response).to have_status(200)
+      expect(sint.refresh).to have_attributes(webhook_secret: "", backfill_secret: "")
+    end
+
+    it "clears all setup information from a webhook-only integration" do
+      sint.update(webhook_secret: "whsek", backfill_secret: "abc", service_name: "fake_webhooks_only_v1")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/reset"
+
+      expect(last_response).to have_status(200)
+      expect(sint.refresh).to have_attributes(webhook_secret: "", backfill_secret: "")
     end
 
     it "fails if service integration is not supported by subscription plan" do
@@ -677,15 +693,15 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
     end
 
-    it "409s if service integration does not support manual backfilling" do
-      no_backfill = Webhookdb::Fixtures.service_integration.create(organization: org,
-                                                                   service_name: "fake_no_manual_backfill_v1",)
+    it "409s if service integration does not support backfilling" do
+      no_backfill = Webhookdb::Fixtures.service_integration.
+        create(organization: org, service_name: "fake_webhooks_only_v1")
 
       post "/v1/organizations/#{org.key}/service_integrations/#{no_backfill.opaque_id}/backfill"
 
       expect(last_response).to have_status(409)
       expect(last_response).to have_json_body.that_includes(
-        error: include(message: %r{Please refer to the documentation at https://abc.xyz}),
+        error: include(message: %r{Please refer to the documentation at https://abc\.xyz}),
       )
     end
   end
@@ -697,15 +713,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
 
     it "clears the backfill information" do
-      sint.update(api_url: "example.api.com", backfill_key: "bf_key", backfill_secret: "bf_sek")
-      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/reset"
-      sint = Webhookdb::ServiceIntegration[opaque_id: "xyz"]
-      expect(sint).to have_attributes(api_url: "")
-      expect(sint).to have_attributes(backfill_key: "")
-      expect(sint).to have_attributes(backfill_secret: "")
-    end
+      sint.update(webhook_secret: "x", api_url: "example.api.com", backfill_key: "bf_key", backfill_secret: "bf_sek")
 
-    it "returns a state machine step" do
       post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/reset"
 
       expect(last_response).to have_status(200)
@@ -713,6 +722,27 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
         needs_input: true,
         output: "Now let's test the backfill flow.", prompt: "Paste or type a string here:",
         prompt_is_secret: false, post_to_url: match("/transition/backfill_secret"), complete: false,
+      )
+      expect(sint.refresh).to have_attributes(webhook_secret: "x", api_url: "", backfill_key: "", backfill_secret: "")
+    end
+
+    it "clears all information on a backfill-only integration" do
+      sint.update(service_name: "fake_backfill_only_v1", webhook_secret: "x", backfill_secret: "bf_sek")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/reset"
+
+      expect(last_response).to have_status(200)
+      expect(sint.refresh).to have_attributes(webhook_secret: "", backfill_secret: "")
+    end
+
+    it "409s on a webhook-only integration" do
+      sint.update(service_name: "fake_webhooks_only_v1", webhook_secret: "x", backfill_secret: "bf_sek")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/reset"
+
+      expect(last_response).to have_status(409)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: %r{Please refer to the documentation at https://abc\.xyz}),
       )
     end
 
@@ -771,7 +801,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
     it "409s if service integration does not support manual backfilling" do
       no_backfill = Webhookdb::Fixtures.service_integration.create(
-        organization: org, service_name: "fake_no_manual_backfill_v1",
+        organization: org, service_name: "fake_webhooks_only_v1",
       )
 
       post "/v1/organizations/#{org.key}/service_integrations/#{no_backfill.opaque_id}/backfill/job"

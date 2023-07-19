@@ -14,6 +14,7 @@ class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::AtomSingleFeedV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Single Atom Feed",
+      supports_backfill: true,
     )
   end
 
@@ -85,10 +86,6 @@ class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base
 
   def _webhook_response(_request)
     return Webhookdb::WebhookResponse.ok
-  end
-
-  def calculate_create_state_machine
-    return self.calculate_backfill_state_machine
   end
 
   def calculate_backfill_state_machine

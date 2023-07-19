@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripeInvoiceV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripeInvoiceV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Invoice",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

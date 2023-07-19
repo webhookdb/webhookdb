@@ -145,23 +145,26 @@ class Webhookdb::Replicator::Base
   # @param value [String] The value of the field.
   # @return [Webhookdb::Replicator::StateMachineStep]
   def process_state_change(field, value)
-    can_trigger_backfill = false
+    desc = self.descriptor
     case field
       when "webhook_secret"
-        meth = :calculate_create_state_machine
+        # If we support webhooks, the secret must always correspond to the webhook state machine.
+        # If we don't support webhooks, then the backfill state machine may be using it.
+        meth = desc.supports_webhooks? ? :calculate_webhook_state_machine : :calculate_backfill_state_machine
       when "backfill_key", "backfill_secret", "api_url"
-        meth = :calculate_backfill_state_machine
-        can_trigger_backfill = true
+        # If we support backfilling, these keys must always be used for backfills.
+        # If we don't support backfilling, then the create state machine may be using them.
+        meth = desc.supports_backfill? ? :calculate_backfill_state_machine : :calculate_webhook_state_machine
       when "dependency_choice"
         # Choose an upstream dependency for an integration.
         # See where this is used for more details.
-        meth = :calculate_create_state_machine
+        meth = self.preferred_create_state_machine_method
         value = self._find_dependency_candidate(value)
         field = "depends_on"
       when "noop_create"
         # Use this to just recalculate the state machine,
         # not make any changes to the data.
-        return self.calculate_create_state_machine
+        return self.calculate_preferred_create_state_machine
       else
         raise ArgumentError, "Field '#{field}' is not valid for a state change"
     end
@@ -169,10 +172,42 @@ class Webhookdb::Replicator::Base
       self.service_integration.send("#{field}=", value)
       self.service_integration.save_changes
       step = self.send(meth)
-      Webhookdb::BackfillJob.create_recursive(service_integration:, incremental: true).enqueue if
-        can_trigger_backfill && step.successful?
+      if step.successful? && meth == :calculate_backfill_state_machine
+        # If we are processing the backfill state machine, and we finish successfully,
+        # we always want to start syncing.
+        self._enqueue_backfill_jobs(incremental: true)
+      end
       return step
     end
+  end
+
+  # If the integration supports webhooks, then we want to do that on create.
+  # If it's backfill only, then we fall back to that instead.
+  # Things like choosing dependencies are webhook-vs-backfill agnostic,
+  # so which machine we choose isn't that important (but it does happen during creation).
+  # @return [Symbol]
+  def preferred_create_state_machine_method
+    return self.descriptor.supports_webhooks? ? :calculate_webhook_state_machine : :calculate_backfill_state_machine
+  end
+
+  # See +preferred_create_state_machine_method+.
+  # If we prefer backfilling, and it's successful, we also want to enqueue jobs;
+  # that is, use +calculate_and_backfill_state_machine+, not just +calculate_backfill_state_machine+.
+  # @return [Webhookdb::Replicator::StateMachineStep]
+  def calculate_preferred_create_state_machine
+    m = self.preferred_create_state_machine_method
+    return self.calculate_and_backfill_state_machine(incremental: true)[0] if m == :calculate_backfill_state_machine
+    return self.calculate_webhook_state_machine
+  end
+
+  def _enqueue_backfill_jobs(incremental:)
+    j = Webhookdb::BackfillJob.create_recursive(
+      service_integration:,
+      incremental:,
+      created_by: Webhookdb.request_user_and_admin[0],
+    )
+    j.enqueue
+    return j
   end
 
   # @param value [String]
@@ -191,12 +226,9 @@ class Webhookdb::Replicator::Base
   # and providing or asking for a webhook secret. In some cases,
   # this can be a lot more complex though.
   #
-  # NOTE: For backfill-only integrations, the create and backfill state machine
-  # may be the same. In this cases, have one method call and return the other.
-  #
   # @abstract
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     raise NotImplementedError
   end
 
@@ -218,25 +250,54 @@ class Webhookdb::Replicator::Base
   def calculate_and_backfill_state_machine(incremental:)
     step = self.calculate_backfill_state_machine
     bfjob = nil
-    if step.successful?
-      bfjob = Webhookdb::BackfillJob.create_recursive(
-        service_integration:,
-        incremental:,
-        created_by: Webhookdb.request_user_and_admin[0],
-      )
-      bfjob.enqueue
-    end
+    bfjob = self._enqueue_backfill_jobs(incremental:) if step.successful?
     return step, bfjob
   end
 
+  # When backfilling is not supported, this message is used.
+  # It can be overridden for custom explanations,
+  # or descriptor#documentation_url can be provided,
+  # which will use a default message.
+  # If no documentation is available, a fallback message is used.
+  def backfill_not_supported_message
+    du = self.documentation_url
+    if du.blank?
+      msg = %(Sorry, you cannot backfill this integration. You may be looking for one of the following:
+
+  webhookdb integrations reset #{self.service_integration.table_name}
+      )
+      return msg
+    end
+    msg = %(Sorry, you cannot manually backfill this integration.
+Please refer to the documentation at #{du}
+for information on how to refresh data.)
+    return msg
+  end
+
   # Remove all the information used in the initial creation of the integration so that it can be re-entered
-  def clear_create_information
-    self.service_integration.update(webhook_secret: "")
+  def clear_webhook_information
+    self._clear_webook_information
+    # If we don't support both webhooks and backfilling, we are safe to clear ALL fields
+    # and get back into an initial state.
+    self._clear_backfill_information unless self.descriptor.supports_webhooks_and_backfill?
+    self.service_integration.save_changes
+  end
+
+  def _clear_webook_information
+    self.service_integration.set(webhook_secret: "")
   end
 
   # Remove all the information needed for backfilling from the integration so that it can be re-entered
   def clear_backfill_information
-    self.service_integration.update(api_url: "", backfill_key: "", backfill_secret: "")
+    self._clear_backfill_information
+    # If we don't support both webhooks and backfilling, we are safe to clear ALL fields
+    # and get back into an initial state.
+    self._clear_webook_information unless self.descriptor.supports_webhooks_and_backfill?
+    self.service_integration.save_changes
+  end
+
+  def _clear_backfill_information
+    self.service_integration.set(api_url: "", backfill_key: "", backfill_secret: "")
   end
 
   # Find a dependent service integration with the given service name.
@@ -788,7 +849,6 @@ class Webhookdb::Replicator::Base
     raise NotImplementedError, "each integration must provide an error message for unanticipated errors"
   end
 
-  def supports_manual_backfill? = true
   def documentation_url = nil
 
   # In order to backfill, we need to:
@@ -802,7 +862,7 @@ class Webhookdb::Replicator::Base
     raise Webhookdb::InvalidPrecondition, "job is for different service integration" unless
       job.service_integration === self.service_integration
 
-    raise Webhookdb::InvariantViolation, "manual backfill not supported" unless self.supports_manual_backfill?
+    raise Webhookdb::InvariantViolation, "manual backfill not supported" unless self.descriptor.supports_backfill?
 
     sint = self.service_integration
     raise Webhookdb::Replicator::CredentialsMissing if

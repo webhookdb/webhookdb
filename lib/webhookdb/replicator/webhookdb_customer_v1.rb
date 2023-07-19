@@ -10,6 +10,7 @@ class Webhookdb::Replicator::WebhookdbCustomerV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::WebhookdbCustomerV1.new(sint) },
       feature_roles: ["internal"],
       resource_name_singular: "WebookDB Customer",
+      supports_webhooks: true,
     )
   end
 
@@ -24,7 +25,7 @@ class Webhookdb::Replicator::WebhookdbCustomerV1 < Webhookdb::Replicator::Base
     return :updated_at
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     self.service_integration.update(webhook_secret: Webhookdb::Id.rand_enc(16)) if
       self.service_integration.webhook_secret.blank?

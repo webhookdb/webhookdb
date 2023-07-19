@@ -59,21 +59,11 @@ module Webhookdb::Replicator::SponsyV1Mixin
   end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_create_state_machine
-    raise Webhookdb::InvalidPrecondition, "#{self} has no dependency so should override this method" unless
-      self.class.descriptor.dependency_descriptor
-    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
+  def calculate_backfill_state_machine
+    check_dep = self.class.descriptor.dependency_descriptor
+    if check_dep && (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
       return step
     end
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = %(Great! You are all set.
-
-#{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}.")})
-    return step.completed
-  end
-
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(We will start replicating #{self.resource_name_plural} into your WebhookDB database.
 

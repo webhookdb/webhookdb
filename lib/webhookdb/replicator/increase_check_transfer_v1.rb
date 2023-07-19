@@ -14,6 +14,8 @@ class Webhookdb::Replicator::IncreaseCheckTransferV1 < Webhookdb::Replicator::Ba
       ctor: ->(sint) { Webhookdb::Replicator::IncreaseCheckTransferV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Increase Check Transfer",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

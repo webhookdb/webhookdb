@@ -15,6 +15,8 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
       ctor: ->(sint) { Webhookdb::Replicator::ConvertkitSubscriberV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "ConvertKit Subscriber",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 
@@ -73,7 +75,7 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
     # rubocop:enable Style/GuardClause
   end
 
-  def calculate_create_state_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(
 Great! We've created your ConvertKit Subscribers integration.

@@ -14,6 +14,8 @@ class Webhookdb::Replicator::StripePayoutV1 < Webhookdb::Replicator::Base
       ctor: ->(sint) { Webhookdb::Replicator::StripePayoutV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Stripe Payout",
+      supports_webhooks: true,
+      supports_backfill: true,
     )
   end
 

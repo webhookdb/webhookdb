@@ -289,27 +289,16 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_create_state_machine" do
+    describe "calculate_backfill_state_machine" do
       it "prompts for dependencies" do
         sint.update(depends_on: nil)
         publication_sint.destroy
-        sm = sint.calculate_create_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(output: /You don't have any Sponsy Publication integrations yet/)
       end
 
       it "succeeds and prints a success response if the dependency is set" do
-        sm = sint.calculate_create_state_machine
-        expect(sm).to have_attributes(
-          needs_input: false,
-          complete: true,
-          output: /You are all set/,
-        )
-      end
-    end
-
-    describe "calculate_backfill_state_machine" do
-      it "returns org database info" do
-        sm = sint.calculate_backfill_state_machine
+        sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           complete: true,
