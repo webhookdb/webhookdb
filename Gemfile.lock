@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/nehresma/ice_cube.git
+  revision: d7ea51efcdb06b3d6f8ccc9f940893103a6f568f
+  ref: d7ea51efcd
+  specs:
+    ice_cube (0.16.4)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -110,7 +117,6 @@ GEM
       multi_xml (>= 0.5.2)
     i18n (1.10.0)
       concurrent-ruby (~> 1.0)
-    ice_cube (0.16.4)
     inflecto (0.0.2)
     jmespath (1.6.2)
     json (2.6.3)
@@ -318,7 +324,7 @@ DEPENDENCIES
   grape-swagger
   grape_logging
   httparty
-  ice_cube
+  ice_cube!
   liquid
   mimemagic
   monetize
