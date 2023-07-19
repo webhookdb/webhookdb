@@ -10,7 +10,7 @@ class Webhookdb::Replicator::EmailOctopusListV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "email_octopus_list_v1",
       ctor: ->(sint) { Webhookdb::Replicator::EmailOctopusListV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Email Octopus List",
       supports_backfill: true,
     )

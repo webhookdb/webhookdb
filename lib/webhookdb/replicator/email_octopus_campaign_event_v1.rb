@@ -10,7 +10,7 @@ class Webhookdb::Replicator::EmailOctopusCampaignEventV1 < Webhookdb::Replicator
     return Webhookdb::Replicator::Descriptor.new(
       name: "email_octopus_campaign_event_v1",
       ctor: ->(sint) { Webhookdb::Replicator::EmailOctopusCampaignEventV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "Email Octopus Campaign Event",
       dependency_descriptor: Webhookdb::Replicator::EmailOctopusCampaignV1.descriptor,
       supports_backfill: true,
