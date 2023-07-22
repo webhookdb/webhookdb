@@ -191,6 +191,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
       response = Webhookdb::Http.get(
         base_url + endpoint_path,
         logger: @contact_svc.logger,
+        timeout: Webhookdb::EmailOctopus.http_timeout,
       )
       data = response.parsed_response
       next_page_link = data.dig("paging", "next")

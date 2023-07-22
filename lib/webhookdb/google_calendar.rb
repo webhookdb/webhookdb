@@ -18,6 +18,7 @@ module Webhookdb::GoogleCalendar
     # Generally use Google's default (one week),
     # but set shorter when testing.
     setting :watch_ttl, 604_800
+    setting :http_timeout, 30
   end
 
   # Manual backfilling is not supported on Google Calendar integrations.

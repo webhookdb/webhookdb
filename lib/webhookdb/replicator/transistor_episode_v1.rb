@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "webhookdb/transistor"
 require "webhookdb/replicator/transistor_v1_mixin"
 require "nokogiri"
 
@@ -147,6 +148,7 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
       headers: {"x-api-key" => self.service_integration.backfill_key},
       body: {pagination: {page: pagination_token, per: 500}},
       logger: self.logger,
+      timeout: Webhookdb::Transistor.http_timeout,
     )
     data = response.parsed_response
     episodes = data["data"]

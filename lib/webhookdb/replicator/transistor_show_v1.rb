@@ -48,6 +48,7 @@ class Webhookdb::Replicator::TransistorShowV1 < Webhookdb::Replicator::Base
       headers: {"x-api-key" => self.service_integration.backfill_key},
       body: {pagination: {page:}, private: iterating_over_private},
       logger: self.logger,
+      timeout: Webhookdb::Transistor.http_timeout,
     )
     data = response.parsed_response
     current_page = data["meta"]["currentPage"]

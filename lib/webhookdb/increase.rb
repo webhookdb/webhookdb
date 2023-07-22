@@ -2,7 +2,12 @@
 
 class Webhookdb::Increase
   extend Webhookdb::MethodUtilities
+  include Appydays::Configurable
   include Appydays::Loggable
+
+  configurable(:increase) do
+    setting :http_timeout, 30
+  end
 
   def self.webhook_response(request, webhook_secret)
     http_signature = request.env["HTTP_X_BANK_WEBHOOK_SIGNATURE"]

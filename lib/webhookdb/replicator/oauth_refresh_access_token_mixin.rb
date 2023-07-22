@@ -8,6 +8,8 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
   def oauth_cache_key_namespace = raise NotImplementedError("return something like 'gcalv1'")
   def oauth_token_url = raise NotImplementedError("return something like https://someservice/oauth2/token")
 
+  def oauth_http_timeout = raise NotImplementedError("return a timeout value for oauth http requests")
+
   def oauth_access_token_cache_key(oauth_user_id)
     parts = [self.oauth_cache_key_namespace, "atok", self.service_integration.id.to_s, oauth_user_id]
     return Webhookdb::Redis.cache_key(parts)
@@ -44,6 +46,7 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
             "charset" => "utf-8",
           },
           logger: self.logger,
+          timeout: self.oauth_http_timeout,
         )
         access_token = resp.parsed_response.fetch("access_token")
         r.call("SETEX", key, resp.parsed_response["expires_in"] - EXPIRATION_BUFFER, access_token)

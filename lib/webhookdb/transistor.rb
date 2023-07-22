@@ -2,11 +2,10 @@
 
 require "appydays/configurable"
 
-module Webhookdb::EmailOctopus
+module Webhookdb::Transistor
   include Appydays::Configurable
 
-  configurable(:email_octopus) do
+  configurable(:transistor) do
     setting :http_timeout, 30
-    setting :page_size, 100
   end
 end

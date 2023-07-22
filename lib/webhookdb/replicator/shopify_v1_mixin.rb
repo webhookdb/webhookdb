@@ -152,6 +152,7 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
       basic_auth: {username: self.service_integration.backfill_key,
                    password: self.service_integration.backfill_secret,},
       logger: self.logger,
+      timeout: Webhookdb::Shopify.http_timeout,
     )
     data = response.parsed_response
     next_link = nil

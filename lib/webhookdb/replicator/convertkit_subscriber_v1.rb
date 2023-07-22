@@ -32,7 +32,7 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
 
     # first verify that the webhooks don't exist
     url = "https://api.convertkit.com/v3/automations/hooks?api_secret=#{self.service_integration.backfill_secret}"
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     # the data returned here is a list of the existing webhooks
     data = response.parsed_response
 
@@ -52,6 +52,7 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
           "event" => {"name" => "subscriber.subscriber_activate"},
         },
         logger: self.logger,
+        timeout: Webhookdb::Convertkit.http_timeout,
       )
       end
 
@@ -70,6 +71,7 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
           "event" => {"name" => "subscriber.subscriber_unsubscribe"},
         },
         logger: self.logger,
+        timeout: Webhookdb::Convertkit.http_timeout,
       )
     end
     # rubocop:enable Style/GuardClause
@@ -160,7 +162,7 @@ your database will be populated.
     url += "&updated_from=#{last_backfilled.strftime('%FT%TZ')}" if last_backfilled.present?
     url += "&sort_field=cancelled_at" if list_being_iterated == "cancelled"
 
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     data = response.parsed_response
     current_page = data["page"]
     total_pages = data["total_pages"]

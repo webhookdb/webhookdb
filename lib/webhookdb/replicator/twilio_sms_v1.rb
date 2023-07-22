@@ -136,6 +136,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       basic_auth: {username: self.service_integration.backfill_key,
                    password: self.service_integration.backfill_secret,},
       logger: self.logger,
+      timeout: Webhookdb::Twilio.http_timeout,
     )
     data = response.parsed_response
     messages = data["messages"]

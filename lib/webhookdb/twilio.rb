@@ -16,6 +16,7 @@ module Webhookdb::Twilio
   configurable(:twilio) do
     setting :account_sid, "AC444test"
     setting :auth_token, "ac45test"
+    setting :http_timeout, 30
 
     after_configured do
       @client = Twilio::REST::Client.new(self.account_sid, self.auth_token)

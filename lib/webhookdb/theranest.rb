@@ -10,5 +10,6 @@ module Webhookdb::Theranest
     setting :appointment_look_back_months, 12
     setting :appointment_look_forward_months, 3
     setting :page_size, 50
+    setting :http_timeout, 30
   end
 end

@@ -32,6 +32,7 @@ class Webhookdb::Cloudflare
       body,
       headers: self.headers,
       logger: self.logger,
+      timeout: nil,
     )
     return Oj.load(response.body)
   end

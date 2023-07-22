@@ -128,7 +128,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
-    r = Webhookdb::Http.get("https://fake-integration?token=#{pagination_token}", logger: nil)
+    r = Webhookdb::Http.get("https://fake-integration?token=#{pagination_token}", logger: nil, timeout: 30)
     raise "Expected 2-item array" unless r.parsed_response.is_a?(Array) && r.parsed_response.length == 2
     return r.parsed_response
   end
@@ -159,7 +159,7 @@ class Webhookdb::Replicator::FakeWithEnrichments < Webhookdb::Replicator::Fake
   end
 
   def _fetch_enrichment(resource, _event, _request)
-    r = Webhookdb::Http.get("https://fake-integration/enrichment/" + resource["my_id"], logger: nil)
+    r = Webhookdb::Http.get("https://fake-integration/enrichment/" + resource["my_id"], logger: nil, timeout: 30)
     return r.parsed_response
   end
 end

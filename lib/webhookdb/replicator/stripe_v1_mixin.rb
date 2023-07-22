@@ -101,6 +101,7 @@ Submit, then copy the key when Stripe shows it to you:
       url,
       basic_auth: {username: self.service_integration.backfill_key},
       logger: self.logger,
+      timeout: Webhookdb::Stripe.http_timeout,
     )
     data = response.parsed_response
     next_page_param = nil

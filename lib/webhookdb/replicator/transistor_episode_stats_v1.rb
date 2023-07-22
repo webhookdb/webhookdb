@@ -127,6 +127,7 @@ When your Transistor Episodes get added or updated, their stats will be updated 
         headers: {"x-api-key" => @episode_svc.service_integration.backfill_key},
         body: request_body,
         logger: @episode_stats_svc.logger,
+        timeout: Webhookdb::Transistor.http_timeout,
       )
       data = response.parsed_response.dig("data", "attributes", "downloads") || []
       return data, nil

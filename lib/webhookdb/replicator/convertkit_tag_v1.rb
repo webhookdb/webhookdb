@@ -50,7 +50,7 @@ class Webhookdb::Replicator::ConvertkitTagV1 < Webhookdb::Replicator::Base
   def _fetch_enrichment(resource, _event, _request)
     tag_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/tags/#{tag_id}/subscriptions?api_secret=#{self.service_integration.backfill_secret}"
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     data = response.parsed_response
     return data
   end
@@ -58,7 +58,7 @@ class Webhookdb::Replicator::ConvertkitTagV1 < Webhookdb::Replicator::Base
   def _fetch_backfill_page(_pagination_token, **_kwargs)
     # this endpoint does not have pagination support
     url = "https://api.convertkit.com/v3/tags?api_secret=#{self.service_integration.backfill_secret}"
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     data = response.parsed_response
     return data["tags"], nil
   end

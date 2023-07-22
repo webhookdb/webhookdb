@@ -7,7 +7,7 @@ module Webhookdb::Plaid
 
   configurable(:plaid) do
     setting :page_size, 100
-    setting :sync_timeout, 10
+    setting :http_timeout, 30
   end
 
   # Manual backfilling is not supported on Plaid integrations.
