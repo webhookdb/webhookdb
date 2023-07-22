@@ -201,6 +201,7 @@ The secret to use for signing is:
       },
       headers: {"Authorization" => "Bearer #{access_token}"},
       logger: self.logger,
+      timeout: Webhookdb::MicrosoftCalendar.http_timeout,
     )
     return response.parsed_response
   end
@@ -213,6 +214,7 @@ The secret to use for signing is:
       headers: {"Authorization" => "Bearer #{access_token}"},
       logger: self.logger,
       method: :patch,
+      timeout: Webhookdb::MicrosoftCalendar.http_timeout,
     )
     return response.parsed_response
   end
@@ -339,4 +341,5 @@ The secret to use for signing is:
 
   def oauth_cache_key_namespace = "mscalv1"
   def oauth_token_url = "https://login.microsoftonline.com/organizations/oauth2/v2.0/token"
+  def oauth_http_timeout = Webhookdb::MicrosoftCalendar.http_timeout
 end

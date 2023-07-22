@@ -7,6 +7,7 @@ class Webhookdb::Stripe
 
   configurable(:stripe) do
     setting :api_key, "lithic_stripe_api_key", key: "STRIPE_API_KEY"
+    setting :http_timeout, 30
     setting :webhook_secret, "lithic_stripe_webhook_secret", key: "STRIPE_WEBHOOK_SECRET"
 
     after_configured do

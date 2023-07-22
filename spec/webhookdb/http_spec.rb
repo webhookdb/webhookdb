@@ -21,14 +21,20 @@ RSpec.describe Webhookdb::Http do
     it "calls HTTP GET" do
       req = stub_request(:get, "https://a.b").to_return(status: 200, body: "")
       qreq = stub_request(:get, "https://x.y/?x=1").to_return(status: 200, body: "")
-      described_class.get("https://a.b", logger: nil)
-      described_class.get("https://x.y", {x: 1}, logger: nil)
+      described_class.get("https://a.b", logger: nil, timeout: nil)
+      described_class.get("https://x.y", {x: 1}, logger: nil, timeout: nil)
       expect(req).to have_been_made
       expect(qreq).to have_been_made
     end
 
+    it "requires a :timeout" do
+      expect { described_class.get("https://x.y") }.to raise_error(ArgumentError, "must pass :timeout keyword")
+    end
+
     it "requires a :logger" do
-      expect { described_class.get("https://x.y") }.to raise_error(ArgumentError, "must pass :logger keyword")
+      expect do
+        described_class.get("https://x.y", timeout: nil)
+      end.to raise_error(ArgumentError, "must pass :logger keyword")
     end
 
     it "passes through options and merges headers" do
@@ -43,7 +49,7 @@ RSpec.describe Webhookdb::Http do
         to_return(status: 200, body: "", headers: {})
       described_class.get(
         "https://a.b",
-        logger: nil,
+        logger: nil, timeout: nil,
         headers: {"ABC" => "123"},
         basic_auth: {username: "u", password: "p"},
       )
@@ -54,12 +60,12 @@ RSpec.describe Webhookdb::Http do
       stub_request(:get, "https://a.b/").
         to_return(status: 500, body: "meh")
 
-      expect { described_class.get("https://a.b", logger: nil) }.to raise_error(described_class::Error)
+      expect { described_class.get("https://a.b", logger: nil, timeout: nil) }.to raise_error(described_class::Error)
     end
 
     it "does not error for 300s if not following redirects" do
       req = stub_request(:get, "https://a.b").to_return(status: 307, headers: {location: "https://x.y"})
-      resp = described_class.get("https://a.b", logger: nil, follow_redirects: false)
+      resp = described_class.get("https://a.b", logger: nil, timeout: nil, follow_redirects: false)
       expect(req).to have_been_made
       expect(resp).to have_attributes(code: 307)
     end
@@ -67,7 +73,7 @@ RSpec.describe Webhookdb::Http do
     it "passes through a block" do
       req = stub_request(:get, "https://a.b").to_return(status: 200, body: "abc")
       t = +""
-      described_class.get("https://a.b", logger: nil) do |f|
+      described_class.get("https://a.b", logger: nil, timeout: nil) do |f|
         t << f
       end
       expect(req).to have_been_made
@@ -83,8 +89,8 @@ RSpec.describe Webhookdb::Http do
       qreq = stub_request(:post, "https://x.y").
         with(body: {x: 1}.to_json).
         to_return(status: 200, body: "")
-      described_class.post("https://a.b", logger: nil)
-      described_class.post("https://x.y", {x: 1}, logger: nil)
+      described_class.post("https://a.b", logger: nil, timeout: nil)
+      described_class.post("https://x.y", {x: 1}, logger: nil, timeout: nil)
       expect(req).to have_been_made
       expect(qreq).to have_been_made
     end
@@ -93,7 +99,7 @@ RSpec.describe Webhookdb::Http do
       req = stub_request(:post, "https://a.b").
         with(body: "xyz").
         to_return(status: 200, body: "")
-      described_class.post("https://a.b", "xyz", logger: nil)
+      described_class.post("https://a.b", "xyz", logger: nil, timeout: nil)
       expect(req).to have_been_made
     end
 
@@ -104,13 +110,19 @@ RSpec.describe Webhookdb::Http do
       described_class.post(
         "https://a.b",
         {x: 1},
-        headers: {"Content-Type" => "xyz"}, logger: nil,
+        headers: {"Content-Type" => "xyz"}, logger: nil, timeout: nil,
       )
       expect(req).to have_been_made
     end
 
+    it "requires a :timeout" do
+      expect { described_class.post("https://x.y") }.to raise_error(ArgumentError, "must pass :timeout keyword")
+    end
+
     it "requires a :logger" do
-      expect { described_class.post("https://x.y") }.to raise_error(ArgumentError, "must pass :logger keyword")
+      expect do
+        described_class.post("https://x.y", timeout: nil)
+      end.to raise_error(ArgumentError, "must pass :logger keyword")
     end
 
     it "passes through options and merges headers" do
@@ -125,7 +137,7 @@ RSpec.describe Webhookdb::Http do
         to_return(status: 200, body: "", headers: {})
       described_class.post(
         "https://a.b",
-        logger: nil,
+        logger: nil, timeout: nil,
         headers: {"ABC" => "123", "Content-Type" => "x/y"},
         basic_auth: {username: "u", password: "p"},
       )
@@ -136,12 +148,12 @@ RSpec.describe Webhookdb::Http do
       stub_request(:post, "https://a.b/").
         to_return(status: 500, body: "meh")
 
-      expect { described_class.post("https://a.b", logger: nil) }.to raise_error(described_class::Error)
+      expect { described_class.post("https://a.b", logger: nil, timeout: nil) }.to raise_error(described_class::Error)
     end
 
     it "does not error for 300s if not following redirects" do
       req = stub_request(:post, "https://a.b").to_return(status: 307, headers: {location: "https://x.y"})
-      resp = described_class.post("https://a.b", logger: nil, follow_redirects: false)
+      resp = described_class.post("https://a.b", logger: nil, timeout: nil, follow_redirects: false)
       expect(req).to have_been_made
       expect(resp).to have_attributes(code: 307)
     end
@@ -149,7 +161,7 @@ RSpec.describe Webhookdb::Http do
     it "passes through a block" do
       req = stub_request(:post, "https://a.b").to_return(status: 200, body: "abc")
       t = +""
-      described_class.post("https://a.b", logger: nil) do |f|
+      described_class.post("https://a.b", logger: nil, timeout: nil) do |f|
         t << f
       end
       expect(req).to have_been_made
@@ -162,7 +174,7 @@ RSpec.describe Webhookdb::Http do
       stub_request(:get, "https://a.b/").
         to_return(status: 500, body: "meh", headers: {"X" => "y"})
       begin
-        described_class.get("https://a.b", logger: nil)
+        described_class.get("https://a.b", logger: nil, timeout: nil)
       rescue Webhookdb::Http::Error => e
         nil
       end
@@ -174,7 +186,8 @@ RSpec.describe Webhookdb::Http do
       stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1").
         to_return(status: 500, body: "meh")
       begin
-        described_class.get("https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1", logger: nil)
+        described_class.get("https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1", logger: nil,
+                                                                                                 timeout: nil,)
       rescue Webhookdb::Http::Error => e
         nil
       end
@@ -207,7 +220,7 @@ RSpec.describe Webhookdb::Http do
       logger = SemanticLogger["http_spec_logging_test"]
       stub_request(:post, "https://foo/bar").to_return(json_response({o: "k"}))
       logs = capture_logs_from(logger, formatter: :json) do
-        described_class.post("https://foo/bar", {x: 1}, logger:)
+        described_class.post("https://foo/bar", {x: 1}, logger:, timeout: nil)
       end
       expect(logs.map { |j| JSON.parse(j) }).to contain_exactly(
         include("message" => "httparty_request", "context" => include("http_method" => "POST")),

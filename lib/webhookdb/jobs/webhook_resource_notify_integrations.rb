@@ -23,6 +23,7 @@ class Webhookdb::Jobs::WebhookdbResourceNotifyIntegrations
         cu.values,
         headers: {"Whdb-Secret" => sint.webhook_secret},
         logger: self.logger,
+        timeout: nil,
       )
     end
   end

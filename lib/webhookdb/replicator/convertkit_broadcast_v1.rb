@@ -53,7 +53,7 @@ class Webhookdb::Replicator::ConvertkitBroadcastV1 < Webhookdb::Replicator::Base
   def _fetch_enrichment(resource, _event, _request)
     broadcast_id = resource.fetch("id")
     url = "https://api.convertkit.com/v3/broadcasts/#{broadcast_id}/stats?api_secret=#{self.service_integration.backfill_secret}"
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     data = response.parsed_response
     return data.dig("broadcast", "stats") || {}
   end
@@ -61,7 +61,7 @@ class Webhookdb::Replicator::ConvertkitBroadcastV1 < Webhookdb::Replicator::Base
   def _fetch_backfill_page(_pagination_token, **_kwargs)
     # this endpoint does not have pagination support
     url = "https://api.convertkit.com/v3/broadcasts?api_secret=#{self.service_integration.backfill_secret}"
-    response = Webhookdb::Http.get(url, logger: self.logger)
+    response = Webhookdb::Http.get(url, logger: self.logger, timeout: Webhookdb::Convertkit.http_timeout)
     data = response.parsed_response
     return data["broadcasts"], nil
   end

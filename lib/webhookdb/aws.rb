@@ -76,6 +76,7 @@ module Webhookdb::AWS
             "us-west-2",
             key: "AWS_REGION",
             side_effect: ->(v) { ENV["AWS_REGION"] = v }
+    setting :http_timeout, 30
 
     after_configured do
       ::Aws.config.update(

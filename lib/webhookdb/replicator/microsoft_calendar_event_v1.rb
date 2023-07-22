@@ -169,6 +169,7 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
         query,
         headers:,
         logger: @event_svc.logger,
+        timeout: Webhookdb::MicrosoftCalendar.http_timeout,
       )
       data = response.parsed_response.fetch("value")
       # the next page link is a full url that includes the page size param (`$top`) as well as the

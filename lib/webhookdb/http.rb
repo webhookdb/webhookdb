@@ -61,7 +61,7 @@ module Webhookdb::Http
   end
 
   def self.get(url, query={}, **options, &)
-    self._setup_logger_args(options)
+    self._setup_required_args(options)
     opts = {query:, headers: {}}.merge(**options)
     opts[:headers]["User-Agent"] = self.user_agent
     # See https://github.com/jnunemaker/httparty/issues/784#issuecomment-1585714745
@@ -73,7 +73,7 @@ module Webhookdb::Http
   end
 
   def self.post(url, body={}, headers: {}, method: nil, **options, &)
-    self._setup_logger_args(options)
+    self._setup_required_args(options)
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
@@ -83,7 +83,9 @@ module Webhookdb::Http
     return r
   end
 
-  def self._setup_logger_args(options)
+  def self._setup_required_args(options)
+    raise ArgumentError, "must pass :timeout keyword" unless options.key?(:timeout)
+
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
     options[:log_format] = :appydays
   end

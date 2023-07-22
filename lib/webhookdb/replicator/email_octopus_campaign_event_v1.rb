@@ -137,6 +137,7 @@ class Webhookdb::Replicator::EmailOctopusCampaignEventV1 < Webhookdb::Replicator
       response = Webhookdb::Http.get(
         base_url + endpoint_path,
         logger: @campaign_event_svc.logger,
+        timeout: Webhookdb::EmailOctopus.http_timeout,
       )
       data = response.parsed_response
       # if no data is returned from endpoint, the "paging" and "data" values are both empty arrays

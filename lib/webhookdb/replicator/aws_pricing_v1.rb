@@ -259,7 +259,8 @@ It normally takes about 20 minutes to sync.
           # - each /^      "/ is a product id and the start of its rates
           # - Grab the lines until /^      }/ and process it as the product rates.
           #   Grab the product from the line offsets.
-          Webhookdb::Http.get(url_resp.url, logger: @replicator.logger, stream_body: true) do |fragment|
+          Webhookdb::Http.get(url_resp.url, logger: @replicator.logger, stream_body: true,
+                                            timeout: Webhookdb::AWS.http_timeout,) do |fragment|
             tmp.write(fragment)
           end
           tmp.flush

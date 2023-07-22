@@ -3,6 +3,12 @@
 require "active_support/security_utils"
 
 class Webhookdb::Shopify
+  include Appydays::Configurable
+
+  configurable(:shopify) do
+    setting :http_timeout, 30
+  end
+
   # This function is used in the backfill process to parse out the
   # pagination_token from the responses
   def self.parse_link_header(header)

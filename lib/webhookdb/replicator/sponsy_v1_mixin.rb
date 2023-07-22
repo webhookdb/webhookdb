@@ -95,6 +95,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
         },
         headers: self.auth_headers,
         logger: self.logger,
+        timeout: Webhookdb::Sponsy.http_timeout,
       )
     rescue Webhookdb::Http::Error => e
       raise e unless e.status == 404

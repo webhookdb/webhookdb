@@ -24,6 +24,8 @@ module Webhookdb::MicrosoftCalendar
     setting :calendar_view_start, Time.new(2022, 10, 1).iso8601
     setting :calendar_view_end, (Time.new(2022, 10, 1) + 1825.days).iso8601
 
+    setting :http_timeout, 30
+
     after_configured do
       self.calendar_view_start_time = Time.parse(self.calendar_view_start)
       self.calendar_view_end_time = Time.parse(self.calendar_view_end)

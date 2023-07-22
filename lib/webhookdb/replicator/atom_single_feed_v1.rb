@@ -57,7 +57,7 @@ class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base
   end
 
   def _fetch_backfill_page(*)
-    io = Webhookdb::Http.get(self.service_integration.api_url, logger: self.logger)
+    io = Webhookdb::Http.get(self.service_integration.api_url, logger: self.logger, timeout: 30)
     feed_obj = Webhookdb::Xml::Atom.parse(io.body)
     return feed_obj.fetch("entries"), nil
   end

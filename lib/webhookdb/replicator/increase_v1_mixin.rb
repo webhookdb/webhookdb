@@ -112,6 +112,7 @@ Leave blank to use the default or paste the answer into this prompt.
       query,
       headers: {"Authorization" => ("Bearer " + self.service_integration.backfill_key)},
       logger: self.logger,
+      timeout: Webhookdb::Increase.http_timeout,
     )
     data = response.parsed_response
     next_page_param = data.dig("response_metadata", "next_cursor")

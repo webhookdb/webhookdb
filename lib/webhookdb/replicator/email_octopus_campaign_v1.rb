@@ -85,6 +85,7 @@ Copy the key:
     response = Webhookdb::Http.get(
       base_url + endpoint_path,
       logger: self.logger,
+      timeout: Webhookdb::EmailOctopus.http_timeout,
     )
     data = response.parsed_response
     next_page_link = data.dig("paging", "next")
