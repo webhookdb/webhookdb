@@ -304,10 +304,10 @@ end
 #  api_url                   | text                     | NOT NULL DEFAULT ''::text
 #  opaque_id                 | text                     | NOT NULL
 #  service_name              | text                     | NOT NULL
-#  webhook_secret            | text                     | DEFAULT ''::text
+#  webhook_secret            | text                     |
 #  table_name                | text                     | NOT NULL
-#  backfill_key              | text                     | NOT NULL DEFAULT ''::text
-#  backfill_secret           | text                     | NOT NULL DEFAULT ''::text
+#  backfill_key              | text                     |
+#  backfill_secret           | text                     |
 #  last_backfilled_at        | timestamp with time zone |
 #  depends_on_id             | integer                  |
 #  data_encryption_secret    | text                     |
@@ -320,6 +320,7 @@ end
 #  service_integrations_depends_on_id_fkey   | (depends_on_id) REFERENCES service_integrations(id) ON DELETE RESTRICT
 #  service_integrations_organization_id_fkey | (organization_id) REFERENCES organizations(id)
 # Referenced By:
+#  backfill_jobs         | backfill_jobs_service_integration_id_fkey         | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
 #  service_integrations  | service_integrations_depends_on_id_fkey           | (depends_on_id) REFERENCES service_integrations(id) ON DELETE RESTRICT
 #  sync_targets          | sync_targets_service_integration_id_fkey          | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
 #  webhook_subscriptions | webhook_subscriptions_service_integration_id_fkey | (service_integration_id) REFERENCES service_integrations(id)
