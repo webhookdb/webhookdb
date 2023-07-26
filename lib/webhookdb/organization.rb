@@ -486,6 +486,9 @@ require "webhookdb/organization/db_builder"
 #  cloudflare_dns_record_json  | jsonb                    | NOT NULL DEFAULT '{}'::jsonb
 #  replication_schema          | text                     | NOT NULL
 #  job_semaphore_size          | integer                  | NOT NULL DEFAULT 10
+#  minimum_sync_seconds        | integer                  | NOT NULL
+#  sync_target_timeout         | integer                  | NOT NULL DEFAULT 30
+#  max_query_rows              | integer                  |
 # Indexes:
 #  organizations_pkey     | PRIMARY KEY btree (id)
 #  organizations_key_key  | UNIQUE btree (key)

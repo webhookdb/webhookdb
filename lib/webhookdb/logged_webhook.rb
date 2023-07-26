@@ -135,6 +135,8 @@ end
 #  response_status               | smallint                 | NOT NULL
 #  service_integration_opaque_id | text                     | NOT NULL
 #  organization_id               | integer                  |
+#  request_method                | text                     | NOT NULL
+#  request_path                  | text                     | NOT NULL
 # Indexes:
 #  logged_webhooks_pkey                                | PRIMARY KEY btree (id)
 #  logged_webhooks_inserted_at_index                   | btree (inserted_at)

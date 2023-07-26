@@ -476,6 +476,7 @@ end
 #  table                  | text                     | NOT NULL DEFAULT ''::text
 #  last_synced_at         | timestamp with time zone |
 #  last_applied_schema    | text                     | NOT NULL DEFAULT ''::text
+#  page_size              | integer                  | NOT NULL
 # Indexes:
 #  sync_targets_pkey                         | PRIMARY KEY btree (id)
 #  sync_targets_opaque_id_key                | UNIQUE btree (opaque_id)
