@@ -160,6 +160,14 @@ RSpec.shared_examples "a replicator" do |name|
       raise TypeError, "invalid ingest behavior"
     end
   end
+
+  it "implements `on_dependency_webhook_upsert` if dependency is present" do
+    if svc.descriptor.dependency_descriptor.present?
+      expect_implemented do
+        svc.on_dependency_webhook_upsert(svc, {}, changed: true)
+      end
+    end
+  end
 end
 
 RSpec.shared_examples "a replicator with a custom backfill not supported message" do |name|

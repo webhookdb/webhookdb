@@ -230,6 +230,69 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
       }
     end
   end
+  it_behaves_like "a replicator with dependents", "email_octopus_list_v1", "email_octopus_campaign_v1" do
+    let(:body) do
+      JSON.parse(<<~J)
+        {
+          "id": "0",
+          "name": "Foo",
+          "double_opt_in": false,
+          "fields": [],
+          "counts": {
+            "pending": 0,
+            "subscribed": 24,
+            "unsubscribed": 1
+          },
+          "created_at": "2023-06-28T17:00:24+00:00"
+        }
+      J
+    end
+    let(:can_track_row_changes) { true }
+    let(:expected_insert) do
+      {
+        name: "Foo",
+        created_at: match_time("2023-06-28T17:00:24+00:00"),
+        row_updated_at: match_time(:now),
+        data: body.to_json,
+        email_octopus_id: "0",
+        pending: 0,
+        subscribed: 24,
+        unsubscribed: 1,
+      }
+    end
+  end
+
+  it_behaves_like "a replicator with dependents", "email_octopus_list_v1", "email_octopus_event_v1" do
+    let(:body) do
+      JSON.parse(<<~J)
+        {
+          "id": "0",
+          "name": "Foo",
+          "double_opt_in": false,
+          "fields": [],
+          "counts": {
+            "pending": 0,
+            "subscribed": 24,
+            "unsubscribed": 1
+          },
+          "created_at": "2023-06-28T17:00:24+00:00"
+        }
+      J
+    end
+    let(:can_track_row_changes) { true }
+    let(:expected_insert) do
+      {
+        name: "Foo",
+        created_at: match_time("2023-06-28T17:00:24+00:00"),
+        row_updated_at: match_time(:now),
+        data: body.to_json,
+        email_octopus_id: "0",
+        pending: 0,
+        subscribed: 24,
+        unsubscribed: 1,
+      }
+    end
+  end
 
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "email_octopus_list_v1") }

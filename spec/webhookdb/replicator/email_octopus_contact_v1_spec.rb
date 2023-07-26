@@ -206,42 +206,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusContactV1, :db do
     end
   end
 
-  describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "email_octopus_contact_v1") }
-    let(:svc) { Webhookdb::Replicator.create(sint) }
-
-    it "returns a 401 as per spec if there is no Authorization header" do
-      status, headers, body = svc.webhook_response(fake_request).to_rack
-      expect(status).to eq(401)
-      expect(body).to include("missing signature")
-    end
-
-    it "returns a 401 for an invalid Authorization header" do
-      sint.update(webhook_secret: "secureuser:pass")
-      req = fake_request
-      data = req.body
-      calculated_hmac = Base64.strict_encode64(OpenSSL::HMAC.digest("sha256", "bad", data))
-      req.add_header("HTTP_EMAILOCTOPUS_SIGNATURE", calculated_hmac)
-      status, _headers, body = svc.webhook_response(req).to_rack
-      expect(status).to eq(401)
-      expect(body).to include("invalid signature")
-    end
-
-    it "returns a 202 with a valid Authorization header" do
-      sint.update(webhook_secret: "56f1b498b4c692b390fcc17d00fa79148495975721312def0e4a10f07fe3a028")
-      # rubocop:disable Layout/LineLength
-      body = '[{"id":"64a53baf-f9c5-4fa7-84b8-de05af070554","type":"contact.updated","list_id":"8f7c154e-0adc-11ee-acf6-b3c282ea3783","contact_id":"076669e8-1d06-11ee-b055-07ca0addb982","occurred_at":"2023-07-10T17:16:39+00:00","contact_fields":{"LastName":"Rodriguez","FirstName":"Miller"},"contact_status":"SUBSCRIBED","contact_email_address":"Miller@example.com"}]'
-      # rubocop:enable Layout/LineLength
-      req = fake_request(input: body)
-      req.add_header(
-        "HTTP_EMAILOCTOPUS_SIGNATURE",
-        "sha256=8e448d6c3a8b01ac6626f70b4a531d184e327f1d45ebecec1750b8086d7908f1",
-      )
-      status, _headers, _body = svc.webhook_response(req).to_rack
-      expect(status).to eq(202)
-    end
-  end
-
   describe "upsert_webhook" do
     Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
@@ -411,37 +375,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusContactV1, :db do
   end
 
   describe "state machine calculation" do
-    describe "calculate_webhook_state_machine" do
-      before(:each) do
-        sint.update(webhook_secret: "")
-      end
-
-      it "asks for webhook secret" do
-        sm = sint.replicator.calculate_webhook_state_machine
-        expect(sm).to have_attributes(
-          needs_input: true,
-          prompt: "Paste or type your webhook secret here:",
-          prompt_is_secret: true,
-          post_to_url: end_with("/service_integrations/#{sint.opaque_id}/transition/webhook_secret"),
-          complete: false,
-          output: match(/You are about to start replicating Email Octopus Contacts/),
-        )
-      end
-
-      it "confirms reciept of webhook secret, returns org database info" do
-        sint.webhook_secret = "whsek"
-        sm = sint.replicator.calculate_webhook_state_machine
-        expect(sm).to have_attributes(
-          needs_input: false,
-          prompt: "",
-          prompt_is_secret: false,
-          post_to_url: "",
-          complete: true,
-          output: match(/Great! WebhookDB is now listening for Email Octopus Contact webhooks/),
-        )
-      end
-    end
-
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R

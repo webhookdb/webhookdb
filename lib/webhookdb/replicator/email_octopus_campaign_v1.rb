@@ -12,6 +12,7 @@ class Webhookdb::Replicator::EmailOctopusCampaignV1 < Webhookdb::Replicator::Bas
       ctor: ->(sint) { Webhookdb::Replicator::EmailOctopusCampaignV1.new(sint) },
       feature_roles: [],
       resource_name_singular: "Email Octopus Campaign",
+      dependency_descriptor: Webhookdb::Replicator::EmailOctopusListV1.descriptor,
       supports_backfill: true,
     )
   end
@@ -49,32 +50,20 @@ class Webhookdb::Replicator::EmailOctopusCampaignV1 < Webhookdb::Replicator::Bas
     return Webhookdb::WebhookResponse.ok
   end
 
+  def on_dependency_webhook_upsert(_replicator, _payload, *)
+    return
+  end
+
   def calculate_backfill_state_machine
+    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
+      return step
+    end
     step = Webhookdb::Replicator::StateMachineStep.new
-    unless self.service_integration.backfill_key.present?
-      step.output = %(In order to replicate #{self.resource_name_plural} into WebhookDB, we need an API Key.
-From your Email Octopus dashboard, go to Account Settings -> Integrations & API. Then, click through to the API
-menu, under the "Developer tools" header and create a key.
-
-Copy the key:
-      )
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-
-    unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-
+    # We're using the API Key from the dependency, we don't need to ask for it here
     step.output = %(Great! We are going to start replicating your #{self.resource_name_plural}.
 #{self._query_help_output}
     )
     return step.completed
-  end
-
-  def _verify_backfill_err_msg
-    return "It looks like that API key is invalid. Please reenter your API Key:"
   end
 
   def _fetch_backfill_page(pagination_token, **)

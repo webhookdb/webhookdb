@@ -13,7 +13,6 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Email Octopus Contact",
       dependency_descriptor: Webhookdb::Replicator::EmailOctopusListV1.descriptor,
-      supports_webhooks: true,
       supports_backfill: true,
     )
   end
@@ -50,8 +49,8 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
   def _upsert_webhook(request, upsert: true)
     return super unless request.body.is_a?(Array)
 
-    # If the body is an array, it means we are upserting data from webhooks and have to transform the data
-    # in order to be able to upsert.
+    # If the body is an array, it means we are upserting data from webhooks, which has been passed to this function by
+    # the event replicator, and we have to transform the data in order to be able to upsert.
     new_bodies = request.body.map do |wh|
       event_type = wh.fetch("type")
 
@@ -87,54 +86,14 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
     return :row_updated_at
   end
 
-  def _webhook_response(request)
-    signature_header = request.env["HTTP_EMAILOCTOPUS_SIGNATURE"]
-    return Webhookdb::WebhookResponse.error("missing signature") if signature_header.nil?
-
-    request.body.rewind
-    request_data = request.body.read
-    calculated_hmac = Webhookdb::Crypto.bin2hex(
-      OpenSSL::HMAC.digest("sha256", self.service_integration.webhook_secret, request_data),
-    )
-    verified = ActiveSupport::SecurityUtils.secure_compare("sha256=#{calculated_hmac}", signature_header)
-    return Webhookdb::WebhookResponse.ok if verified
-    return Webhookdb::WebhookResponse.error("invalid signature")
-  end
-
-  def calculate_webhook_state_machine
-    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
-      return step
-    end
-    step = Webhookdb::Replicator::StateMachineStep.new
-    unless self.service_integration.webhook_secret.present?
-      step.output = %(You are about to start replicating #{self.resource_name_plural} into WebhookDB.
-We've made an endpoint available for #{self.resource_name_singular} webhooks:
-
-#{self._webhook_endpoint}
-
-From your Email Octopus dashboard, go to Account Settings -> Integrations & API.
-Then click the 'Manage' button next to 'Webhooks'.
-Then under the "Endpoints" header, click "Add endpoint"
-In the "URL" field you can enter the URL above.
-Then check boxes for all contact events under the "Contact events to send" header (Created, Updated, and Deleted).
-Save the endpoint.
-You'll be dropped back on the Webhooks page.
-Click 'View Secret' next to the endpoint you added, and Copy it.
-We'll use it for webhook verification.
-      )
-      return step.secret_prompt("webhook secret").webhook_secret(self.service_integration)
-    end
-
-    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
-#{self._query_help_output}
-In order to backfill existing #{self.resource_name_plural}, run this from a shell:
-
-  #{self._backfill_command}
-    )
-    return step.completed
+  def _webhook_response(_request)
+    return Webhookdb::WebhookResponse.ok
   end
 
   def calculate_backfill_state_machine
+    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
+      return step
+    end
     step = Webhookdb::Replicator::StateMachineStep.new
     # We're using the API Key from the dependency, we don't need to ask for it here
     step.output = %(Great! We are going to start replicating your #{self.resource_name_plural}.

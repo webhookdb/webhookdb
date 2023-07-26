@@ -133,4 +133,8 @@ When your Transistor Episodes get added or updated, their stats will be updated 
       return data, nil
     end
   end
+
+  def on_dependency_webhook_upsert(_replicator, _payload, *)
+    return
+  end
 end
