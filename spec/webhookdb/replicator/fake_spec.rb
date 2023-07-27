@@ -631,6 +631,24 @@ or leave blank to choose the first option.
           ),
         )
       end
+
+      describe "" do
+        before(:each) do
+          sint.organization.prepare_database_connections
+        end
+
+        after(:each) do
+          sint.organization.remove_related_database
+        end
+
+        it "strips null unicode codepoints from JSON" do
+          fake.create_table
+          fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u00004\u0000"})
+          fake.readonly_dataset do |ds|
+            expect(ds.first).to include(data: hash_including("has_u0" => "b4"))
+          end
+        end
+      end
     end
 
     describe "find_dependent" do
