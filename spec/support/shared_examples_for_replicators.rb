@@ -398,6 +398,11 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
     raise NotImplementedError, "return error stub request"
   end
 
+  def reset_backfill_credentials
+    svc.service_integration.backfill_key = ""
+    svc.service_integration.backfill_secret = ""
+  end
+
   before(:each) do
     sint.organization.prepare_database_connections
   end
@@ -456,8 +461,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   end
 
   it "errors if backfill credentials are not present" do
-    svc.service_integration.backfill_key = ""
-    svc.service_integration.backfill_secret = ""
+    reset_backfill_credentials
     # `depends_on` is nil because we haven't created dependencies in this test
     expect { backfill(sint) }.to raise_error(Webhookdb::Replicator::CredentialsMissing)
   end

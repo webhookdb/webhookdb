@@ -76,7 +76,7 @@ Copy the key.
   end
 
   def _fetch_backfill_page(pagination_token, **)
-    api_key = self.service_integration.backfill_key
+    api_key = self.backfill_key!
     limit = Webhookdb::EmailOctopus.page_size
     base_url = "https://emailoctopus.com"
     endpoint_path = pagination_token || "/api/1.6/lists?api_key=#{api_key}&limit=#{limit}"
@@ -88,5 +88,13 @@ Copy the key.
     data = response.parsed_response
     next_page_link = data.dig("paging", "next")
     return data["data"], next_page_link
+  end
+
+  def backfill_key!
+    bk = self.service_integration.backfill_key
+
+    return bk if bk.present?
+    raise Webhookdb::Replicator::CredentialsMissing,
+          "This integration requires that the #{self.descriptor.name} integration has a valid API Key"
   end
 end

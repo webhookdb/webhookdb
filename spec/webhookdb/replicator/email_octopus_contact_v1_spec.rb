@@ -197,9 +197,18 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusContactV1, :db do
   end
 
   describe "getting credentials from dependency" do
+    before(:each) do
+      sint.organization.prepare_database_connections
+      list_sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
     it "raises err if credentials are not set on list replicator" do
-      err_msg = "This integration requires that the Email Octopus List integration has a valid API Key"
-      sint.depends_on.update(backfill_key: "")
+      err_msg = "This integration requires that the email_octopus_list_v1 integration has a valid API Key"
+      list_sint.update(backfill_key: "")
       expect do
         backfill(sint)
       end.to raise_error(Webhookdb::Replicator::CredentialsMissing).with_message(err_msg)

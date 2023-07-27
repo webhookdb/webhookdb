@@ -67,7 +67,7 @@ class Webhookdb::Replicator::EmailOctopusCampaignV1 < Webhookdb::Replicator::Bas
   end
 
   def _fetch_backfill_page(pagination_token, **)
-    api_key = self.service_integration.backfill_key
+    api_key = self.service_integration.depends_on.replicator.backfill_key!
     limit = Webhookdb::EmailOctopus.page_size
     base_url = "https://emailoctopus.com"
     endpoint_path = pagination_token || "/api/1.6/campaigns?api_key=#{api_key}&limit=#{limit}"
