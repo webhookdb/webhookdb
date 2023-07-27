@@ -590,8 +590,13 @@ for information on how to refresh data.)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
     data_col_val = self._resource_to_data(resource, event, request)
-    inserting[:data] = data_col_val.to_json
-    inserting[:enrichment] = enrichment.to_json if self._store_enrichment_body?
+    # The null string sequence ('\u0000') is invalid in a PG JSON column.
+    # We have to strip them out. We only want to do this with these 'raw' columns;
+    # if we end up storing null chars in other columns, the column converters/extractors
+    # can remove the null chars there (or maybe in the future we clean every string value,
+    # but erring on the side of fewer assumptions right now).
+    inserting[:data] = data_col_val.to_json.gsub('\\u0000', "")
+    inserting[:enrichment] = enrichment.to_json.gsub('\\u0000', "") if self._store_enrichment_body?
     inserting.merge!(prepared)
     return inserting unless upsert
     remote_key_col = self._remote_key_column
