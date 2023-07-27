@@ -37,6 +37,21 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusCampaignV1, :db do
   end
 
   it_behaves_like "a replicator that can backfill", "email_octopus_campaign_v1" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:list_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "email_octopus_list_v1",
+        backfill_key: "list_bfkey",
+        organization: org,
+      )
+    end
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration.depending_on(list_sint).create(
+        service_name: "email_octopus_campaign_v1",
+        organization: org,
+      )
+    end
+
     let(:empty_response) do
       <<~R
         {
@@ -75,7 +90,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusCampaignV1, :db do
             }
           ],
           "paging": {
-            "next": "/api/1.6/campaigns?api_key=bfkey&limit=100&page=2",
+            "next": "/api/1.6/campaigns?api_key=list_bfkey&limit=100&page=2",
             "previous": null
           }
         }
@@ -108,7 +123,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusCampaignV1, :db do
           ],
           "paging": {
             "next": null,
-            "previous": "/api/1.6/campaigns?api_key=bfkey&limit=100"
+            "previous": "/api/1.6/campaigns?api_key=list_bfkey&limit=100"
           }
         }
       R
@@ -117,23 +132,27 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusCampaignV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=bfkey&limit=100").
+        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=list_bfkey&limit=100").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=bfkey&limit=100&page=2").
+        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=list_bfkey&limit=100&page=2").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=bfkey&limit=100").
+      return stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=list_bfkey&limit=100").
           to_return(status: 403)
     end
 
     def stub_empty_requests
       return [
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=bfkey&limit=100").
+        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns?api_key=list_bfkey&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
       ]
+    end
+
+    def reset_backfill_credentials
+      list_sint.backfill_key = ""
     end
   end
 
@@ -160,7 +179,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusCampaignV1, :db do
       end
 
       it "returns org database info" do
-        sint.backfill_key = "bfkey"
         sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: false,

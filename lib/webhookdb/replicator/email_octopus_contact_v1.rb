@@ -108,18 +108,13 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
 
   def _backfillers
     list_sint = self.service_integration.depends_on
-    unless list_sint.backfill_key.present?
-      raise Webhookdb::Replicator::CredentialsMissing,
-            "This integration requires that the Email Octopus List integration has a valid API Key"
-    end
-
-    list_svc = list_sint.replicator
-    backfillers = list_svc.admin_dataset(timeout: :fast) do |list_ds|
+    api_key = list_sint.replicator.backfill_key!
+    backfillers = list_sint.replicator.admin_dataset(timeout: :fast) do |list_ds|
       list_ds.select(:email_octopus_id).map do |list|
         ContactBackfiller.new(
           contact_svc: self,
           list_id: list[:email_octopus_id],
-          api_key: list_sint.backfill_key,
+          api_key:,
         )
       end
     end

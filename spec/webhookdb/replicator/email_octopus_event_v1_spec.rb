@@ -220,8 +220,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
             ),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/opened?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/sent?api_key=list_bf_key&limit=100").
-            to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/unsubscribed?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/bounced?api_key=list_bf_key&limit=100").
@@ -231,8 +229,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/complained?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/opened?api_key=list_bf_key&limit=100").
-            to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/sent?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/unsubscribed?api_key=list_bf_key&limit=100").
             to_return(
@@ -258,8 +254,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/opened?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/sent?api_key=list_bf_key&limit=100").
-            to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/1/reports/unsubscribed?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/bounced?api_key=list_bf_key&limit=100").
@@ -270,8 +264,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/opened?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/sent?api_key=list_bf_key&limit=100").
-            to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://emailoctopus.com/api/1.6/campaigns/2/reports/unsubscribed?api_key=list_bf_key&limit=100").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
       ]
@@ -280,7 +272,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
 
   describe "getting credentials from dependency" do
     it "raises err if credentials are not set on list replicator" do
-      err_msg = "This integration requires that the Email Octopus List integration has a valid API Key"
+      err_msg = "This integration requires that the email_octopus_list_v1 integration has a valid API Key"
       sint.depends_on.update(backfill_key: "")
       expect do
         backfill(sint)
@@ -472,7 +464,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
       end
 
       it "returns org database info" do
-        sint.backfill_key = "bfkey"
         sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: false,

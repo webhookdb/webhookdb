@@ -123,18 +123,22 @@ We've made an endpoint available for #{self.resource_name_singular} webhooks:
 
 #{self._webhook_endpoint}
 
-From your Email Octopus dashboard, go to Account Settings -> Integrations & API.
-Then click the 'Manage' button next to 'Webhooks'.
-Then under the "Endpoints" header, click "Add endpoint"
-In the "URL" field you can enter the URL above.
-Then check boxes for all events, because we want this webhook to listen for everything. This includes
-"Created", "Updated", and "Deleted" under the "Contact events to send" header and "Clicked", "Opened", "Bounced",
-"Complained", and "Unsubscribed" under the "Email events to send" header.
-Save the endpoint.
+- From your Email Octopus dashboard, go to Account Settings -> Integrations & API.
+- Then click the 'Manage' button next to 'Webhooks'.
+- Then under the "Endpoints" header, click "Add endpoint"
+- In the "URL" field you can enter the URL above.
+- Then check boxes for all events, because we want this webhook to listen for everything.
+  This includes:
+  - "Contact events to send" -> "Created", "Updated", and "Deleted"
+  - "Email events to send" -> Deleted" "Clicked", "Opened", "Bounced",
+    "Complained", and "Unsubscribed"
+  - You can keep the checkboxes under "Exclude contact events that occur" unchecked.
+
+- Save the endpoint.
+
 You'll be dropped back on the Webhooks page.
 Click 'View Secret' next to the endpoint you added, and Copy it.
-We'll use it for webhook verification.
-      )
+We'll use it for webhook verification.)
       return step.secret_prompt("webhook secret").webhook_secret(self.service_integration)
     end
 
@@ -142,8 +146,7 @@ We'll use it for webhook verification.
 #{self._query_help_output}
 In order to backfill existing #{self.resource_name_plural}, run this from a shell:
 
-  #{self._backfill_command}
-    )
+  #{self._backfill_command})
     return step.completed
   end
 
@@ -154,8 +157,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
     step = Webhookdb::Replicator::StateMachineStep.new
     # We're using the API Key from the dependency, we don't need to ask for it here
     step.output = %(Great! We are going to start replicating your #{self.resource_name_plural}.
-#{self._query_help_output}
-    )
+#{self._query_help_output})
     return step.completed
   end
 
@@ -173,11 +175,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
 
   def _backfillers
     list_sint = self.service_integration.depends_on
-    unless list_sint.backfill_key.present?
-      raise Webhookdb::Replicator::CredentialsMissing,
-            "This integration requires that the Email Octopus List integration has a valid API Key"
-    end
-
+    api_key = list_sint.replicator.backfill_key!
     campaign_sint = list_sint.replicator.find_dependent!("email_octopus_campaign_v1")
     campaign_svc = campaign_sint.replicator
     backfillers = campaign_svc.admin_dataset(timeout: :fast) do |campaign_ds|
@@ -186,7 +184,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
           EventBackfiller.new(
             event_svc: self,
             campaign_id: campaign[:email_octopus_id],
-            api_key: list_sint.backfill_key,
+            api_key:,
             event_type:,
           )
         end
