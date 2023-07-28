@@ -83,6 +83,15 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(Webhookdb::ServiceIntegration.where(organization: org).all).to have_length(1)
     end
 
+    it "creates a webhooks-only integration" do
+      setup_roles
+
+      post "/v1/organizations/#{org.key}/service_integrations/create", service_name: "fake_webhooks_only_v1"
+
+      expect(last_response).to have_status(200)
+      expect(Webhookdb::ServiceIntegration.where(organization: org).all).to have_length(1)
+    end
+
     it "creates and backfills a service integration that already has its backfill credentials" do
       setup_roles
 

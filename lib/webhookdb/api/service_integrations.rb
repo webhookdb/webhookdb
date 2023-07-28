@@ -161,7 +161,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               replicator = sint.replicator
               # We always want to enqueue the backfill job if it is possible to do so, even if
               # we are not returning the backfill step in our response to this create request
-              backfill_step, _job = replicator.calculate_and_backfill_state_machine(incremental: true)
+              if replicator.descriptor.supports_backfill?
+                backfill_step, _job = replicator.calculate_and_backfill_state_machine(incremental: true)
+              end
 
               # Prefer creating using webhooks, not backfilling, but fall back to backfilling.
               return replicator.calculate_webhook_state_machine if replicator.descriptor.supports_webhooks?
