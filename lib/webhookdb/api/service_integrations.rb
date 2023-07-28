@@ -10,7 +10,7 @@ require "webhookdb/async/audit_logger"
 require "webhookdb/jobs/process_webhook"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
-  # These URLsare not used by the CLI-
+  # These URLs are not used by the CLI-
   # they are the url that customers should point their webhooks to.
   # We can't check org permissions on this endpoint
   # because external services (so no auth) will be posting webhooks here.
@@ -159,9 +159,13 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 service_name: name,
               )
               replicator = sint.replicator
+              # We always want to enqueue the backfill job if it is possible to do so, even if
+              # we are not returning the backfill step in our response to this create request
+              backfill_step, _job = replicator.calculate_and_backfill_state_machine(incremental: true)
+
               # Prefer creating using webhooks, not backfilling, but fall back to backfilling.
               return replicator.calculate_webhook_state_machine if replicator.descriptor.supports_webhooks?
-              return replicator.calculate_and_backfill_state_machine(incremental: true)[0]
+              return backfill_step
             end
 
             def verify_unique_integration(org)

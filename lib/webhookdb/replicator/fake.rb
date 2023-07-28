@@ -220,6 +220,32 @@ class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fak
   end
 end
 
+class Webhookdb::Replicator::FakeEnqueueBackfillOnCreate < Webhookdb::Replicator::Fake
+  singleton_attr_accessor :on_dependency_webhook_upsert_callback
+
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_enqueue_backfill_on_create_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeEnqueueBackfillOnCreate.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "FakeEnqueueBackfillOnCreate",
+      supports_webhooks: true,
+      supports_backfill: true,
+    )
+  end
+
+  def calculate_backfill_state_machine
+    # To mimic situations where it is possible to enqueue a backfill job on create, this backfill machine does
+    # not require any extra information--its initial step is "complete." The main situation where this would
+    # happen is if a replicator gets backfill creds from a dependency.
+    step = Webhookdb::Replicator::StateMachineStep.new
+    step.needs_input = false
+    step.output = "The backfill flow is working correctly."
+    step.complete = true
+    return step
+  end
+end
+
 class Webhookdb::Replicator::FakeWebhooksOnly < Webhookdb::Replicator::Fake
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
