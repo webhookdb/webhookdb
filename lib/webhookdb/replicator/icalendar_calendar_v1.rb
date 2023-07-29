@@ -372,6 +372,7 @@ The secret to use for signing is:
     end
 
     def each_feed_event
+      bad_event_uids = Set.new
       vevent_lines = []
       in_vevent = false
       while (line = @io.gets)
@@ -384,11 +385,17 @@ The secret to use for signing is:
           vevent_lines << line
           h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
           vevent_lines.clear
-          yield h
+          if h.key?("DTSTART")
+            yield h
+          else
+            bad_event_uids << h.fetch("UID", {}).fetch("v", "[missing]")
+          end
         elsif in_vevent
           vevent_lines << line
         end
       end
+      return if bad_event_uids.empty?
+      @upserter.upserting_replicator.logger.warn("invalid_vevent_hash", vevent_uids: bad_event_uids.sort)
     end
   end
 end

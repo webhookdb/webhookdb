@@ -10,7 +10,7 @@ class Webhookdb::Jobs::IcalendarSync
 
   def perform(sint_id, external_id)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
-    self.with_log_tags(sint.log_tags) do
+    self.with_log_tags(sint.log_tags.merge(external_id:)) do
       row = sint.replicator.admin_dataset { |ds| ds[external_id:] }
       if row.nil?
         self.logger.warn("icalendar_sync_row_miss", external_id:)

@@ -1023,10 +1023,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
   describe "icalendar parser tests" do
     let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
+    let(:replicator) { described_class.new(nil) }
+    let(:upserter) { described_class::Upserter.new(replicator, "1") }
 
     def events
       arr = []
-      described_class::EventProcessor.new(source, nil).each_feed_event { |a| arr << a }
+      described_class::EventProcessor.new(source, upserter).each_feed_event { |a| arr << a }
       arr
     end
 
@@ -1113,6 +1115,30 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             "SUMMARY" => {"v" => "Recurring on Wed"},
             "DTSTART" => {"v" => "20180104T100000", "TZID" => "(GMT-05:00) Eastern Time (US & Canada)"},
             "DTSTAMP" => {"v" => "20120104T231637Z"},
+          ),
+        )
+      end
+    end
+
+    context "missing_required.ics" do
+      let(:fn) { "missing_required.ics" }
+
+      it "skips items as invalid" do
+        logs = capture_logs_from(replicator.logger, level: :warn, formatter: :json) do
+          parsed = events
+          expect(parsed).to contain_exactly(
+            hash_including("SUMMARY" => {"v" => "Missing DTSTAMP"}),
+            hash_including("SUMMARY" => {"v" => "Missing None"}),
+          )
+        end
+        expect(logs).to contain_exactly(
+          include_json(
+            level: "warn",
+            name: "Webhookdb::Replicator::IcalendarCalendarV1",
+            message: "invalid_vevent_hash",
+            context: {
+              vevent_uids: ["4BCDDF02-458B-4D52-BC87-86ED43B0BF22", "[missing]"],
+            },
           ),
         )
       end
