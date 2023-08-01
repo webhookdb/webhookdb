@@ -2,11 +2,12 @@
 
 require "webhookdb/async/scheduled_job"
 require "webhookdb/jobs"
+require "webhookdb/transistor"
 
 class Webhookdb::Jobs::TransistorEpisodeBackfill
   extend Webhookdb::Async::ScheduledJob
 
-  cron "0 30 * * * *"
+  cron(Webhookdb::Transistor.episode_cron_expression)
   splay 2.minutes
 
   def _perform

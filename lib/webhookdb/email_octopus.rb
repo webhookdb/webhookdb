@@ -8,6 +8,7 @@ module Webhookdb::EmailOctopus
   configurable(:email_octopus) do
     setting :http_timeout, 30
     setting :page_size, 100
+    setting :cron_expression, "0 */4 * * *"
   end
 
   def self.verify_webhook(data, hmac_header, webhook_secret)
