@@ -876,7 +876,7 @@ for information on how to refresh data.)
     new_last_backfilled = Time.now
     job.update(started_at: Time.now)
 
-    backfillers = self._backfillers
+    backfillers = self._backfillers(**job.criteria.symbolize_keys)
     if self._parallel_backfill && self._parallel_backfill > 1
       # Create a dedicated threadpool for these backfillers,
       # with max parallelism determined by the replicator.

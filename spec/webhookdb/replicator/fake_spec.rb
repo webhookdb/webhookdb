@@ -709,6 +709,38 @@ or leave blank to choose the first option.
       S
     end
   end
+
+  describe "backfill" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+
+    before(:each) do
+      org.prepare_database_connections
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "uses job criteria as backfiller keyword arguments" do
+      sint = Webhookdb::Fixtures.service_integration(organization: org).
+        with_secrets.
+        create(service_name: "fake_backfill_with_criteria_v1")
+      sint.replicator.create_table
+      bfjob = Webhookdb::BackfillJob.create(
+        service_integration: sint,
+        incremental: false,
+        criteria: {x: 1, "y" => "b"},
+      )
+      sint.replicator.backfill(bfjob)
+      expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(
+        include(
+          at: match_time("2022-01-01T00:00:00Z"),
+          backfill_kwargs: hash_including("x" => 1, "y" => "b"),
+          my_id: "x",
+        ),
+      )
+    end
+  end
 end
 
 # rubocop:enable Layout/LineLength

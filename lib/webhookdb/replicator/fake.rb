@@ -277,3 +277,41 @@ class Webhookdb::Replicator::FakeBackfillOnly < Webhookdb::Replicator::Fake
 
   def calculate_webhook_state_machine = raise NotImplementedError
 end
+
+class Webhookdb::Replicator::FakeBackfillWithCriteria < Webhookdb::Replicator::Fake
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_backfill_with_criteria_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeBackfillWithCriteria.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "Fake Backfill with Criteria",
+      dependency_descriptor: Webhookdb::Replicator::Fake,
+      supports_backfill: true,
+    )
+  end
+
+  def _denormalized_columns
+    return super << Webhookdb::Replicator::Column.new(:backfill_kwargs, OBJECT, optional: true)
+  end
+
+  def _backfillers(**kwargs)
+    return [CriteriaStoringBackfiller.new(self, kwargs)]
+  end
+
+  class CriteriaStoringBackfiller < Webhookdb::Backfiller
+    def initialize(svc, kw)
+      @svc = svc
+      @kw = kw
+      super()
+    end
+
+    def handle_item(body)
+      body["backfill_kwargs"] = @kw
+      @svc.upsert_webhook_body(body)
+    end
+
+    def fetch_backfill_page(_pagination_token, **_kwargs)
+      return [[{"my_id" => "x", "at" => "2022-01-01T00:00:00Z"}], nil]
+    end
+  end
+end
