@@ -235,7 +235,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("X-My-Test" => "abc"),
+                  "headers" => hash_including("X-My-Test" => "abc", "Content-Type" => "application/json"),
                   "body" => {"foo" => 1},
                   "request_path" => "/v1/service_integrations/xyz",
                   "request_method" => "POST",
@@ -248,6 +248,32 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       )
 
       post "/v1/service_integrations/xyz", foo: 1
+
+      expect(last_response).to have_status(202)
+    end
+
+    it "can work with form-encoded webhooks", :async do
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
+        include(
+          "args" => contain_exactly(
+            include(
+              "name" => "webhookdb.serviceintegration.webhook",
+              "payload" => contain_exactly(
+                sint.id,
+                hash_including(
+                  "headers" => hash_including("Content-Type" => "application/x-www-form-urlencoded"),
+                  "body" => "Key1=a&Key2=10",
+                  "request_path" => "/v1/service_integrations/xyz",
+                  "request_method" => "POST",
+                ),
+              ),
+            ),
+          ),
+          "queue" => "webhook",
+        ),
+      )
+
+      post "/v1/service_integrations/xyz", "Key1=a&Key2=10", {"CONTENT_TYPE" => "application/x-www-form-urlencoded"}
 
       expect(last_response).to have_status(202)
     end
@@ -421,6 +447,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.first.request_headers.to_h).to match(
+        "Content-Type" => "application/json",
         "Cookie" => "",
         "Host" => "example.org",
         "Trace-Id" => be_a(String),
