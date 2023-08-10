@@ -51,6 +51,9 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
 
     route [:post, :put, :delete, :patch], "/:opaque_id*" do
       request_headers = request.headers.dup
+      if (content_type = env["CONTENT_TYPE"])
+        request_headers["Content-Type"] = content_type
+      end
       sint = lookup_unauthed!(params[:opaque_id])
       svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
       svc.preprocess_headers_for_logging(request_headers)
@@ -60,13 +63,15 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
       (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
 
       if s_status >= 400
-        logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
+        logger.warn "rejected_webhook", webhook_headers: request_headers,
                                         webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
+        req_body = env.key?("api.request.body") ? env["api.request.body"] : env["rack.input"].read
+        req_body = {} if req_body.blank?
         process_kwargs = {
-          headers: request.headers,
-          body: env["api.request.body"] || {},
+          headers: request_headers,
+          body: req_body || {},
           request_path: request.path_info,
           request_method: request.request_method,
         }
