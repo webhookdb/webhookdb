@@ -3,6 +3,7 @@
 require "grape"
 require "grape-swagger"
 require "sidekiq/web"
+require "sidekiq/cron/web"
 
 require "webhookdb/api"
 require "webhookdb/async"
