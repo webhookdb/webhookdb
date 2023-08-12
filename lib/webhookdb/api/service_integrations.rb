@@ -339,20 +339,35 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 optional :incremental, type: Boolean, default: true
                 optional :criteria, type: JSON
                 optional :recursive, type: Boolean, default: true
+                optional :synchronous, type: Boolean
               end
               post do
                 rep = lookup_backfillable_replicator(customer: nil, allow_connstr_auth: true)
                 ensure_backfill_supported!(rep)
+                sint = rep.service_integration
+                incremental = params.fetch(:incremental)
+                recursive = params.fetch(:recursive)
+                if (synchronous = params[:synchronous] || false)
+                  invalid!("Recursive backfills cannot be synchronous") if recursive
+                  invalid!("Only incremental backfills can be synchronous") unless incremental
+                  unless sint.organization.priority_backfill
+                    merror!(402,
+                            "Organization does not support sychronous backfills",
+                            code: "priority_backfill_not_enabled",)
+                  end
+                end
                 _, job = rep.calculate_and_backfill_state_machine(
-                  incremental: params.fetch(:incremental),
+                  incremental:,
+                  recursive:,
                   criteria: params[:criteria] || nil,
-                  recursive: params.fetch(:recursive),
+                  enqueue: !synchronous,
                 )
                 if job.nil?
                   msg = "Sorry, this integration is not set up to backfill. " \
-                        "Run `webhookdb backfill #{rep.service_integration.opaque_id}` to finish setup."
+                        "Run `webhookdb backfill #{sint.opaque_id}` to finish setup."
                   merror!(409, msg, code: "backfill_not_set_up")
                 end
+                sint.replicator.backfill(job) if synchronous
                 status 200
                 present job, with: Webhookdb::API::BackfillJobEntity
               end

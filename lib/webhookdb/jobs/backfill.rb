@@ -21,8 +21,12 @@ class Webhookdb::Jobs::Backfill
   def _perform(event)
     bfjob = self.lookup_model(Webhookdb::BackfillJob, event.payload)
     sint = bfjob.service_integration
-    self.with_log_tags(sint.log_tags) do
-      sint.replicator.backfill(bfjob)
+    self.with_log_tags(sint.log_tags.merge(backfill_job_id: bfjob.opaque_id)) do
+      if bfjob.finished?
+        self.logger.info "skipping_finished_backfill_job"
+      else
+        sint.replicator.backfill(bfjob)
+      end
     end
   end
 end
