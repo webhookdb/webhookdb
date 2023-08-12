@@ -28,7 +28,7 @@ class Webhookdb::Replicator::SponsyStatusV1 < Webhookdb::Replicator::Base
     ].concat(self._ts_columns)
   end
 
-  def _backfillers
-    return self._publication_backfillers("/status")
+  def _backfillers(publication_ids: nil, publication_slugs: nil)
+    return self._publication_backfillers("/status", publication_ids:, publication_slugs:)
   end
 end
