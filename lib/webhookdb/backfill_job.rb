@@ -24,9 +24,9 @@ class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
   attr_accessor :_fixture_cascade
 
   # @return [Webhookdb::BackfillJob]
-  def self.create_recursive(service_integration:, incremental:, created_by: nil, parent_job: nil)
+  def self.create_recursive(service_integration:, incremental:, created_by: nil, parent_job: nil, criteria: nil)
     self.db.transaction do
-      root = self.create(service_integration:, parent_job:, incremental:, created_by:)
+      root = self.create(service_integration:, parent_job:, incremental:, created_by:, criteria: criteria || {})
       root.setup_recursive
       root
     end
@@ -37,7 +37,7 @@ class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
   def setup_recursive
     raise Webhookdb::InvalidPrecondition, "already has children" if self.child_jobs.present?
     self.service_integration.dependents.map do |dep|
-      self.class.create_recursive(service_integration: dep, parent_job: self, incremental:)
+      self.class.create_recursive(service_integration: dep, parent_job: self, incremental:, criteria:)
     end
   end
 

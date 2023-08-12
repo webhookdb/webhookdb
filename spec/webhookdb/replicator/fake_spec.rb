@@ -679,6 +679,52 @@ or leave blank to choose the first option.
         end.to raise_error(Webhookdb::InvalidPrecondition, /there are multiple fake_v1 integrations/)
       end
     end
+
+    describe "calculate_and_backfill_state_machine", :fake_replicator do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_v1") }
+      let(:svc) { sint.replicator }
+
+      before(:each) do
+        _dependent = Webhookdb::Fixtures.service_integration.depending_on(sint).create(
+          service_name: "fake_dependent_v1",
+          organization: sint.organization,
+        )
+      end
+
+      it "enques recursive jobs if the step is successful", :async, :do_not_defer_events do
+        step, bfjob = svc.calculate_and_backfill_state_machine(incremental: true)
+        expect(step).to be_a(Webhookdb::Replicator::StateMachineStep)
+        expect(bfjob).to be_nil
+        expect(Webhookdb::BackfillJob.all).to be_empty
+
+        sint.update(backfill_secret: "x")
+        expect do
+          _, bfjob = svc.calculate_and_backfill_state_machine(incremental: false)
+        end.to publish("webhookdb.backfilljob.run")
+        expect(Webhookdb::BackfillJob.all).to contain_exactly(
+          be === bfjob,
+          have_attributes(parent_job: be === bfjob),
+        )
+        expect(bfjob).to have_attributes(incremental: false)
+      end
+
+      it "can create jobs non-recursively" do
+        sint.update(backfill_secret: "x")
+        _, bfjob = svc.calculate_and_backfill_state_machine(incremental: true, recursive: false)
+        expect(Webhookdb::BackfillJob.all).to contain_exactly(be === bfjob)
+        expect(bfjob).to have_attributes(incremental: true)
+      end
+
+      it "passes through job criteria" do
+        sint.update(backfill_secret: "x")
+        _, bfjob = svc.calculate_and_backfill_state_machine(incremental: false, criteria: {x: 1})
+        expect(Webhookdb::BackfillJob.all).to contain_exactly(
+          be === bfjob,
+          have_attributes(parent_job: be === bfjob),
+        )
+        expect(bfjob).to have_attributes(incremental: false, criteria: hash_including("x" => 1))
+      end
+    end
   end
 
   describe "when backfill is not supported" do
