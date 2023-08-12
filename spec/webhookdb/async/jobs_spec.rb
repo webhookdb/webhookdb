@@ -35,6 +35,15 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     ensure
       sint.organization.remove_related_database
     end
+
+    it "noops if the job is finished" do
+      sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
+      bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create(finished_at: Time.now)
+      expect do
+        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      # Would error if not no-oping
+    end
   end
 
   describe "CreateMirrorTable" do
