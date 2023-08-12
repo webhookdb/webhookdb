@@ -27,7 +27,7 @@ class Webhookdb::Replicator::SponsyPlacementV1 < Webhookdb::Replicator::Base
     ].concat(self._ts_columns)
   end
 
-  def _backfillers(publication_ids: nil)
-    return self._publication_backfillers("/placements", publication_ids:)
+  def _backfillers(publication_ids: nil, publication_slugs: nil)
+    return self._publication_backfillers("/placements", publication_ids:, publication_slugs:)
   end
 end
