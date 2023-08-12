@@ -902,6 +902,51 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(status: "enqueued", id: be_present)
     end
+
+    describe "with synchronous: true" do
+      before(:each) do
+        sint.update(backfill_secret: "sek")
+        org.update(priority_backfill: true)
+      end
+
+      it "performs the backfill" do
+        req = stub_request(:get, "https://fake-integration/?token=").
+          to_return(json_response([[], nil]))
+
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job",
+             synchronous: true, recursive: false
+
+        expect(last_response).to have_status(200)
+        expect(req).to have_been_made
+        expect(Webhookdb::BackfillJob.all).to contain_exactly(have_attributes(finished_at: match_time(:now)))
+      end
+
+      it "errors if the org does not support sync backfills" do
+        org.update(priority_backfill: false)
+
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job",
+             synchronous: true, recursive: false
+
+        expect(last_response).to have_status(402)
+        expect(last_response).to have_json_body.that_includes(error: include(code: "priority_backfill_not_enabled"))
+      end
+
+      it "errors if recursive is true" do
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job",
+             synchronous: true, recursive: true
+
+        expect(last_response).to have_status(400)
+        expect(last_response).to have_json_body.that_includes(error: include(message: include("Recursive")))
+      end
+
+      it "errors if incremental is false" do
+        post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job",
+             synchronous: true, incremental: false, recursive: false
+
+        expect(last_response).to have_status(400)
+        expect(last_response).to have_json_body.that_includes(error: include(message: include("incremental")))
+      end
+    end
   end
 
   describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/backfill/job/:id" do

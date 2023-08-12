@@ -724,6 +724,13 @@ or leave blank to choose the first option.
         )
         expect(bfjob).to have_attributes(incremental: false, criteria: hash_including("x" => 1))
       end
+
+      it "passes through enqueue", :async, :do_not_defer_events do
+        sint.update(backfill_secret: "x")
+        expect do
+          svc.calculate_and_backfill_state_machine(incremental: false, enqueue: false)
+        end.to_not publish("webhookdb.backfilljob.run")
+      end
     end
   end
 
