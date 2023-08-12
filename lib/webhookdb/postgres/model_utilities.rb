@@ -2,6 +2,7 @@
 
 require "tsort"
 require "pg"
+require "webhookdb/dbutil"
 require "webhookdb/postgres"
 
 # A collection of utilities that can be added to model superclasses.
@@ -320,11 +321,7 @@ module Webhookdb::Postgres::ModelUtilities
   module DatasetMethods
     # Helper for applying multiple conditions for Sequel, where some can be nil.
     def reduce_expr(op_symbol, operands, method: :where)
-      return self if operands.blank?
-      present_ops = operands.select(&:present?)
-      return self if present_ops.empty?
-      full_op = present_ops.reduce(&op_symbol)
-      return self.send(method, full_op)
+      return Webhookdb::Dbutil.reduce_expr(self, op_symbol, operands, method:)
     end
 
     # Call a block for each row in a dataset.

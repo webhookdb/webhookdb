@@ -336,12 +336,18 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
             resource :job do
               params do
-                optional :incremental, type: Boolean
+                optional :incremental, type: Boolean, default: true
+                optional :criteria, type: JSON
+                optional :recursive, type: Boolean, default: true
               end
               post do
                 rep = lookup_backfillable_replicator(customer: nil, allow_connstr_auth: true)
                 ensure_backfill_supported!(rep)
-                _, job = rep.calculate_and_backfill_state_machine(incremental: params.fetch(:incremental, true))
+                _, job = rep.calculate_and_backfill_state_machine(
+                  incremental: params.fetch(:incremental),
+                  criteria: params[:criteria] || nil,
+                  recursive: params.fetch(:recursive),
+                )
                 if job.nil?
                   msg = "Sorry, this integration is not set up to backfill. " \
                         "Run `webhookdb backfill #{rep.service_integration.opaque_id}` to finish setup."
