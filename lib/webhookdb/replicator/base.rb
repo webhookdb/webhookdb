@@ -200,10 +200,13 @@ class Webhookdb::Replicator::Base
     return self.calculate_webhook_state_machine
   end
 
-  def _enqueue_backfill_jobs(incremental:)
-    j = Webhookdb::BackfillJob.create_recursive(
+  def _enqueue_backfill_jobs(incremental:, criteria: nil, recursive: true)
+    m = recursive ? :create_recursive : :create
+    j = Webhookdb::BackfillJob.send(
+      m,
       service_integration:,
       incremental:,
+      criteria: criteria || {},
       created_by: Webhookdb.request_user_and_admin[0],
     )
     j.enqueue
@@ -247,10 +250,10 @@ class Webhookdb::Replicator::Base
   # If the BackfillJob is returned, the StateMachineStep was successful;
   # otherwise no job is created and the second item is nil.
   # @return [Array<Webhookdb::StateMachineStep, Webhookdb::BackfillJob>]
-  def calculate_and_backfill_state_machine(incremental:)
+  def calculate_and_backfill_state_machine(incremental:, criteria: nil, recursive: true)
     step = self.calculate_backfill_state_machine
     bfjob = nil
-    bfjob = self._enqueue_backfill_jobs(incremental:) if step.successful?
+    bfjob = self._enqueue_backfill_jobs(incremental:, criteria:, recursive:) if step.successful?
     return step, bfjob
   end
 

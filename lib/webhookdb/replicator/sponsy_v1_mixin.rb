@@ -112,13 +112,19 @@ module Webhookdb::Replicator::SponsyV1Mixin
     return data, after_cursor
   end
 
-  def _publication_backfillers(tail)
+  def _publication_backfillers(tail, publication_ids: nil, publication_slugs: nil)
     raise Webhookdb::Replicator::CredentialsMissing, "This Sponsy integration is missing a dependency with auth" if
       self.find_api_key.blank?
 
     publications_svc = self.service_integration.depends_on.replicator
     backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|
-      pub_ds.where(deleted_at: nil).select(:sponsy_id).map do |publication|
+      pub_ds = Webhookdb::Dbutil.reduce_expr(
+        pub_ds,
+        :|,
+        [publication_ids && Sequel[sponsy_id: publication_ids], publication_slugs && Sequel[slug: publication_slugs]],
+      )
+      pub_ds = pub_ds.where(deleted_at: nil)
+      pub_ds.select(:sponsy_id).map do |publication|
         PublicationChildBackfiller.new(
           service: self,
           publication_id: publication.fetch(:sponsy_id),

@@ -71,4 +71,12 @@ module Webhookdb::Dbutil
     u.password = "***"
     return u.to_s
   end
+
+  module_function def reduce_expr(dataset, op_symbol, operands, method: :where)
+    return dataset if operands.blank?
+    present_ops = operands.select(&:present?)
+    return dataset if present_ops.empty?
+    full_op = present_ops.reduce(&op_symbol)
+    return dataset.send(method, full_op)
+  end
 end

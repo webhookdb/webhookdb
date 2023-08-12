@@ -815,18 +815,43 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
       _ = sint
     end
 
+    def create_dependent
+      return Webhookdb::Fixtures.service_integration.depending_on(sint).create(
+        service_name: "fake_dependent_v1",
+        organization: sint.organization,
+      )
+    end
+
     it "returns a new backfill job", :async, :do_not_defer_events do
       sint.update(backfill_secret: "sek")
+      create_dependent
 
       expect do
         post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job"
         expect(last_response).to have_status(200)
       end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
-      bfj = Webhookdb::BackfillJob.first
+      expect(Webhookdb::BackfillJob.all).to have_length(2)
+      bfj = Webhookdb::BackfillJob[parent_job_id: nil]
       expect(last_response).to have_json_body.that_includes(status: "enqueued", id: bfj.opaque_id)
       expect(bfj).to have_attributes(
         service_integration: be === sint,
         incremental: true,
+      )
+    end
+
+    it "can include criteria and non-recursive fields" do
+      sint.update(backfill_secret: "sek")
+      create_dependent
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/backfill/job",
+           criteria: {x: 1}, recursive: false, incremental: false
+
+      expect(last_response).to have_status(200)
+      expect(Webhookdb::BackfillJob.all).to have_length(1)
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === sint,
+        incremental: false,
+        criteria: {"x" => 1},
       )
     end
 

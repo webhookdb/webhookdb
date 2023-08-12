@@ -286,6 +286,27 @@ RSpec.describe Webhookdb::Replicator::SponsySlotV1, :db do
       backfill(sint)
       expect(svc.admin_dataset(&:all)).to be_empty
     end
+
+    it "can limit the backfill to specified publication ids" do
+      req1 = stub_request(:get, "#{root_url}/pub1/slots?afterCursor=&#{querystr}").
+        to_return(status: 200, body: make_body([], nil), headers:)
+      req3 = stub_request(:get, "#{root_url}/pub3/slots?afterCursor=&#{querystr}").
+        to_return(status: 200, body: make_body([], nil), headers:)
+      create_all_dependencies(sint)
+      setup_dependencies(sint, lambda do |dep_svc|
+        dep_svc.admin_dataset do |ds|
+          # Select this by ID
+          ds.insert(data: "{}", sponsy_id: "pub1", slug: "abcd")
+          # Do not select this- wrong id (pub3 is the slug, and slug (pub1 is the id)
+          ds.insert(data: "{}", sponsy_id: "slug3", slug: "pub1")
+          # Select this by slug
+          ds.insert(data: "{}", sponsy_id: "pub3", slug: "slug3")
+        end
+      end,)
+      backfill(sint, criteria: {publication_ids: ["pub1"], publication_slugs: ["slug3"]})
+      expect(req1).to have_been_made
+      expect(req3).to have_been_made
+    end
   end
 
   describe "state machine calculation" do
