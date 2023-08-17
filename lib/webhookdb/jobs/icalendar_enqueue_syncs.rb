@@ -6,7 +6,7 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::IcalendarEnqueueSyncs
   extend Webhookdb::Async::ScheduledJob
 
-  cron "* */30 * * * *" # Every 30 minutes
+  cron "*/30 * * * *" # Every 30 minutes
   splay 30
 
   def _perform
