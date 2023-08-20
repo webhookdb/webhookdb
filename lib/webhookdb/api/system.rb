@@ -27,4 +27,10 @@ class Webhookdb::API::System < Webhookdb::Service
       log_level: Webhookdb.logger.level,
     }
   end
+
+  resource :debug do
+    get :echo do
+      pp params.to_h
+    end
+  end
 end
