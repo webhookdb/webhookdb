@@ -110,16 +110,7 @@ The secret to use for signing is:
         Webhookdb::Jobs::IcalendarSync.perform_async(self.service_integration.id, external_id)
         return
       when "DELETE"
-        relevant_integrations = self.service_integration.recursive_dependents.
-          filter { |d| CLEANUP_SERVICE_NAMES.include?(d.service_name) }
-        self.admin_dataset do |ds|
-          ds.db.transaction do
-            ds.where(external_id:).delete
-            relevant_integrations.each do |sint|
-              ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id).delete
-            end
-          end
-        end
+        self.delete_data_for_external_id(external_id)
         return
       when "__WHDB_UNIT_TEST"
         unless Webhookdb::RACK_ENV == "test"
@@ -137,6 +128,19 @@ The secret to use for signing is:
   def rows_needing_sync(dataset, now: Time.now)
     cutoff = now - SYNC_PERIOD
     return dataset.where(Sequel[last_synced_at: nil] | Sequel.expr { last_synced_at < cutoff })
+  end
+
+  def delete_data_for_external_id(external_id)
+    relevant_integrations = self.service_integration.recursive_dependents.
+      filter { |d| CLEANUP_SERVICE_NAMES.include?(d.service_name) }
+    self.admin_dataset do |ds|
+      ds.db.transaction do
+        ds.where(external_id:).delete
+        relevant_integrations.each do |sint|
+          ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id).delete
+        end
+      end
+    end
   end
 
   class Upserter
