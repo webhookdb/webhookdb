@@ -317,10 +317,10 @@ The secret to use for signing is:
       # There are other ways to handle this, but this is fine for now.
       ical_params = {}
       if (exdates = h["RDATE"])
-        ical_params[:rtimes] = exdates.map { |d| self._time_array(d["v"]) }.flatten
+        ical_params[:rtimes] = exdates.map { |d| self._time_array(d) }.flatten
       end
       if (exdates = h["EXDATE"])
-        ical_params[:extimes] = exdates.map { |d| self._time_array(d["v"]) }.flatten
+        ical_params[:extimes] = exdates.map { |d| self._time_array(d) }.flatten
       end
       ical_params[:rrules] = [IceCube::IcalParser.rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
       # DURATION is not supported
@@ -367,8 +367,13 @@ The secret to use for signing is:
       return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => entry.fetch("TZID")}
     end
 
-    def _time_array(s)
-      return s.split(",").map { |v| IceCube::TimeUtil.deserialize_time(v) }
+    def _time_array(h)
+      expanded_entries = h["v"].split(",").map { |v| h.merge("v" => v) }
+      return expanded_entries.map do |e|
+        parsed_time, _got_tz = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(e)
+        # Convert to UTC. We don't work with ActiveSupport timezones in the icalendar code for the most part.
+        parsed_time.utc
+      end
     end
 
     def each_feed_event
