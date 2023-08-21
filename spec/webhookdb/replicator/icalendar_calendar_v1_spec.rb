@@ -603,6 +603,25 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "handles RDATE and EXDATE date values" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART;VALUE=DATE:20180101
+          DTEND;VALUE=DATE:20180101
+          RRULE:FREQ=YEARLY;UNTIL=20190101
+          RDATE;VALUE=DATE:20180301
+          EXDATE;VALUE=DATE:20180101
+          END:VEVENT
+        ICAL
+        rows = sync(body)
+        expect(rows).to contain_exactly(
+          hash_including(start_date: Date.new(2018, 3, 1)),
+          hash_including(start_date: Date.new(2019, 1, 1)),
+        )
+      end
+
       it "handles events with no end time" do
         body = <<~ICAL
           BEGIN:VEVENT
