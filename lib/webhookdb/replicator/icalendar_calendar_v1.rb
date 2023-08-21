@@ -166,37 +166,8 @@ The secret to use for signing is:
       request_url = row.fetch(:ics_url)
       begin
         io = Down::NetHttp.open(request_url, rewindable: false)
-      rescue Down::TooManyRedirects
-        response_status = 301
-        response_body = "<too many redirects>"
-        self.logger.warn("icalendar_fetch_error",
-                         response_body:, response_status:, request_url:, calendar_external_id:,)
-        message = Webhookdb::Messages::ErrorIcalendarFetch.new(
-          self.service_integration,
-          calendar_external_id,
-          response_status:,
-          response_body:,
-          request_url:,
-          request_method: "GET",
-        )
-        self.service_integration.organization.alerting.dispatch_alert(message)
-        return
-      rescue Down::ClientError => e
-        raise e if e.response.nil?
-        response_status = e.response.code.to_i
-        raise e if response_status > 404 || response_status < 400
-        response_body = e.response.body.to_s
-        self.logger.warn("icalendar_fetch_error",
-                         response_body:, response_status:, request_url:, calendar_external_id:,)
-        message = Webhookdb::Messages::ErrorIcalendarFetch.new(
-          self.service_integration,
-          calendar_external_id,
-          response_status:,
-          response_body:,
-          request_url:,
-          request_method: "GET",
-        )
-        self.service_integration.organization.alerting.dispatch_alert(message)
+      rescue Down::Error => e
+        self._handle_down_error(e, request_url:, calendar_external_id:)
         return
       end
 
@@ -217,6 +188,40 @@ The secret to use for signing is:
       end
     end
     self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
+  end
+
+  def _handle_down_error(e, request_url:, calendar_external_id:)
+    case e
+      when Down::TooManyRedirects
+        response_status = 301
+        response_body = "<too many redirects>"
+      when Down::TimeoutError, Down::SSLError, Down::ConnectionError, Down::InvalidUrl
+        response_status = 0
+        response_body = e.to_s
+      when Down::ClientError
+        raise e if e.response.nil?
+        response_status = e.response.code.to_i
+        raise e if response_status > 404 || response_status < 400
+        response_body = e.response.body.to_s
+      when Down::ServerError
+        response_status = e.response.code.to_i
+        response_body = e.response.body.to_s
+      else
+        response_body = nil
+        response_status = nil
+    end
+    raise e if response_status.nil?
+    self.logger.warn("icalendar_fetch_error",
+                     response_body:, response_status:, request_url:, calendar_external_id:,)
+    message = Webhookdb::Messages::ErrorIcalendarFetch.new(
+      self.service_integration,
+      calendar_external_id,
+      response_status:,
+      response_body:,
+      request_url:,
+      request_method: "GET",
+    )
+    self.service_integration.organization.alerting.dispatch_alert(message)
   end
 
   class EventProcessor

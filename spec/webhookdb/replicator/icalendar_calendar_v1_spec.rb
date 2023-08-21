@@ -478,6 +478,16 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "raises on unexpected errors" do
+        err = RuntimeError.new("hi")
+        req = stub_request(:get, "https://feed.me").to_raise(err)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        expect do
+          svc.sync_row(row)
+        end.to raise_error(err)
+        expect(req).to have_been_made
+      end
+
       it "alerts on too many redirects" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").and_return(
@@ -488,6 +498,60 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
         svc.sync_row(row)
         expect(req).to have_been_made.times(3)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down 5xx errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 503, headers: {"Content-Type" => "text/plain"}, body: "whoops")
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on invalid url errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        row = insert_calendar_row(ics_url: "webca://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down timeout" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::TimeoutError)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down ssl errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::SSLError)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down connection errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
         expect(Webhookdb::Message::Delivery.all).to contain_exactly(
           have_attributes(template: "errors/icalendar_fetch"),
         )
