@@ -326,7 +326,7 @@ The secret to use for signing is:
       if (exdates = h["EXDATE"])
         ical_params[:extimes] = exdates.map { |d| self._time_array(d) }.flatten
       end
-      ical_params[:rrules] = [IceCube::IcalParser.rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
+      ical_params[:rrules] = [self._icecube_rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
       # DURATION is not supported
 
       start_entry = h.fetch("DTSTART")
@@ -369,6 +369,20 @@ The secret to use for signing is:
       return {"v" => r.strftime("%Y%m%d")} if is_date
       return {"v" => r.strftime("%Y%m%dT%H%M%SZ")} if r.zone == "UTC"
       return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => entry.fetch("TZID")}
+    end
+
+    def _icecube_rule_from_ical(ical)
+      # We have seen certain ambiguous rules, like FREQ=WEEKLY with BYMONTHDAY=4.
+      # Apple interprets this as every 2 weeks; rrule.js interprets it as on the 4th of the month.
+      # IceCube errors, because `day_of_month` isn't valid on a WeeklyRule.
+      # In this case, we need to sanitize the string to remove the offending rule piece.
+      # There are probably many other offending formats, but we'll add them here as needed.
+      if ical.include?("FREQ=WEEKLY") && ical.include?("BYMONTHDAY=")
+        ical = ical.gsub(/BYMONTHDAY=\d+/, "")
+        ical.delete_prefix! ";"
+        ical.delete_suffix! ";"
+      end
+      return IceCube::IcalParser.rule_from_ical(ical)
     end
 
     def _time_array(h)
