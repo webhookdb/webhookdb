@@ -388,9 +388,10 @@ The secret to use for signing is:
     def _time_array(h)
       expanded_entries = h["v"].split(",").map { |v| h.merge("v" => v) }
       return expanded_entries.map do |e|
-        parsed_time, _got_tz = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(e)
+        parsed_val, _got_tz = Webhookdb::Replicator::IcalendarEventV1.entry_to_date_or_datetime(e)
+        next parsed_val if parsed_val.is_a?(Date)
         # Convert to UTC. We don't work with ActiveSupport timezones in the icalendar code for the most part.
-        parsed_time.utc
+        parsed_val.utc
       end
     end
 
