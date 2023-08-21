@@ -110,16 +110,7 @@ The secret to use for signing is:
         Webhookdb::Jobs::IcalendarSync.perform_async(self.service_integration.id, external_id)
         return
       when "DELETE"
-        relevant_integrations = self.service_integration.recursive_dependents.
-          filter { |d| CLEANUP_SERVICE_NAMES.include?(d.service_name) }
-        self.admin_dataset do |ds|
-          ds.db.transaction do
-            ds.where(external_id:).delete
-            relevant_integrations.each do |sint|
-              ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id).delete
-            end
-          end
-        end
+        self.delete_data_for_external_id(external_id)
         return
       when "__WHDB_UNIT_TEST"
         unless Webhookdb::RACK_ENV == "test"
@@ -137,6 +128,19 @@ The secret to use for signing is:
   def rows_needing_sync(dataset, now: Time.now)
     cutoff = now - SYNC_PERIOD
     return dataset.where(Sequel[last_synced_at: nil] | Sequel.expr { last_synced_at < cutoff })
+  end
+
+  def delete_data_for_external_id(external_id)
+    relevant_integrations = self.service_integration.recursive_dependents.
+      filter { |d| CLEANUP_SERVICE_NAMES.include?(d.service_name) }
+    self.admin_dataset do |ds|
+      ds.db.transaction do
+        ds.where(external_id:).delete
+        relevant_integrations.each do |sint|
+          ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id).delete
+        end
+      end
+    end
   end
 
   class Upserter
@@ -322,7 +326,7 @@ The secret to use for signing is:
       if (exdates = h["EXDATE"])
         ical_params[:extimes] = exdates.map { |d| self._time_array(d) }.flatten
       end
-      ical_params[:rrules] = [IceCube::IcalParser.rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
+      ical_params[:rrules] = [self._icecube_rule_from_ical(h["RRULE"]["v"])] if h["RRULE"]
       # DURATION is not supported
 
       start_entry = h.fetch("DTSTART")
@@ -367,12 +371,27 @@ The secret to use for signing is:
       return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => entry.fetch("TZID")}
     end
 
+    def _icecube_rule_from_ical(ical)
+      # We have seen certain ambiguous rules, like FREQ=WEEKLY with BYMONTHDAY=4.
+      # Apple interprets this as every 2 weeks; rrule.js interprets it as on the 4th of the month.
+      # IceCube errors, because `day_of_month` isn't valid on a WeeklyRule.
+      # In this case, we need to sanitize the string to remove the offending rule piece.
+      # There are probably many other offending formats, but we'll add them here as needed.
+      if ical.include?("FREQ=WEEKLY") && ical.include?("BYMONTHDAY=")
+        ical = ical.gsub(/BYMONTHDAY=\d+/, "")
+        ical.delete_prefix! ";"
+        ical.delete_suffix! ";"
+      end
+      return IceCube::IcalParser.rule_from_ical(ical)
+    end
+
     def _time_array(h)
       expanded_entries = h["v"].split(",").map { |v| h.merge("v" => v) }
       return expanded_entries.map do |e|
-        parsed_time, _got_tz = Webhookdb::Replicator::IcalendarEventV1.entry_to_datetime(e)
+        parsed_val, _got_tz = Webhookdb::Replicator::IcalendarEventV1.entry_to_date_or_datetime(e)
+        next parsed_val if parsed_val.is_a?(Date)
         # Convert to UTC. We don't work with ActiveSupport timezones in the icalendar code for the most part.
-        parsed_time.utc
+        parsed_val.utc
       end
     end
 

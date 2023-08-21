@@ -603,6 +603,25 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "handles RDATE and EXDATE date values" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART;VALUE=DATE:20180101
+          DTEND;VALUE=DATE:20180101
+          RRULE:FREQ=YEARLY;UNTIL=20190101
+          RDATE;VALUE=DATE:20180301
+          EXDATE;VALUE=DATE:20180101
+          END:VEVENT
+        ICAL
+        rows = sync(body)
+        expect(rows).to contain_exactly(
+          hash_including(start_date: Date.new(2018, 3, 1)),
+          hash_including(start_date: Date.new(2019, 1, 1)),
+        )
+      end
+
       it "handles events with no end time" do
         body = <<~ICAL
           BEGIN:VEVENT
@@ -1017,6 +1036,39 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           )
         end
       end
+    end
+
+    it "handles weird VEVENTs, see X-Comment for explanations" do
+      body = <<~ICS
+        BEGIN:VCALENDAR
+        BEGIN:VEVENT
+        CREATED:20230819T112212Z
+        DTEND;VALUE=DATE:20230907
+        DTSTAMP:20230819T112238Z
+        DTSTART;VALUE=DATE:20230906
+        RRULE:FREQ=WEEKLY;UNTIL=20231115;INTERVAL=2;BYMONTHDAY=4
+        SEQUENCE:0
+        X-Comment:BYMONTHDAY with FREQ=WEEKLY makes no sense,
+          Apple just seems to use every-2-weeks,
+          so that's what we'll do here.
+        SUMMARY:Circles#{' '}
+        UID:bymonthday-with-freq-weekly
+        END:VEVENT
+        END:VCALENDAR
+      ICS
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(uid: "bymonthday-with-freq-weekly-0", start_date: Date.new(2023, 9, 6)),
+        include(uid: "bymonthday-with-freq-weekly-1", start_date: Date.new(2023, 9, 20)),
+        include(uid: "bymonthday-with-freq-weekly-2", start_date: Date.new(2023, 10, 4)),
+        include(uid: "bymonthday-with-freq-weekly-3", start_date: Date.new(2023, 10, 18)),
+        include(uid: "bymonthday-with-freq-weekly-4", start_date: Date.new(2023, 11, 1)),
+        include(uid: "bymonthday-with-freq-weekly-5", start_date: Date.new(2023, 11, 15)),
+      )
     end
   end
 
