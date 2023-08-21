@@ -572,7 +572,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           DTEND:20180101T010000Z
           RRULE:FREQ=YEARLY;UNTIL=20210101T000000Z
           EXDATE:20180101T000000Z
-          EXDATE:20200101T000000Z
+          EXDATE;TZID=Africa/Algiers:20200101T010000
           END:VEVENT
         ICAL
         rows = sync(body)
@@ -590,7 +590,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           DTSTART:20180101T000000Z
           DTEND:20180101T010000Z
           RRULE:FREQ=YEARLY;UNTIL=20190101T000000Z
-          RDATE:20180301T000000Z
+          RDATE;TZID=Africa/Algiers:20180301T010000
           RDATE:20200401T000000Z
           END:VEVENT
         ICAL
