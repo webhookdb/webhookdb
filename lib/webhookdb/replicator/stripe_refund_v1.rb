@@ -56,4 +56,6 @@ class Webhookdb::Replicator::StripeRefundV1 < Webhookdb::Replicator::Base
   def _mixin_event_type_names
     return ["charge.refund.updated"]
   end
+
+  def restricted_key_resource_name = "Charges"
 end

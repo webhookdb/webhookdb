@@ -60,7 +60,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
     unless self.service_integration.backfill_key.present?
       step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
 From your Stripe Dashboard, go to Developers -> API Keys -> Restricted Keys -> Create Restricted Key.
-Create a key with Read access to #{self.resource_name_plural}.
+Create a key with Read access to #{self.restricted_key_resource_name}.
 Submit, then copy the key when Stripe shows it to you:
       )
       return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
@@ -77,6 +77,8 @@ Submit, then copy the key when Stripe shows it to you:
       )
     return step.completed
   end
+
+  def restricted_key_resource_name = self.resource_name_plural.gsub(/^Stripe /, "")
 
   def _verify_backfill_403_err_msg
     return "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
