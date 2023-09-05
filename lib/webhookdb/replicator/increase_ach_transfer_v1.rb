@@ -24,11 +24,11 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
   end
 
   def _denormalized_columns
+    # 'updated' webhooks may not have these columns as of 9/2023, though Increase may add it back in.
+    missing_on_update = {optional: true, skip_nil: true}
     return [
-      # 'updated' webhooks may not have this column as of 9/2023,
-      # though Increase may add it back in.
-      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true, optional: true, skip_nil: true),
-      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true, **missing_on_update),
+      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true, **missing_on_update),
       Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
       Webhookdb::Replicator::Column.new(
         :created_at,
@@ -37,7 +37,7 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
         defaulter: :now,
         index: true,
       ),
-      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true, **missing_on_update),
       Webhookdb::Replicator::Column.new(:status, TEXT),
       Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(
