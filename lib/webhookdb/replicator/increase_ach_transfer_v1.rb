@@ -25,7 +25,9 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true),
+      # 'updated' webhooks may not have this column as of 9/2023,
+      # though Increase may add it back in.
+      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true, optional: true, skip_nil: true),
       Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
       Webhookdb::Replicator::Column.new(
