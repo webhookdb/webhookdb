@@ -201,7 +201,12 @@ The secret to use for signing is:
       when Down::ClientError
         raise e if e.response.nil?
         response_status = e.response.code.to_i
-        raise e if response_status > 404 || response_status < 400
+        expected_errors = [
+          417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
+        ]
+        is_problem_error = (response_status > 404 || response_status < 400) &&
+          !expected_errors.include?(response_status)
+        raise e if is_problem_error
         response_body = e.response.body.to_s
       when Down::ServerError
         response_status = e.response.code.to_i
