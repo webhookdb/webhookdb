@@ -466,18 +466,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
 
     describe "alerting", :no_transaction_check do
-      it "alerts on Down 400 errors" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").
-          and_return(status: 403, headers: {"Content-Type" => "text/plain"}, body: "whoops")
-        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        svc.sync_row(row)
-        expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
-      end
-
       it "raises on unexpected errors" do
         err = RuntimeError.new("hi")
         req = stub_request(:get, "https://feed.me").to_raise(err)
@@ -503,16 +491,27 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "alerts on Down 5xx errors" do
+      [400, 404, 417, 500, 503].each do |httpstatus|
+        it "alerts on Down HTTP #{httpstatus} errors" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          req = stub_request(:get, "https://feed.me").
+            and_return(status: httpstatus, headers: {"Content-Type" => "text/plain"}, body: "whoops")
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          svc.sync_row(row)
+          expect(req).to have_been_made
+          expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+            have_attributes(template: "errors/icalendar_fetch"),
+          )
+        end
+      end
+
+      it "raises on unhandled Down http errors" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").
-          and_return(status: 503, headers: {"Content-Type" => "text/plain"}, body: "whoops")
+          and_return(status: 456, headers: {"Content-Type" => "text/plain"}, body: "whoops")
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        svc.sync_row(row)
+        expect { svc.sync_row(row) }.to raise_error(Down::ClientError, /456/)
         expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
       end
 
       it "alerts on invalid url errors" do
