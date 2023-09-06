@@ -470,4 +470,106 @@ RSpec.describe Webhookdb::Replicator::IncreaseACHTransferV1, :db do
       J
     end
   end
+
+  describe "upsert behavior" do
+    Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "increase_ach_transfer_v1") }
+    let(:svc) { sint.replicator }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "does not stomp fields from an updated event" do
+      created_wh = JSON.parse(<<~J)
+        {
+          "event_id": "transfer_event_123",
+          "event": "created",
+          "created_at": "2020-01-31T23:59:59Z",
+          "data": {
+            "account_number": "987654321",
+            "account_id": "account_f654119657",
+            "amount": 100,
+            "approval": {
+              "approved_at": "2020-01-31T23:59:59Z",
+              "approved_by": "user@example.com"
+            },
+            "cancellation": {},
+            "created_at": "2020-01-31T23:59:59Z",
+            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "network": "ach",
+            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "return": {},
+            "routing_number": "123456789",
+            "statement_descriptor": "Statement descriptor",
+            "status": "returned",
+            "submission": {},
+            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
+            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
+            "addendum": null,
+            "notification_of_change": null
+          }
+        }
+      J
+      updated_wh = JSON.parse(<<~J)
+        {
+          "created_at": "2023-09-05T01:34:08Z",
+          "event_id": "notification_event_npt3dixtzucfpkthngme",
+          "event": "updated",
+          "data": {
+            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
+            "amount": 200,
+            "direction": "debit",
+            "status": "accepted",
+            "originator_company_name": "LIVIN PROPERTIES",
+            "originator_company_descriptive_date": "230902",
+            "originator_company_discretionary_data": null,
+            "originator_company_entry_description": "281074-109",
+            "originator_company_id": "3101473643",
+            "receiver_id_number": "111-222-7777",
+            "receiver_name": "SOME NAME",
+            "trace_number": "091000022460078",
+            "automatically_resolves_at": "2023-09-05T01:33:12Z",
+            "acceptance": {
+              "accepted_at": "2023-09-05T01:34:07Z",
+              "transaction_id": "transaction_w3nabeqojrqvitt9gdf4"
+            },
+            "decline": null,
+            "transfer_return": null,
+            "notification_of_change": null,
+            "type": "inbound_ach_transfer"
+          }
+        }
+      J
+      svc.create_table
+      upsert_webhook(svc, body: created_wh)
+      upsert_webhook(svc, body: updated_wh)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to have_length(1)
+        puts ds.all[0][:data]
+        expect(ds.first).to include(
+          # Ensure this didn't get replaced with nil
+          account_number: "987654321",
+          # Ensure this did get replaced
+          amount: 200,
+          # This should not have gotten replaced
+          created_at: match_time("2020-01-31T23:59:59Z"),
+          # This should have been given from the event
+          updated_at: match_time("2023-09-05T01:34:08Z"),
+          data: hash_including(
+            # Make sure the original data is there
+            "network" => "ach",
+            # Plus new fields
+            "originator_company_name" => "LIVIN PROPERTIES",
+            # And new ones stomp old
+            "status" => "accepted",
+          ),
+        )
+      end
+    end
+  end
 end
