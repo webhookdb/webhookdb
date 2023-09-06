@@ -751,6 +751,9 @@ for information on how to refresh data.)
   # In that case, pass the result of this base method to
   # +_coalesce_excluded_on_update+ (see also for more details).
   #
+  # You can also use this method to merge :data columns together. For example:
+  # `super_result[:data] = Sequel.lit("#{self.service_integration.table_name}.data || excluded.data")`
+  #
   # By default, this will use the same values for UPDATE as are used for INSERT,
   # like `email = EXCLUDED.email` (the 'EXCLUDED' row being the one that failed to insert).
   def _upsert_update_expr(inserting, enrichment: nil)

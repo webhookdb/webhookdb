@@ -34,12 +34,13 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
         :created_at,
         TIMESTAMP,
         data_key: "created_at",
-        defaulter: :now,
         index: true,
+        # This will be explicitly set to nil when we process an 'updated' event.
+        skip_nil: true,
       ),
       Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true, **missing_on_update),
       Webhookdb::Replicator::Column.new(:status, TEXT),
-      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true, **missing_on_update),
       Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
@@ -49,6 +50,19 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
         index: true,
       ),
     ]
+  end
+
+  def _prepare_for_insert(resource, event, request, enrichment)
+    # created_at is marked required, but to skip on nil.
+    # This will preserve its existing value when we update the webhook.
+    resource["created_at"] = nil if event&.fetch("event") == "updated"
+    return super
+  end
+
+  def _upsert_update_expr(inserting, enrichment: nil)
+    update = super
+    update[:data] = Sequel.lit("#{self.service_integration.table_name}.data || excluded.data")
+    return update
   end
 
   def _update_where_expr
