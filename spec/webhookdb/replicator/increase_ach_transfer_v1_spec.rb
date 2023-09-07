@@ -484,38 +484,8 @@ RSpec.describe Webhookdb::Replicator::IncreaseACHTransferV1, :db do
       sint.organization.remove_related_database
     end
 
-    it "does not stomp fields from an updated event" do
-      created_wh = JSON.parse(<<~J)
-        {
-          "event_id": "transfer_event_123",
-          "event": "created",
-          "created_at": "2020-01-31T23:59:59Z",
-          "data": {
-            "account_number": "987654321",
-            "account_id": "account_f654119657",
-            "amount": 100,
-            "approval": {
-              "approved_at": "2020-01-31T23:59:59Z",
-              "approved_by": "user@example.com"
-            },
-            "cancellation": {},
-            "created_at": "2020-01-31T23:59:59Z",
-            "id": "ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "network": "ach",
-            "path": "/transfers/achs/ach_transfer_uoxatyh3lt5evrsdvo7q",
-            "return": {},
-            "routing_number": "123456789",
-            "statement_descriptor": "Statement descriptor",
-            "status": "returned",
-            "submission": {},
-            "template_id": "ach_transfer_template_wofoi8uhkjzi5rubh3kt",
-            "transaction_id": "transaction_uyrp7fld2ium70oa7oi",
-            "addendum": null,
-            "notification_of_change": null
-          }
-        }
-      J
-      updated_wh = JSON.parse(<<~J)
+    it "ignores inbound_ach_transfer events" do
+      body = JSON.parse(<<~J)
         {
           "created_at": "2023-09-05T01:34:08Z",
           "event_id": "notification_event_npt3dixtzucfpkthngme",
@@ -546,30 +516,8 @@ RSpec.describe Webhookdb::Replicator::IncreaseACHTransferV1, :db do
         }
       J
       svc.create_table
-      upsert_webhook(svc, body: created_wh)
-      upsert_webhook(svc, body: updated_wh)
-      svc.readonly_dataset do |ds|
-        expect(ds.all).to have_length(1)
-        puts ds.all[0][:data]
-        expect(ds.first).to include(
-          # Ensure this didn't get replaced with nil
-          account_number: "987654321",
-          # Ensure this did get replaced
-          amount: 200,
-          # This should not have gotten replaced
-          created_at: match_time("2020-01-31T23:59:59Z"),
-          # This should have been given from the event
-          updated_at: match_time("2023-09-05T01:34:08Z"),
-          data: hash_including(
-            # Make sure the original data is there
-            "network" => "ach",
-            # Plus new fields
-            "originator_company_name" => "LIVIN PROPERTIES",
-            # And new ones stomp old
-            "status" => "accepted",
-          ),
-        )
-      end
+      upsert_webhook(svc, body:)
+      expect(svc.readonly_dataset(&:all)).to be_empty
     end
   end
 end

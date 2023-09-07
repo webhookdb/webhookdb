@@ -24,23 +24,19 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
   end
 
   def _denormalized_columns
-    # 'updated' webhooks may not have these columns as of 9/2023, though Increase may add it back in.
-    missing_on_update = {optional: true, skip_nil: true}
     return [
-      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true, **missing_on_update),
-      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true, **missing_on_update),
+      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
       Webhookdb::Replicator::Column.new(
         :created_at,
         TIMESTAMP,
         data_key: "created_at",
         index: true,
-        # This will be explicitly set to nil when we process an 'updated' event.
-        skip_nil: true,
       ),
-      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true, **missing_on_update),
+      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:status, TEXT),
-      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true, **missing_on_update),
+      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(
         :updated_at,
         TIMESTAMP,
@@ -70,7 +66,9 @@ class Webhookdb::Replicator::IncreaseACHTransferV1 < Webhookdb::Replicator::Base
   end
 
   def _resource_and_event(request)
-    return self._find_resource_and_event(request.body, "ach_transfer")
+    resource, event = self._find_resource_and_event(request.body, "ach_transfer")
+    return nil, nil if (resource && resource["type"]) == "inbound_ach_transfer"
+    return resource, event
   end
 
   def _mixin_backfill_url
