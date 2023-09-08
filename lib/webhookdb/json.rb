@@ -35,7 +35,7 @@ module Webhookdb
       end
 
       def encode(value)
-        return stringify jsonify value.as_json(@options.dup)
+        return stringify(jsonify(value.as_json(@options.dup)))
       end
 
       # Convert an object into a "JSON-ready" representation composed of
@@ -53,6 +53,8 @@ module Webhookdb
       # calls.
       def jsonify(value)
         case value
+          when Rational
+            value.to_s
           when String, Numeric, NilClass, TrueClass, FalseClass
             value.as_json
           when Hash
@@ -69,7 +71,15 @@ module Webhookdb
       end
 
       def stringify(jsonified)
-        return ::Oj.dump(jsonified, mode: :rails, **@options)
+        # If this breaks because we actually need to handle more types,
+        # add them to jsonify, like Rational.
+        #
+        # We can't use `mode: :rails` here since we can't control
+        # whether to use html-escaping (we don't want to use it) without using `Oj.optimize_rails`,
+        # which causes other problems- we want to use ISO8601 encoding with millsecond precision,
+        # but we get JSON-gem-style formatting (even if setting flags to modify ActiveSupport params)
+        # when we use `optimize-rails` (but not mode: :rails, since we stringify the time beforehand).
+        return ::Oj.dump(jsonified, mode: :strict, **@options)
       end
     end
 
