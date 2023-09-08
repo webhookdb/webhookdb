@@ -22,6 +22,8 @@ require "webhookdb/jobs/webhook_subscription_delivery_attempt"
 #   See #attempt_delivery.
 #
 class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subscriptions)
+  include Appydays::Configurable
+
   plugin :timestamps
   plugin :column_encryption do |enc|
     enc.column :webhook_secret
@@ -30,6 +32,10 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
   many_to_one :service_integration, class: Webhookdb::ServiceIntegration
   many_to_one :organization, class: Webhookdb::Organization
   many_to_one :created_by, class: Webhookdb::Customer
+
+  configurable(:webhook_subscription) do
+    setting :support_organization_webhooks, false
+  end
 
   # Amount of time we wait for a response from the server.
   TIMEOUT = 10.seconds

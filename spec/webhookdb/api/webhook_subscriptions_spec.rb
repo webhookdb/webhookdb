@@ -120,42 +120,61 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db, :fake_replicator do
       )
     end
 
-    it "creates webhook subscription for organization" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           webhook_secret: "wh_secret", url: "https://example.com"
+    describe "when service integration identifier is blank" do
+      # Because of the way things are working on the Go side, we are always getting a service integration identifier
+      # param, even when it is not provided through the CLI command. In those cases, it will come through as a blank
+      # string. The tests reflect this.
+      it "creates webhook subscription for organization if org webhooks are supported" do
+        Webhookdb::WebhookSubscription.support_organization_webhooks = true
+        post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+             webhook_secret: "wh_secret", url: "https://example.com", service_integration_identifier: ""
 
-      expect(last_response).to have_status(200)
-      new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
-      expect(new_subscription).to_not be_nil
-      expect(new_subscription.webhook_secret).to eq("wh_secret")
-      expect(new_subscription.deliver_to_url).to eq("https://example.com")
-      expect(new_subscription.opaque_id).to_not be_nil
-    end
+        expect(last_response).to have_status(200)
+        new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
+        expect(new_subscription).to_not be_nil
+        expect(new_subscription.webhook_secret).to eq("wh_secret")
+        expect(new_subscription.deliver_to_url).to eq("https://example.com")
+        expect(new_subscription.opaque_id).to_not be_nil
+      end
 
-    it "returns a webhook subscription entity for organization" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_identifier: "", webhook_secret: "wh_secret", url: "https://example.com"
+      it "returns a webhook subscription entity for organization" do
+        Webhookdb::WebhookSubscription.support_organization_webhooks = true
+        post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+             webhook_secret: "wh_secret", url: "https://example.com", service_integration_identifier: ""
 
-      expect(last_response).to have_status(200)
-      new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
-      expect(last_response).to have_json_body.that_includes(
-        deliver_to_url: "https://example.com",
-        opaque_id: new_subscription.opaque_id,
-        organization: include(id: org.id),
-        service_integration: nil,
-      )
-    end
+        expect(last_response).to have_status(200)
+        new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
+        expect(last_response).to have_json_body.that_includes(
+          deliver_to_url: "https://example.com",
+          opaque_id: new_subscription.opaque_id,
+          organization: include(id: org.id),
+          service_integration: nil,
+        )
+      end
 
-    it "403s if user doesn't have permissions for organization" do
-      membership.destroy
+      it "403s if user doesn't have permissions for organization" do
+        Webhookdb::WebhookSubscription.support_organization_webhooks = true
+        membership.destroy
 
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           webhook_secret: "wh_secret", url: "https://example.com"
+        post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+             webhook_secret: "wh_secret", url: "https://example.com", service_integration_identifier: ""
 
-      expect(last_response).to have_status(403)
-      expect(last_response).to have_json_body.that_includes(
-        error: include(message: "You don't have permissions with that organization."),
-      )
+        expect(last_response).to have_status(403)
+        expect(last_response).to have_json_body.that_includes(
+          error: include(message: "You don't have permissions with that organization."),
+        )
+      end
+
+      it "returns an error when org webhooks are not supported" do
+        Webhookdb::WebhookSubscription.support_organization_webhooks = false
+        post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
+             webhook_secret: "wh_secret", url: "https://example.com", service_integration_identifier: ""
+
+        expect(last_response).to have_status(403)
+        expect(last_response).to have_json_body.that_includes(
+          error: include(message: "You cannot create a webhook without an integration identifier."),
+        )
+      end
     end
   end
 

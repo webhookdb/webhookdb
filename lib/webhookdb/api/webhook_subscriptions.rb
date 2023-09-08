@@ -33,6 +33,9 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
           org = lookup_org!
           sint = nil
           identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
+          unless Webhookdb::WebhookSubscription.support_organization_webhooks || identifier.present?
+            merror!(403, "You cannot create a webhook without an integration identifier.")
+          end
           sint = lookup_service_integration!(org, identifier) if identifier.present?
           webhook_sub = Webhookdb::WebhookSubscription.create(
             webhook_secret: params[:webhook_secret],
