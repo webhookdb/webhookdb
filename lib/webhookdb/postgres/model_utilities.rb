@@ -299,22 +299,32 @@ module Webhookdb::Postgres::ModelUtilities
       return Webhookdb::Postgres.now_sql
     end
 
+    protected def prep_amigo_payload(data)
+      # Job arguments to Amigo::Router must be native JSON types, so we do some preprocessing
+      data.to_h do |key, value|
+        # Empty PG Ranges cannot be converted to ruby types for some reason, we substitute nil
+        value_is_empty_range = value.is_a?(Sequel::Postgres::PGRange) && value.empty?
+        new_value = value_is_empty_range ? nil : value.as_json
+        [key, new_value]
+      end
+    end
+
     # Sequel hook -- send an asynchronous event after the model is saved.
     def after_create
       super
-      self.publish_deferred("created", self.id, self.values)
+      self.publish_deferred("created", self.id, prep_amigo_payload(self.values))
     end
 
     # Sequel hook -- send an asynchronous event after the save is committed.
     def after_update
       super
-      self.publish_deferred("updated", self.id, self.previous_changes)
+      self.publish_deferred("updated", self.id, prep_amigo_payload(self.previous_changes))
     end
 
     # Sequel hook -- send an event after a transaction that destroys the object is committed.
     def after_destroy
       super
-      self.publish_deferred("destroyed", self.id, self.values)
+      self.publish_deferred("destroyed", self.id, prep_amigo_payload(self.values))
     end
   end
 
