@@ -158,11 +158,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 step.complete = true
                 return step
               end
-              sint = Webhookdb::ServiceIntegration.create(
-                organization: org,
-                table_name: (name + "_#{SecureRandom.hex(2)}"),
-                service_name: name,
-              )
+              sint = Webhookdb::ServiceIntegration.create_disambiguated(name, organization: org)
               replicator = sint.replicator
               # We always want to enqueue the backfill job if it is possible to do so, even if
               # we are not returning the backfill step in our response to this create request
