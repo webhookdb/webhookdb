@@ -31,6 +31,12 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       end.to raise_error(Webhookdb::InvalidPrecondition, "connections already set")
     end
 
+    it "does not error if safe is used" do
+      assign_connection_urls(o)
+      expect { o.prepare_database_connections? }.to_not raise_error
+      expect { o.prepare_database_connections(safe: true) }.to_not raise_error
+    end
+
     describe "using database+user isolation", whdbisolation: "database+user" do
       it "creates a randomly named database and connection strings and the public schema" do
         o.prepare_database_connections
