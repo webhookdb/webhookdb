@@ -213,7 +213,18 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
       instance.save_changes
       expect do
         instance.destroy
-      end.to publish("webhookdb.postgres.testingpixie.destroyed", [instance.id, instance.values.stringify_keys])
+      end.to publish(
+        "webhookdb.postgres.testingpixie.destroyed",
+        include(
+          instance.id,
+          hash_including(
+            "id" => instance.id,
+            "name" => nil,
+            "price_per_unit_cents" => 0,
+            "price_per_unit_currency" => "USD",
+          ),
+        ),
+      )
     end
 
     it "does not publish duplicate or redundant events" do
@@ -229,6 +240,17 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
           "webhookdb.postgres.testingpixie.updated",
           "webhookdb.postgres.testingpixie.destroyed",
         ],
+      )
+    end
+
+    it "converts all fields to native JSON types" do
+      instance.active_during = Sequel::Postgres::PGRange.new(nil, nil, empty: true)
+      instance.save_changes
+      expect do
+        instance.destroy
+      end.to publish(
+        "webhookdb.postgres.testingpixie.destroyed",
+        include(instance.id, hash_including("active_during" => nil)),
       )
     end
   end

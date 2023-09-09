@@ -200,14 +200,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def prepare_database_connections?
-    self.prepare_database_connections unless self.admin_connection_url.present?
+    return self.prepare_database_connections(safe: true)
   end
 
   # Build the org-specific users, database, and set our connection URLs to it.
-  def prepare_database_connections
+  def prepare_database_connections(safe: false)
     self.db.transaction do
       self.lock!
-      raise Webhookdb::InvalidPrecondition, "connections already set" if self.admin_connection_url.present?
+      if self.admin_connection_url.present?
+        return if safe
+        raise Webhookdb::InvalidPrecondition, "connections already set"
+      end
       builder = Webhookdb::Organization::DbBuilder.new(self)
       builder.prepare_database_connections
       self.admin_connection_url_raw = builder.admin_url

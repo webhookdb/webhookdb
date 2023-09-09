@@ -62,33 +62,45 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     return self.dataset.with_email(e).first
   end
 
+  def self.find_or_create_for_email(email)
+    email = email.strip.downcase
+    # If there is no Customer object associated with the email, create one
+    me = Webhookdb::Customer[email:]
+    return [false, me] if me
+    signup_allowed = self.signup_email_allowlist.any? { |pattern| File.fnmatch(pattern, email) }
+    raise SignupDisabled unless signup_allowed
+    return [true, Webhookdb::Customer.create(email:, password: SecureRandom.hex(32))]
+  end
+
+  # Make sure the customer has a default organization.
+  # New registrants, or users who have been invited (so have an existing customer and invited org)
+  # get an org created. Default orgs must already be verified as per a DB constraint.
+  # @return [Array<TrueClass,FalseClass,Webhookdb::OrganizationMembership>] Tuple of [created, membership]
+  def self.find_or_create_default_organization(customer)
+    mem = customer.default_membership
+    return [false, mem] if mem
+    email = customer.email
+    # We could have no default, but already be in an organization, like if the default was deleted.
+    mem = customer.verified_memberships.first
+    return [false, mem] if mem
+    # We have no verified orgs, so create one.
+    # TODO: this will fail if not unique. We need to make sure we pick a unique name/key.
+    self_org = Webhookdb::Organization.create(name: "#{email} Org", billing_email: email.to_s)
+    mem = customer.add_membership(
+      organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true, is_default: true,
+    )
+    return [true, mem]
+  end
+
   # @return Tuple of <Step, Customer>.
   def self.register_or_login(email:)
     self.db.transaction do
-      email = email.strip.downcase
-      new_customer = false
-      # If there is no Customer object associated with the email, create one
-      unless (me = Webhookdb::Customer[email:])
-        signup_allowed = self.signup_email_allowlist.any? { |pattern| File.fnmatch(pattern, email) }
-        raise SignupDisabled unless signup_allowed
-        me = Webhookdb::Customer.create(email:, password: SecureRandom.hex(16))
-      end
-      # This accounts for the case where a user has been invited to an org and is logging in to WebhookDB
-      # for the first time. Because they have been invited to an org, they have both a customer object
-      # and a single membership, but the membership will be unverified. If a user has at least one verified
-      # membership, we don't need to create a personal org for them and we can assume they've logged in before.
-      unless Webhookdb::OrganizationMembership[verified: true, customer: me].present?
-        new_customer = true
-        self_org = Webhookdb::Organization.create(name: "#{email} Org", billing_email: email.to_s)
-        me.add_membership(
-          organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true, is_default: true,
-        )
-      end
-
+      customer_created, me = self.find_or_create_for_email(email)
+      org_created, _membership = self.find_or_create_default_organization(me)
       me.reset_codes_dataset.usable.each(&:expire!)
       me.add_reset_code(transport: "email")
       step = Webhookdb::Replicator::StateMachineStep.new
-      step.output = if new_customer
+      step.output = if customer_created || org_created
                       %(To finish registering, please look for an email we just sent to #{email}.
 It contains a One Time Password code to validate your email.
 )

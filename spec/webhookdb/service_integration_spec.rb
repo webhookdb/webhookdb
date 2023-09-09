@@ -214,4 +214,12 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       org.remove_related_database
     end
   end
+
+  describe "::create_disambiguated" do
+    it "uses the service name with a unique tag as table name if no table name is provided" do
+      organization = Webhookdb::Fixtures.organization.create
+      sint = Webhookdb::ServiceIntegration.create_disambiguated("fake_v1", organization:)
+      expect(sint.table_name).to match(/fake_v1_([a-z\d]){4}/)
+    end
+  end
 end
