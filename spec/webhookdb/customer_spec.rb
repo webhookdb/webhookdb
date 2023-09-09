@@ -94,6 +94,59 @@ RSpec.describe "Webhookdb::Customer", :db do
     end
   end
 
+  describe "::find_or_create_for_email" do
+    it "returns existing customer" do
+      customer = Webhookdb::Fixtures.customer.create(email: "frank.bidart@poetry.com")
+      expect(Webhookdb::Customer.find_or_create_for_email("  FrANK.biDArT@poetry.com")).to eq([false, customer])
+    end
+
+    it "raises error if signup is disabled" do
+      Webhookdb::Customer.signup_email_allowlist = ["nomatch"]
+      expect do
+        Webhookdb::Customer.find_or_create_for_email("im.new@customer.com")
+      end.to raise_error(described_class::SignupDisabled)
+    end
+
+    it "creates new customer if one is not present" do
+      created, customer = Webhookdb::Customer.find_or_create_for_email("baby@storkdelivery.com")
+      expect(created).to be(true)
+      expected_customer = Webhookdb::Customer[email: "baby@storkdelivery.com"]
+      expect(customer).to eq(expected_customer)
+    end
+  end
+
+  describe "::find_or_create_default_organization" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:organization) { Webhookdb::Fixtures.organization.create }
+
+    it "finds default org of a customer with a designated default organization" do
+      fixtured_mem = Webhookdb::Fixtures.organization_membership.default.verified.create(customer:, organization:)
+      created, mem = described_class.find_or_create_default_organization(customer)
+      expect(created).to be(false)
+      expect(mem).to be === fixtured_mem
+    end
+
+    it "use verified membership org as default org when none is designated" do
+      fixtured_mem = Webhookdb::Fixtures.organization_membership.verified.create(customer:, organization:)
+      created, mem = described_class.find_or_create_default_organization(customer)
+      expect(created).to be(false)
+      expect(mem).to be === fixtured_mem
+    end
+
+    it "creates org and verified membership for customer with no verified memberships" do
+      created, mem = described_class.find_or_create_default_organization(customer)
+      expect(created).to be(true)
+      new_default_org = Webhookdb::Organization[name: "#{customer.email} Org"]
+      expect(new_default_org).to_not be_nil
+      expect(mem).to have_attributes(
+        organization: be === new_default_org,
+        customer: be === customer,
+        verified: true,
+        is_default: true,
+      )
+    end
+  end
+
   describe "::register_or_login" do
     let(:email) { "jane@farmers.org" }
     let(:customer_params) do
@@ -125,7 +178,7 @@ RSpec.describe "Webhookdb::Customer", :db do
         expect(new_code).to have_attributes(transport: "email")
       end
 
-      it "creates new organization and membership for current customer if doesn't exist" do
+      it "creates new organization and membership for the new customer" do
         _step, me = described_class.register_or_login(email:)
 
         new_org = Webhookdb::Organization[name: "#{email} Org"]
@@ -152,31 +205,39 @@ RSpec.describe "Webhookdb::Customer", :db do
         expect(new_code).to have_attributes(transport: "email")
       end
 
-      it "provides welcome message if user has no verified memberships" do
+      it "creates a new org and membership and presents a new user message if user has no memberships" do
         step, me = described_class.register_or_login(email:)
 
         expect(me).to be === customer
         expect(step.output).to include("To finish registering")
+        new_org = Webhookdb::Organization[name: "#{email} Org"]
+        expect(new_org).to_not be_nil
+        expect(new_org.billing_email).to eq(email)
+        expect(new_org.all_memberships_dataset.where(customer: me).all).to contain_exactly(
+          have_attributes(status: "admin", verified: true, is_default: true),
+        )
       end
 
-      it "provides welcome back message if user has at least one verified membership" do
-        Webhookdb::Fixtures.organization.with_member(customer).create
+      it "provides welcome back message if the user has any verified membership" do
+        mem = Webhookdb::Fixtures.organization_membership.verified.create(customer:)
         step, me = described_class.register_or_login(email:)
 
         expect(me).to be === customer
         expect(step.output).to include("Hello again")
+        expect(customer.refresh.all_memberships).to contain_exactly(be === mem)
       end
 
-      it "creates new organization and membership for current customer if user has no verified memberships" do
-        Webhookdb::Fixtures.organization.with_invite(customer).create
-        _step, me = described_class.register_or_login(email:)
+      it "creates a new org and membership and presents a new user message if user has only invites" do
+        Webhookdb::Fixtures.organization_membership.invite.create(customer:)
 
+        step, me = described_class.register_or_login(email:)
+        expect(me).to be === customer
+        expect(step.output).to include("To finish registering")
         new_org = Webhookdb::Organization[name: "#{email} Org"]
         expect(new_org).to_not be_nil
         expect(new_org.billing_email).to eq(email)
-
         expect(new_org.all_memberships_dataset.where(customer: me).all).to contain_exactly(
-          have_attributes(status: "admin"),
+          have_attributes(status: "admin", verified: true, is_default: true),
         )
       end
     end

@@ -64,6 +64,11 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
+  def self.create_disambiguated(service_name, **kwargs)
+    kwargs[:table_name] ||= "#{service_name}_#{SecureRandom.hex(2)}"
+    return self.create(service_name:, **kwargs)
+  end
+
   def can_be_modified_by?(customer)
     return customer.verified_member_of?(self.organization)
   end
