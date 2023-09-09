@@ -4,6 +4,7 @@ RSpec.describe "Webhookdb::Customer", :db do
   let(:described_class) { Webhookdb::Customer }
 
   before(:each) { described_class.reset_configuration }
+  after(:each) { described_class.reset_configuration }
 
   it "can be inspected" do
     expect { Webhookdb::Customer.new.inspect }.to_not raise_error

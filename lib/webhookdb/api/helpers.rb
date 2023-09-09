@@ -134,4 +134,90 @@ module Webhookdb::API::Helpers
              "Use `webhookdb integrations list` to see all integrations."
     merror!(409, msg403)
   end
+
+  # Our primary webhook endpoint is /v1/service_integrations/<opaque_id>,
+  # but in some cases we need a 'static' endpoint for apps to send to,
+  # like /v1/install/front/webhooks.
+  # Those endpoints share the webhook handling behavior with this method.
+  def handle_webhook_request(opaque_id, &)
+    raise LocalJumpError unless block_given?
+    begin
+      sint = yield
+      request_headers = request.headers.dup
+      svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
+      svc.preprocess_headers_for_logging(request_headers)
+      handling_sint = svc.service_integration
+      whresp = svc.webhook_response(request)
+      s_status, s_headers, s_body = whresp.to_rack
+      (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
+
+      if s_status >= 400
+        logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
+                                        webhook_body: env["api.request.body"]
+        header "Whdb-Rejected-Reason", whresp.reason
+      else
+        process_kwargs = {
+          headers: request.headers,
+          body: env["api.request.body"] || {},
+          request_path: request.path_info,
+          request_method: request.request_method,
+        }
+        event_json = Amigo::Event.create(
+          "webhookdb.serviceintegration.webhook", [handling_sint.id, process_kwargs],
+        ).as_json
+        # Audit Log this synchronously.
+        # It should be fast enough. We may as well log here so we can avoid
+        # serializing the (large) webhook payload multiple times, as with normal pubsub.
+        Webhookdb::Async::AuditLogger.new.perform(event_json)
+        if svc.process_webhooks_synchronously? || Webhookdb::Replicator.always_process_synchronously
+          whreq = Webhookdb::Replicator::WebhookRequest.new(
+            method: process_kwargs[:request_method],
+            path: process_kwargs[:request_path],
+            headers: process_kwargs[:headers],
+            body: process_kwargs[:body],
+          )
+          inserted = svc.upsert_webhook(whreq)
+          s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)
+        else
+          queue = svc.upsert_has_deps? ? "netout" : "webhook"
+          Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
+        end
+      end
+
+      s_headers.each { |k, v| header k, v }
+      if s_headers["Content-Type"] == "application/json"
+        body Oj.load(s_body)
+      else
+        env["api.format"] = :binary
+        body s_body
+      end
+      status s_status
+    ensure
+      _log_webhook_request(opaque_id, sint&.organization_id, s_status, request_headers)
+    end
+  end
+
+  def _log_webhook_request(opaque_id, organization_id, sstatus, request_headers)
+    return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
+    # Status can be set from:
+    # - the 'status' method, which will be 201 if it hasn't been set,
+    # or another value if it has been set.
+    # - the webhook responder, which could respond with 401, etc
+    # - if there was an exception- so no status is set yet- use 0
+    # The main thing to watch out for is that we:
+    # - Cannot assume an exception is a 500 (it can be rescued later)
+    # - Must handle error! calls
+    # Anyway, this is all pretty confusing, but it's all tested.
+    rstatus = status == 201 ? (sstatus || 0) : status
+    request.body.rewind
+    Webhookdb::LoggedWebhook.dataset.insert(
+      request_body: request.body.read,
+      request_headers: request_headers.to_json,
+      request_method: request.request_method,
+      request_path: request.path_info,
+      response_status: rstatus,
+      organization_id:,
+      service_integration_opaque_id: opaque_id,
+    )
+  end
 end

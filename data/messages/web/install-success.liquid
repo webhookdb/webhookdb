@@ -1,0 +1,28 @@
+<html lang="en-US">
+<head>
+    {% include 'web/styles' %}
+</head>
+<body>
+<div class="layout">
+    <div class="flex column align-items-center content">
+        {% partial 'web/partials/header' %}
+        <div class="flex column">
+            <p>
+                Great! We are now listening for updates to resources in your {{ app_name }} account.
+                We&rsquo;ll sync them automatically and immediately.
+            </p>
+            <p>
+                You can access the information using the following url:
+            </p>
+            <p>{{ database_url }}</p>
+            <p>
+                To get more out of WebhookDB, like to replicate other APIs or set up Change Data Capture
+                to HTTP endpoints or databases, you can use the WebhookDB CLI.
+                Instructions are in the <a href="https://webhookdb.com/docs/guide">WebhookDB Guide</a>.
+            </p>
+        </div>
+        {% partial 'web/partials/footer' %}
+    </div>
+</div>
+</body>
+</html>

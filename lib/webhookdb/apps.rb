@@ -12,6 +12,7 @@ require "webhookdb/service"
 
 require "webhookdb/api/auth"
 require "webhookdb/api/db"
+require "webhookdb/api/install"
 require "webhookdb/api/me"
 require "webhookdb/api/organizations"
 require "webhookdb/api/service_integrations"
@@ -32,6 +33,7 @@ module Webhookdb::Apps
   class API < Webhookdb::Service
     mount Webhookdb::API::Auth
     mount Webhookdb::API::Db
+    mount Webhookdb::API::Install
     mount Webhookdb::API::Me
     mount Webhookdb::API::Organizations
     mount Webhookdb::API::ServiceIntegrations
