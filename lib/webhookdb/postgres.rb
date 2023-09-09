@@ -54,6 +54,7 @@ module Webhookdb::Postgres
     "webhookdb/logged_webhook",
     "webhookdb/message/body",
     "webhookdb/message/delivery",
+    "webhookdb/oauth_session",
     "webhookdb/organization",
     "webhookdb/organization/database_migration",
     "webhookdb/organization_membership",

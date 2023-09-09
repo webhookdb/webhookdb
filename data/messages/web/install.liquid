@@ -1,0 +1,20 @@
+<html lang="en-US">
+<head>
+    {% include 'web/styles' %}
+</head>
+<body>
+<div class="layout">
+    <div class="flex column align-items-center content">
+    {% partial 'web/partials/header' %}
+
+    <div class="text-center mt-2">
+        <form action="{{ action_url }}" method="POST" class="flex column align-items-center">
+            <p>By integrating WebhookDB and {{ app_name }}, you agree to our <a href="https://webhookdb.com/terms" target="_blank">Terms of Use</a> and that you are an awesome person.</p>
+            <input class="btn mt-2" type="submit" value="Sync WebhookDB & {{ app_name }}"/>
+        </form>
+    </div>
+    {% partial 'web/partials/footer' %}
+    </div>
+</div>
+</body>
+</html>

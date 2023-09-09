@@ -1,0 +1,17 @@
+<html lang="en-US">
+<head>
+    {% include 'web/styles' %}
+</head>
+<body>
+<div class="layout">
+    <div class="flex column align-items-center content">
+        {% partial 'web/partials/header' %}
+
+        <div class="text-center mt-2">
+            <p class="text-emphasis">{{ error_msg }}</p>
+        </div>
+        {% partial 'web/partials/footer' %}
+    </div>
+</div>
+</body>
+</html>

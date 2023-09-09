@@ -204,15 +204,6 @@ module Webhookdb::Service::Helpers
     header "Expires", expiration.from_now.httpdate
   end
 
-  def render_liquid(data_rel_path, vars: {}, content_type: "text/html")
-    tmpl_file = File.open(Webhookdb::DATA_DIR + data_rel_path)
-    liquid_tmpl = Liquid::Template.parse(tmpl_file.read)
-    rendered = liquid_tmpl.render!(vars.stringify_keys, registers: {})
-    content_type content_type
-    env["api.format"] = :binary
-    return rendered
-  end
-
   # Set the provided, declared/valid parameters in params on model.
   # Because Grape's `declared()` function *adds* parameters that are declared-but-not-provided,
   # and its `params` value includes provided-but-not-declared entries,
