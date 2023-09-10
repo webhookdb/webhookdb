@@ -1101,7 +1101,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    it "handles weird VEVENTs, see X-Comment for explanations" do
+    it "handles RRULE with FREQ=WEEKLY and BYMONTHDAY" do
       body = <<~ICS
         BEGIN:VCALENDAR
         BEGIN:VEVENT
@@ -1114,8 +1114,19 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         X-Comment:BYMONTHDAY with FREQ=WEEKLY makes no sense,
           Apple just seems to use every-2-weeks,
           so that's what we'll do here.
-        SUMMARY:Circles#{' '}
+        SUMMARY:Circles
         UID:bymonthday-with-freq-weekly
+        END:VEVENT
+        BEGIN:VEVENT
+        CREATED:20230819T112212Z
+        DTEND;VALUE=DATE:20230907
+        DTSTAMP:20230819T112238Z
+        DTSTART;VALUE=DATE:20230906
+        RRULE:FREQ=WEEKLY;UNTIL=20231001;INTERVAL=2;BYMONTHDAY=4,26,5
+        SEQUENCE:0
+        X-Comment:Same as above but with multiple BYMONTHDAY
+        SUMMARY:Circles
+        UID:multibymonthday-with-freq-weekly
         END:VEVENT
         END:VCALENDAR
       ICS
@@ -1131,6 +1142,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         include(uid: "bymonthday-with-freq-weekly-3", start_date: Date.new(2023, 10, 18)),
         include(uid: "bymonthday-with-freq-weekly-4", start_date: Date.new(2023, 11, 1)),
         include(uid: "bymonthday-with-freq-weekly-5", start_date: Date.new(2023, 11, 15)),
+        include(uid: "multibymonthday-with-freq-weekly-0", start_date: Date.new(2023, 9, 6)),
+        include(uid: "multibymonthday-with-freq-weekly-1", start_date: Date.new(2023, 9, 20)),
       )
     end
   end
