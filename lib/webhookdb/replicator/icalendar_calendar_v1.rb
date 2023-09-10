@@ -388,7 +388,7 @@ The secret to use for signing is:
       # In this case, we need to sanitize the string to remove the offending rule piece.
       # There are probably many other offending formats, but we'll add them here as needed.
       if ical.include?("FREQ=WEEKLY") && ical.include?("BYMONTHDAY=")
-        ical = ical.gsub(/BYMONTHDAY=\d+/, "")
+        ical = ical.gsub(/BYMONTHDAY=[\d,]+/, "")
         ical.delete_prefix! ";"
         ical.delete_suffix! ";"
       end
