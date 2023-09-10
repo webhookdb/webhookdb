@@ -3,6 +3,7 @@
 require "appydays/configurable"
 require "httparty"
 require "rspec"
+require "rspec/eventually"
 
 require "webhookdb"
 require "webhookdb/async"
@@ -15,6 +16,11 @@ module Webhookdb::IntegrationSpecHelpers
   include Appydays::Loggable
 
   def self.included(context)
+    # We run few workers on staging so need time to process things.
+    Rspec::Eventually.timeout = 60
+    # We're in no rush for integration tests.
+    Rspec::Eventually.pause = 1
+
     context.before(:each) do |example|
       raise "Unit tests should not be run during integration tests (or this test needs an :integration flag" unless
         example.metadata[:integration]
