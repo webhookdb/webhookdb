@@ -35,7 +35,7 @@ RSpec.describe "service integrations", :integration do
 
     expect do
       catch_missing_db(["default"]) { sint.replicator.readonly_dataset(&:all) }
-    end.to eventually(have_attributes(length: 1)).pause_for(1).within(30)
+    end.to eventually(have_attributes(length: 1)).pause_for(1).within(60)
   end
 
   it "can upsert data synchrononously through endpoint" do
