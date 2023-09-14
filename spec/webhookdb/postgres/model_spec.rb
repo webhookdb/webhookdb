@@ -245,12 +245,16 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
 
     it "converts all fields to native JSON types" do
       instance.active_during = Sequel::Postgres::PGRange.new(nil, nil, empty: true)
+      instance.ip = IPAddr.new("1.2.3.4")
       instance.save_changes
       expect do
         instance.destroy
       end.to publish(
         "webhookdb.postgres.testingpixie.destroyed",
-        include(instance.id, hash_including("active_during" => nil)),
+        include(
+          instance.id,
+          hash_including("active_during" => nil, "ip" => "1.2.3.4"),
+        ),
       )
     end
   end

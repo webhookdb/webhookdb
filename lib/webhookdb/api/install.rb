@@ -10,10 +10,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
   namespace :install do
     helpers do
       def lookup_session!
-        session = Webhookdb::OauthSession.where(
-          Sequel[oauth_state: params[:state]] &
-            Sequel.expr { created_at > 30.minutes.ago },
-        ).first
+        session = Webhookdb::Oauth::Session.usable.where(oauth_state: params[:state]).first
         forbidden! unless session
         return session
       end
@@ -49,40 +46,48 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         end
         return me
       end
-
-      def find_admin_membership(customer)
-        _created, membership = Webhookdb::Customer.find_or_create_default_organization(customer)
-        membership = customer.verified_memberships.find(&:admin?) unless membership.admin?
-        return membership if membership
-        raise FormError.new(
-          "You must be an administrator of your WebhookDB organization to set up this app.",
-          403,
-        )
-      end
-
-      def exchange_authorization_code(provider:, session:)
-        token = Webhookdb::Http.post(
-          provider.exchange_url,
-          {
-            "code" => session.authorization_code,
-            "redirect_uri" => provider.redirect_url,
-            "grant_type" => provider.grant_type,
-          },
-          logger: self.logger,
-          timeout: 10,
-          basic_auth: provider.basic_auth,
-        )
-        return {
-          refresh_token: token.parsed_response["refresh_token"],
-          access_token: token.parsed_response["access_token"],
-        }
-      end
     end
 
     route_param :oauth_provider, type: String, values: Webhookdb::Oauth.registry.keys do
       helpers do
         def oauth_provider
           return @oauth_provider ||= Webhookdb::Oauth.provider(params[:oauth_provider])
+        end
+
+        def finish_org_setup(organization:, tokens:, scope:)
+          organization.prepare_database_connections?
+          oauth_provider.build_marketplace_integrations(organization:, tokens:, scope:)
+          rendered = render_liquid(
+            "messages/web/install-success.liquid",
+            serialize_view_params: true,
+            vars: {
+              app_name: oauth_provider.app_name,
+              database_url: organization.readonly_connection_url,
+              supports_webhooks: oauth_provider.supports_webhooks?,
+            },
+          )
+          status 200
+          body rendered
+        end
+
+        def exchange_authorization_code(code)
+          return oauth_provider.exchange_authorization_code(code:)
+        rescue Webhookdb::Http::Error => e
+          logger.warn "oauth_exchange_error", exception: e
+          raise FormError.new(
+            "Something went wrong getting your access token from #{oauth_provider.app_name}. Please start over",
+            400,
+          )
+        end
+
+        def find_admin_membership(customer)
+          _created, membership = Webhookdb::Customer.find_or_create_default_organization(customer)
+          membership = customer.verified_memberships.find(&:admin?) unless membership.admin?
+          return membership if membership
+          raise FormError.new(
+            "You must be an administrator of your WebhookDB organization to set up this app.",
+            403,
+          )
         end
       end
 
@@ -98,22 +103,39 @@ class Webhookdb::API::Install < Webhookdb::API::V1
 
       post do
         oauth_state = SecureRandom.hex(16)
-        Webhookdb::OauthSession.create(
+        Webhookdb::Oauth::Session.create(
           oauth_state:,
-          **Webhookdb::OauthSession.params_for_request(request),
+          **Webhookdb::Oauth::Session.params_for_request(request),
         )
         auth_url = oauth_provider.authorization_url(state: oauth_state)
         redirect auth_url
       end
 
       params do
-        requires :code, type: String, desc: "authorization code that we exchange for tokens"
-        requires :state, type: String, desc: "the user session info string that we provided to the oauth flow"
+        requires :code, type: String, desc: "Authorization code that we exchange for tokens."
+        requires :state, type: String, desc: "The user session info string that we provided to the oauth flow."
       end
       get :callback do
         session = lookup_session!
-        session.update(authorization_code: params[:code])
-        redirect "/v1/install/#{oauth_provider.key}/login?state=#{session.oauth_state}"
+        code = params[:code]
+        if oauth_provider.requires_webhookdb_auth?
+          session.update(authorization_code: code)
+          redirect "/v1/install/#{oauth_provider.key}/login?state=#{session.oauth_state}"
+        else
+          scope = {}
+          # Order of operations here is:
+          # - Exchange token. We need the token to create the customer so it comes first.
+          # - Create the customer, find the membership, and create replicators.
+          # - If this last step fails, the code becomes invalid, which is annoying,
+          #   but should be rare and not a big deal to start over.
+          tokens = exchange_authorization_code(code)
+          session.db.transaction do
+            _created, customer = oauth_provider.find_or_create_customer(tokens:, scope:)
+            membership = find_admin_membership(customer)
+            finish_org_setup(organization: membership.organization, tokens:, scope:)
+            session.update(customer:, used_at: Time.now, authorization_code: code)
+          end
+        end
       end
 
       params do
@@ -145,37 +167,18 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         raise FormError.new("Email is required", 400) unless email.present?
         otp_token = params[:otp_token]
         if otp_token
-          me = find_and_verify_user(email:, otp_token:)
-          membership = find_admin_membership(me)
-          begin
-            token_resp = exchange_authorization_code(provider: oauth_provider, session:)
-          rescue Webhookdb::Http::Error => e
-            logger.warn "oauth_exchange_error", exception: e
-            raise FormError.new(
-              "Something went wrong getting your access token from #{oauth_provider.app_name}. Please start over",
-              400,
-            )
+          # Order of operations here is:
+          # - Verify the OTP
+          # - Make sure we can find a valid admin membership
+          # - Only then do we exchange the token.
+          # - Setup replicators.
+          customer = find_and_verify_user(email:, otp_token:)
+          membership = find_admin_membership(customer)
+          tokens = exchange_authorization_code(session.authorization_code)
+          session.db.transaction do
+            finish_org_setup(organization: membership.organization, tokens:, scope: {})
+            session.update(used_at: Time.now)
           end
-
-          org = membership.organization
-          org.db.transaction do
-            org.prepare_database_connections?
-            oauth_provider.build_marketplace_integrations(
-              organization: org,
-              access_token: token_resp[:access_token],
-              refresh_token: token_resp[:refresh_token],
-            )
-          end
-          rendered = render_liquid(
-            "messages/web/install-success.liquid",
-            serialize_view_params: true,
-            vars: {
-              app_name: oauth_provider.app_name,
-              database_url: org.readonly_connection_url,
-            },
-          )
-          status 200
-          body rendered
         else
           handle_login(email:, session:, action_url: "/v1/install/#{oauth_provider.key}/login")
         end
@@ -226,6 +229,49 @@ class Webhookdb::API::Install < Webhookdb::API::V1
             end
           end
         end
+      end
+    end
+
+    resource :intercom do
+      post :webhook do
+        # Because the `_webhook_response` function is always the same here, I'm wondering if it's even
+        # advisable to do the integration lookup before performing a webhook verification when we don't
+        # need that info. Something to consider upon refactor
+
+        # Notification topics are formatted like "{model}.{thing that happened}" (e.g. "contact.created")
+        # to get the model type of the notification, for our purposes we can just grab that first chunk
+        type = params[:topic].split(".")[0]
+        app_id = params[:app_id]
+        root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1", api_url: app_id]
+        if root_sint.nil?
+          logger.warn "intercom_webhook_unregistered_app", intercom_app_id: app_id
+          status 200
+          present({message: "unregistered app"})
+        else
+          handling_sint = root_sint.recursive_dependents.find { |d| d.service_name == "intercom_#{type}_v1" }
+          if handling_sint.nil?
+            logger.warn "intercom_webhook_invalid_topic", intercom_app_id: app_id, intercom_topic: params[:topic]
+            status 200
+            present({message: "invalid topic"})
+          else
+            handle_webhook_request(handling_sint.opaque_id) do
+              handling_sint
+            end
+          end
+        end
+      end
+
+      params do
+        requires :app_id
+      end
+      post :uninstall do
+        # TODO: Verify the headers are valid
+        # We want to delete all the integrations associated with the app_id.
+        root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1",
+                                                  api_url: params["app_id"]]
+        root_sint.destroy_self_and_all_dependents
+        status 200
+        present({o: "k"})
       end
     end
   end

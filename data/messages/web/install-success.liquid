@@ -7,10 +7,17 @@
     <div class="flex column align-items-center content">
         {% partial 'web/partials/header' %}
         <div class="flex column">
-            <p>
-                Great! We are now listening for updates to resources in your {{ app_name }} account.
-                We&rsquo;ll sync them automatically and immediately.
-            </p>
+            {% if supports_webhooks %}
+                <p>
+                    Great! We are now listening for updates to resources in your {{ app_name }} account.
+                    We&rsquo;ll sync them automatically and immediately.
+                </p>
+            {% else %}
+                <p>
+                    Great! We are now checking for updates to resources in your {{ app_name }} account.
+                    We&rsquo;ll sync them automatically and immediately.
+                </p>
+            {% endif %}
             <p>
                 You can access the information using the following url:
             </p>

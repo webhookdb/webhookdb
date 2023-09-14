@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 require "webhookdb/api/install"
-require "webhookdb/oauth_session"
-require "webhookdb/jobs/process_webhook"
 
 RSpec.describe Webhookdb::API::Install, :db do
   include Rack::Test::Methods
@@ -10,43 +8,133 @@ RSpec.describe Webhookdb::API::Install, :db do
   let(:app) { described_class.build_app }
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:customer) { Webhookdb::Fixtures.customer.create(email: "ginger@example.com") }
-  let(:workspace_id) { "lithic_tech_front_abc" }
 
-  describe "/v1/install/front" do
-    describe "GET" do
-      it "200s" do
-        get "/v1/install/front"
-        expect(last_response).to have_status(200)
-      end
-    end
-
-    describe "POST" do
-      it "creates an oauth session" do
-        post "/v1/install/front"
-        expect(Webhookdb::OauthSession.first).to_not be_nil
-      end
-
-      it "302s because of redirecting to the Front auth URL" do
-        post "/v1/install/front"
-        expect(last_response).to have_status(302)
-      end
+  describe "GET /v1/install/front" do
+    it "200s" do
+      get "/v1/install/front"
+      expect(last_response).to have_status(200)
     end
   end
 
-  describe "/v1/install/front/callback" do
+  describe "POST /v1/install/front" do
+    it "creates an oauth session" do
+      post "/v1/install/front"
+      expect(Webhookdb::Oauth::Session.first).to_not be_nil
+    end
+
+    it "302s to the provider auth url" do
+      post "/v1/install/front"
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include(
+        "Location" => start_with("https://app.frontapp.com/oauth/authorize?response_type"),
+      )
+    end
+  end
+
+  describe "GET /v1/install/<provider>/callback" do
     let(:session) { Webhookdb::Fixtures.oauth_session.create }
     let(:state) { session.oauth_state }
     let(:code) { SecureRandom.hex(4) }
 
-    it "updates oauth session with authorization code" do
-      (get "/v1/install/front/callback", code:, state:)
-      oauth_session = Webhookdb::OauthSession.where(oauth_state: state, authorization_code: code).first
-      expect(oauth_session).to_not be_nil
+    it "403s if there is no valid session with the given id" do
+      session.update(used_at: Time.now)
+
+      get("/v1/install/intercom/callback", state:, code:)
+
+      expect(last_response).to have_status(403)
+      expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
     end
 
-    it "302s because of redirecting to our Front login url" do
-      (get "/v1/install/front/callback", code:, state:)
-      expect(last_response).to have_status(302)
+    describe "when the OAuth provider requires WebhookDB login" do
+      it "302s to the login page" do
+        get("/v1/install/front/callback", code:, state:)
+        expect(last_response).to have_status(302)
+        expect(last_response.headers).to include("Location" => "/v1/install/front/login?state=#{state}")
+      end
+
+      it "updates oauth session with authorization code" do
+        get("/v1/install/front/callback", code:, state:)
+        expect(session.refresh).to have_attributes(authorization_code: code, used_at: nil)
+      end
+    end
+
+    describe "when the OAuth provider can create a user using the token" do
+      def stub_token_request
+        return stub_request(:post, "https://api.intercom.io/auth/eagle/token").
+            to_return(json_response(load_fixture_data("intercom/token_response")))
+      end
+
+      def stub_intercom_user_request
+        return stub_request(:get, "https://api.intercom.io/me").
+            to_return(json_response(load_fixture_data("intercom/get_user")))
+      end
+
+      it "renders success page and updates the session" do
+        requests = [stub_token_request, stub_intercom_user_request]
+
+        get("/v1/install/intercom/callback", state:, code:)
+        expect(last_response).to have_status(200)
+        expect(last_response.body).to include(
+          "We are now checking for updates to resources in your Intercom account.",
+        )
+        expect(requests).to all(have_been_made)
+        expect(session.refresh).to have_attributes(
+          authorization_code: code, customer: be_present, used_at: match_time(:now),
+        )
+      end
+
+      it "creates a customer if needed" do
+        customer.destroy
+        requests = [stub_token_request, stub_intercom_user_request]
+
+        get("/v1/install/intercom/callback", state:, code:)
+        expect(last_response).to have_status(200)
+
+        expect(requests).to all(have_been_made)
+        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "ginger@example.com"))
+      end
+
+      it "uses an existing customer if one matches the email" do
+        requests = [stub_token_request, stub_intercom_user_request]
+
+        get("/v1/install/intercom/callback", state:, code:)
+        expect(last_response).to have_status(200)
+
+        expect(requests).to all(have_been_made)
+        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "ginger@example.com"))
+      end
+
+      it "creates integrations on default organization" do
+        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
+        requests = [stub_token_request, stub_intercom_user_request]
+
+        get("/v1/install/intercom/callback", state:, code:)
+        expect(last_response).to have_status(200)
+        expect(requests).to all(have_been_made)
+
+        expect(org.refresh.service_integrations).to contain_exactly(
+          # We can't match on an encrypted field, but the backfill_key of the root should be the
+          # Intercom auth token. We can just test that the field isn't nil
+          have_attributes(
+            service_name: "intercom_marketplace_root_v1",
+            # backfill_key: not_be_nil,
+            api_url: "lithic_tech_intercom_abc",
+          ),
+          have_attributes(service_name: "intercom_conversation_v1"),
+          have_attributes(service_name: "intercom_contact_v1"),
+        )
+
+        expect(Webhookdb::BackfillJob.all).to contain_exactly(
+          have_attributes(
+            service_integration: have_attributes(service_name: "intercom_contact_v1"),
+            incremental: true,
+          ),
+          have_attributes(
+            service_integration: have_attributes(service_name: "intercom_conversation_v1"),
+            incremental: true,
+          ),
+        )
+      end
     end
   end
 
@@ -93,7 +181,7 @@ RSpec.describe Webhookdb::API::Install, :db do
         post("/v1/install/front/login", state:, email:)
 
         expect(last_response).to have_status(200)
-        oauth_session = Webhookdb::OauthSession.where(oauth_state: state, customer:).first
+        oauth_session = Webhookdb::Oauth::Session.where(oauth_state: state, customer:).first
         expect(oauth_session).to_not be_nil
       end
     end
@@ -165,21 +253,16 @@ RSpec.describe Webhookdb::API::Install, :db do
         expect(last_response).to have_status(200)
         expect(requests).to all(have_been_made)
 
-        message_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_message_v1",
-          organization: org,
-        ]
-        conversation_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_conversation_v1",
-          organization: org,
-        ]
-
         expect(org.refresh.service_integrations).to contain_exactly(
           # We can't match on an encrypted field, but the backfill_key of the root should be the
           # Front refresh token. We can just test that the field isn't nil
-          include(service_name: "front_marketplace_root_v1", backfill_key: not_be_nil, api_url: front_instance_api_url),
-          message_sint,
-          conversation_sint,
+          have_attributes(
+            service_name: "front_marketplace_root_v1",
+            backfill_key: not_be_nil,
+            api_url: front_instance_api_url,
+          ),
+          have_attributes(service_name: "front_message_v1"),
+          have_attributes(service_name: "front_conversation_v1"),
         )
       end
 
@@ -191,21 +274,10 @@ RSpec.describe Webhookdb::API::Install, :db do
         expect(last_response).to have_status(200)
         expect(requests).to all(have_been_made)
 
-        message_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_message_v1",
-          organization: org,
-        ]
-        conversation_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_conversation_v1",
-          organization: org,
-        ]
-
         expect(org.refresh.service_integrations).to contain_exactly(
-          # We can't match on an encrypted field, but the backfill_key of the root should be the
-          # Front refresh token. We can just test that the field isn't nil
-          include(service_name: "front_marketplace_root_v1", backfill_key: not_be_nil, api_url: front_instance_api_url),
-          message_sint,
-          conversation_sint,
+          have_attributes(service_name: "front_marketplace_root_v1"),
+          have_attributes(service_name: "front_message_v1"),
+          have_attributes(service_name: "front_conversation_v1"),
         )
       end
 
@@ -218,22 +290,10 @@ RSpec.describe Webhookdb::API::Install, :db do
 
         new_org = Webhookdb::Organization[name: "#{customer.email} Org"]
         expect(new_org).to_not be_nil
-        message_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_message_v1",
-          organization: new_org,
-        ]
-        conversation_sint = Webhookdb::ServiceIntegration[
-          service_name: "front_conversation_v1",
-          organization: new_org,
-        ]
-
         expect(new_org.refresh.service_integrations).to contain_exactly(
-          # We can't match on an encrypted field, but the backfill_key of the root should be the
-          # Front refresh token. We can just test that the field isn't nil
-          include(service_name: "front_marketplace_root_v1", backfill_key: not_be_nil,
-                  api_url: front_instance_api_url,),
-          message_sint,
-          conversation_sint,
+          have_attributes(service_name: "front_marketplace_root_v1"),
+          have_attributes(service_name: "front_message_v1"),
+          have_attributes(service_name: "front_conversation_v1"),
         )
       end
 
@@ -349,6 +409,98 @@ RSpec.describe Webhookdb::API::Install, :db do
 
       post "/v1/install/front/webhook", body
       expect(last_response).to have_status(200)
+    end
+  end
+
+  describe "POST /v1/install/intercom/webhook" do
+    let(:root_sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        organization: org,
+        service_name: "intercom_marketplace_root_v1",
+        api_url: "lithic_tech_intercom_abc",
+      )
+    end
+    let!(:contact_sint) do
+      Webhookdb::Fixtures.service_integration.depending_on(root_sint).create(
+        organization: org,
+        service_name: "intercom_contact_v1",
+      )
+    end
+
+    let(:body) { load_fixture_data("intercom/contact_webhook") }
+
+    def valid_auth_header
+      return "sha1=#{OpenSSL::HMAC.hexdigest('SHA1', Webhookdb::Intercom.client_secret, body.to_json)}"
+    end
+
+    it "401s if webhook auth header is missing" do
+      post "/v1/install/intercom/webhook", body
+      expect(last_response).to have_status(401)
+    end
+
+    it "401s if webhook auth header is invalid" do
+      header "X_Hub_Signature", "intercom_invalid_auth"
+
+      post "/v1/install/intercom/webhook", body
+      expect(last_response).to have_status(401)
+    end
+
+    it "noops if there is no integration with given app id" do
+      header "X_Hub_Signature", valid_auth_header
+
+      contact_sint.destroy
+      root_sint.destroy
+
+      post "/v1/install/intercom/webhook", body
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(message: "unregistered app")
+    end
+
+    it "noops if there is no integration with given topic id" do
+      header "X_Hub_Signature", valid_auth_header
+
+      contact_sint.destroy
+
+      post "/v1/install/intercom/webhook", body
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(message: "invalid topic")
+    end
+
+    it "runs the ProcessWebhook job with the data for the webhook", :async do
+      header "X_Hub_Signature", valid_auth_header
+      expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
+        include(
+          "args" => contain_exactly(include("name" => "webhookdb.serviceintegration.webhook")),
+          "queue" => "webhook",
+        ),
+      )
+
+      post "/v1/install/intercom/webhook", body
+
+      expect(last_response).to have_status(202)
+    end
+  end
+
+  describe "post /v1/install/intercom/uninstall" do
+    it "deletes integrations associated with given app id" do
+      body = {app_id: "ghi567"}
+
+      org.prepare_database_connections
+      root = Webhookdb::Fixtures.service_integration.create(
+        service_name: "intercom_marketplace_root_v1",
+        api_url: "ghi567",
+        organization: org,
+      )
+      Webhookdb::Fixtures.service_integration.depending_on(root).create(service_name: "intercom_contact_v1",
+                                                                        organization: org,)
+      Webhookdb::Fixtures.service_integration.depending_on(root).create(service_name: "intercom_conversation_v1",
+                                                                        organization: org,)
+
+      post "/v1/install/intercom/uninstall", body
+      expect(last_response).to have_status(200)
+      expect(Webhookdb::ServiceIntegration.where(organization: org).all).to be_empty
     end
   end
 end

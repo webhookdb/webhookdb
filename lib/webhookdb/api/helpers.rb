@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "grape"
+require "webhookdb/jobs/process_webhook"
 
 module Webhookdb::API::Helpers
   extend Grape::API::Helpers

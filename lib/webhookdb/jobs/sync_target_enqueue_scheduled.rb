@@ -5,7 +5,7 @@ require "webhookdb/async/job"
 class Webhookdb::Jobs::SyncTargetEnqueueScheduled
   extend Webhookdb::Async::ScheduledJob
 
-  cron "0 * * * * *"
+  cron "*/1 * * * *"
   splay 0
 
   def _perform

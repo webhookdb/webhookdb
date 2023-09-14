@@ -7,24 +7,39 @@ class Webhookdb::Oauth::Front < Webhookdb::Oauth::Provider
 
   def key = "front"
   def app_name = "Front"
+  def requires_webhookdb_auth? = true
+  def supports_webhooks? = true
 
   def authorization_url(state:)
     return "https://app.frontapp.com/oauth/authorize?response_type=code&redirect_uri=#{Webhookdb::Front.oauth_callback_url}&state=#{state}&client_id=#{Webhookdb::Front.client_id}"
   end
 
-  def exchange_url = "https://app.frontapp.com/oauth/token"
-  def redirect_url = Webhookdb::Front.oauth_callback_url
-  def grant_type = "authorization_code"
-  def basic_auth = {username: Webhookdb::Front.client_id, password: Webhookdb::Front.client_secret}
+  def exchange_authorization_code(code:)
+    token = Webhookdb::Http.post(
+      "https://app.frontapp.com/oauth/token",
+      {
+        "code" => code,
+        "redirect_uri" => Webhookdb::Front.oauth_callback_url,
+        "grant_type" => "authorization_code",
+      },
+      logger: self.logger,
+      timeout: Webhookdb::Front.http_timeout,
+      basic_auth: {username: Webhookdb::Front.client_id, password: Webhookdb::Front.client_secret},
+    )
+    return Webhookdb::Oauth::Tokens.new(
+      access_token: token.parsed_response["access_token"],
+      refresh_token: token.parsed_response["refresh_token"],
+    )
+  end
 
-  def build_marketplace_integrations(organization:, access_token:, refresh_token:)
+  def build_marketplace_integrations(organization:, tokens:, **)
     # I asked the dev team at front specifically how to differentiate between instances when receiving webhooks,
     # and they said to look at the root url of the link provided for the resource in every response. In order to
     # retrieve that value for the integrations that we'll be finding or creating, we look at this token info
     # response.
     front_token_info_resp = Webhookdb::Http.get(
       "https://api2.frontapp.com/me",
-      headers: Webhookdb::Front.auth_headers(access_token),
+      headers: Webhookdb::Front.auth_headers(tokens.access_token),
       logger: self.logger,
       timeout: Webhookdb::Front.http_timeout,
     )
@@ -36,7 +51,7 @@ class Webhookdb::Oauth::Front < Webhookdb::Oauth::Provider
       "front_marketplace_root_v1",
       organization:,
       api_url: instance_root_url,
-      backfill_key: refresh_token,
+      backfill_key: tokens.refresh_token,
     )
     root_sint.replicator.build_dependents
   end

@@ -6,7 +6,7 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::TwilioScheduledBackfill
   extend Webhookdb::Async::ScheduledJob
 
-  cron "*/60 * * * * *"
+  cron "*/1 * * * *"
   splay 0
 
   def _perform

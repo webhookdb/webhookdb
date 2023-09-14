@@ -4,12 +4,12 @@ require "securerandom"
 
 require "webhookdb"
 require "webhookdb/fixtures"
-require "webhookdb/oauth_session"
+require "webhookdb/oauth/session"
 
 module Webhookdb::Fixtures::OauthSessions
   extend Webhookdb::Fixtures
 
-  fixtured_class Webhookdb::OauthSession
+  fixtured_class Webhookdb::Oauth::Session
 
   base :oauth_session do
     self.oauth_state ||= SecureRandom.hex(16)

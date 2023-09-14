@@ -36,6 +36,7 @@ module Webhookdb::Async
     "webhookdb/jobs/google_calendar_sync",
     "webhookdb/jobs/icalendar_enqueue_syncs",
     "webhookdb/jobs/icalendar_sync",
+    "webhookdb/jobs/intercom_scheduled_backfill",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/nextpax_sync_constants",
     "webhookdb/jobs/nextpax_sync_property_changes",
