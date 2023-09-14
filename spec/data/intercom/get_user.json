@@ -1,0 +1,22 @@
+{
+  "type": "admin",
+  "id": "2633609",
+  "email": "ginger@example.com",
+  "name": "Ginger Edson",
+  "email_verified": true,
+  "app": {
+    "type": "app",
+    "id_code": "lithic_tech_intercom_abc",
+    "name": "Woof Woof Inc.",
+    "created_at": 1661876617,
+    "secure": true,
+    "identity_verification": true,
+    "timezone": "US/Los Angeles",
+    "region": "US"
+  },
+  "avatar": {
+    "type": "avatar",
+    "image_url": "https://static.intercomassets.com/avatars/56395503/square_128/5449623-166556.jpg"
+  },
+  "has_inbox_seat": true
+}

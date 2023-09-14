@@ -6,7 +6,7 @@ require "webhookdb/jobs"
 class Webhookdb::Jobs::ConvertkitSubscriberBackfill
   extend Webhookdb::Async::ScheduledJob
 
-  cron "0 20 * * * *"
+  cron "20 * * * *"
   splay 5.minutes
 
   def _perform
