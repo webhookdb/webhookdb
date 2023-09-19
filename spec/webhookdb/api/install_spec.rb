@@ -503,4 +503,13 @@ RSpec.describe Webhookdb::API::Install, :db do
       expect(Webhookdb::ServiceIntegration.where(organization: org).all).to be_empty
     end
   end
+
+  describe "post /v1/install/intercom/health" do
+    it "returns 'OK' status" do
+      body = {workspace_id: "apple_banana"}
+      post "/v1/install/intercom/health", body
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(state: "OK")
+    end
+  end
 end
