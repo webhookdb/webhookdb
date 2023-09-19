@@ -273,6 +273,20 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         status 200
         present({o: "k"})
       end
+
+      params do
+        requires :workspace_id
+      end
+      post :health do
+        # TODO: Verify the headers are valid
+        # For now we are just returning "OK" per the specification:
+        # https://developers.intercom.com/docs/build-an-integration/learn-more/installation-health-check
+        # An interesting point is that this endpoint recieves a value called "workspace_id" but it is
+        # identical to the "app_id" value we get from the `/me` endpoint. It just has a different name here, for
+        # some reason.
+        status 200
+        present({state: "OK"})
+      end
     end
   end
 end
