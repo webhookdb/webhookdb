@@ -77,17 +77,26 @@ module Webhookdb::Replicator::IntercomV1Mixin
             "This integration requires that the Intercom Auth integration has a valid Auth Token"
     end
 
-    response = Webhookdb::Http.get(
-      self._mixin_backfill_url,
-      query:
-        {
-          per_page: Webhookdb::Intercom.page_size,
-          starting_after: pagination_token,
-        },
-      headers: self.intercom_auth_headers,
-      logger: self.logger,
-      timeout: Webhookdb::Intercom.http_timeout,
-    )
+    begin
+      response = Webhookdb::Http.get(
+        self._mixin_backfill_url,
+        query:
+          {
+            per_page: Webhookdb::Intercom.page_size,
+            starting_after: pagination_token,
+          },
+        headers: self.intercom_auth_headers,
+        logger: self.logger,
+        timeout: Webhookdb::Intercom.http_timeout,
+      )
+    rescue Webhookdb::Http::Error => e
+      #  We are looking to catch the "api plan restricted" error. This is always a 403 and every
+      # 403 will be an "api plan restricted" error according to the API documentation. Because we
+      # specify the API version in our headers we can expect that this won't change.
+      raise e unless e.status == 403
+      self.logger.warn("intercom_api_restricted", intercom_error: e.body)
+      return
+    end
     data = response.parsed_response.fetch("data", [])
     starting_after = response.parsed_response.dig("pages", "next", "starting_after")
     return data, starting_after
