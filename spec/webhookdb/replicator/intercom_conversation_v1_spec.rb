@@ -821,4 +821,22 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
       end.to raise_error(Webhookdb::Replicator::CredentialsMissing)
     end
   end
+
+  describe "_fetch_backfill_page" do
+    it "ignores 'api_plan_restricted' error" do
+      error_body = {
+        "type" => "error.list",
+        "request_id" => "001io5rapr5ilb5s15c0",
+        "errors" => [
+          {"code" => "api_plan_restricted",
+           "message" => "Active subscription needed.",},
+        ],
+      }.to_json
+      stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20&starting_after=").
+        to_return(status: 403, body: error_body, headers: {"Content-Type" => "application/json"})
+
+      svc._fetch_backfill_page(nil)
+      expect(stub_error_request).to have_been_made
+    end
+  end
 end
