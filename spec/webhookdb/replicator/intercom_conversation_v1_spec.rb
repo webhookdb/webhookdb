@@ -824,6 +824,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
 
   describe "_fetch_backfill_page" do
     it "ignores 'api_plan_restricted' error" do
+      Webhookdb::Intercom.page_size = 20
       error_body = {
         "type" => "error.list",
         "request_id" => "001io5rapr5ilb5s15c0",
@@ -835,7 +836,9 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
       stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20&starting_after=").
         to_return(status: 403, body: error_body, headers: {"Content-Type" => "application/json"})
 
-      svc._fetch_backfill_page(nil)
+      page, pagination_token = svc._fetch_backfill_page(nil)
+      expect(page).to eq([])
+      expect(pagination_token).to be_nil
       expect(stub_error_request).to have_been_made
     end
   end

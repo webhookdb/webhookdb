@@ -95,7 +95,9 @@ module Webhookdb::Replicator::IntercomV1Mixin
       # specify the API version in our headers we can expect that this won't change.
       raise e unless e.status == 403
       self.logger.warn("intercom_api_restricted", intercom_error: e.body)
-      return
+      # We should basically noop here, i.e. pretend that the page is empty, so that we don't trigger
+      # a TypeError in the backfiller.
+      return [], nil
     end
     data = response.parsed_response.fetch("data", [])
     starting_after = response.parsed_response.dig("pages", "next", "starting_after")
