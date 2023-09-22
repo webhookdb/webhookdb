@@ -217,4 +217,15 @@ module Webhookdb::SpecHelpers::Postgres
       "did not expect to find item with id %s in %s" % [actual.id, actual.class.where(id: actual.id).all]
     end
   end
+
+  RSpec::Matchers.define(:be_uuid) do |matcher|
+    match do |val|
+      return false unless val.is_a? String
+      return UUID.validate(val)
+    end
+
+    failure_message do
+      matcher.failure_message
+    end
+  end
 end

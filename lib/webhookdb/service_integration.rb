@@ -128,6 +128,11 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return self.dependents + self.dependents.flat_map(&:recursive_dependents)
   end
 
+  def recursive_dependencies
+    return [] if self.depends_on.nil?
+    return self.depends_on.recursive_dependencies.append(self.depends_on)
+  end
+
   def destroy_self_and_all_dependents
     self.dependents.each(&:destroy_self_and_all_dependents)
 

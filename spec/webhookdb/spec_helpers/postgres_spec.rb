@@ -2,6 +2,7 @@
 
 require "ostruct"
 require "rspec/matchers/fail_matchers"
+require "uuid"
 
 require "webhookdb/spec_helpers/postgres"
 
@@ -79,6 +80,19 @@ RSpec.describe Webhookdb::SpecHelpers::Postgres, :db do
           Webhookdb::Postgres.check_transaction(db, "")
         end.to_not raise_error
       end
+    end
+  end
+
+  describe "be_uuid" do
+    it "matches valid UUIDs" do
+      uuid = UUID.new
+      gen = uuid.generate
+      expect(gen).to be_uuid
+    end
+
+    it "fails when input is not valid UUID" do
+      expect(2).to_not be_uuid
+      expect("foo").to_not be_uuid
     end
   end
 end

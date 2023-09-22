@@ -57,6 +57,7 @@ gem "sidekiq-cron"
 gem "slack-notifier"
 gem "stripe"
 gem "twilio-ruby"
+gem "uuid"
 gem "warden"
 
 # By default, Heroku ignores 'test' gem groups.

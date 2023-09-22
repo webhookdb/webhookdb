@@ -9,6 +9,7 @@ RSpec.shared_examples "a replicator" do |name|
   let(:expected_data) { body }
   let(:supports_row_diff) { true }
   let(:expected_row) { nil }
+  let(:fake_request_env) { {} }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -37,6 +38,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "can insert into its table" do
     svc.create_table
+    setup_dependencies(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
@@ -51,6 +53,7 @@ RSpec.shared_examples "a replicator" do |name|
   it "can insert into a custom table when the org has a replication schema set" do
     svc.service_integration.organization.migrate_replication_schema("xyz")
     svc.create_table
+    setup_dependencies(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.admin_dataset do |ds|
       expect(ds.all).to have_length(1)
@@ -112,7 +115,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "can serve a webhook response" do
     create_all_dependencies(sint)
-    request = fake_request
+    request = fake_request(env: fake_request_env)
     whresp = svc.webhook_response(request)
     expect(whresp).to be_a(Webhookdb::WebhookResponse)
     status, headers, body = whresp.to_rack
@@ -578,20 +581,24 @@ RSpec.shared_examples "a webhook validating replicator that uses credentials fro
   def make_request_invalid(_req) = raise NotImplementedError
 
   it "returns a validated webhook response the request is valid using credentials from the auth integration" do
-    request = fake_request
+    request = fake_request(env: fake_request_env)
     make_request_valid(request)
     expect(sint.replicator.webhook_response(request)).to have_attributes(status: be >= 200)
   end
 
   it "returns an invalid webhook response if the request is is not valid" do
-    request = fake_request
+    request = fake_request(env: fake_request_env)
     make_request_invalid(request)
     expect(sint.replicator.webhook_response(request)).to have_attributes(status: be_between(400, 499))
   end
 end
 
 RSpec.shared_examples "a replicator that processes webhooks synchronously" do |name|
-  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:dep_sint) { nil }
+  let(:org) { Webhookdb::Fixtures.organization.create }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.depending_on(dep_sint).create(service_name: name, organization: org)
+  end
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:expected_synchronous_response) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
