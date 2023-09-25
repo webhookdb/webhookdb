@@ -30,7 +30,7 @@ class Webhookdb::Replicator::EmailOctopusEventV1 < Webhookdb::Replicator::Base
   )
 
   def _remote_key_column
-    return Webhookdb::Replicator::Column.new(:unique_id, UUID, optional: true, defaulter: BUILD_EVENT_MD5)
+    return Webhookdb::Replicator::Column.new(:unique_id, UUID_COL, optional: true, defaulter: BUILD_EVENT_MD5)
   end
 
   def _denormalized_columns

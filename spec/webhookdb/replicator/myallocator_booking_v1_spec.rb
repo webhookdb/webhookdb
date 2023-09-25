@@ -258,7 +258,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorBookingV1, :db do
     describe "calculate_webhook_state_machine" do
       it "returns org database info" do
         sint.webhook_secret = "secret"
-        sm = sint.calculate_webhook_state_machine
+        sm = svc.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",

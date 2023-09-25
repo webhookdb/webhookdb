@@ -59,11 +59,6 @@ end
     return step.completed
   end
 
-  # @return [Webhookdb::Replicator::StateMachineStep]
-  def calculate_backfill_state_machine
-    self.calculate_webhook_state_machine
-  end
-
   def on_dependency_webhook_upsert(_replicator, _payload, *)
     return
   end

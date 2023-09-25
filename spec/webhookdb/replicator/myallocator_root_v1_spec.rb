@@ -52,7 +52,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
       end
 
       it "asks for webhook secret (api key)" do
-        sm = sint.calculate_webhook_state_machine
+        sm = svc.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: true,
           prompt: "Paste or type your shared secret here:",
@@ -65,7 +65,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
 
       it "confirms reciept of webhook secret, returns org database info" do
         sint.webhook_secret = "password"
-        sm = sint.calculate_webhook_state_machine
+        sm = svc.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",

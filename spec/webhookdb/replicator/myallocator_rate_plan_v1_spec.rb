@@ -171,9 +171,17 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
     let(:prop_sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "myallocator_property_v1", organization: org)
     end
-    let(:dep_sint) do
-      Webhookdb::Fixtures.service_integration.depending_on(property_sint).create(service_name: "myallocator_room_v1",
-                                                                                 organization: org,)
+    let(:room_sint) do
+      Webhookdb::Fixtures.service_integration.depending_on(property_sint).create(
+        service_name: "myallocator_room_v1",
+        organization: org,
+        )
+    end
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration.depending_on(room_sint).create(
+        service_name: "myallocator_rate_plan_v1",
+        organization: org,
+        )
     end
     let(:body) do
       {
@@ -233,11 +241,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
     end
 
     def insert_required_data_callback
-      return lambda do |dep_svc|
-        prop_svc = dep_svc.service_integration.depends_on.replicator
-        prop_svc.create_table
-        insert_property_row(prop_svc)
-        insert_room_rows(dep_svc)
+      return lambda do |room_svc, property_svc, _root_svc|
+        property_svc.create_table
+        insert_property_row(property_svc)
+        insert_room_rows(room_svc)
       end
     end
   end
@@ -446,7 +453,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
     describe "calculate_webhook_state_machine" do
       it "returns org database info" do
         sint.webhook_secret = "secret"
-        sm = sint.calculate_webhook_state_machine
+        sm = svc.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           needs_input: false,
           prompt: "",

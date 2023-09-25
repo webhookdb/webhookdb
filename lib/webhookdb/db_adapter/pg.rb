@@ -88,6 +88,6 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     TEXT => "text",
     TEXT_ARRAY => "text[]",
     TIMESTAMP => "timestamptz",
-    UUID => "uuid",
+    UUID_COL => "uuid",
   }.freeze
 end

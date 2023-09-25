@@ -32,11 +32,7 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
     return {success: true}.to_json
   end
 
-  def _fetch_backfill_page(*)
-    return [], nil
-  end
-
-  def calculate_create_state_machine
+  def calculate_create_webhook_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
       step.output = %(In order to authenticate information recieved from MyAllocator, we will need a shared secret.)
@@ -49,10 +45,6 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
 
   def clear_create_information
     self.service_integration.update(webhook_secret: "")
-  end
-
-  def calculate_backfill_state_machine
-    return self.calculate_create_state_machine
   end
 
   def clear_backfill_information

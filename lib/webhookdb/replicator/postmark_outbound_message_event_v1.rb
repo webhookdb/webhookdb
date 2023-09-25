@@ -35,7 +35,7 @@ class Webhookdb::Replicator::PostmarkOutboundMessageEventV1 < Webhookdb::Replica
   )
 
   def _remote_key_column
-    return Webhookdb::Replicator::Column.new(:event_id, UUID, optional: true, defaulter: BUILD_EVENT_MD5)
+    return Webhookdb::Replicator::Column.new(:event_id, UUID_COL, optional: true, defaulter: BUILD_EVENT_MD5)
   end
 
   def _denormalized_columns

@@ -13,7 +13,9 @@ module Webhookdb::DBAdapter::ColumnTypes
   OBJECT = :object
   TEXT = :text
   TIMESTAMP = :timestamp
-  UUID = :uuid
+  # `UUID` is the name of a gem we use to generate the uuid, so we have to name this `UUID_COL`
+  # to avoid a namespace error
+  UUID_COL = :uuid
 
   COLUMN_TYPES = Set.new(
     [
@@ -29,7 +31,7 @@ module Webhookdb::DBAdapter::ColumnTypes
       TEXT,
       TEXT_ARRAY,
       TIMESTAMP,
-      UUID,
+      UUID_COL,
     ],
   )
 end
