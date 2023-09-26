@@ -71,7 +71,7 @@ end
       raise Webhookdb::InvalidPrecondition,
             "should only depend on one #{dependency_name} integration"
     end
-    if dep_integrations.size.zero?
+    if dep_integrations.empty?
       raise Webhookdb::InvalidPrecondition,
             "should depend directly or indirectly on #{dependency_name} integration"
     end

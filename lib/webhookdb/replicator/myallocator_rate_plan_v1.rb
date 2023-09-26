@@ -15,7 +15,7 @@ class Webhookdb::Replicator::MyallocatorRatePlanV1 < Webhookdb::Replicator::Base
       resource_name_singular: "MyAllocator Rate Plan",
       dependency_descriptor: Webhookdb::Replicator::MyallocatorRoomV1.descriptor,
       supports_webhooks: true,
-      )
+    )
   end
 
   CONV_REMOTE_KEY = Webhookdb::Replicator::Column::IsomorphicProc.new(

@@ -15,7 +15,7 @@ class Webhookdb::Replicator::MyallocatorBookingV1 < Webhookdb::Replicator::Base
       resource_name_singular: "MyAllocator Booking",
       dependency_descriptor: Webhookdb::Replicator::MyallocatorRootV1.descriptor,
       supports_webhooks: true,
-      )
+    )
   end
 
   def _remote_key_column

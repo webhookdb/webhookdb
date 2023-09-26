@@ -122,16 +122,15 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
       synch_resp = svc.synchronous_processing_response_body(upserted:, request:)
       parsed_resp = JSON.parse(synch_resp)
       expect(parsed_resp.fetch("success")).to be true
-      expect(parsed_resp.fetch("SubProperties")).to match_array(
-        [
-          {"title" => "cool property", "ota_property_sub_id" => "sub1"},
-          {"title" => "sweet digs", "ota_property_sub_id" => "sub2"},
-        ],
+      expect(parsed_resp.fetch("SubProperties")).to contain_exactly(
+        {"title" => "cool property",
+         "ota_property_sub_id" => "sub1",}, {"title" => "sweet digs", "ota_property_sub_id" => "sub2"},
       )
     end
   end
 
   describe "upsert_webhook" do
+    # rubocop:disable RSpec/NoExpectationExample
     it "noops for 'GetSubProperties'" do
       whreq = Webhookdb::Replicator::WebhookRequest.new(
         body: get_sub_properties_request_body,
@@ -139,6 +138,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorPropertyV1, :db do
       )
       svc.upsert_webhook(whreq)
     end
+    # rubocop:enable RSpec/NoExpectationExample
   end
 
   describe "webhook validation" do

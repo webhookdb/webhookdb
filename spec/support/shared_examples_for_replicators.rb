@@ -20,6 +20,13 @@ RSpec.shared_examples "a replicator" do |name|
     sint.organization.remove_related_database
   end
 
+  def insert_required_data_callback
+    # For instances where basic functionality depends on information in dependency rows.
+    # The function should take a list of the dependencies.
+    # Something like: `return ->(dep_svc, root_svc) { insert_some_info }`
+    return ->(*) { return }
+  end
+
   it "knows the expression used to conditionally update" do
     expect(svc._update_where_expr).to be_a(Sequel::SQL::Expression)
   end
@@ -37,7 +44,6 @@ RSpec.shared_examples "a replicator" do |name|
   end
 
   it "can insert into its table" do
-    svc.create_table
     setup_dependencies(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.readonly_dataset do |ds|
@@ -52,7 +58,6 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "can insert into a custom table when the org has a replication schema set" do
     svc.service_integration.organization.migrate_replication_schema("xyz")
-    svc.create_table
     setup_dependencies(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     svc.admin_dataset do |ds|
@@ -73,7 +78,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "emits the rowupsert event if the row has changed", :async, :do_not_defer_events, sidekiq: :fake do
     Webhookdb::Fixtures.webhook_subscription(service_integration: sint).create
-    svc.create_table
+    setup_dependencies(sint, insert_required_data_callback)
     upsert_webhook(svc, body:)
     expect(Sidekiq).to have_queue.consisting_of(
       job_hash(
@@ -107,7 +112,7 @@ RSpec.shared_examples "a replicator" do |name|
 
   it "does not emit the rowupsert event if there are no subscriptions", :async, :do_not_defer_events do
     # No subscription is created so should not publish
-    svc.create_table
+    setup_dependencies(sint, insert_required_data_callback)
     expect do
       upsert_webhook(svc, body:)
     end.to_not publish("webhookdb.serviceintegration.rowupsert")
@@ -572,6 +577,7 @@ end
 
 RSpec.shared_examples "a webhook validating replicator that uses credentials from a dependency" do |name|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+  let(:fake_request_env) { {} }
 
   before(:each) do
     create_all_dependencies(sint)
@@ -601,6 +607,7 @@ RSpec.shared_examples "a replicator that processes webhooks synchronously" do |n
   end
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:expected_synchronous_response) { raise NotImplementedError }
+  let(:requires_info_from_dependency_row) { false }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   it "is set to process webhooks synchronously" do
@@ -610,6 +617,7 @@ RSpec.shared_examples "a replicator that processes webhooks synchronously" do |n
   it "returns expected response from `synchronous_processing_response`" do
     sint.organization.prepare_database_connections
     svc.create_table
+    dep_sint.replicator.create_table if requires_info_from_dependency_row
     inserting = upsert_webhook(svc)
     synch_resp = svc.synchronous_processing_response_body(upserted: inserting, request: webhook_request)
     expected = expected_synchronous_response

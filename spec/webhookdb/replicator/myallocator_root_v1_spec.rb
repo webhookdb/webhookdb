@@ -24,16 +24,12 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRootV1, :db do
     sint.organization.remove_related_database
   end
 
-  describe "backfill" do
-    it "noops" do
-      svc.backfill
-    end
-  end
-
   describe "upsert_webhook" do
+    # rubocop:disable RSpec/NoExpectationExample
     it "noops" do
       svc.upsert_webhook(fake_request)
     end
+    # rubocop:enable RSpec/NoExpectationExample
   end
 
   describe "synchronous_processing_response_body" do

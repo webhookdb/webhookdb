@@ -16,7 +16,7 @@ class Webhookdb::Replicator::MyallocatorPropertyV1 < Webhookdb::Replicator::Base
       resource_name_plural: "MyAllocator Properties",
       dependency_descriptor: Webhookdb::Replicator::MyallocatorRootV1.descriptor,
       supports_webhooks: true,
-      )
+    )
   end
 
   def _remote_key_column

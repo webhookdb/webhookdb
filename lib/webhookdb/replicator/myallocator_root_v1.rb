@@ -13,7 +13,7 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
       resource_name_singular: "MyAllocator Root",
       resource_name_plural: "MyAllocator Root",
       supports_webhooks: true,
-      )
+    )
   end
 
   def _remote_key_column
@@ -32,7 +32,7 @@ class Webhookdb::Replicator::MyallocatorRootV1 < Webhookdb::Replicator::Base
     return {success: true}.to_json
   end
 
-  def calculate_create_webhook_machine
+  def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.webhook_secret.present?
       step.output = %(In order to authenticate information recieved from MyAllocator, we will need a shared secret.)

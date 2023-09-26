@@ -129,9 +129,10 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
 
   it_behaves_like "a replicator", "myallocator_room_v1" do
     let(:org) { Webhookdb::Fixtures.organization.create }
-    let(:dep_sint) do
-      Webhookdb::Fixtures.service_integration.create(service_name: "myallocator_property_v1", organization: org)
-    end
+    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+    let(:root_sint) { fac.create(service_name: "myallocator_root_v1") }
+    let(:property_sint) { fac.depending_on(root_sint).create(service_name: "myallocator_property_v1") }
+    let(:sint) { fac.depending_on(property_sint).create(service_name: "myallocator_room_v1") }
     let(:body) { setup_property_request_body }
     let(:request_path) { "/SetupProperty" }
     let(:supports_row_diff) { false }
@@ -152,8 +153,8 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
     end
 
     def insert_required_data_callback
-      return lambda do |dep_svc|
-        insert_property_row(dep_svc)
+      return lambda do |property_svc, _root_svc|
+        insert_property_row(property_svc)
       end
     end
   end
@@ -173,6 +174,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRoomV1, :db do
     let(:expected_synchronous_response) do
       "{\"success\":false,\"errors\":[{\"id\":1154,\"msg\":\"No such property\"}]}"
     end
+    let(:requires_info_from_dependency_row) { true }
   end
 
   describe "upsert_webhook" do

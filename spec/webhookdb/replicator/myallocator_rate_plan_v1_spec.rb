@@ -175,13 +175,13 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
       Webhookdb::Fixtures.service_integration.depending_on(property_sint).create(
         service_name: "myallocator_room_v1",
         organization: org,
-        )
+      )
     end
     let(:sint) do
       Webhookdb::Fixtures.service_integration.depending_on(room_sint).create(
         service_name: "myallocator_rate_plan_v1",
         organization: org,
-        )
+      )
     end
     let(:body) do
       {
@@ -242,7 +242,6 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
 
     def insert_required_data_callback
       return lambda do |room_svc, property_svc, _root_svc|
-        property_svc.create_table
         insert_property_row(property_svc)
         insert_room_rows(room_svc)
       end
@@ -264,6 +263,7 @@ RSpec.describe Webhookdb::Replicator::MyallocatorRatePlanV1, :db do
     let(:expected_synchronous_response) do
       "{\"success\":false,\"errors\":[{\"id\":1154,\"msg\":\"No such property\"}]}"
     end
+    let(:requires_info_from_dependency_row) { true }
   end
 
   describe "upsert_webhook" do
