@@ -89,4 +89,26 @@ module Webhookdb::Http
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
     options[:log_format] = :appydays
   end
+
+  # Convenience wrapper around Down that handles gzip.
+  # @return Array<Down::ChunkedIO, IO> Tuple
+  def self.chunked_download(request_url, rewindable: false, **down_kw)
+    io = Down::NetHttp.open(request_url, rewindable:, **down_kw)
+    if io.data[:headers].fetch("Content-Encoding", "").include?("gzip")
+      # If the response is gzipped, Down doesn't handle it properly.
+      # Wrap it with gzip reader, and force the encoding to binary
+      # the server may send back a header like Content-Type: text/plain; UTF-8,
+      # so each line Down yields via #gets will have force_encoding('utf-8').
+      # https://github.com/janko/down/issues/87
+      io.instance_variable_set(:@encoding, "binary")
+      io = Zlib::GzipReader.wrap(io)
+    end
+    return io
+  end
+
+  def self.gzipped?(string)
+    return false if string.length < 3
+    b = string[..2].bytes
+    return b[0] == 0x1f && b[1] == 0x8b
+  end
 end
