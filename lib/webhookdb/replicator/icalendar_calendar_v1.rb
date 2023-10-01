@@ -165,7 +165,7 @@ The secret to use for signing is:
       calendar_external_id = row.fetch(:external_id)
       request_url = row.fetch(:ics_url)
       begin
-        io = Down::NetHttp.open(request_url, rewindable: false)
+        io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
       rescue Down::Error => e
         self._handle_down_error(e, request_url:, calendar_external_id:)
         return
