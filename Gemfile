@@ -4,7 +4,7 @@ source "https://rubygems.org"
 ruby "3.2.1"
 
 gem "activesupport"
-gem "appydays", ">= 0.6.0"
+gem "appydays", "~> 0.7"
 gem "aws-sdk-pricing"
 gem "aws-sdk-sts"
 gem "barnes"

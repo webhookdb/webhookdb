@@ -2,7 +2,7 @@
 
 require "webhookdb/api/install"
 
-RSpec.describe Webhookdb::API::Install, :db do
+RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Customer do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
