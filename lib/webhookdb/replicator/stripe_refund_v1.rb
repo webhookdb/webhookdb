@@ -58,4 +58,41 @@ class Webhookdb::Replicator::StripeRefundV1 < Webhookdb::Replicator::Base
   end
 
   def restricted_key_resource_name = "Charges"
+
+  def _upsert_webhook(request, upsert: true)
+    object_type = request.body.fetch("object")
+    return super if object_type == "refund"
+
+    # Because there is no actual "refunds" webhook, we have to pull a list of refunds
+    # from the "charges" webhook. There is a somewhat infuriating nested pagination
+    # mechanism here, where the refunds list in the charge takes this form:
+    #
+    #    "refunds": {
+    #       "object": "list",
+    #       "data": [],
+    #       "has_more": false,
+    #       "url": "/v1/charges/ch_1JG8U9FFYxHXGyKxPaNIdc0b/refunds"
+    #    }
+    #
+    # and the `has_more` and `url` fields contain the information that is rquired to kick off
+    # a paginated backfill. `has_more` is almost always going to be false, because it should be
+    # rare that a charge has more than ten refunds, so we're just going to ignore this concern
+    # for now and issue a DeveloperAlert if pagination is required.
+    refunds_obj = request.body.dig("data", "object", "refunds")
+
+    if refunds_obj.fetch("has_more") == true
+      Webhookdb::DeveloperAlert.new(
+        subsystem: "Stripe Refunds Webhook Error",
+        emoji: ":hook:",
+        fallback: "Full backfill required for integration #{self.service_integration.opaque_id}",
+        fields: [],
+      ).emit
+    end
+
+    refunds_obj.fetch("data").each do |b|
+      new_request = request.dup
+      new_request.body = b
+      super(new_request, upsert:)
+    end
+  end
 end

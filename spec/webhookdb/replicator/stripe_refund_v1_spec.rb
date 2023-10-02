@@ -3,77 +3,386 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_refund_v1") }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+
   it_behaves_like "a replicator", "stripe_refund_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
-          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
           "object": "event",
-          "api_version": "2018-05-21",
-          "created": 1530291411,
+          "api_version": "2022-08-01",
+          "created": 1696030579,
           "data": {
             "object": {
-              "id": "re_3Ke0Br2eZvKYlo2C1MfCYAM9",
-              "object": "refund",
-              "amount": 100,
-              "balance_transaction": null,
-              "charge": "ch_3Ke0Br2eZvKYlo2C1xhyTWTu",
-              "created": 1647449957,
+              "id": "ch_3NtYaBLelvCURGkU1YaN66W1",
+              "object": "charge",
+              "amount": 500,
+              "amount_captured": 500,
+              "amount_refunded": 500,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_3NtYaBLelvCURGkU1BCGVOvl",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": "Emma Chatterton Bentley",
+                "phone": null
+              },
+              "calculated_statement_descriptor": "APP.MYSUMA.ORG",
+              "captured": true,
+              "created": 1695486087,
               "currency": "usd",
-              "metadata": {},
+              "customer": "cus_OOZK3PoLrv6OKo",
+              "description": "suma charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {},
+              "invoice": null,
+              "livemode": true,
+              "metadata": {
+                "suma_card_id": "187",
+                "suma_member_name": "Anthony ",
+                "suma_api_version": "ecb5165c15eb5f3347d6f6e8671c23328d0b1b37",
+                "suma_funding_transaction_id": "258",
+                "suma_member_id": "305"
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
               "payment_intent": null,
-              "reason": null,
+              "payment_method": "card_1NlxYSLelvCURGkUz1jK6fI4",
+              "payment_method_details": {
+                "card": {
+                  "amount_authorized": 500,
+                  "brand": "visa",
+                  "capture_before": 1696090887,
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2025,
+                  "extended_authorization": {
+                    "status": "disabled"
+                  },
+                  "fingerprint": "fPXf6c34xZ5hoTeP",
+                  "funding": "credit",
+                  "incremental_authorization": {
+                    "status": "unavailable"
+                  },
+                  "installments": null,
+                  "last4": "0521",
+                  "mandate": null,
+                  "multicapture": {
+                    "status": "unavailable"
+                  },
+                  "network": "visa",
+                  "network_token": {
+                    "used": true
+                  },
+                  "overcapture": {
+                    "maximum_amount_capturable": 500,
+                    "status": "unavailable"
+                  },
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
               "receipt_number": null,
-              "source_transfer_reversal": null,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo877dqAYyBgfGZo5qWjosFjHdWCThoUJmczLAouNpm-Uqsu8V6da8P703JmECbfx4wA63HA2shc90QlI",
+              "refunded": true,
+              "refunds": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "re_3NtYaBLelvCURGkU1ug4Q86u",
+                    "object": "refund",
+                    "amount": 500,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696030578,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges/ch_3NtYaBLelvCURGkU1YaN66W1/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1NlxYSLelvCURGkUz1jK6fI4",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": "cus_OOZK3PoLrv6OKo",
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2025,
+                "fingerprint": "fPXf6c34xZ5hoTeP",
+                "funding": "credit",
+                "last4": "0521",
+                "metadata": {},
+                "name": "Emma Chatterton Bentley",
+                "tokenization_method": null,
+                "wallet": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
               "status": "succeeded",
-              "transfer_reversal": null
+              "transfer_data": null,
+              "transfer_group": null
+            },
+            "previous_attributes": {
+              "amount_refunded": 0,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo8r7dqAYyBp7MRAi8VTosFlGpa0xJV1ZtwPh-2F521O-4KLGZPSirF6wWaZOZNgzFAC9EP20P7taPl5Y",
+              "refunded": false,
+              "refunds": {
+                "data": [],
+                "total_count": 0
+              }
             }
           },
-          "livemode": false,
-          "pending_webhooks": 0,
+          "livemode": true,
+          "pending_webhooks": 2,
           "request": {
-            "id": null,
-            "idempotency_key": null
+            "id": "req_tcrfWYcurAuWzq",
+            "idempotency_key": "dfe47d4d-ff64-44cb-850c-6b0c8c9cffc9"
           },
-          "type": "not sure"
+          "type": "charge.refunded"
         }
       J
     end
-    let(:expected_data) { body["data"]["object"] }
+    let(:expected_data) { body["data"]["object"]["refunds"]["data"][0] }
   end
   it_behaves_like "a replicator that prevents overwriting new data with old", "stripe_refund_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
-          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
           "object": "event",
-          "api_version": "2018-05-21",
-          "created": 1530291410,
+          "api_version": "2022-08-01",
+          "created": 1696030579,
           "data": {
             "object": {
-              "id": "re_3Ke0Br2eZvKYlo2C1MfCYAM9",
-              "object": "refund",
-              "amount": 100,
-              "balance_transaction": null,
-              "charge": "ch_3Ke0Br2eZvKYlo2C1xhyTWTu",
-              "created": 1647449957,
+              "id": "ch_3NtYaBLelvCURGkU1YaN66W1",
+              "object": "charge",
+              "amount": 500,
+              "amount_captured": 500,
+              "amount_refunded": 500,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_3NtYaBLelvCURGkU1BCGVOvl",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": "Emma Chatterton Bentley",
+                "phone": null
+              },
+              "calculated_statement_descriptor": "APP.MYSUMA.ORG",
+              "captured": true,
+              "created": 1695486087,
               "currency": "usd",
-              "metadata": {},
+              "customer": "cus_OOZK3PoLrv6OKo",
+              "description": "suma charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {},
+              "invoice": null,
+              "livemode": true,
+              "metadata": {
+                "suma_card_id": "187",
+                "suma_member_name": "Anthony ",
+                "suma_api_version": "ecb5165c15eb5f3347d6f6e8671c23328d0b1b37",
+                "suma_funding_transaction_id": "258",
+                "suma_member_id": "305"
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
               "payment_intent": null,
-              "reason": null,
+              "payment_method": "card_1NlxYSLelvCURGkUz1jK6fI4",
+              "payment_method_details": {
+                "card": {
+                  "amount_authorized": 500,
+                  "brand": "visa",
+                  "capture_before": 1696090887,
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2025,
+                  "extended_authorization": {
+                    "status": "disabled"
+                  },
+                  "fingerprint": "fPXf6c34xZ5hoTeP",
+                  "funding": "credit",
+                  "incremental_authorization": {
+                    "status": "unavailable"
+                  },
+                  "installments": null,
+                  "last4": "0521",
+                  "mandate": null,
+                  "multicapture": {
+                    "status": "unavailable"
+                  },
+                  "network": "visa",
+                  "network_token": {
+                    "used": true
+                  },
+                  "overcapture": {
+                    "maximum_amount_capturable": 500,
+                    "status": "unavailable"
+                  },
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
               "receipt_number": null,
-              "source_transfer_reversal": null,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo877dqAYyBgfGZo5qWjosFjHdWCThoUJmczLAouNpm-Uqsu8V6da8P703JmECbfx4wA63HA2shc90QlI",
+              "refunded": true,
+              "refunds": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "re_3NtYaBLelvCURGkU1ug4Q86u",
+                    "object": "refund",
+                    "amount": 500,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696030578,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges/ch_3NtYaBLelvCURGkU1YaN66W1/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1NlxYSLelvCURGkUz1jK6fI4",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": "cus_OOZK3PoLrv6OKo",
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2025,
+                "fingerprint": "fPXf6c34xZ5hoTeP",
+                "funding": "credit",
+                "last4": "0521",
+                "metadata": {},
+                "name": "Emma Chatterton Bentley",
+                "tokenization_method": null,
+                "wallet": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
               "status": "succeeded",
-              "transfer_reversal": null
+              "transfer_data": null,
+              "transfer_group": null
+            },
+            "previous_attributes": {
+              "amount_refunded": 0,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo8r7dqAYyBp7MRAi8VTosFlGpa0xJV1ZtwPh-2F521O-4KLGZPSirF6wWaZOZNgzFAC9EP20P7taPl5Y",
+              "refunded": false,
+              "refunds": {
+                "data": [],
+                "total_count": 0
+              }
             }
           },
-          "livemode": false,
-          "pending_webhooks": 0,
+          "livemode": true,
+          "pending_webhooks": 2,
           "request": {
-            "id": null,
-            "idempotency_key": null
+            "id": "req_tcrfWYcurAuWzq",
+            "idempotency_key": "dfe47d4d-ff64-44cb-850c-6b0c8c9cffc9"
           },
-          "type": "not sure"
+          "type": "charge.refunded"
         }
       J
     end
@@ -81,76 +390,382 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
     let(:new_body) do
       JSON.parse(<<~J)
         {
-          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
           "object": "event",
-          "api_version": "2018-05-21",
-          "created": 1530291412,
+          "api_version": "2022-08-01",
+          "created": 1696030579,
           "data": {
             "object": {
-              "id": "re_3Ke0Br2eZvKYlo2C1MfCYAM9",
-              "object": "refund",
-              "amount": 100,
-              "balance_transaction": null,
-              "charge": "ch_3Ke0Br2eZvKYlo2C1xhyTWTu",
-              "created": 1647449957,
+              "id": "ch_3NtYaBLelvCURGkU1YaN66W1",
+              "object": "charge",
+              "amount": 500,
+              "amount_captured": 500,
+              "amount_refunded": 500,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_3NtYaBLelvCURGkU1BCGVOvl",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": "Emma Chatterton Bentley",
+                "phone": null
+              },
+              "calculated_statement_descriptor": "APP.MYSUMA.ORG",
+              "captured": true,
+              "created": 1695486087,
               "currency": "usd",
-              "metadata": {},
+              "customer": "cus_OOZK3PoLrv6OKo",
+              "description": "suma charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {},
+              "invoice": null,
+              "livemode": true,
+              "metadata": {
+                "suma_card_id": "187",
+                "suma_member_name": "Anthony ",
+                "suma_api_version": "ecb5165c15eb5f3347d6f6e8671c23328d0b1b37",
+                "suma_funding_transaction_id": "258",
+                "suma_member_id": "305"
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
               "payment_intent": null,
-              "reason": null,
+              "payment_method": "card_1NlxYSLelvCURGkUz1jK6fI4",
+              "payment_method_details": {
+                "card": {
+                  "amount_authorized": 500,
+                  "brand": "visa",
+                  "capture_before": 1696090887,
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2025,
+                  "extended_authorization": {
+                    "status": "disabled"
+                  },
+                  "fingerprint": "fPXf6c34xZ5hoTeP",
+                  "funding": "credit",
+                  "incremental_authorization": {
+                    "status": "unavailable"
+                  },
+                  "installments": null,
+                  "last4": "0521",
+                  "mandate": null,
+                  "multicapture": {
+                    "status": "unavailable"
+                  },
+                  "network": "visa",
+                  "network_token": {
+                    "used": true
+                  },
+                  "overcapture": {
+                    "maximum_amount_capturable": 500,
+                    "status": "unavailable"
+                  },
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
               "receipt_number": null,
-              "source_transfer_reversal": null,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo877dqAYyBgfGZo5qWjosFjHdWCThoUJmczLAouNpm-Uqsu8V6da8P703JmECbfx4wA63HA2shc90QlI",
+              "refunded": true,
+              "refunds": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "re_3NtYaBLelvCURGkU1ug4Q86u",
+                    "object": "refund",
+                    "amount": 500,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696040000,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges/ch_3NtYaBLelvCURGkU1YaN66W1/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1NlxYSLelvCURGkUz1jK6fI4",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": "cus_OOZK3PoLrv6OKo",
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2025,
+                "fingerprint": "fPXf6c34xZ5hoTeP",
+                "funding": "credit",
+                "last4": "0521",
+                "metadata": {},
+                "name": "Emma Chatterton Bentley",
+                "tokenization_method": null,
+                "wallet": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
               "status": "succeeded",
-              "transfer_reversal": null
+              "transfer_data": null,
+              "transfer_group": null
+            },
+            "previous_attributes": {
+              "amount_refunded": 0,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo8r7dqAYyBp7MRAi8VTosFlGpa0xJV1ZtwPh-2F521O-4KLGZPSirF6wWaZOZNgzFAC9EP20P7taPl5Y",
+              "refunded": false,
+              "refunds": {
+                "data": [],
+                "total_count": 0
+              }
             }
           },
-          "livemode": false,
-          "pending_webhooks": 0,
+          "livemode": true,
+          "pending_webhooks": 2,
           "request": {
-            "id": null,
-            "idempotency_key": null
+            "id": "req_tcrfWYcurAuWzq",
+            "idempotency_key": "dfe47d4d-ff64-44cb-850c-6b0c8c9cffc9"
           },
-          "type": "not sure"
+          "type": "charge.refunded"
         }
       J
     end
-    let(:expected_old_data) { old_body["data"]["object"] }
-    let(:expected_new_data) { new_body["data"]["object"] }
+    let(:expected_old_data) { old_body["data"]["object"]["refunds"]["data"][0] }
+    let(:expected_new_data) { new_body["data"]["object"]["refunds"]["data"][0] }
   end
 
   it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_refund_v1" do
-    let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
+    let(:resource_json) { resource_in_envelope_json["data"]["object"]["refunds"]["data"][0] }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
         {
-          "id": "evt_1CiPtv2eZvKYlo2CcUZsDcO6",
+          "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
           "object": "event",
-          "api_version": "2018-05-21",
-          "created": 1530291411,
+          "api_version": "2022-08-01",
+          "created": 1696030579,
           "data": {
             "object": {
-              "id": "re_3Ke0Br2eZvKYlo2C1MfCYAM9",
-              "object": "refund",
-              "amount": 100,
-              "balance_transaction": null,
-              "charge": "ch_3Ke0Br2eZvKYlo2C1xhyTWTu",
-              "created": 1647449957,
+              "id": "ch_3NtYaBLelvCURGkU1YaN66W1",
+              "object": "charge",
+              "amount": 500,
+              "amount_captured": 500,
+              "amount_refunded": 500,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_3NtYaBLelvCURGkU1BCGVOvl",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": "Emma Chatterton Bentley",
+                "phone": null
+              },
+              "calculated_statement_descriptor": "APP.MYSUMA.ORG",
+              "captured": true,
+              "created": 1695486087,
               "currency": "usd",
-              "metadata": {},
+              "customer": "cus_OOZK3PoLrv6OKo",
+              "description": "suma charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {},
+              "invoice": null,
+              "livemode": true,
+              "metadata": {
+                "suma_card_id": "187",
+                "suma_member_name": "Anthony ",
+                "suma_api_version": "ecb5165c15eb5f3347d6f6e8671c23328d0b1b37",
+                "suma_funding_transaction_id": "258",
+                "suma_member_id": "305"
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
               "payment_intent": null,
-              "reason": null,
+              "payment_method": "card_1NlxYSLelvCURGkUz1jK6fI4",
+              "payment_method_details": {
+                "card": {
+                  "amount_authorized": 500,
+                  "brand": "visa",
+                  "capture_before": 1696090887,
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2025,
+                  "extended_authorization": {
+                    "status": "disabled"
+                  },
+                  "fingerprint": "fPXf6c34xZ5hoTeP",
+                  "funding": "credit",
+                  "incremental_authorization": {
+                    "status": "unavailable"
+                  },
+                  "installments": null,
+                  "last4": "0521",
+                  "mandate": null,
+                  "multicapture": {
+                    "status": "unavailable"
+                  },
+                  "network": "visa",
+                  "network_token": {
+                    "used": true
+                  },
+                  "overcapture": {
+                    "maximum_amount_capturable": 500,
+                    "status": "unavailable"
+                  },
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
               "receipt_number": null,
-              "source_transfer_reversal": null,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo877dqAYyBgfGZo5qWjosFjHdWCThoUJmczLAouNpm-Uqsu8V6da8P703JmECbfx4wA63HA2shc90QlI",
+              "refunded": true,
+              "refunds": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "re_3NtYaBLelvCURGkU1ug4Q86u",
+                    "object": "refund",
+                    "amount": 500,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696030578,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  }
+                ],
+                "has_more": false,
+                "total_count": 1,
+                "url": "/v1/charges/ch_3NtYaBLelvCURGkU1YaN66W1/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1NlxYSLelvCURGkUz1jK6fI4",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": "cus_OOZK3PoLrv6OKo",
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2025,
+                "fingerprint": "fPXf6c34xZ5hoTeP",
+                "funding": "credit",
+                "last4": "0521",
+                "metadata": {},
+                "name": "Emma Chatterton Bentley",
+                "tokenization_method": null,
+                "wallet": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
               "status": "succeeded",
-              "transfer_reversal": null
+              "transfer_data": null,
+              "transfer_group": null
+            },
+            "previous_attributes": {
+              "amount_refunded": 0,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo8r7dqAYyBp7MRAi8VTosFlGpa0xJV1ZtwPh-2F521O-4KLGZPSirF6wWaZOZNgzFAC9EP20P7taPl5Y",
+              "refunded": false,
+              "refunds": {
+                "data": [],
+                "total_count": 0
+              }
             }
           },
-          "livemode": false,
-          "pending_webhooks": 0,
+          "livemode": true,
+          "pending_webhooks": 2,
           "request": {
-            "id": null,
-            "idempotency_key": null
+            "id": "req_tcrfWYcurAuWzq",
+            "idempotency_key": "dfe47d4d-ff64-44cb-850c-6b0c8c9cffc9"
           },
-          "type": "source.chargeable"
+          "type": "charge.refunded"
         }
       J
     end
@@ -347,9 +962,6 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
     end
   end
   describe "webhook validation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_refund_v1") }
-    let(:svc) { Webhookdb::Replicator.create(sint) }
-
     it "returns a 401 as per spec if there is no Authorization header" do
       req = fake_request
       data = req.body
@@ -382,9 +994,6 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
   end
 
   describe "state machine calculation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_refund_v1") }
-    let(:svc) { Webhookdb::Replicator.create(sint) }
-
     describe "calculate_webhook_state_machine" do
       it "asks for webhook secret" do
         sm = sint.replicator.calculate_webhook_state_machine
@@ -455,6 +1064,249 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
           output: match("Great! We are going to start backfilling your Stripe Refunds."),
         )
       end
+    end
+  end
+
+  describe "upsert_webhook" do
+    Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+    let(:multiple_refunds_webhook_body) do
+      JSON.parse(<<~J)
+        {
+          "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
+          "object": "event",
+          "api_version": "2022-08-01",
+          "created": 1696030579,
+          "data": {
+            "object": {
+              "id": "ch_3NtYaBLelvCURGkU1YaN66W1",
+              "object": "charge",
+              "amount": 500,
+              "amount_captured": 500,
+              "amount_refunded": 500,
+              "application": null,
+              "application_fee": null,
+              "application_fee_amount": null,
+              "balance_transaction": "txn_3NtYaBLelvCURGkU1BCGVOvl",
+              "billing_details": {
+                "address": {
+                  "city": null,
+                  "country": null,
+                  "line1": null,
+                  "line2": null,
+                  "postal_code": null,
+                  "state": null
+                },
+                "email": null,
+                "name": "Emma Chatterton Bentley",
+                "phone": null
+              },
+              "calculated_statement_descriptor": "APP.MYSUMA.ORG",
+              "captured": true,
+              "created": 1695486087,
+              "currency": "usd",
+              "customer": "cus_OOZK3PoLrv6OKo",
+              "description": "suma charge",
+              "destination": null,
+              "dispute": null,
+              "disputed": false,
+              "failure_balance_transaction": null,
+              "failure_code": null,
+              "failure_message": null,
+              "fraud_details": {},
+              "invoice": null,
+              "livemode": true,
+              "metadata": {
+                "suma_card_id": "187",
+                "suma_member_name": "Anthony ",
+                "suma_api_version": "ecb5165c15eb5f3347d6f6e8671c23328d0b1b37",
+                "suma_funding_transaction_id": "258",
+                "suma_member_id": "305"
+              },
+              "on_behalf_of": null,
+              "order": null,
+              "outcome": {
+                "network_status": "approved_by_network",
+                "reason": null,
+                "risk_level": "normal",
+                "seller_message": "Payment complete.",
+                "type": "authorized"
+              },
+              "paid": true,
+              "payment_intent": null,
+              "payment_method": "card_1NlxYSLelvCURGkUz1jK6fI4",
+              "payment_method_details": {
+                "card": {
+                  "amount_authorized": 500,
+                  "brand": "visa",
+                  "capture_before": 1696090887,
+                  "checks": {
+                    "address_line1_check": null,
+                    "address_postal_code_check": null,
+                    "cvc_check": null
+                  },
+                  "country": "US",
+                  "exp_month": 4,
+                  "exp_year": 2025,
+                  "extended_authorization": {
+                    "status": "disabled"
+                  },
+                  "fingerprint": "fPXf6c34xZ5hoTeP",
+                  "funding": "credit",
+                  "incremental_authorization": {
+                    "status": "unavailable"
+                  },
+                  "installments": null,
+                  "last4": "0521",
+                  "mandate": null,
+                  "multicapture": {
+                    "status": "unavailable"
+                  },
+                  "network": "visa",
+                  "network_token": {
+                    "used": true
+                  },
+                  "overcapture": {
+                    "maximum_amount_capturable": 500,
+                    "status": "unavailable"
+                  },
+                  "three_d_secure": null,
+                  "wallet": null
+                },
+                "type": "card"
+              },
+              "receipt_email": null,
+              "receipt_number": null,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo877dqAYyBgfGZo5qWjosFjHdWCThoUJmczLAouNpm-Uqsu8V6da8P703JmECbfx4wA63HA2shc90QlI",
+              "refunded": true,
+              "refunds": {
+                "object": "list",
+                "data": [
+                  {
+                    "id": "re_abc123",
+                    "object": "refund",
+                    "amount": 200,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696030578,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  },#{' '}
+                  {
+                    "id": "re_def456",
+                    "object": "refund",
+                    "amount": 300,
+                    "balance_transaction": "txn_3NtYaBLelvCURGkU1KLzBUoT",
+                    "charge": "ch_3NtYaBLelvCURGkU1YaN66W1",
+                    "created": 1696030579,
+                    "currency": "usd",
+                    "metadata": {},
+                    "payment_intent": null,
+                    "reason": null,
+                    "receipt_number": null,
+                    "source_transfer_reversal": null,
+                    "status": "succeeded",
+                    "transfer_reversal": null
+                  }
+                ],
+                "has_more": true,
+                "total_count": 1,
+                "url": "/v1/charges/ch_3NtYaBLelvCURGkU1YaN66W1/refunds"
+              },
+              "review": null,
+              "shipping": null,
+              "source": {
+                "id": "card_1NlxYSLelvCURGkUz1jK6fI4",
+                "object": "card",
+                "address_city": null,
+                "address_country": null,
+                "address_line1": null,
+                "address_line1_check": null,
+                "address_line2": null,
+                "address_state": null,
+                "address_zip": null,
+                "address_zip_check": null,
+                "brand": "Visa",
+                "country": "US",
+                "customer": "cus_OOZK3PoLrv6OKo",
+                "cvc_check": null,
+                "dynamic_last4": null,
+                "exp_month": 4,
+                "exp_year": 2025,
+                "fingerprint": "fPXf6c34xZ5hoTeP",
+                "funding": "credit",
+                "last4": "0521",
+                "metadata": {},
+                "name": "Emma Chatterton Bentley",
+                "tokenization_method": null,
+                "wallet": null
+              },
+              "source_transfer": null,
+              "statement_descriptor": null,
+              "statement_descriptor_suffix": null,
+              "status": "succeeded",
+              "transfer_data": null,
+              "transfer_group": null
+            },
+            "previous_attributes": {
+              "amount_refunded": 0,
+              "receipt_url": "https://pay.stripe.com/receipts/payment/CAcQARoXChVhY2N0XzFMeGRoVkxlbHZDVVJHa1Uo8r7dqAYyBp7MRAi8VTosFlGpa0xJV1ZtwPh-2F521O-4KLGZPSirF6wWaZOZNgzFAC9EP20P7taPl5Y",
+              "refunded": false,
+              "refunds": {
+                "data": [],
+                "total_count": 0
+              }
+            }
+          },
+          "livemode": true,
+          "pending_webhooks": 2,
+          "request": {
+            "id": "req_tcrfWYcurAuWzq",
+            "idempotency_key": "dfe47d4d-ff64-44cb-850c-6b0c8c9cffc9"
+          },
+          "type": "charge.refunded"
+        }
+      J
+    end
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "upserts multiple webhook bodies" do
+      upsert_webhook(svc, body: multiple_refunds_webhook_body)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to contain_exactly(
+          include(stripe_id: "re_abc123", amount: 200),
+          include(stripe_id: "re_def456", amount: 300),
+        )
+      end
+    end
+
+    it "emits DeveloperAlert", :async do
+      expect do
+        upsert_webhook(svc, body: multiple_refunds_webhook_body)
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "Stripe Refunds Webhook Error",
+            "emoji" => ":hook:",
+            "fallback" => "Full backfill required for integration #{sint.opaque_id}",
+            "fields" => [],
+          },
+        ),
+      )
     end
   end
 end
