@@ -593,13 +593,8 @@ for information on how to refresh data.)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
     data_col_val = self._resource_to_data(resource, event, request)
-    # The null string sequence ('\u0000') is invalid in a PG JSON column.
-    # We have to strip them out. We only want to do this with these 'raw' columns;
-    # if we end up storing null chars in other columns, the column converters/extractors
-    # can remove the null chars there (or maybe in the future we clean every string value,
-    # but erring on the side of fewer assumptions right now).
-    inserting[:data] = data_col_val.to_json.gsub('\\u0000', "")
-    inserting[:enrichment] = enrichment.to_json.gsub('\\u0000', "") if self._store_enrichment_body?
+    inserting[:data] = self._to_json(data_col_val)
+    inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
     inserting.merge!(prepared)
     return inserting unless upsert
     remote_key_col = self._remote_key_column
@@ -616,6 +611,26 @@ for information on how to refresh data.)
     self._notify_dependents(inserting, row_changed)
     self._publish_rowupsert(inserting) if row_changed
     return inserting
+  end
+
+  # The NULL ASCII character (\u0000), when present in a string ("\u0000"),
+  # and then encoded into JSON ("\\u0000") is invalid in PG JSONB- its strings cannot contain NULLs
+  # (note that JSONB does not store the encoded string verbatim, it parses it into PG types, and a PG string
+  # cannot contain NULL since C strings are NULL-terminated).
+  #
+  # So we remove the "\\u0000" character from encoded JSON- for example, in the hash {x: "\u0000"},
+  # if we #to_json, we end up with '{"x":"\\u0000"}'. The removal of encoded NULL gives us '{"x":""}'.
+  #
+  # HOWEVER, if the encoded null is itself escaped, we MUST NOT remove it.
+  # For example, in the hash {x: "\u0000".to_json}.to_json (ie, a JSON string which contains another JSON string),
+  # we end up with '{"x":"\\\\u0000"}`, That is, a string containing the *escaped* null character.
+  # This is valid for PG, because it's not a NULL- it's an escaped "\", followed by "u0000".
+  # If we were to remove the string "\\u0000", we'd end up with '{"x":"\\"}'. This creates an invalid document.
+  #
+  # So we remove only "\\u0000" by not replacing "\\\\u0000"- replace all occurences of
+  # "<any one character except backslash>\\u0000" with "<character before backslash>".
+  def _to_json(v)
+    return v.to_json.gsub(/([^\\])(\\u0000)/, '\1')
   end
 
   # @param changed [Boolean]
