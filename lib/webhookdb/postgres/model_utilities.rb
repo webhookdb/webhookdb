@@ -41,6 +41,7 @@ module Webhookdb::Postgres::ModelUtilities
         uri,
         logger: self.logger,
         extensions: [
+          :is_distinct_from,
           :pagination,
           :pg_json,
           :pg_inet,

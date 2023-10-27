@@ -114,6 +114,10 @@ class Webhookdb::Replicator
     def supports_webhooks_and_backfill? = self.supports_webhooks? && self.supports_backfill?
   end
 
+  class IndexSpec < Webhookdb::TypedStruct
+    attr_reader :columns, :where
+  end
+
   class << self
     # @return [Hash{String => Webhookdb::Replicator::Descriptor}]
     def registry

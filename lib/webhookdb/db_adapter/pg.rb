@@ -21,7 +21,9 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     concurrent = concurrently ? " CONCURRENTLY" : ""
     idxname = self.escape_identifier(index.name)
     tblname = self.qualify_table(index.table)
-    return "CREATE#{uniq} INDEX#{concurrent} IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})"
+    where = ""
+    where = " " + Webhookdb::Customer.where(index.where).sql.delete_prefix('SELECT * FROM "customers" ') if index.where
+    return "CREATE#{uniq} INDEX#{concurrent} IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})#{where}"
   end
 
   def column_create_sql(column)

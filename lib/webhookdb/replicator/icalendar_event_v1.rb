@@ -163,6 +163,16 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     return data
   end
 
+  # @return [Array<Webhookdb::Replicator::IndexSpec>]
+  def _extra_index_specs
+    return [
+      Webhookdb::Replicator::IndexSpec.new(
+        columns: [:calendar_external_id, :start_at, :start_date, :end_at, :end_date],
+        where: Sequel[:status].is_distinct_from("CANCELLED"),
+      ),
+    ]
+  end
+
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:last_modified_at] < Sequel[:excluded][:last_modified_at]
   end

@@ -285,8 +285,8 @@ RSpec.describe "fake implementations", :db do
 
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
         fqtable_str = '"' + fake.schema_and_table_symbols.map(&:to_s).join('"."') + '"'
-        fake.define_singleton_method(:_compound_index_targets) do
-          [[:my_id, :at]]
+        fake.define_singleton_method(:_extra_index_specs) do
+          [Webhookdb::Replicator::IndexSpec.new(columns: [:my_id, :at])]
         end
 
         expect(fake.ensure_all_columns_modification.to_s.strip).to eq(<<~SQL.strip)
@@ -317,8 +317,8 @@ RSpec.describe "fake implementations", :db do
             ),
           ]
         end
-        fake.define_singleton_method(:_compound_index_targets) do
-          [[:c2, :at]]
+        fake.define_singleton_method(:_extra_index_specs) do
+          [Webhookdb::Replicator::IndexSpec.new(columns: [:c2, :at])]
         end
 
         expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
@@ -382,6 +382,31 @@ RSpec.describe "fake implementations", :db do
           indices = ds.db[:pg_indexes].where(tablename: "xtbl").select_map(:indexname)
           expect(indices).to contain_exactly("idx012abc_c1_idx", "xtbl_my_id_key", "xtbl_pkey")
         end
+      end
+
+      it "can use more index options,such as :where" do
+        fake.service_integration.opaque_id = "svi_xyz"
+        fake.define_singleton_method(:_extra_index_specs) do
+          [
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at] > nil),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at].is_distinct_from(nil)),
+          ]
+        end
+        table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
+
+        expect(fake.ensure_all_columns_modification.to_s.strip).to eq(<<~SQL.strip)
+          CREATE TABLE #{table_str} (
+            pk bigserial PRIMARY KEY,
+            my_id text UNIQUE NOT NULL,
+            at timestamptz,
+            data jsonb NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
+          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" > NULL);
+          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" IS DISTINCT FROM NULL);
+        SQL
+
+        fake.create_table
       end
 
       it "can backfill values for columns that exist in code but not in the DB" do

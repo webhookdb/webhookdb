@@ -83,6 +83,19 @@ RSpec.describe Webhookdb::DBAdapter do
         )
         expect(sql).to eq("CREATE UNIQUE INDEX IF NOT EXISTS \"from\" ON if (\"not\", \"in\")")
       end
+
+      it "can use partial indices" do
+        sql = ad.create_index_sql(
+          ind.new(
+            name: :foo,
+            table: tbl.new(name: :tbl),
+            targets: [col.new(name: :c1, type: coltype::TEXT)],
+            where: Sequel[:c1] !~ nil,
+          ),
+          concurrently: false,
+        )
+        expect(sql).to eq("CREATE INDEX IF NOT EXISTS foo ON tbl (c1) WHERE (\"c1\" IS NOT NULL)")
+      end
     end
 
     describe "column_create_sql" do

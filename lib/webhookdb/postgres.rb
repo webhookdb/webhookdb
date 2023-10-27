@@ -27,6 +27,7 @@ module Webhookdb::Postgres
   Sequel.extension(
     :core_extensions,
     :core_refinements,
+    :is_distinct_from,
     :pg_array,
     :pg_array_ops,
     :pg_inet,
