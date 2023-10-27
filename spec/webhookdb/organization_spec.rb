@@ -214,7 +214,9 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
         expect(indexes).to include(end_with("_at_idx"))
       end
       expect(o.service_integrations.first).to receive(:replicator).and_return(fake)
-      fake.define_singleton_method(:_compound_index_targets) { [[:at, :my_id]] }
+      fake.define_singleton_method(:_extra_index_specs) do
+        [Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id])]
+      end
 
       o.migrate_replication_tables
 

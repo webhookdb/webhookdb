@@ -394,8 +394,8 @@ for information on how to refresh data.)
 
   # Names of columns for multi-column indices.
   # Each one must be in +denormalized_columns+.
-  # @return [Array<Array<Symbol>>]
-  def _compound_index_targets
+  # @return [Array<Webhook::Replicator::IndexSpec>]
+  def _extra_index_specs
     return []
   end
 
@@ -447,27 +447,22 @@ for information on how to refresh data.)
     return []
   end
 
-  # Return the columns that need to be indexed for a given set of columns,
-  # plus +_compound_index_targets+.
-  # @return [Array<Array<Webhookdb::DBAdapter::Column>>]
-  protected def index_targets
-    columns = [self.primary_key_column, self.remote_key_column]
-    columns.concat(self.storable_columns)
-    cols_by_name = columns.index_by(&:name)
-    index_targets = columns.
-      select(&:index?).
-      map { |c| [c] }
-    self._compound_index_targets.each do |names|
-      index_targets << names.map { |n| cols_by_name.fetch(n) }
-    end
-    return index_targets
-  end
-
   # @return [Array<Webhookdb::DBAdapter::Index>]
   def indices(table)
-    result = self.index_targets.map do |targets|
+    dba_columns = [self.primary_key_column, self.remote_key_column]
+    dba_columns.concat(self.storable_columns)
+    dba_cols_by_name = dba_columns.index_by(&:name)
+
+    result = []
+    dba_columns.select(&:index?).each do |c|
+      targets = [c]
       idx_name = self.index_name(targets)
-      Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:)
+      result << Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:)
+    end
+    self._extra_index_specs.each do |spec|
+      targets = spec.columns.map { |n| dba_cols_by_name.fetch(n) }
+      idx_name = self.index_name(targets)
+      result << Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:, where: spec.where)
     end
     return result
   end

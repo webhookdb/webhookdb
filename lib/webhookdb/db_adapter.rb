@@ -55,7 +55,7 @@ class Webhookdb::DBAdapter
   end
 
   class Index < Webhookdb::TypedStruct
-    attr_reader :name, :table, :targets, :unique
+    attr_reader :name, :table, :targets, :unique, :where
 
     def initialize(**kwargs)
       super
