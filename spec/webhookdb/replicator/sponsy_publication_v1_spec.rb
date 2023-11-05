@@ -238,7 +238,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.getsponsy.com/v1/publications?afterCursor=&limit=100&orderBy=updatedAt&orderDirection=DESC").
-          to_return(status: 503, body: "woah")
+          to_return(status: 403, body: "woah")
     end
   end
 

@@ -298,7 +298,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
-          to_return(status: 503, body: "woah")
+          to_return(status: 402, body: "woah")
     end
   end
 

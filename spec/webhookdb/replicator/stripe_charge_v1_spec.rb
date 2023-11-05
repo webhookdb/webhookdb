@@ -1353,7 +1353,7 @@ RSpec.describe Webhookdb::Replicator::StripeChargeV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.stripe.com/v1/charges").
-          with(headers: {"Authorization" => "Basic YmZrZXk6"}).to_return(status: 503, body: "went wrong")
+          with(headers: {"Authorization" => "Basic YmZrZXk6"}).to_return(status: 403, body: "went wrong")
     end
   end
 

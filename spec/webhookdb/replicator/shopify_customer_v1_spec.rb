@@ -409,7 +409,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyCustomerV1, :db do
     # rubocop:enable Layout/LineLength
     def stub_service_request_error
       return stub_request(:get, "https://fake-url.com/admin/api/2021-04/customers.json").
-          to_return(status: 500, body: "fuuu")
+          to_return(status: 400, body: "fuuu")
     end
   end
   describe "webhook validation" do

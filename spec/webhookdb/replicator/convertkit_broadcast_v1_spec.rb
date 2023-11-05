@@ -101,7 +101,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitBroadcastV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.convertkit.com/v3/broadcasts?api_secret=bfsek").
-          to_return(status: 500, body: "ahhh")
+          to_return(status: 403, body: "ahhh")
     end
   end
 

@@ -4700,7 +4700,7 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://fake-url.com/admin/api/2021-04/orders.json?status=any").
-          to_return(status: 500, body: "eh")
+          to_return(status: 400, body: "eh")
     end
   end
 

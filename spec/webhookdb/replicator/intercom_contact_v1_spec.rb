@@ -629,7 +629,7 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=").
-          to_return(status: 503, body: "uhh")
+          to_return(status: 400, body: "uhh")
     end
   end
 

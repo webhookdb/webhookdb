@@ -958,7 +958,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.stripe.com/v1/refunds").
-          to_return(status: 503, body: "uhh")
+          to_return(status: 403, body: "uhh")
     end
   end
   describe "webhook validation" do

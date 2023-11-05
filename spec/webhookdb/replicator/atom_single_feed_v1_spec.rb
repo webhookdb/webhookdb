@@ -143,7 +143,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://fake-url.com").
-          to_return(status: 500, body: "ahhh")
+          to_return(status: 403, body: "ahhh")
     end
   end
 
