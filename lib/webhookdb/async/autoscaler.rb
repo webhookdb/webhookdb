@@ -23,7 +23,10 @@ module Webhookdb::Async::Autoscaler
 
     def start
       raise "already started" unless @instance.nil?
-      @impl = Amigo::Autoscaler::Heroku.new(heroku: Webhookdb::Heroku.client)
+      @impl = Amigo::Autoscaler::Heroku.new(
+        heroku: Webhookdb::Heroku.client,
+        max_additional_workers: self.max_additional_workers,
+      )
       @instance = Amigo::Autoscaler.new(
         poll_interval: self.poll_interval,
         latency_threshold: self.latency_threshold,
