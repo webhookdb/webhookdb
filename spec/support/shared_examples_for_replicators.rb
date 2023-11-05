@@ -342,7 +342,7 @@ RSpec.shared_examples "a replicator that can backfill" do |name|
   end
 
   def stub_service_request_error
-    raise NotImplementedError, "return error stub request"
+    raise NotImplementedError, "return error stub request, usually 4xx"
   end
 
   def reset_backfill_credentials

@@ -308,7 +308,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAccountTransferV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.increase.com/account_transfers").
-          to_return(status: 500, body: "gah")
+          to_return(status: 403, body: "gah")
     end
   end
 

@@ -960,13 +960,20 @@ for information on how to refresh data.)
   end
 
   # Basic backfiller that calls +_fetch_backfill_page+ on the given replicator.
+  # Any timeouts or 5xx errors are automatically re-enqueued for a retry.
+  # This behavior can be customized somewhat by setting class attributes,
+  # though customization beyond that should use a custom backfiller.
   class ServiceBackfiller < Webhookdb::Backfiller
     # @!attribute svc
     #   @return [Webhookdb::Replicator::Base]
     attr_reader :svc
 
+    attr_accessor :server_error_retries, :server_error_backoff
+
     def initialize(svc)
       @svc = svc
+      @server_error_retries = 2
+      @server_error_backoff = 63.seconds
       raise "#{svc} must implement :_fetch_backfill_page" unless svc.respond_to?(:_fetch_backfill_page)
       super()
     end
@@ -977,6 +984,15 @@ for information on how to refresh data.)
 
     def fetch_backfill_page(pagination_token, last_backfilled:)
       return @svc._fetch_backfill_page(pagination_token, last_backfilled:)
+    rescue ::Timeout::Error, ::SocketError
+      self.__retryordie
+    rescue Webhookdb::Http::Error => e
+      self.__retryordie if e.status >= 500
+      raise
+    end
+
+    def __retryordie
+      raise Amigo::Retry::OrDie.new(self.server_error_retries, self.server_error_backoff)
     end
   end
 

@@ -182,7 +182,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
 
     def stub_service_request_error
       return stub_request(:get, "https://api.convertkit.com/v3/subscribers?api_secret=bfsek&page=1&sort_order=desc").
-          to_return(status: 503, body: "error")
+          to_return(status: 403, body: "error")
     end
   end
 

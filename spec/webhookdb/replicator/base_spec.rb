@@ -237,4 +237,50 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       end
     end
   end
+
+  describe "ServiceBackfiller" do
+    describe "fetch_backfill_page" do
+      o = Class.new do
+        def _fetch_backfill_page(*)
+          return Webhookdb::Http.get("https://fake.com", timeout: 1, logger: nil).parsed_response
+        end
+      end
+
+      it "calls _fetch_backfill_page" do
+        req = stub_request(:get, "https://fake.com/").and_return(json_response([[], nil]))
+        bf = described_class::ServiceBackfiller.new(o.new)
+        bf.backfill(nil)
+        expect(req).to have_been_made
+      end
+
+      it "raises RetryOrDie on timeouts" do
+        req = stub_request(:get, "https://fake.com/").to_timeout
+        bf = described_class::ServiceBackfiller.new(o.new)
+        expect { bf.backfill(nil) }.to raise_error(Amigo::Retry::OrDie)
+        expect(req).to have_been_made
+      end
+
+      it "raises RetryOrDie on socket errors" do
+        req = stub_request(:get, "https://fake.com/").to_raise(SocketError)
+        bf = described_class::ServiceBackfiller.new(o.new)
+        expect { bf.backfill(nil) }.to raise_error(Amigo::Retry::OrDie)
+        expect(req).to have_been_made
+      end
+
+      it "raises RetryOrDie on 5xx responses" do
+        req = stub_request(:get, "https://fake.com/").and_return(status: 503)
+        bf = described_class::ServiceBackfiller.new(o.new)
+        expect { bf.backfill(nil) }.to raise_error(Amigo::Retry::OrDie)
+        expect(req).to have_been_made
+      end
+
+      it "propogates other responses" do
+        req = stub_request(:get, "https://fake.com/").and_return({status: 404}, {status: 404}, {status: 404})
+        expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice
+        bf = described_class::ServiceBackfiller.new(o.new)
+        expect { bf.backfill(nil) }.to raise_error(Webhookdb::Http::Error)
+        expect(req).to have_been_made.times(3)
+      end
+    end
+  end
 end

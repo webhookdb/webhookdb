@@ -70,7 +70,7 @@ RSpec.describe "fake implementations", :db do
 
       def stub_service_request_error
         stub_request(:get, "https://fake-integration/?token=").
-          to_return(status: 500, body: "erm")
+          to_return(status: 400, body: "erm")
       end
     end
 
