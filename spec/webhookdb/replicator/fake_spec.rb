@@ -669,7 +669,7 @@ or leave blank to choose the first option.
         it "strips null unicode codepoints from JSON" do
           fake.create_table
           # See \u0000 in base.rb for more info
-          fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u00004\u0000\\u0000 u"})
+          fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u0000\u00004\u0000\\u0000 u"})
           fake.readonly_dataset do |ds|
             expect(ds.first).to include(data: hash_including("has_u0" => "b4\\u0000 u"))
           end
