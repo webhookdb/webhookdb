@@ -625,7 +625,7 @@ for information on how to refresh data.)
   # So we remove only "\\u0000" by not replacing "\\\\u0000"- replace all occurences of
   # "<any one character except backslash>\\u0000" with "<character before backslash>".
   def _to_json(v)
-    return v.to_json.gsub(/([^\\])(\\u0000)/, '\1')
+    return v.to_json.gsub(/(\\\\u0000|\\u0000)/, {"\\\\u0000" => "\\\\u0000", "\\u0000" => ""})
   end
 
   # @param changed [Boolean]
