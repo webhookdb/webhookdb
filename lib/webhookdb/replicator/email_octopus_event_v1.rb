@@ -94,6 +94,7 @@ class Webhookdb::Replicator::EmailOctopusEventV1 < Webhookdb::Replicator::Base
   end
 
   def _resource_and_event(request)
+    return nil, nil if request.body.is_a?(Hash) && !request.body.key?("occurred_at")
     return request.body, nil
   end
 
