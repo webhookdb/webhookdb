@@ -52,23 +52,26 @@ class Webhookdb::Replicator::EmailOctopusEventV1 < Webhookdb::Replicator::Base
 
     # If the body is an array, it means we are upserting data from webhooks and have to transform the data
     # in order to be able to upsert.
-    new_bodies = request.body.map do |wh|
-      new_body = {
-        "contact" => {
-          "id" => wh.fetch("contact_id"),
-          "email_address" => wh.fetch("contact_email_address"),
-        },
-        "occurred_at" => wh.fetch("occurred_at"),
-        "event_type" => wh.fetch("type"),
-      }
+    new_bodies = request.body.
+      # Events older than 30 days may not have occurred_at on free plans
+      select { |wh| wh.key?("occurred_at") }.
+      map do |wh|
+        new_body = {
+          "contact" => {
+            "id" => wh.fetch("contact_id"),
+            "email_address" => wh.fetch("contact_email_address"),
+          },
+          "occurred_at" => wh.fetch("occurred_at"),
+          "event_type" => wh.fetch("type"),
+        }
 
-      # "campaign_id" isn't always populated in the webhoooks, it is only there on event types that are tied
-      # to a specific "campaign", (that's Email Octopus's word for an email message), like "bounced" or "opened"
-      if (campaign_id = wh["campaign_id"])
-        new_body["campaign_id"] = campaign_id
+        # "campaign_id" isn't always populated in the webhoooks, it is only there on event types that are tied
+        # to a specific "campaign", (that's Email Octopus's word for an email message), like "bounced" or "opened"
+        if (campaign_id = wh["campaign_id"])
+          new_body["campaign_id"] = campaign_id
+        end
+        new_body
       end
-      new_body
-    end
 
     new_bodies.each do |b|
       new_request = request.dup
