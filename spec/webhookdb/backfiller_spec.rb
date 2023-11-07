@@ -39,7 +39,7 @@ RSpec.describe Webhookdb::Backfiller, :db do
     expect(bf.handled).to eq([1, 2, 3, 4])
   end
 
-  describe "with bulk" do
+  describe "with bulk", :fake_replicator do
     let(:sint) { Webhookdb::Fixtures.service_integration.create }
     let(:backfiller_cls) do
       Class.new(Webhookdb::Backfiller) do
@@ -93,6 +93,20 @@ RSpec.describe Webhookdb::Backfiller, :db do
         [[nil, {last_backfilled: nil}], ["a", {last_backfilled: nil}], ["b", {last_backfilled: nil}]],
       )
       expect(sint.replicator.readonly_dataset(&:all)).to have_length(5)
+    end
+
+    it "ignores items that are not upserted by the replicator" do
+      Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |r|
+        r.fetch("my_id") == "3" ? [nil, nil] : [r, nil]
+      }
+      bf = backfiller_cls.new(
+        sint,
+        [
+          [[body("2"), body("3"), body("4")], nil],
+        ],
+      )
+      bf.backfill(nil)
+      expect(sint.replicator.readonly_dataset(&:all)).to have_length(2)
     end
 
     describe "conditional upserting" do
