@@ -51,22 +51,25 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
 
     # If the body is an array, it means we are upserting data from webhooks, which has been passed to this function by
     # the event replicator, and we have to transform the data in order to be able to upsert.
-    new_bodies = request.body.map do |wh|
-      event_type = wh.fetch("type")
-
-      {
-        "id" => wh.fetch("contact_id"),
-        "list_id" => wh.fetch("list_id"),
-        "email_address" => wh.fetch("contact_email_address"),
-        "status" => wh.fetch("contact_status"),
-        "row_updated_at" => wh.fetch("occurred_at"),
-        "created_at" => event_type == "contact.created" ? wh.fetch("occurred_at") : nil,
-        "deleted_at" => event_type == "contact.deleted" ? wh.fetch("occurred_at") : nil,
-        # These fields do not get denormalized but we still want the info to be present in the "data" field of the row.
-        "fields" => wh["contact_fields"],
-        "tags" => wh["contact_tags"],
-      }
-    end
+    new_bodies = request.body.
+      # Events older than 30 days may not have occurred_at on free plans
+      select { |wh| wh.key?("occurred_at") }.
+      map do |wh|
+        event_type = wh.fetch("type")
+        {
+          "id" => wh.fetch("contact_id"),
+          "list_id" => wh.fetch("list_id"),
+          "email_address" => wh.fetch("contact_email_address"),
+          "status" => wh.fetch("contact_status"),
+          "row_updated_at" => wh.fetch("occurred_at"),
+          "created_at" => event_type == "contact.created" ? wh.fetch("occurred_at") : nil,
+          "deleted_at" => event_type == "contact.deleted" ? wh.fetch("occurred_at") : nil,
+          # These fields do not get denormalized but we still want the info
+          # to be present in the "data" field of the row.
+          "fields" => wh["contact_fields"],
+          "tags" => wh["contact_tags"],
+        }
+      end
     new_bodies.each do |b|
       new_request = request.dup
       new_request.body = b

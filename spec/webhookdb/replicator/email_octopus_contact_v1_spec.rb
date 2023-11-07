@@ -381,6 +381,26 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusContactV1, :db do
         expect(ds.all).to have_length(3)
       end
     end
+
+    it "noops if occurred_at is not present" do
+      body = [{
+        "id" => "42636763-73f9-463e-af8b-3f720bb3d889",
+        "type" => "contact.updated",
+        "list_id" => "list_id",
+        "contact_id" => "contact_id",
+        "contact_fields" => {
+          "LastName" => "Example",
+          "FirstName" => "Claire",
+        },
+        "contact_status" => "UNSUBSCRIBED",
+        "contact_email_address" => "claire2@example.com",
+        "contact_tags" => ["vip"],
+      }]
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to be_empty
+      end
+    end
   end
 
   describe "state machine calculation" do
