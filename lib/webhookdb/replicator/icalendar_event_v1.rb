@@ -14,7 +14,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       name: "icalendar_event_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IcalendarEventV1.new(sint) },
       dependency_descriptor: Webhookdb::Replicator::IcalendarCalendarV1.descriptor,
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "iCalendar Event",
       supports_webhooks: true,
     )
