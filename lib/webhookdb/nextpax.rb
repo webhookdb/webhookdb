@@ -7,7 +7,7 @@ module Webhookdb::Nextpax
 
   configurable(:nextpax) do
     setting :constants_sync_cron_expression, "0 */12 * * *"
-    setting :property_changes_cron_expression, "*/5 * * * *"
+    setting :property_changes_cron_expression, "*/1 * * * *"
     setting :http_timeout, 30
     setting :page_size, 20
   end
