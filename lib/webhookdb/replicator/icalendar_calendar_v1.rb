@@ -19,7 +19,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "icalendar_calendar_v1",
       ctor: ->(sint) { Webhookdb::Replicator::IcalendarCalendarV1.new(sint) },
-      feature_roles: ["beta"],
+      feature_roles: [],
       resource_name_singular: "iCalendar Calendar",
       supports_webhooks: true,
     )
