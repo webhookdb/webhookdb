@@ -215,6 +215,20 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         expect(to_sql(v)).to eq("ARRAY['a']::text[]")
       end
     end
+
+    describe "with a column type TIMESTAMP" do
+      it "puts non-UTC year-0 times into UTC" do
+        col = described_class.new(:ts, described_class::TIMESTAMP, converter: identity_conv)
+        v = to_ruby_value(col, {"ts" => Time.parse("0000-12-31T18:10:00-05:50")}, nil, nil)
+        expect(v.to_s).to eq("0001-01-01 00:00:00 UTC")
+      end
+
+      it "passes through strings" do
+        col = described_class.new(:ts, described_class::TIMESTAMP, converter: identity_conv)
+        v = to_ruby_value(col, {"ts" => "0000-12-31T18:10:00-05:50"}, nil, nil)
+        expect(v.to_s).to eq("0000-12-31T18:10:00-05:50")
+      end
+    end
   end
 
   describe "to_sql_expr" do
