@@ -20,10 +20,10 @@ class Webhookdb::Replicator::SponsyCustomerV1 < Webhookdb::Replicator::Base
   def _denormalized_columns
     return [
       Webhookdb::Replicator::Column.new(:name, TEXT),
-      Webhookdb::Replicator::Column.new(:logo, TEXT),
-      Webhookdb::Replicator::Column.new(:notes, TEXT),
-      Webhookdb::Replicator::Column.new(:portal_text, TEXT, data_key: "portalText"),
-      Webhookdb::Replicator::Column.new(:portal_id, TEXT, data_key: "portalId", index: true),
+      Webhookdb::Replicator::Column.new(:logo, TEXT, optional: true),
+      Webhookdb::Replicator::Column.new(:notes, TEXT, optional: true),
+      Webhookdb::Replicator::Column.new(:portal_text, TEXT, data_key: "portalText", optional: true),
+      Webhookdb::Replicator::Column.new(:portal_id, TEXT, data_key: "portalId", index: true, optional: true),
     ].concat(self._ts_columns)
   end
 
