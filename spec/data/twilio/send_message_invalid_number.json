@@ -1,6 +1,0 @@
-{
-  "code": 21211,
-  "message": "The 'To' number 11234567899 is not a valid phone number.",
-  "more_info": "https://www.twilio.com/docs/errors/21211",
-  "status": 400
-}
