@@ -419,7 +419,7 @@ The secret to use for signing is:
           vevent_lines << line
           h = Webhookdb::Replicator::IcalendarEventV1.vevent_to_hash(vevent_lines)
           vevent_lines.clear
-          if h.key?("DTSTART")
+          if h.key?("DTSTART") && h.key?("UID")
             yield h
           else
             bad_event_uids << h.fetch("UID", {}).fetch("v", "[missing]")
