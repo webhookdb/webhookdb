@@ -339,6 +339,16 @@ class Webhookdb::Replicator::Column
       v = Sequel.pg_array(v, "integer")
     elsif (self.type == TEXT_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "text")
+    elsif (self.type == TIMESTAMP) && !v.nil?
+      # Postgres CANNOT handle timestamps with a 0000 year,
+      # even if the actual time it represents is valid (due to timezone offset).
+      # Repro with `SELECT '0000-12-31T18:10:00-05:50'::timestamptz`.
+      # So if we are in the year 0, represent the time into UTC to get it out of year 0
+      # (if it's still invalid, let it error).
+      # NOTE: Only worry about times; if the value is a string, it will still error.
+      # Let the caller parse the string into a Time to get this special behavior.
+      # Time parsing is too loose to do it here.
+      v = v.utc if v.is_a?(Time) && v.year.zero?
     end
     # pg_json doesn't handle thie ssuper well in our situation,
     # so JSON must be inserted as a string.

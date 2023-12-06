@@ -77,14 +77,13 @@ module Webhookdb::Replicator::IntercomV1Mixin
             "This integration requires that the Intercom Auth integration has a valid Auth Token"
     end
 
+    query = {per_page: Webhookdb::Intercom.page_size}
+    # Intercom started 500ing with this set to empty.
+    query[:starting_after] = pagination_token if pagination_token
     begin
       response = Webhookdb::Http.get(
         self._mixin_backfill_url,
-        query:
-          {
-            per_page: Webhookdb::Intercom.page_size,
-            starting_after: pagination_token,
-          },
+        query:,
         headers: self.intercom_auth_headers,
         logger: self.logger,
         timeout: Webhookdb::Intercom.http_timeout,

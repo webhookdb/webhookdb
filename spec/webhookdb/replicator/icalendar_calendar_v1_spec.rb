@@ -1279,12 +1279,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     context "missing_required.ics" do
       let(:fn) { "missing_required.ics" }
 
-      it "skips items as invalid" do
+      it "skips and warns about invalid items" do
         logs = capture_logs_from(replicator.logger, level: :warn, formatter: :json) do
           parsed = events
           expect(parsed).to contain_exactly(
             hash_including("SUMMARY" => {"v" => "Missing DTSTAMP"}),
-            hash_including("SUMMARY" => {"v" => "Missing None"}),
+            hash_including("SUMMARY" => {"v" => "Missing nothing"}),
           )
         end
         expect(logs).to contain_exactly(
@@ -1293,7 +1293,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             name: "Webhookdb::Replicator::IcalendarCalendarV1",
             message: "invalid_vevent_hash",
             context: {
-              vevent_uids: ["4BCDDF02-458B-4D52-BC87-86ED43B0BF22", "[missing]"],
+              vevent_uids: ["4BCDDF02-458B-4D52-BC87-86ED43B0BF22", "[missing]", "ev1"],
             },
           ),
         )

@@ -613,7 +613,7 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=").
+        stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=intercom_pagination_token").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
@@ -622,13 +622,13 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
 
     def stub_empty_requests
       return [
-        stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=").
+        stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
             to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=").
+      return stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
           to_return(status: 400, body: "uhh")
     end
   end
