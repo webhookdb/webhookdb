@@ -29,10 +29,6 @@ class Webhookdb::Message::Template
     return self.dispatch(to, transport: :email)
   end
 
-  def dispatch_sms(to)
-    return self.dispatch(to, transport: :sms)
-  end
-
   # The folder containing this template. Templates in the root template directory should use nil.
   def template_folder
     return nil

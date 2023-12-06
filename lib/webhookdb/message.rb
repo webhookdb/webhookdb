@@ -20,7 +20,6 @@ module Webhookdb::Message
 
   require "webhookdb/message/email_transport"
   require "webhookdb/message/fake_transport"
-  require "webhookdb/message/sms_transport"
   require "webhookdb/message/transport"
   require "webhookdb/message/liquid_drops"
   require "webhookdb/message/template"

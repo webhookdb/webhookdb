@@ -71,7 +71,7 @@ class Webhookdb::Customer::ResetCode < Webhookdb::Postgres::Model(:customer_rese
 
   def validate
     super
-    self.validates_includes(["sms", "email"], :transport)
+    self.validates_includes(["email"], :transport)
   end
 end
 
