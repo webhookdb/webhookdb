@@ -13,8 +13,6 @@ class Webhookdb::Jobs::ResetCodeCreateDispatch
     Webhookdb::Idempotency.once_ever.under_key("reset-code-#{code.customer_id}-#{code.id}") do
       msg = Webhookdb::Messages::Verification.new(code)
       case code.transport
-        when "sms"
-          msg.dispatch_sms(code.customer)
         when "email"
           msg.dispatch_email(code.customer)
       else

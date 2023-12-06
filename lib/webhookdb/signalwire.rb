@@ -3,11 +3,11 @@
 require "appydays/configurable"
 require "appydays/loggable"
 
-module Webhookdb::Twilio
+module Webhookdb::Signalwire
   include Appydays::Configurable
   include Appydays::Loggable
 
-  configurable(:twilio) do
+  configurable(:signalwire) do
     setting :http_timeout, 30
   end
 end

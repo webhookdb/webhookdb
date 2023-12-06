@@ -77,10 +77,6 @@ GEM
     excon (0.92.3)
     faker (2.21.0)
       i18n (>= 1.8.11, < 2)
-    faraday (2.3.0)
-      faraday-net_http (~> 2.0)
-      ruby2_keywords (>= 0.0.4)
-    faraday-net_http (2.0.3)
     fluent_fixtures (0.10.0)
       faker (~> 2.14)
       inflecto (~> 0.0)
@@ -120,7 +116,6 @@ GEM
     inflecto (0.0.2)
     jmespath (1.6.2)
     json (2.6.3)
-    jwt (2.4.1)
     liquid (5.4.0)
     loggability (0.18.2)
     method_source (1.0.0)
@@ -278,10 +273,6 @@ GEM
     statsd-ruby (1.5.0)
     stripe (6.5.0)
     timecop (0.9.5)
-    twilio-ruby (5.68.0)
-      faraday (>= 0.9, < 3.0)
-      jwt (>= 1.5, <= 2.5)
-      nokogiri (>= 1.6, < 2.0)
     tzinfo (2.0.5)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.4.2)
@@ -370,7 +361,6 @@ DEPENDENCIES
   slack-notifier
   stripe
   timecop
-  twilio-ruby
   warden
   watir
   webmock

@@ -56,7 +56,6 @@ gem "sidekiq-amigo", ">= 1.6.0"
 gem "sidekiq-cron"
 gem "slack-notifier"
 gem "stripe"
-gem "twilio-ruby"
 gem "warden"
 
 # By default, Heroku ignores 'test' gem groups.

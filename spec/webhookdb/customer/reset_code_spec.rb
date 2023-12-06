@@ -37,7 +37,7 @@ RSpec.describe "Webhookdb::Customer::ResetCode", :db do
     end
 
     it "marks any unused code on the customer as expired" do
-      other_code = described_class.create(customer:, transport: "sms")
+      other_code = described_class.create(customer:, transport: "email")
       expect(other_code).to be_usable
       expect(other_code).to_not be_expired
       expect(other_code).to_not be_used
