@@ -490,7 +490,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
   describe "state machine calculation" do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(
-        service_name: "signalwire_message_v1", backfill_secret: "", backfill_key: "", api_url: ''
+        service_name: "signalwire_message_v1", backfill_secret: "", backfill_key: "", api_url: "",
       )
     end
     let(:svc) { Webhookdb::Replicator.create(sint) }
@@ -540,7 +540,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       end
 
       it "asks for backfill/project id" do
-        sint.api_url = 'fakespace'
+        sint.api_url = "fakespace"
         sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
           needs_input: true,

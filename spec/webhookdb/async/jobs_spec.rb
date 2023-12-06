@@ -588,13 +588,12 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "RssBackfillPoller" do
-    it "backfills relevant service integrations" do
-      Webhookdb::Fixtures.service_integration.create(service_name: "convertkit_broadcast_v1")
+  describe "AtomSingleFeedPoller" do
+    it "backfills atom feed integrations" do
       sint = Webhookdb::Fixtures.service_integration.create(service_name: "atom_single_feed_v1")
 
       expect do
-        Webhookdb::Jobs::RssBackfillPoller.new.perform(true)
+        Webhookdb::Jobs::AtomSingleFeedPoller.new.perform(true)
       end.to publish("webhookdb.backfilljob.run").with_payload(contain_exactly(be_positive))
       expect(Webhookdb::BackfillJob.first).to have_attributes(
         service_integration: be === sint,
@@ -727,6 +726,21 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "SignalwireMessageBackfill" do
+    it "enqueues backfill job for signalwire message integrations" do
+      sint = Webhookdb::Fixtures.service_integration.create(
+        service_name: "signalwire_message_v1",
+      )
+      expect do
+        Webhookdb::Jobs::SignalwireMessageBackfill.new.perform
+      end.to publish("webhookdb.backfilljob.run", contain_exactly(be_positive))
+      expect(Webhookdb::BackfillJob.first).to have_attributes(
+        service_integration: be === sint,
+        incremental: true,
+      )
+    end
+  end
+
   describe "SponsyScheduledBackfill" do
     it "enqueues cascading backfill job for all theranest auth integrations" do
       auth_sint = Webhookdb::Fixtures.service_integration.create(service_name: "sponsy_publication_v1")
@@ -764,16 +778,16 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "TwilioScheduledBackfill" do
+  describe "TwilioSmsBackfill" do
     it "enqueues backfill job for all twilio service integrations" do
-      twilio_sint = Webhookdb::Fixtures.service_integration.create(
+      sint = Webhookdb::Fixtures.service_integration.create(
         service_name: "twilio_sms_v1",
       )
       expect do
-        Webhookdb::Jobs::TwilioScheduledBackfill.new.perform
+        Webhookdb::Jobs::TwilioSmsBackfill.new.perform
       end.to publish("webhookdb.backfilljob.run", contain_exactly(be_positive))
       expect(Webhookdb::BackfillJob.first).to have_attributes(
-        service_integration: be === twilio_sint,
+        service_integration: be === sint,
         incremental: true,
       )
     end

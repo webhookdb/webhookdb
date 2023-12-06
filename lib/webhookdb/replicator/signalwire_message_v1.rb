@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'webhookdb/signalwire'
+require "webhookdb/signalwire"
 
 class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable

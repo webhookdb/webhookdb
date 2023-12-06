@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'webhookdb/twilio'
+require "webhookdb/twilio"
 
 class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
