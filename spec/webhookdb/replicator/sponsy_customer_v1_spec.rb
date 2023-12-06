@@ -26,6 +26,19 @@ RSpec.describe Webhookdb::Replicator::SponsyCustomerV1, :db do
     end
   end
 
+  it_behaves_like "a replicator that may have a minimal body", "sponsy_customer_v1" do
+    let(:body) do
+      JSON.parse(<<~J)
+        {
+          "id": "5ae523c0-56a9-408f-9e51-94f09cf29ca4",
+          "createdAt": "2022-03-08T22:28:35.236Z",
+          "updatedAt": "2022-03-08T22:28:35.236Z",
+          "name": "Honeycomb.io"
+        }
+      J
+    end
+  end
+
   it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_customer_v1" do
     let(:old_body) do
       JSON.parse(<<~J)
