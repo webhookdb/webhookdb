@@ -635,12 +635,13 @@ end
 
 RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   let(:last_backfilled) { raise NotImplementedError, "what should the last_backfilled_at value be to start?" }
+  let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name: name,
       backfill_key: "bfkey",
       backfill_secret: "bfsek",
-      api_url: "https://fake-url.com",
+      api_url:,
       last_backfilled_at: last_backfilled,
     )
   end
@@ -749,12 +750,13 @@ end
 
 RSpec.shared_examples "a backfill replicator that marks missing rows as deleted" do |name|
   let(:deleted_column_name) { raise NotImplementedError }
+  let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name: name,
       backfill_key: "bfkey",
       backfill_secret: "bfsek",
-      api_url: "https://fake-url.com",
+      api_url:,
     )
   end
   let(:svc) { Webhookdb::Replicator.create(sint) }

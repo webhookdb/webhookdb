@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
-require "webhookdb/twilio"
+require "webhookdb/signalwire"
 
-class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
+class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
-      name: "twilio_sms_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::TwilioSmsV1.new(sint) },
+      name: "signalwire_message_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::SignalwireMessageV1.new(sint) },
       feature_roles: [],
-      resource_name_singular: "Twilio SMS Message",
+      resource_name_singular: "SignalWire Message",
       supports_backfill: true,
     )
   end
@@ -44,21 +44,34 @@ class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
 
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
+    unless self.service_integration.api_url.present?
+      step.output = %(Let's finish setting up your SignalWire Messaging (SMS) integration.
+
+Rather than using your phone number's webhooks (of which each number can have only one),
+we poll SignalWire for changes, and will also backfill historical messages.
+
+To do this, we need your Space URL, Project ID, and an API Token.
+
+First enter your Space URL. You can see this on your SignalWire dashboard.
+It's the part of your dashboard URL before '.signalwire.com'.)
+      return step.prompting("Space URL").api_url(self.service_integration)
+    end
+
     unless self.service_integration.backfill_key.present?
-      step.needs_input = true
-      step.output = %(Great! We've created your Twilio SMS integration.
+      step.output = %(You can get your Project ID from the 'API' section of your SignalWire dashboard.
 
-Rather than using your Twilio Webhooks (of which each number can have only one),
-we poll Twilio for changes, and will also backfill historical SMS.
-
-To do this, we need your Account SID and Auth Token.
-Both of these values should be visible from the homepage of your Twilio admin Dashboard.
-      )
-      return step.secret_prompt("Account SID").backfill_key(self.service_integration)
+Go to https://#{self.service_integration.api_url}.signalwire.com/credentials and copy your Project ID.)
+      return step.prompting("Project ID").backfill_key(self.service_integration)
     end
 
     unless self.service_integration.backfill_secret.present?
-      return step.secret_prompt("Auth Token").backfill_secret(self.service_integration)
+      step.needs_input = true
+      step.output = %(Let's create or reuse an API token. Press the 'New' button on your dashboard,
+name the token something like 'WebhookDB', and under Scopes, ensure the 'Messaging' checkbox is checked.
+Then press 'Save'.
+
+Press 'Show' next to the newly-created API token, and copy it.)
+      return step.secret_prompt("API Token").backfill_secret(self.service_integration)
     end
 
     unless (result = self.verify_backfill_credentials).verified
@@ -67,7 +80,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
-    step.output = %(We are going to start replicating your Twilio SMS information, and will keep it updated.
+    step.output = %(We are going to start replicating your SignalWire Messages, and will keep it updated.
 #{self._query_help_output}
       )
     return step.completed
@@ -82,7 +95,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _remote_key_column
-    return Webhookdb::Replicator::Column.new(:twilio_id, TEXT, data_key: "sid")
+    return Webhookdb::Replicator::Column.new(:signalwire_id, TEXT, data_key: "sid")
   end
 
   def _denormalized_columns
@@ -125,7 +138,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
-    url = "https://api.twilio.com"
+    url = "https://#{self.service_integration.api_url}.signalwire.com"
     if pagination_token.blank?
       date_send_max = Date.tomorrow
       url += "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
@@ -138,7 +151,7 @@ Both of these values should be visible from the homepage of your Twilio admin Da
       basic_auth: {username: self.service_integration.backfill_key,
                    password: self.service_integration.backfill_secret,},
       logger: self.logger,
-      timeout: Webhookdb::Twilio.http_timeout,
+      timeout: Webhookdb::Signalwire.http_timeout,
     )
     data = response.parsed_response
     messages = data["messages"]

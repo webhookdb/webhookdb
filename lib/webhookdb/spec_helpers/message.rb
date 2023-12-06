@@ -39,21 +39,4 @@ module Webhookdb::SpecHelpers::Message
     )
     return req
   end
-
-  module_function def stub_twilio_sms(opts={})
-    opts[:fixture] ||= "twilio/send_message"
-    opts[:sid] ||= "SMABCDXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    opts[:status] ||= 200
-
-    body = load_fixture_data(opts[:fixture])
-    body["sid"] = opts[:sid]
-
-    req = stub_request(:post, "https://api.twilio.com/2010-04-01/Accounts/AC444test/Messages.json")
-    req = req.to_return(
-      status: opts[:status],
-      body: body.to_json,
-      headers: opts[:headers],
-    )
-    return req
-  end
 end
