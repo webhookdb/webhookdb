@@ -195,6 +195,11 @@ class Webhookdb::Replicator::Column
   attr_reader :index
   alias index? index
 
+  # True if thie index should be a partial index, using WHERE (col IS NOT NULL).
+  # The #index attribute must be true.
+  # @return [Boolean]
+  attr_reader :index_not_null
+
   # While :name, :type, and :index are pretty standard attributes for defining a database column,
   # the rest of these attributes are specialized to WebhookDB and deal with how we are finding
   # and interpreting the values given to us by external services.
@@ -272,6 +277,7 @@ class Webhookdb::Replicator::Column
     converter: nil,
     defaulter: nil,
     index: false,
+    index_not_null: false,
     skip_nil: false,
     backfill_statement: nil,
     backfill_expr: nil
@@ -288,6 +294,7 @@ class Webhookdb::Replicator::Column
     @converter = KNOWN_CONVERTERS[converter] || converter
     @defaulter = KNOWN_DEFAULTERS[defaulter] || defaulter
     @index = index
+    @index_not_null = index_not_null
     @skip_nil = skip_nil
     @backfill_statement = backfill_statement
     @backfill_expr = backfill_expr
@@ -295,6 +302,7 @@ class Webhookdb::Replicator::Column
 
   def to_dbadapter(**more)
     kw = {name:, type:, index:, backfill_expr:, backfill_statement:}
+    kw[:index_where] = Sequel[self.name] !~ nil if self.index_not_null
     kw.merge!(more)
     return Webhookdb::DBAdapter::Column.new(**kw)
   end

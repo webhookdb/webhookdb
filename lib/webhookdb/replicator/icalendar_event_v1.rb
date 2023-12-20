@@ -133,20 +133,20 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
               optional: true,
               **tsconv,),
       col.new(:created_at, TIMESTAMP, optional: true, data_key: "CREATED", **tsconv),
-      col.new(:start_at, TIMESTAMP, index: true, data_key: "DTSTART", **tsconv),
+      col.new(:start_at, TIMESTAMP, index: true, index_not_null: true, data_key: "DTSTART", **tsconv),
       # This is True when start/end at fields are missing timezones in the underlying feed.
       # Their timestamps are in UTC.
       col.new(:missing_timezone, BOOLEAN, data_key: "DTSTART", converter: CONV_MISSING_TZ),
-      col.new(:end_at, TIMESTAMP, index: true, data_key: "DTEND", optional: true, **tsconv),
-      col.new(:start_date, DATE, index: true, data_key: "DTSTART", **dateconv),
-      col.new(:end_date, DATE, index: true, data_key: "DTEND", optional: true, **dateconv),
+      col.new(:end_at, TIMESTAMP, index: true, index_not_null: true, data_key: "DTEND", optional: true, **tsconv),
+      col.new(:start_date, DATE, index: true, index_not_null: true, data_key: "DTSTART", **dateconv),
+      col.new(:end_date, DATE, index: true, index_not_null: true, data_key: "DTEND", optional: true, **dateconv),
       col.new(:status, TEXT, data_key: ["STATUS", "v"], optional: true),
       col.new(:categories, TEXT_ARRAY, data_key: ["CATEGORIES"], optional: true, converter: CONV_COMMA_SEP_ARRAY),
       col.new(:priority, INTEGER, data_key: ["PRIORITY", "v"], optional: true, converter: col::CONV_TO_I),
       col.new(:geo_lat, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LAT),
       col.new(:geo_lng, DECIMAL, data_key: ["GEO", "v"], optional: true, converter: CONV_GEO_LNG),
       col.new(:classification, TEXT, data_key: ["CLASS", "v"], optional: true),
-      col.new(:recurring_event_id, TEXT, optional: true, index: true),
+      col.new(:recurring_event_id, TEXT, optional: true, index: true, index_not_null: true),
       col.new(:recurring_event_sequence, INTEGER, optional: true),
     ]
   end
@@ -167,8 +167,12 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   def _extra_index_specs
     return [
       Webhookdb::Replicator::IndexSpec.new(
-        columns: [:calendar_external_id, :start_at, :start_date, :end_at, :end_date],
-        where: Sequel[:status].is_distinct_from("CANCELLED"),
+        columns: [:calendar_external_id, :start_at, :end_at],
+        where: Sequel[:status].is_distinct_from("CANCELLED") & (Sequel[:start_at] !~ nil),
+      ),
+      Webhookdb::Replicator::IndexSpec.new(
+        columns: [:calendar_external_id, :start_date, :end_date],
+        where: Sequel[:status].is_distinct_from("CANCELLED") & (Sequel[:start_date] !~ nil),
       ),
     ]
   end
