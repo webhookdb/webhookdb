@@ -219,4 +219,21 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       expect { svc.on_dependency_webhook_upsert(nil, nil) }.to_not raise_error
     end
   end
+
+  describe "schema" do
+    it "uses partial indices for date columns" do
+      mod = svc.create_table_modification
+      # rubocop:disable Layout/LineLength
+      expect(mod.transaction_statements).to include(
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_start_at_idx ON public.#{sint.table_name} (start_at) WHERE (\"start_at\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_end_at_idx ON public.#{sint.table_name} (end_at) WHERE (\"end_at\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_start_date_idx ON public.#{sint.table_name} (start_date) WHERE (\"start_date\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_end_date_idx ON public.#{sint.table_name} (end_date) WHERE (\"end_date\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_recurring_event_id_idx ON public.#{sint.table_name} (recurring_event_id) WHERE (\"recurring_event_id\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_50d5d161e2e533574149dd136a9fc_idx ON public.#{sint.table_name} (calendar_external_id, start_at, end_at) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_at\" IS NOT NULL))",
+        "CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_2a46eca5b6e6adca4a315774180a3_idx ON public.#{sint.table_name} (calendar_external_id, start_date, end_date) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_date\" IS NOT NULL))",
+      )
+      # rubocop:enable Layout/LineLength
+    end
+  end
 end

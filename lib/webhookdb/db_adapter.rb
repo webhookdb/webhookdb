@@ -32,7 +32,7 @@ class Webhookdb::DBAdapter
 
   class Column < Webhookdb::TypedStruct
     include ColumnTypes
-    attr_reader :name, :type, :nullable, :unique, :index, :pk, :backfill_statement, :backfill_expr
+    attr_reader :name, :type, :nullable, :unique, :index, :index_where, :pk, :backfill_statement, :backfill_expr
     alias nullable? nullable
     alias unique? unique
     alias index? index
