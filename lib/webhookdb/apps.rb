@@ -29,6 +29,8 @@ require "webhookdb/admin_api/database_documents"
 require "webhookdb/admin_api/message_deliveries"
 require "webhookdb/admin_api/roles"
 
+require "webterm/apps"
+
 module Webhookdb::Apps
   class API < Webhookdb::Service
     mount Webhookdb::API::Auth
@@ -71,5 +73,16 @@ module Webhookdb::Apps
     end
     use Rack::Session::Cookie, secret: Webhookdb::Service.session_secret, same_site: true, max_age: 86_400
     run Sidekiq::Web
+  end
+
+  Webterm = Rack::Builder.new do
+    use Rack::Deflater
+    use Rack::ConditionalGet
+    use Rack::ETag
+    map "/" do
+      use Webhookdb::Webterm::RedirectIndexHtmlToRoot
+      use Webhookdb::Webterm::ServeIndexHtmlFromRoot
+      run Webhookdb::Webterm::Files
+    end
   end
 end
