@@ -837,6 +837,29 @@ for information on how to refresh data.)
     end
   end
 
+  # Run the given block with a (try) advisory lock taken on a combination of:
+  #
+  # - The table OID for this replicator
+  # - The given key
+  #
+  # Note this this establishes a new DB connection for the advisory lock;
+  # we have had issues with advisory locks on reused connections,
+  # and this is safer than having a lock that is never released.
+  protected def with_advisory_lock(key, &)
+    url = self.service_integration.organization.admin_connection_url_raw
+    got = nil
+    Webhookdb::Dbutil.borrow_conn(url) do |conn|
+      table_oid = conn.select(
+        Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
+      ).first[:table_id]
+      self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key)
+      Sequel::AdvisoryLock.new(conn, table_oid, key).with_lock? do
+        got = yield
+      end
+    end
+    return got
+  end
+
   # Some replicators support 'instant sync', because they are upserted en-masse
   # rather than row-by-row. That is, usually we run sync targets on a cron,
   # because otherwise we'd need to run the sync target for every row.
