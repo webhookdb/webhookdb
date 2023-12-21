@@ -161,31 +161,38 @@ The secret to use for signing is:
   end
 
   def sync_row(row)
-    if (dep = self.find_dependent("icalendar_event_v1"))
-      calendar_external_id = row.fetch(:external_id)
-      request_url = row.fetch(:ics_url)
-      begin
-        io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
-      rescue Down::Error => e
-        self._handle_down_error(e, request_url:, calendar_external_id:)
-        return
+    self.with_advisory_lock(row.fetch(:pk)) do
+      if (dep = self.find_dependent("icalendar_event_v1"))
+        self._sync_row(row, dep)
       end
+      self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
+    end
+  end
 
-      upserter = Upserter.new(dep.replicator, calendar_external_id)
-      processor = EventProcessor.new(io, upserter)
-      processor.process
-      # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
-      dep.replicator.admin_dataset do |ds|
-        ds = ds.where(calendar_external_id:)
-        if (delete_condition = processor.delete_condition)
-          ds.where(delete_condition).delete
-        end
-        # Update both the status, and set the data json to match.
-        ds.exclude(compound_identity: processor.upserted_identities).update(
-          status: "CANCELLED",
-          data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),
-        )
+  def _sync_row(row, dep)
+    calendar_external_id = row.fetch(:external_id)
+    request_url = row.fetch(:ics_url)
+    begin
+      io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
+    rescue Down::Error => e
+      self._handle_down_error(e, request_url:, calendar_external_id:)
+      return
+    end
+
+    upserter = Upserter.new(dep.replicator, calendar_external_id)
+    processor = EventProcessor.new(io, upserter)
+    processor.process
+    # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
+    dep.replicator.admin_dataset do |ds|
+      ds = ds.where(calendar_external_id:)
+      if (delete_condition = processor.delete_condition)
+        ds.where(delete_condition).delete
       end
+      # Update both the status, and set the data json to match.
+      ds.exclude(compound_identity: processor.upserted_identities).update(
+        status: "CANCELLED",
+        data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),
+      )
     end
     self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
   end
