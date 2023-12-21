@@ -76,6 +76,7 @@ module Webhookdb::Apps
   end
 
   Webterm = Rack::Builder.new do
+    use(Rack::SslEnforcer, {redirect_html: false}) if Webhookdb::Webterm.enforce_ssl
     use Rack::Deflater
     use Rack::ConditionalGet
     use Rack::ETag

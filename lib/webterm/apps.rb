@@ -1,6 +1,14 @@
 # frozen_string_literal: true
 
+require "appydays/configurable"
+
 class Webhookdb::Webterm
+  include Appydays::Configurable
+
+  configurable(:webterm) do
+    setting :enforce_ssl, true
+  end
+
   STATIC = File.expand_path("#{File.dirname(__FILE__)}/static")
 
   Files = Rack::Files.new(STATIC)
@@ -13,7 +21,7 @@ class Webhookdb::Webterm
     end
 
     def call(env)
-      return [302, {"Location" => "/terminal"}, []] if REDIRECTS.include?(env[Rack::PATH_INFO])
+      return [302, {"Location" => "/terminal/"}, []] if REDIRECTS.include?(env[Rack::PATH_INFO])
       return @app.call(env)
     end
   end
