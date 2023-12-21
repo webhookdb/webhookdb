@@ -19,7 +19,7 @@ class Webhookdb::Jobs::SyncTargetRunSync
       # A sync target may be enqueued, but destroyed before the sync runs.
       # If so, log a warning. We see this on staging a lot,
       # but it does happen on production too, and should be expected.
-      self.logger.warn("missing_sync_target", sync_target_id:)
+      self.logger.info("missing_sync_target", sync_target_id:)
       return
     end
     self.with_log_tags(
@@ -30,9 +30,9 @@ class Webhookdb::Jobs::SyncTargetRunSync
     ) do
       stgt.run_sync(now: Time.now)
     rescue Webhookdb::SyncTarget::SyncInProgress
-      self.logger.warn("sync_target_already_in_progress")
+      self.logger.info("sync_target_already_in_progress")
     rescue Webhookdb::SyncTarget::Deleted
-      self.logger.warn("sync_target_deleted")
+      self.logger.info("sync_target_deleted")
     end
   end
 end

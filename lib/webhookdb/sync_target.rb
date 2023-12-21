@@ -361,7 +361,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       # This is handled well so no need to re-raise.
       # We already committed the last page that was successful,
       # so we can just stop syncing at this point to try again later.
-      self.sync_target.logger.error("sync_target_http_error", error: e)
+      self.sync_target.logger.warn("sync_target_http_error", error: e)
     end
 
     def _flush_http_chunk(chunk)
