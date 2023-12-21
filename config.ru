@@ -15,4 +15,7 @@ end
 map "/sidekiq" do
   run Webhookdb::Apps::SidekiqWeb.to_app
 end
+map "/terminal" do
+  run Webhookdb::Apps::Webterm.to_app
+end
 run Webhookdb::Apps::API.build_app
