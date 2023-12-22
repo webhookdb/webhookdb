@@ -207,10 +207,10 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
 
         Sequel.connect(o.readonly_connection_url) do |readonly_conn|
           # Check readonly access to public tables.
-          # NOTE: public role can create tables; we don't want to revoke that.
           expect do
+            # PG 15 revokes the CREATE permission from all users except a database owner from the public schema
             readonly_conn << "CREATE TABLE my_test_table(val TEXT)"
-          end.to raise_error(Sequel::DatabaseError, /relation "my_test_table" already exists/)
+          end.to raise_error(Sequel::DatabaseError, /permission denied for schema public/)
           expect do
             readonly_conn << "INSERT INTO my_test_table (val) VALUES ('x')"
           end.to raise_error(Sequel::DatabaseError, /permission denied for table my_test_table/)
