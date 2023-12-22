@@ -1,4 +1,0 @@
-{
-  "ErrorCode": 406,
-  "Message": "You tried to send to a recipient that has been marked as inactive. Found inactive addresses: example@example.com. \nInactive recipients are ones that have generated a hard bounce, a spam complaint, or a manual suppression. "
-}

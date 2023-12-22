@@ -21,3 +21,8 @@ services:
     image: "redis:7"
     ports:
       - "18007:6379"
+  mailpit:
+    image: "axllent/mailpit"
+    ports:
+      - "18011:8025"
+      - "18012:1025"
