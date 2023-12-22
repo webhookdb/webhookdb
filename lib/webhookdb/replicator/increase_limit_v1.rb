@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Increase Limit",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

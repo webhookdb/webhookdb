@@ -14,6 +14,7 @@ class Webhookdb::Replicator::EmailOctopusContactV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Email Octopus Contact",
       dependency_descriptor: Webhookdb::Replicator::EmailOctopusListV1.descriptor,
       supports_backfill: true,
+      api_docs_url: "https://emailoctopus.com/api-documentation",
     )
   end
 

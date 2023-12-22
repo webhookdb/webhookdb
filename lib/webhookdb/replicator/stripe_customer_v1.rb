@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeCustomerV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Stripe Customer",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/customers",
     )
   end
 

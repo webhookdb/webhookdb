@@ -16,6 +16,7 @@ class Webhookdb::Replicator::ConvertkitTagV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "ConvertKit Tag",
       supports_backfill: true,
+      api_docs_url: "https://developers.convertkit.com/#list-tags",
     )
   end
 

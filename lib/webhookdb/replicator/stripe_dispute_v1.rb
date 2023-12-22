@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeDisputeV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Stripe Dispute",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/disputes",
     )
   end
 

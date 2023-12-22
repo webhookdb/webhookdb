@@ -17,6 +17,8 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "iCalendar Event",
       supports_webhooks: true,
+      description: "Individual events in an icalendar. See icalendar_calendar_v1.",
+      api_docs_url: "https://icalendar.org/",
     )
   end
 

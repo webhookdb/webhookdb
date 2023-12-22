@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseAccountNumberV1 < Webhookdb::Replicator::Ba
       resource_name_singular: "Increase Account Number",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://icalendar.org/",
     )
   end
 

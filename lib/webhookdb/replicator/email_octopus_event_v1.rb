@@ -15,6 +15,7 @@ class Webhookdb::Replicator::EmailOctopusEventV1 < Webhookdb::Replicator::Base
       dependency_descriptor: Webhookdb::Replicator::EmailOctopusListV1.descriptor,
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://emailoctopus.com/api-documentation",
     )
   end
   BUILD_EVENT_MD5 = Webhookdb::Replicator::Column::IsomorphicProc.new(

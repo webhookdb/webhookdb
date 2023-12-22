@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeCouponV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Stripe Coupon",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/coupons",
     )
   end
 

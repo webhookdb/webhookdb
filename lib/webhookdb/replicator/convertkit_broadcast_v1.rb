@@ -16,6 +16,7 @@ class Webhookdb::Replicator::ConvertkitBroadcastV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "ConvertKit Broadcast",
       supports_backfill: true,
+      api_docs_url: "https://developers.convertkit.com/#list-broadcasts",
     )
   end
 

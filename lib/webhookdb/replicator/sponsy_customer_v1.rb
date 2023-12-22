@@ -14,6 +14,7 @@ class Webhookdb::Replicator::SponsyCustomerV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Sponsy Customer",
       dependency_descriptor: Webhookdb::Replicator::SponsySlotV1.descriptor,
       supports_backfill: true,
+      api_docs_url: "https://api.getsponsy.com/docs",
     )
   end
 

@@ -17,6 +17,10 @@ class Webhookdb::Replicator::ConvertkitSubscriberV1 < Webhookdb::Replicator::Bas
       resource_name_singular: "ConvertKit Subscriber",
       supports_webhooks: true,
       supports_backfill: true,
+      description: "Replicate ConvertKit subscribers into a database. " \
+                   "This is one of the only ways you can keep track of historical subscriber information " \
+                   "with ConvertKit.",
+      api_docs_url: "https://developers.convertkit.com/#list-subscribers",
     )
   end
 

@@ -15,6 +15,7 @@ class Webhookdb::Replicator::FrontConversationV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Front Conversation",
       dependency_descriptor: Webhookdb::Replicator::FrontMarketplaceRootV1.descriptor,
       supports_webhooks: true,
+      api_docs_url: "https://dev.frontapp.com/reference/conversations",
     )
   end
 

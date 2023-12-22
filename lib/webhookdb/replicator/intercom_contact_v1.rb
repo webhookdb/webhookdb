@@ -15,6 +15,7 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Intercom Contact",
       dependency_descriptor: Webhookdb::Replicator::IntercomMarketplaceRootV1.descriptor,
       supports_backfill: true,
+      api_docs_url: "https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Contacts/",
     )
   end
 

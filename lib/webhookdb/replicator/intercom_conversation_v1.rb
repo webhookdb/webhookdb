@@ -15,6 +15,7 @@ class Webhookdb::Replicator::IntercomConversationV1 < Webhookdb::Replicator::Bas
       resource_name_singular: "Intercom Conversation",
       dependency_descriptor: Webhookdb::Replicator::IntercomMarketplaceRootV1.descriptor,
       supports_backfill: true,
+      api_docs_url: "https://developers.intercom.com/docs/references/rest-api/api.intercom.io/Conversations/",
     )
   end
 

@@ -70,6 +70,15 @@ class Webhookdb::Replicator
     # for example in case 'backfill' is called but not supported.
     attr_reader :documentation_url
 
+    # Markdown description of this replicator.
+    attr_reader :description
+
+    # URL pointing to the provider (not-WebhookDB) docs for this integration.
+    attr_reader :api_docs_url
+
+    # Is this an enterprise-only replicator?
+    attr_reader :enterprise
+
     def initialize(
       name:,
       ctor:,
@@ -79,6 +88,9 @@ class Webhookdb::Replicator
       supports_backfill: false,
       resource_name_plural: nil,
       dependency_descriptor: nil,
+      api_docs_url: "",
+      description: nil,
+      enterprise: false,
       documentation_url: nil
     )
       raise ArgumentError, "must support one or both of webhooks and backfill" unless
@@ -91,9 +103,12 @@ class Webhookdb::Replicator
         supports_backfill:,
         dependency_descriptor:,
         documentation_url:,
+        api_docs_url:,
+        enterprise:
       )
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
       @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
+      @description = description || "Replicate #{self.resource_name_plural} into your database."
       self.feature_roles
     end
 
@@ -109,6 +124,7 @@ class Webhookdb::Replicator
 
     alias supports_webhooks? supports_webhooks
     alias supports_backfill? supports_backfill
+    alias enterprise? enterprise
     def webhooks_only? = self.supports_webhooks? && !self.supports_backfill?
     def backfill_only? = !self.supports_webhooks? && self.supports_backfill?
     def supports_webhooks_and_backfill? = self.supports_webhooks? && self.supports_backfill?
@@ -199,5 +215,6 @@ class Webhookdb::Replicator
   require "webhookdb/replicator/state_machine_step"
   require "webhookdb/replicator/column"
   require "webhookdb/replicator/base"
+  require "webhookdb/replicator/docgen"
   load_replicators
 end

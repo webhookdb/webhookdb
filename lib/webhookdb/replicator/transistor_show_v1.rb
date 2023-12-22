@@ -14,6 +14,7 @@ class Webhookdb::Replicator::TransistorShowV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Transistor Show",
       supports_backfill: true,
+      api_docs_url: "https://developers.transistor.fm/#Show",
     )
   end
 

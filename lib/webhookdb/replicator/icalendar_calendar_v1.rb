@@ -22,6 +22,8 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "iCalendar Calendar",
       supports_webhooks: true,
+      description: "Fetch and convert an icalendar format file into a schematized and queryable database table.",
+      api_docs_url: "https://icalendar.org/",
     )
   end
 

@@ -13,6 +13,7 @@ class Webhookdb::Replicator::EmailOctopusListV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Email Octopus List",
       supports_backfill: true,
+      api_docs_url: "https://emailoctopus.com/api-documentation",
     )
   end
 

@@ -12,6 +12,8 @@ class Webhookdb::Replicator::IntercomMarketplaceRootV1 < Webhookdb::Replicator::
       resource_name_singular: "Intercom Auth",
       resource_name_plural: "Intercom Auth",
       supports_backfill: true,
+      description: "You can replicate your Intercom data to WebhookDB Cloud in one click using  " \
+                   "the [Intercom App Store](https://www.intercom.com/app-store).",
     )
   end
 

@@ -17,6 +17,10 @@ class Webhookdb::Replicator::AwsPricingV1 < Webhookdb::Replicator::Base
       resource_name_singular: "AWS Price List",
       feature_roles: [],
       supports_backfill: true,
+      description: "Fetch, parse, and process AWS price list information from the API into a " \
+                   "relational, fully searchable table.",
+      api_docs_url: "https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/" \
+                    "price-list-query-api-find-services-products.html",
     )
   end
 

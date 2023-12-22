@@ -13,6 +13,7 @@ class Webhookdb::Replicator::PostmarkOutboundMessageEventV1 < Webhookdb::Replica
       feature_roles: [],
       resource_name_singular: "Postmark Outbound Message Event",
       supports_webhooks: true,
+      api_docs_url: "https://postmarkapp.com/developer/webhooks/webhooks-overview",
     )
   end
 

@@ -13,6 +13,7 @@ class Webhookdb::Replicator::PlivoSmsInboundV1 < Webhookdb::Replicator::Base
       feature_roles: ["beta"],
       resource_name_singular: "Plivo Inbound SMS Message",
       supports_webhooks: true,
+      api_docs_url: "https://www.plivo.com/docs/sms/api/message#the-message-object",
     )
   end
 

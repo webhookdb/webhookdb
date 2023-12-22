@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeChargeV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Stripe Charge",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/charges",
     )
   end
 
