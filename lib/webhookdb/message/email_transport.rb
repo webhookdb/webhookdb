@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require "appydays/configurable"
+require "mail"
 require "premailer"
 
 require "webhookdb/message/transport"
-require "webhookdb/postmark"
 
 class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
   include Appydays::Configurable
@@ -12,8 +12,30 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
   register_transport(:email)
 
   configurable(:email) do
-    setting :allowlist, ["*@lithic.tech"], convert: ->(s) { s.split }
-    setting :from, "WebhookDB <webhookdb@lithic.tech>"
+    setting :allowlist, ["*@lithic.tech", "*@webhookdb.com"], convert: ->(s) { s.split }
+    setting :from, "WebhookDB <hello@webhookdb.com>"
+
+    setting :smtp_host, "localhost"
+    setting :smtp_port, 18_012
+    setting :smtp_user, ""
+    setting :smtp_password, ""
+    setting :smtp_starttls, false
+
+    # If this is a recognized value, certain special behavior is used,
+    # particularly around message ids and metadata.
+    # Currently supported values:
+    #
+    # - postmark: Set the X-PM-Metadata-messageid field and some other fields.
+    #
+    # If you need other behavior, you can open an issue or pull request.
+    # Unsupported values are ignored.
+    setting :smtp_provider, ""
+    # Additional headers sent in each email.
+    setting :smtp_headers, {}, convert: ->(s) { JSON.parse(s) }
+
+    # Only really used during testing and development.
+    # We don't expect this to be running in production.
+    setting :mailpit_url, "http://localhost:18011"
   end
 
   def type
@@ -21,7 +43,7 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
   end
 
   def service
-    return "postmark"
+    return "smtp"
   end
 
   def supports_layout?
@@ -61,28 +83,51 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
     end
 
     from = delivery.extra_fields["from"].present? ? delivery.extra_fields["from"] : self.class.from
-    begin
-      response = Webhookdb::Postmark.send_email(
-        from,
-        delivery.to,
-        delivery.body_with_mediatype("subject")&.content,
-        plain: delivery.body_with_mediatype!("text/plain")&.content,
-        html: delivery.body_with_mediatype!("text/html")&.content,
-        to_name: delivery.recipient&.name,
-        reply_to: delivery.extra_fields["reply_to"],
+    to = self.format_email_name(delivery.to, delivery.recipient&.name)
+    message_id = SecureRandom.uuid.to_s
+    this = self
+    Mail.deliver do
+      delivery_method(
+        :smtp,
+        address: this.class.smtp_host,
+        port: this.class.smtp_port,
+        user_name: this.class.smtp_user,
+        password: this.class.smtp_password,
+        enable_starttls_auto: this.class.smtp_starttls,
       )
-    rescue Postmark::InactiveRecipientError => e
-      raise Webhookdb::Message::Transport::UndeliverableRecipient, "#{delivery.to} cannot be reached: #{e.inspect}"
-    rescue Postmark::InvalidEmailAddressError => e
-      raise Webhookdb::Message::Transport::UndeliverableRecipient, "#{delivery.to} email is invalid: #{e.inspect}"
-    else
-      raise Webhookdb::Message::Transport::Error, response.inspect if response[:error_code].positive?
-      return response[:message_id]
+      this.class.smtp_headers.each do |k, v|
+        header[k] = v
+      end
+      custom_method = "_handle_#{this.class.smtp_provider}".to_sym
+      this.send(custom_method, delivery, self, message_id) if this.respond_to?(custom_method)
+      from from
+      to to
+      reply_to(delivery.extra_fields["reply_to"]) if delivery.extra_fields["reply_to"].present?
+      subject  delivery.body_with_mediatype("subject")&.content
+      text_part do
+        content_type "text/plain; charset=UTF-8"
+        body delivery.body_with_mediatype!("text/plain")&.content
+      end
+      html_part do
+        content_type "text/html; charset=UTF-8"
+        body delivery.body_with_mediatype!("text/html")&.content
+      end
     end
+    return message_id
   end
 
   protected def extract_email_part(email)
     split = /(?:(?<address>.+)\s)?<?(?<email>.+@[^>]+)>?/.match(email)
     return split[:email]
+  end
+
+  def format_email_name(email, name)
+    return email if name.blank?
+    return "#{name} <#{email}>"
+  end
+
+  def _handle_postmark(delivery, mail, message_id)
+    mail.header["X-PM-Metadata-messageid"] = message_id
+    mail.header["X-PM-Tag"] = delivery.template
   end
 end
