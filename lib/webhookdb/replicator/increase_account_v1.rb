@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseAccountV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Increase Account",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

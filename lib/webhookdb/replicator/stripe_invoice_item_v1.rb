@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeInvoiceItemV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Stripe Invoice Item",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/invoiceitems",
     )
   end
 

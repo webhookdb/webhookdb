@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseAccountTransferV1 < Webhookdb::Replicator::
       resource_name_singular: "Increase Account Transfer",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

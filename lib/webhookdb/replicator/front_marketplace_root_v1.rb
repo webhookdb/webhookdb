@@ -14,6 +14,7 @@ class Webhookdb::Replicator::FrontMarketplaceRootV1 < Webhookdb::Replicator::Bas
       resource_name_singular: "Front Auth",
       resource_name_plural: "Front Auth",
       supports_webhooks: true,
+      description: "You can replicate your data to WebhookDB Cloud using the Front Marketplace.",
     )
   end
 

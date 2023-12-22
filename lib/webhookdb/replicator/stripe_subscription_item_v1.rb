@@ -16,6 +16,7 @@ class Webhookdb::Replicator::StripeSubscriptionItemV1 < Webhookdb::Replicator::B
       resource_name_singular: "Stripe Subscription Item",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://stripe.com/docs/api/subscription_items",
     )
   end
 

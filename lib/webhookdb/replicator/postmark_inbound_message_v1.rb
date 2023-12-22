@@ -13,6 +13,7 @@ class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::B
       feature_roles: [],
       resource_name_singular: "Postmark Inbound Message",
       supports_webhooks: true,
+      api_docs_url: "https://postmarkapp.com/developer/user-guide/inbound/parse-an-email",
     )
   end
 

@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseWireTransferV1 < Webhookdb::Replicator::Bas
       resource_name_singular: "Increase Wire Transfer",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

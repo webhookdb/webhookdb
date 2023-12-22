@@ -18,6 +18,7 @@ class Webhookdb::Replicator::MicrosoftCalendarV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Outlook Calendar",
       dependency_descriptor: Webhookdb::Replicator::MicrosoftCalendarUserV1.descriptor,
       supports_webhooks: true,
+      enterprise: true,
     )
   end
 

@@ -13,6 +13,7 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "SignalWire Message",
       supports_backfill: true,
+      api_docs_url: "https://developer.signalwire.com/compatibility-api/rest/list-all-messages",
     )
   end
 

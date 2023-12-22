@@ -16,6 +16,7 @@ class Webhookdb::Replicator::TransistorEpisodeStatsV1 < Webhookdb::Replicator::B
       resource_name_plural: "Transistor Episode Stats",
       dependency_descriptor: Webhookdb::Replicator::TransistorEpisodeV1.descriptor,
       supports_backfill: true,
+      api_docs_url: "https://developers.transistor.fm/#EpisodeAnalytics",
     )
   end
 

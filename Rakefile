@@ -16,6 +16,8 @@ require "webhookdb/tasks/bootstrap"
 Webhookdb::Tasks::Bootstrap.new
 require "webhookdb/tasks/db"
 Webhookdb::Tasks::DB.new
+require "webhookdb/tasks/docs"
+Webhookdb::Tasks::Docs.new
 require "webhookdb/tasks/fixture"
 Webhookdb::Tasks::Fixture.new
 require "webhookdb/tasks/release"

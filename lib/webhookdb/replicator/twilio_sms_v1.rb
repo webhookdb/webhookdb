@@ -13,6 +13,7 @@ class Webhookdb::Replicator::TwilioSmsV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Twilio SMS Message",
       supports_backfill: true,
+      api_docs_url: "https://www.twilio.com/docs/usage/api#send-an-sms-with-twilios-api",
     )
   end
 

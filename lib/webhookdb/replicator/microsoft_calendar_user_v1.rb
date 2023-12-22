@@ -16,6 +16,7 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
       feature_roles: ["microsoft", "beta"],
       resource_name_singular: "Outlook Calendar User",
       supports_webhooks: true,
+      enterprise: true,
     )
   end
 

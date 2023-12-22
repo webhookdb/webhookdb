@@ -13,6 +13,7 @@ class Webhookdb::Replicator::SponsyPublicationV1 < Webhookdb::Replicator::Base
       feature_roles: [],
       resource_name_singular: "Sponsy Publication",
       supports_backfill: true,
+      api_docs_url: "https://api.getsponsy.com/docs",
     )
   end
 

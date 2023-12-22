@@ -16,6 +16,7 @@ class Webhookdb::Replicator::IncreaseCheckTransferV1 < Webhookdb::Replicator::Ba
       resource_name_singular: "Increase Check Transfer",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

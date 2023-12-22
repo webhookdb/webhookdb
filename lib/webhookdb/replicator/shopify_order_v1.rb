@@ -16,6 +16,7 @@ class Webhookdb::Replicator::ShopifyOrderV1 < Webhookdb::Replicator::Base
       resource_name_singular: "Shopify Order",
       supports_webhooks: true,
       supports_backfill: true,
+      api_docs_url: "https://shopify.dev/docs/api/admin-rest/2023-10/resources/order",
     )
   end
 
