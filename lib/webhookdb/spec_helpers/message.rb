@@ -21,22 +21,21 @@ module Webhookdb::SpecHelpers::Message
     super
   end
 
-  module_function def stub_email_post(opts={})
-    opts[:with] ||= {}
-    opts[:fixture] ||= "postmark/mail_send"
-    opts[:message_id] ||= "aaa-bbb-ccc"
-    opts[:status] ||= 200
-
-    body = load_fixture_data(opts[:fixture])
-    body["MessageID"] = opts[:message_id]
-
-    req = stub_request(:post, "https://api.postmarkapp.com/email")
-    (req = req.with(opts[:with])) if opts[:with].present?
-    req = req.to_return(
-      status: opts[:status],
-      body: body.to_json,
-      headers: opts[:headers],
-    )
-    return req
+  # Retrieve the last sent email from the local mailpit service.
+  module_function def fetch_last_email
+    old = WebMock::Config.instance.allow
+    mpurl = Webhookdb::Message::EmailTransport.mailpit_url
+    getopts = {timeout: 5, logger: nil}
+    WebMock::Config.instance.allow = mpurl
+    begin
+      list_resp = Webhookdb::Http.get("#{mpurl}/api/v1/messages", {limit: 1}, **getopts)
+      msg = list_resp.parsed_response.fetch("messages").first
+      msgid = msg.fetch("ID")
+      headers_resp = Webhookdb::Http.get("#{mpurl}/api/v1/message/#{msgid}/headers", **getopts)
+      msg["Headers"] = headers_resp.parsed_response
+      return msg
+    ensure
+      WebMock::Config.instance.allow = old
+    end
   end
 end

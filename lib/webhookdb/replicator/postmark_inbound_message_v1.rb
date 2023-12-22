@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webhookdb/postmark"
+
 class Webhookdb::Replicator::PostmarkInboundMessageV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
