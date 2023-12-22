@@ -39,6 +39,7 @@ GEM
       multi_json (~> 1)
       statsd-ruby (~> 1.1)
     bcrypt (3.1.18)
+    bigdecimal (3.1.5)
     biz (1.8.2)
       clavius (~> 1.0)
       tzinfo
@@ -148,7 +149,7 @@ GEM
     parallel (1.22.1)
     parser (3.2.1.1)
       ast (~> 2.4.1)
-    pg (1.4.1)
+    pg (1.5.4)
     phony (2.19.13)
     platform-api (3.3.0)
       heroics (~> 0.1.1)
@@ -243,7 +244,8 @@ GEM
     sentry-sidekiq (5.3.1)
       sentry-ruby-core (~> 5.3.1)
       sidekiq (>= 3.0)
-    sequel (5.58.0)
+    sequel (5.75.0)
+      bigdecimal
     sequel-annotate (1.7.0)
       sequel (>= 4)
     sequel-money-fields (0.1.0)
