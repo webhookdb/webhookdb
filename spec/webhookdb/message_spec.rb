@@ -17,7 +17,7 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
       expect(delivery).to have_attributes(
         template: "specs/basic",
         transport_type: "email",
-        transport_service: "postmark",
+        transport_service: "smtp",
         transport_message_id: nil,
         sent_at: nil,
         to: recipient.email,
