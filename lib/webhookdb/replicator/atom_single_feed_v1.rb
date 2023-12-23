@@ -13,7 +13,7 @@ class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base
       name: "atom_single_feed_v1",
       ctor: ->(sint) { Webhookdb::Replicator::AtomSingleFeedV1.new(sint) },
       feature_roles: [],
-      resource_name_singular: "Single Atom Feed",
+      resource_name_singular: "Atom Single Feed",
       supports_backfill: true,
       description: "Convert any Atom XML feed into a database table for querying and persistent archiving.",
       api_docs_url: "https://en.wikipedia.org/wiki/Atom_(web_standard)",
