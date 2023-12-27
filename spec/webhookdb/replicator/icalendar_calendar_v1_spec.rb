@@ -1079,6 +1079,92 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "ignores events with backwards start/end times because who knows what these are" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20231211T152742Z
+          DTEND;TZID=America/Indianapolis:20240122T123000
+          DTSTAMP:20231214T143743Z
+          DTSTART;TZID=America/Indianapolis:20240122T160000
+          EXDATE;TZID=America/Indianapolis:20231218T110000
+          EXDATE;TZID=America/Indianapolis:20231220T110000
+          EXDATE;TZID=America/Indianapolis:20231225T110000
+          LAST-MODIFIED:20231214T143742Z
+          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          SEQUENCE:0
+          SUMMARY:Abe Lincoln
+          UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E"),
+        )
+      end
+
+      it "does not project events before the year 1000 since it is likely a misconfiguration" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20231211T152742Z
+          DTEND;TZID=America/Indianapolis:20240122T123000
+          DTSTAMP:20231214T143743Z
+          DTSTART;TZID=America/Indianapolis:00210122T110000
+          EXDATE;TZID=America/Indianapolis:20231218T110000
+          EXDATE;TZID=America/Indianapolis:20231220T110000
+          EXDATE;TZID=America/Indianapolis:20231225T110000
+          LAST-MODIFIED:20231214T143742Z
+          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          SEQUENCE:0
+          SUMMARY:Abe Lincoln
+          UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(
+          hash_including(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E"),
+        )
+      end
+
+      it "does not project events older than the configured time" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20231211T152742Z
+          DTEND;TZID=America/Indianapolis:19240122T123000
+          DTSTAMP:20231214T143743Z
+          DTSTART;TZID=America/Indianapolis:19240122T110000
+          EXDATE;TZID=America/Indianapolis:20231218T110000
+          EXDATE;TZID=America/Indianapolis:20231220T110000
+          EXDATE;TZID=America/Indianapolis:20231225T110000
+          LAST-MODIFIED:20231214T143742Z
+          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          SEQUENCE:0
+          SUMMARY:Abe Lincoln
+          UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
+          END:VEVENT
+        ICAL
+        got = sync(body)
+        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-6881", start_at: match_time("1990-01-01 16:00:00Z"))
+        expect(got.last).to include(start_at: be > 1.month.ago)
+      end
+
+      it "yields invalid dates as single events" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20231211T152742Z
+          DTEND;TZID=America/Indianapolis:15240122T123000
+          DTSTAMP:20231214T143743Z
+          DTSTART;TZID=America/Indianapolis:15240122T110000
+          EXDATE;TZID=America/Indianapolis:20231218T110000
+          EXDATE;TZID=America/Indianapolis:20231220T110000
+          EXDATE;TZID=America/Indianapolis:20231225T110000
+          LAST-MODIFIED:20231214T143742Z
+          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          SEQUENCE:0
+          SUMMARY:Abe Lincoln
+          UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
+          END:VEVENT
+        ICAL
+        expect(sync(body)).to contain_exactly(hash_including(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E"))
+      end
+
       describe "IceCube fixes" do
         it "handles BYSETPOS=2" do
           # See https://github.com/ice-cube-ruby/ice_cube/pull/449
