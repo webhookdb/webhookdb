@@ -61,11 +61,13 @@ class Webhookdb::Replicator::StripeRefundV1 < Webhookdb::Replicator::Base
   def restricted_key_resource_name = "Charges"
 
   def _upsert_webhook(request, upsert: true)
-    object_type = request.body.fetch("object")
+    resource, _event = self._resource_and_event(request)
+    object_type = resource.fetch("object")
     return super if object_type == "refund"
 
-    # Because there is no actual "refunds" webhook, we have to pull a list of refunds
-    # from the "charges" webhook. There is a somewhat infuriating nested pagination
+    # We can hit this when processing a 'charges.updated' webhook for refunds.
+    # We have to pull a list of refunds from the "charges" webhook.
+    # There is a somewhat infuriating nested pagination
     # mechanism here, where the refunds list in the charge takes this form:
     #
     #    "refunds": {

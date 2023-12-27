@@ -580,9 +580,10 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
   end
 
   it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_refund_v1" do
-    let(:resource_json) { resource_in_envelope_json["data"]["object"]["refunds"]["data"][0] }
-    let(:resource_in_envelope_json) do
-      JSON.parse(<<~J)
+    let(:resource_in_envelope_json) { refund_event_from_charge }
+    let(:resource_json) { refund_event_from_charge["data"]["object"]["refunds"]["data"][0] }
+    let(:refund_event_from_charge) do
+      JSON.parse(<<~JSON)
         {
           "id": "evt_3NtYaBLelvCURGkU1t7fcPHS",
           "object": "event",
@@ -767,7 +768,64 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
           },
           "type": "charge.refunded"
         }
-      J
+      JSON
+    end
+  end
+
+  it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_refund_v1" do
+    let(:resource_in_envelope_json) { refund_event }
+    let(:resource_json) { refund_event["data"]["object"] }
+    let(:refund_event) do
+      JSON.parse(<<~JSON)
+        {
+          "api_version": "2022-08-01",
+          "created": 1703684780,
+          "data": {
+            "object": {
+              "amount": 1000,
+              "balance_transaction": "txn_3OIj0MLelvCURGkU07tmqITY",
+              "charge": "ch_3OIj0MLelvCURGkU0RjyIa6n",
+              "created": 1703597496,
+              "currency": "usd",
+              "destination_details": {
+                "card": {
+                  "reference": "24011343361000004363200",
+                  "reference_status": "available",
+                  "reference_type": "acquirer_reference_number",
+                  "type": "refund"
+                },
+                "type": "card"
+              },
+              "id": "re_3OIj0MLelvCURGkU0FusiZvO",
+              "metadata": {},
+              "object": "refund",
+              "payment_intent": null,
+              "reason": null,
+              "receipt_number": null,
+              "source_transfer_reversal": null,
+              "status": "succeeded",
+              "transfer_reversal": null
+            },
+            "previous_attributes": {
+              "destination_details": {
+                "card": {
+                  "reference": null,
+                  "reference_status": "pending"
+                }
+              }
+            }
+          },
+          "id": "evt_3OIj0MLelvCURGkU0zgoGmuL",
+          "livemode": true,
+          "object": "event",
+          "pending_webhooks": 1,
+          "request": {
+            "id": null,
+            "idempotency_key": null
+          },
+          "type": "charge.refund.updated"
+        }
+      JSON
     end
   end
 
