@@ -163,11 +163,13 @@ The secret to use for signing is:
   end
 
   def sync_row(row)
-    self.with_advisory_lock(row.fetch(:pk)) do
-      if (dep = self.find_dependent("icalendar_event_v1"))
-        self._sync_row(row, dep)
+    Appydays::Loggable.with_log_tags(icalendar_url: row.fetch(:ics_url)) do
+      self.with_advisory_lock(row.fetch(:pk)) do
+        if (dep = self.find_dependent("icalendar_event_v1"))
+          self._sync_row(row, dep)
+        end
+        self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
       end
-      self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
     end
   end
 
