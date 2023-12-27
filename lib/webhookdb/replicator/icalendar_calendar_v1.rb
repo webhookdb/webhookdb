@@ -353,31 +353,50 @@ The secret to use for signing is:
       is_date = ev_replicator.entry_is_date_str?(start_entry)
       # Use actual Times for start/end since ice_cube doesn't parse them well
       ical_params[:start_time] = ev_replicator.entry_to_date_or_datetime(start_entry).first
+      if ical_params[:start_time].year < 1000
+        # This is almost definitely a misconfiguration. Yield it as non-recurring and move on.
+        yield h
+        return
+      end
       has_end_time = false
       if (end_entry = h["DTEND"])
         # the end date is optional. If we don't have one, we should never store one.
         has_end_time = true
         ical_params[:end_time] = ev_replicator.entry_to_date_or_datetime(end_entry).first
+        if ical_params[:end_time] < ical_params[:start_time]
+          # This is an invalid event. Not sure what it'll do to IceCube so don't send it there.
+          # Yield it as a non-recurring event and move on.
+          yield h
+          return
+        end
       end
 
       schedule = IceCube::Schedule.from_hash(ical_params)
-      # Don't project events further out than this
-      closing_time = Time.now + RECURRENCE_PROJECTION
+      dont_project_before = Webhookdb::Icalendar.oldest_recurring_event
+      dont_project_after = Time.now + RECURRENCE_PROJECTION
+
       # Just like google, track the original event id.
       h["recurring_event_id"] = uid
       final_sequence = -1
-      schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
-        # Given the original hash, we will modify some fields.
-        e = h.dup
-        # Keep track of how many events we're managing.
-        e["recurring_event_sequence"] = idx
-        # The new UID has the sequence number.
-        e["UID"] = {"v" => "#{uid}-#{idx}"}
-        e["DTSTART"] = self._ical_entry_from_ruby(occ.start_time, start_entry, is_date)
-        e["DTEND"] = self._ical_entry_from_ruby(occ.end_time, end_entry, is_date) if has_end_time
-        yield e
-        final_sequence = idx
-        break if occ.start_time > closing_time
+      begin
+        schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
+          next if occ.start_time < dont_project_before
+          # Given the original hash, we will modify some fields.
+          e = h.dup
+          # Keep track of how many events we're managing.
+          e["recurring_event_sequence"] = idx
+          # The new UID has the sequence number.
+          e["UID"] = {"v" => "#{uid}-#{idx}"}
+          e["DTSTART"] = self._ical_entry_from_ruby(occ.start_time, start_entry, is_date)
+          e["DTEND"] = self._ical_entry_from_ruby(occ.end_time, end_entry, is_date) if has_end_time
+          yield e
+          final_sequence = idx
+          break if occ.start_time > dont_project_after
+        end
+      rescue Date::Error
+        # It's possible we yielded some recurring events too, in that case, treat them as normal,
+        # in addition to yielding the event as non-recurring.
+        yield h
       end
       @max_sequence_num_by_uid[uid] = final_sequence
       return
