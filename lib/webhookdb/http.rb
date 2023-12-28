@@ -72,14 +72,14 @@ module Webhookdb::Http
     return r
   end
 
-  def self.post(url, body={}, headers: {}, method: nil, **options, &)
+  def self.post(url, body={}, headers: {}, method: nil, check: true, **options, &)
     self._setup_required_args(options)
     headers["Content-Type"] ||= "application/json"
     headers["User-Agent"] = self.user_agent
     body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
     opts = {body:, headers:}.merge(**options)
     r = HTTParty.send(method || :post, url, **opts, &)
-    self.check!(r, **options)
+    self.check!(r, **options) if check
     return r
   end
 
