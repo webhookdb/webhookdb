@@ -100,8 +100,9 @@ module Webhookdb::API::Helpers
     end
   end
 
-  def self.prompt_for_required_param!(request, key, prompt, secret: false)
+  def self.prompt_for_required_param!(request, key, prompt, secret: false, output: "")
     step = Webhookdb::Replicator::StateMachineStep.new
+    step.output = output
     step.post_to_url = request.path
     step.post_params = request.params.to_h
     step.post_params_value_key = key

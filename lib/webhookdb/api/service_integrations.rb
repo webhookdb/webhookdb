@@ -172,16 +172,18 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
 
             def verify_unique_integration(org)
-              return if Webhookdb::ServiceIntegration.where(
+              existing = Webhookdb::ServiceIntegration.where(
                 organization: org,
                 service_name: params[:service_name],
-              ).all.empty?
+              ).first
+              return if existing.nil?
               return if params.key?(:guard_confirm)
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :guard_confirm,
                 "WARNING: #{org.name} already has an integration for service #{params[:service_name]}.\n" \
-                "Press Enter to create another, or Ctrl+C to quit:",
+                "Press Enter to create another, or Ctrl+C to quit.\n" \
+                "Modify the existing integration using `webhookdb integrations #{existing.opaque_id} setup`",
               )
             end
           end
@@ -417,12 +419,12 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             sint = lookup_service_integration!(org, params[:sint_identifier])
             dependents_lines = sint.recursive_dependents.map(&:table_name).join("\n")
             if sint.table_name != params[:confirm]&.strip
-              prompt_msg = if sint.dependents.empty?
-                             "Please confirm your deletion by entering the integration's table name '" \
-                               "#{sint.table_name}'. The table and all data for this integration will also be removed:"
+              output = if sint.dependents.empty?
+                         "Please confirm your deletion by entering the integration's table name '" \
+                           "#{sint.table_name}'. The table and all data for this integration will also be removed."
               else
                 %(This integration has dependents and therefore cannot be deleted on its own.
-If you choose to go forward with the deletion, it will recursively delete all dependents.
+If you choose to go forward with the deletion, WebhookDB will recursively delete all dependents.
 For reference, this includes the following integrations:
 
 #{dependents_lines}
@@ -433,7 +435,8 @@ The tables and all data for this integration and its dependents will also be rem
               Webhookdb::API::Helpers.prompt_for_required_param!(
                 request,
                 :confirm,
-                prompt_msg,
+                "Confirm table name '#{sint.table_name}':",
+                output:,
               )
             end
 
