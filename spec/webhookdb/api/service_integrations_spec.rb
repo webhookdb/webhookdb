@@ -1105,7 +1105,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
         error: include(code: "prompt_required_params"),
       )
       expect(last_response_json_body[:error][:state_machine_step]).to include(
-        prompt: /The table and all data for this integration will also be removed:/,
+        output: /The table and all data for this integration will also be removed/,
       )
 
       post "/v1/organizations/#{org.key}/service_integrations/xyz/delete", confirm: sint.table_name + "x"
@@ -1166,7 +1166,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
           error: include(code: "prompt_required_params"),
         )
         expect(last_response_json_body[:error][:state_machine_step]).to include(
-          prompt: /The tables and all data for this integration and its dependents will also be removed:/,
+          output: /The tables and all data for this integration and its dependents will also be removed:/,
         )
       end
     end
