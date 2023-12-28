@@ -216,6 +216,37 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "with a column type BIGINT_ARRAY" do
+      let(:col) { described_class.new(:intarr, described_class::BIGINT_ARRAY) }
+
+      def to_sql(pgarr)
+        ds = Webhookdb::Postgres::Model.db[:x]
+        s = +""
+        pgarr.sql_literal_append(ds, s)
+        return s
+      end
+      it "handles an array with values" do
+        v = to_ruby_value(col, {"intarr" => [1, 2, 3]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1,2,3]::bigint[]")
+      end
+
+      it "handles an empty array" do
+        v = to_ruby_value(col, {"intarr" => []}, nil, nil)
+        expect(to_sql(v)).to eq("'{}'::bigint[]")
+      end
+
+      it "uses null if null" do
+        v = to_ruby_value(col, {"intarr" => nil}, nil, nil)
+        expect(v).to be_nil
+      end
+
+      it "applies to a column with a custom converter" do
+        col = described_class.new(:textarr, described_class::BIGINT_ARRAY, converter: identity_conv)
+        v = to_ruby_value(col, {"textarr" => [1]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1]::bigint[]")
+      end
+    end
+
     describe "with a column type TIMESTAMP" do
       it "puts non-UTC year-0 times into UTC" do
         col = described_class.new(:ts, described_class::TIMESTAMP, converter: identity_conv)
