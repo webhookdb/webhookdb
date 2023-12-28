@@ -79,6 +79,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
 
   COLTYPE_MAP = {
     BIGINT => "bigint",
+    BIGINT_ARRAY => "bigint[]",
     BOOLEAN => "boolean",
     DATE => "date",
     DECIMAL => "numeric",

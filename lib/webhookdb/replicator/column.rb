@@ -347,6 +347,8 @@ class Webhookdb::Replicator::Column
       v = Sequel.pg_array(v, "integer")
     elsif (self.type == TEXT_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "text")
+    elsif (self.type == BIGINT_ARRAY) && !v.nil?
+      v = Sequel.pg_array(v, "bigint")
     elsif (self.type == TIMESTAMP) && !v.nil?
       # Postgres CANNOT handle timestamps with a 0000 year,
       # even if the actual time it represents is valid (due to timezone offset).
