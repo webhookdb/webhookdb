@@ -230,6 +230,18 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             end
           end
 
+          post :setup do
+            ensure_plan_supports!
+            c = current_customer
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
+            svc = Webhookdb::Replicator.create(sint)
+            merror!(403, "Sorry, you cannot modify this integration.") unless sint.can_be_modified_by?(c)
+            state_machine = svc.calculate_preferred_create_state_machine
+            status 200
+            present state_machine, with: Webhookdb::API::StateMachineEntity
+          end
+
           post :reset do
             ensure_plan_supports!
             c = current_customer

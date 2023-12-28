@@ -613,6 +613,36 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
     end
   end
 
+  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/setup" do
+    before(:each) do
+      login_as(customer)
+      _ = sint
+    end
+
+    it "returns the current state machine" do
+      sint.update(webhook_secret: "whsek", backfill_secret: "abc")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/setup"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        output: /The integration creation flow is working correctly/,
+      )
+      expect(sint.refresh).to have_attributes(webhook_secret: "whsek", backfill_secret: "abc")
+    end
+
+    it "fails if service integration is not supported by subscription plan" do
+      maxed = max_out_plan_integrations(org)
+
+      post "/v1/organizations/#{org.key}/service_integrations/#{maxed.opaque_id}/setup"
+
+      expect(last_response).to have_status(402)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: /to manage your subscription/),
+      )
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/upsert" do
     before(:each) do
       login_as(customer)
