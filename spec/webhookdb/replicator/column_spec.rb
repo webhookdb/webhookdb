@@ -632,6 +632,39 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "converter_array_pluck" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
+      it "plucks from a Ruby array" do
+        conv = described_class.converter_array_pluck("my_id", :int)
+        expect(conv.ruby.call([{"my_id" => 1}, {"my_id" => 2}])).to eq([1, 2])
+        expect(conv.ruby.call([])).to eq([])
+        expect(conv.ruby.call(nil)).to be_nil
+        expect(conv.ruby.call(5)).to be_nil
+      end
+
+      it "plucks from an sql array" do
+        conv = described_class.converter_array_pluck("my_id", :bigint)
+        e = conv.sql.call(Sequel.lit('\'[{"my_id":1},{"my_id":2}]\'::jsonb'))
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[1, 2]])
+
+        e = conv.sql.call([{my_id: 1}, {my_id: 2}])
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[1, 2]])
+
+        e = conv.sql.call(Sequel.lit("'[]'::jsonb"))
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[]])
+
+        e = conv.sql.call(nil)
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[]])
+      end
+
+      conv = described_class.converter_array_pluck("my_id", :int)
+      it_behaves_like "a service column converter", conv do
+        let(:initial_value) { [{"my_id" => 5}] }
+        let(:expected_value) { [5] }
+      end
+    end
+
     describe "converter_map_lookup" do
       it "converts ruby value" do
         conv = described_class.converter_map_lookup(array: true, map: {1 => "z", "x" => "y"})
