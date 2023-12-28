@@ -41,6 +41,10 @@ module Webhookdb::Jobs
         Webhookdb::EmailOctopus.cron_expression, 2.minutes, false,
       ),
       Spec.new(
+        "GithubRepoActivityScheduledBackfill", "github_repository_event_v1",
+        Webhookdb::Github.activity_cron_expression, 30.seconds, false,
+      ),
+      Spec.new(
         "IntercomScheduledBackfill", "intercom_marketplace_root_v1",
         "*/1 * * * *", 0, false,
       ),

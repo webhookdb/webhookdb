@@ -1,0 +1,197 @@
+# frozen_string_literal: true
+
+require "webhookdb/github"
+
+# Mixin for repo-specific resources like issues and pull requests.
+module Webhookdb::Replicator::GithubRepoV1Mixin
+  API_VERSION = "2022-11-28"
+
+  def self._api_docs_url(tail)
+    return "https://docs.github.com/en/rest#{tail}?apiVersion=#{API_VERSION}"
+  end
+
+  # @!attribute service_integration
+  # @return [Webhookdb::ServiceIntegration]
+
+  def _mixin_backfill_url = raise NotImplementedError("/issues, /pulls, etc")
+  def _mixin_webhook_events = raise NotImplementedError("Issues, Pulls, Issue comments, etc")
+  # https://docs.github.com/en/webhooks/webhook-events-and-payloads?actionType=demilestoned#issues
+  def _mixin_webhook_key = raise NotImplementedError("issue, etc")
+  # https://github.com/settings/personal-access-tokens/new
+  def _mixin_fine_grained_permission = raise NotImplementedError("Issues", etc)
+  # Query params to use in the list call. Should include sorting when available.
+  def _mixin_query_params(last_backfilled:) = raise NotImplementedError
+  def _fullreponame = self.service_integration.api_url
+  def _repoowner = self._fullreponame.split("/").first
+  def _reponame = self._fullreponame.split("/").last
+  def _valid_repo_name?(s) = %r{^[\w\-.]+/[\w\-.]+$} =~ s
+
+  def _resource_and_event(request)
+    is_webhook = request.body.key?("sender") && request.body.key?("action")
+    return request.body, nil unless is_webhook
+    return request.body.fetch(self._mixin_webhook_key), request.body
+  end
+
+  def _update_where_expr
+    ts = self._timestamp_column_name
+    return self.qualified_table_sequel_identifier[ts] < Sequel[:excluded][ts]
+  end
+
+  def _webhook_response(request)
+    hash = request.env["HTTP_X_HUB_SIGNATURE_256"]
+    return Webhookdb::WebhookResponse.error("missing sha256") if hash.nil?
+    secret = self.service_integration.webhook_secret
+    return Webhookdb::WebhookResponse.error("no secret set, run `webhookdb integration setup`", status: 409) if
+      secret.nil?
+    request.body.rewind
+    request_data = request.body.read
+    verified = Webhookdb::Github.verify_webhook(request_data, hash, secret)
+    return Webhookdb::WebhookResponse.ok if verified
+    return Webhookdb::WebhookResponse.error("invalid sha256")
+  end
+
+  def _webhook_state_change_fields = super + ["repo_name"]
+
+  def process_state_change(field, value)
+    attr = field == "repo_name" ? "api_url" : field
+    return super(field, value, attr:)
+  end
+
+  def calculate_webhook_state_machine
+    step = Webhookdb::Replicator::StateMachineStep.new
+    return step if self._handle_repo_name_state_machine(step, "repo_name")
+    if self.service_integration.webhook_secret.blank?
+      step.output = %(Now, head to this route to create a webhook:
+
+  https://github.com/#{self.service_integration.api_url}/settings/hooks/new
+
+For 'Payload URL', use this endpoint that is now available:
+
+  #{self._webhook_endpoint}
+
+For 'Content type', choose 'application/json'. Form encoding works but loses some detail in events.
+
+For 'Secret', choose your own secure secret, or use this one: '#{Webhookdb::Id.rand_enc(16)}'
+
+For 'Which events would you like to trigger this webhook',
+choose 'Let me select individual events',
+uncheck 'Pushes', and select the following:
+
+  #{self._mixin_webhook_events.join("\n  ")}
+
+Make sure 'Active' is checked, and press 'Add webhook'.)
+      return step.secret_prompt("Webhook Secret").webhook_secret(self.service_integration)
+    end
+    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
+#{self._query_help_output})
+    return step.completed
+  end
+
+  # If api_url isn't set, prompt for it (via repo_name or api_url field).
+  def _handle_repo_name_state_machine(step, tfield)
+    if self.service_integration.api_url.blank?
+      step.output = %(You are about to start replicating #{self.resource_name_plural} for a repository into WebhookDB.
+
+First we need the full repository name, like 'webhookdb/webhookdb-cli'.)
+      step.set_prompt("Repository name:").transition_field(self.service_integration, tfield)
+      return true
+    end
+    return false if self._valid_repo_name?(self.service_integration.api_url)
+    step.output = %(That repository is not valid. Include both the owner and name, like 'webhookdb/webhookdb-cli'.)
+    step.set_prompt("Repository name:").transition_field(self.service_integration, tfield)
+    return true
+  end
+
+  # If we can make an unauthed request and find the repo, it is public.
+  def _is_repo_public?
+    resp = Webhookdb::Http.post(
+      "https://github.com/#{self.service_integration.api_url}",
+      method: :head,
+      check: false,
+      timeout: 5,
+      logger: nil,
+    )
+    return resp.code == 200
+  end
+
+  def calculate_backfill_state_machine
+    step = Webhookdb::Replicator::StateMachineStep.new
+    return step if self._handle_repo_name_state_machine(step, "api_url")
+    unless self.service_integration.backfill_secret.present?
+      repo_public = self._is_repo_public?
+      step.output = %(In order to backfill #{self.resource_name_plural},
+WebhookDB requires an access token to authenticate.
+
+You should go to https://github.com/settings/personal-access-tokens/new and create a new Personal Access Token.
+
+For 'Expiration', give a custom date far in the future.
+
+For 'Resource owner', choose the '#{self._repoowner}' organization.
+**If it does not appear**, Fine-grained tokens are not enabled.
+See instructions below.
+
+For 'Repository access', choose 'Only select repositories', and the '#{self._fullreponame}' repository.
+
+For 'Repository permissions', go to '#{self._mixin_fine_grained_permission}' and choose 'Read-only access'.
+
+If you didn't see the needed owner under 'Resource owner,' it's because fine-grained tokens are not enabled.
+Instead, create a new Classic personal access token from https://github.com/settings/tokens/new.
+In the 'Note', mention this token is for WebhookDB,
+give it an expiration, and under 'Scopes', ensure #{repo_public ? 'repo->public_repo' : 'repo'} is checked,
+since #{self._fullreponame} is #{repo_public ? 'public' : 'private'}.
+
+Then click 'Generate token'.)
+      return step.secret_prompt("Personal access token").backfill_secret(self.service_integration)
+    end
+
+    unless (result = self.verify_backfill_credentials).verified
+      self.service_integration.replicator.clear_backfill_information
+      step.output = result.message
+      return step.secret_prompt("Personal access token").backfill_secret(self.service_integration)
+    end
+
+    step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
+#{self._query_help_output})
+    return step.completed
+  end
+
+  def _verify_backfill_err_msg
+    return "That access token didn't seem to work. Please look over the instructions and try again."
+  end
+
+  JSON_CONTENT_TYPE = "application/vnd.github+json"
+
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
+    if pagination_token.present?
+      url = pagination_token
+      query = {}
+    else
+      url = "https://api.github.com/repos/#{self.service_integration.api_url}#{self._mixin_backfill_url}"
+      query = {per_page: 100}
+      query.merge!(self._mixin_query_params(last_backfilled:))
+    end
+    response = Webhookdb::Http.get(
+      url,
+      query,
+      headers: {
+        "Accept" => JSON_CONTENT_TYPE,
+        "Authorization" => "Bearer #{self.service_integration.backfill_secret}",
+        "X-GitHub-Api-Version" => API_VERSION,
+      },
+      logger: self.logger,
+      timeout: Webhookdb::Github.http_timeout,
+    )
+    # Handle the GH-specific vnd JSON or general application/json
+    data = if response.headers["Content-Type"] == JSON_CONTENT_TYPE
+             Oj.load(response.parsed_response)
+    else
+      response.parsed_response
+           end
+    next_link = nil
+    if response.headers.key?("link")
+      links = Webhookdb::Github.parse_link_header(response.headers["link"])
+      next_link = links[:next] if links.key?(:next)
+    end
+    return data, next_link
+  end
+end
