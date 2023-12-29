@@ -105,6 +105,8 @@ RSpec/ExpectInHook:
   Enabled: false
 RSpec/HookArgument:
   EnforcedStyle: 'each'
+RSpec/IndexedLet:
+  Enabled: false
 RSpec/InstanceVariable:
   Enabled: false
 RSpec/MessageSpies:

@@ -280,7 +280,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         jsonb :data
         jsonb :enrichment
         Webhookdb::DBAdapter::PG::COLTYPE_MAP.each do |(k, v)|
-          column "col_#{k}".to_sym, v
+          column :"col_#{k}", v
         end
       end
     end

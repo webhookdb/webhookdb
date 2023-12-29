@@ -77,7 +77,7 @@ class Webhookdb::Replicator::MicrosoftCalendarEventV1 < Webhookdb::Replicator::B
   # @param calendar_row [Hash<Symbol, Any>]
   # @param access_token [String]
   def sync_calendar_events(calendar_svc, calendar_row, access_token)
-    is_default_calendar =  calendar_row.fetch(:is_default_calendar)
+    is_default_calendar = calendar_row.fetch(:is_default_calendar)
     bf = if is_default_calendar
            EventDeltaBackfiller.new(
              event_svc: self,

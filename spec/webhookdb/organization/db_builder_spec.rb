@@ -4,7 +4,7 @@
 RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
   let(:this_dbserver_url) { described_class.available_server_urls.first }
 
-  describe "configuration", whdbisolation: true do
+  describe "configuration", :whdbisolation do
     it "errors if there isolation mode is empty" do
       described_class.isolation_mode = ""
       expect { described_class.run_after_configured_hooks }.to raise_error(KeyError)
