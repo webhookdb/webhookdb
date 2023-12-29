@@ -44,7 +44,7 @@ module Webhookdb::Async::Autoscaler
       kw = {queues: names_and_latencies, depth:, duration:, scale_action:}
       self.logger.warn("high_latency_queues_event", **kw)
       Sentry.with_scope do |scope|
-        scope.set_extras(**kw)
+        scope&.set_extras(**kw)
         Sentry.capture_message("Some queues have a high latency")
       end
     end
