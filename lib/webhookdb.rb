@@ -67,8 +67,8 @@ module Webhookdb
     setting :api_url, "http://localhost:#{ENV.fetch('PORT', 18_001)}"
     setting :bust_idempotency, false
     setting :http_user_agent, ""
-    setting :marketing_site, "https://webhookdb.com/"
-    setting :support_email, "webhookdb@lithic.tech"
+    setting :oss_repo_url, "https://github.com/webhookdb/webhookdb"
+    setting :support_email, "hello@webhookdb.com"
     setting :use_globals_cache, false
     setting :regression_mode, false
   end

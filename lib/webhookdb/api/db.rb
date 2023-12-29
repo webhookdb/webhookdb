@@ -86,7 +86,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       post :migrate_database do
         unless Webhookdb::Organization::DbBuilder.allow_public_migrations
           merror!(403,
-                  "Public database migrations are not enabled. Email support@webhookdb.com for more information.",
+                  "Public database migrations are not enabled. Email #{Webhookdb.oss_repo_url} for more information.",
                   code: "migrations_disabled",
                   alert: true,)
         end
@@ -178,7 +178,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
 
   resource :organizations do
     route_param :org_identifier, type: String do
-      # See https://github.com/lithictech/webhookdb-api/issues/286
+      # See https://github.com/webhookdb/webhookdb/issues/286
       desc "DEPRECATED: Use /v1/db/:key/fdw instead"
       post :fdw do
         run_fdw

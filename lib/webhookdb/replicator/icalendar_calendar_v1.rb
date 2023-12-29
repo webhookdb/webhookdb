@@ -40,7 +40,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
       step.output = %(You are about to add support for replicating iCalendar (.ics) URLs into WebhookDB.
 
 We have detailed instructions on this process
-at https://webhookdb.com/docs/icalendar.
+at https://docs.webhookdb.com/guides/icalendar/.
 
 The first step is to generate a secret you will use for signing
 API requests you send to WebhookDB. You can use '#{Webhookdb::Id.rand_enc(16)}'
@@ -50,7 +50,7 @@ Copy and paste or enter a new value, and press enter.)
     end
     step.output = %(
 All set! Here is the endpoint to send requests to
-from your backend. Refer to https://webhookdb.com/docs/icalendar
+from your backend. Refer to https://docs.webhookdb.com/guides/icalendar/
 for details on the format of the request:
 
 #{self.webhook_endpoint}

@@ -301,14 +301,11 @@ RSpec.describe "Webhookdb::Customer", :db do
       step, me = described_class.finish_otp(customer, token: code.token)
 
       expect(me).to be === customer
-      expect(step.output).to end_with(
-        "You have the following pending invites:
+      expect(step.output).to end_with("You have the following pending invites:
 
   Blah (blah): abcd
 
-Use `webhookdb org join [code]` to accept an invitation.
-",
-      )
+Use `webhookdb org join [code]` to accept an invitation.")
     end
   end
 

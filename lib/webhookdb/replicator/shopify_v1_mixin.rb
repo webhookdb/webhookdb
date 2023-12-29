@@ -64,8 +64,7 @@ You will need to create a separate webhook for each #{self.resource_name_singula
 but you can use the URL above and select JSON as the desired format for all of them.
 
 At the very bottom of the page, you should see a signing secret that will be used to verify all webhooks.
-Copy that value.
-      )
+Copy that value.)
       return step.secret_prompt("secret").webhook_secret(self.service_integration)
     end
 
@@ -83,7 +82,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
     unless self.service_integration.backfill_key.present?
       step.output = \
         %(In order to backfill #{self.resource_name_plural}, we need an API key and password
-(please email webhookdb@lithic.tech if you need token support).
+(file an issue at #{Webhookdb.oss_repo_url} if you need token support).
 
 - From your Shopify Dashboard, go to Apps and click the "Manage Private Apps" link at the bottom of the page.
 - Then click "Create Private App" and fill out the necessary information.
@@ -92,8 +91,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
 - Then hit "Save" and create the app.
 - You'll be presented with a page that has info about your app's credentials.
 
-We need both the API Key and Password.
-      )
+We need both the API Key and Password.)
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
@@ -104,8 +102,7 @@ We need both the API Key and Password.
     unless self.service_integration.api_url.present?
       step.output = %(Nice! Now we need the name of your shop so that we can construct the api url.
 This is the name that is used by Shopify for URL purposes.
-It should be in the top left corner of your Admin Dashboard next to the Shopify logo.
-      )
+It should be in the top left corner of your Admin Dashboard next to the Shopify logo.)
       step.post_to_url = self.service_integration.authed_api_path + "/transition/shop_name"
       return step.prompting("Shop Name")
     end
@@ -119,8 +116,7 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
 
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._mixin_backfill_warning}
-#{self._query_help_output}
-      )
+#{self._query_help_output})
     return step.completed
   end
 

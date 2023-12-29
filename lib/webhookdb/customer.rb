@@ -172,10 +172,9 @@ If you have not gotten a code, use Ctrl+C to close this prompt and request a new
     end
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Welcome! For help getting started, please check out
-our docs at https://webhookdb.com/docs/cli.
+our docs at https://docs.webhookdb.com.
 
-#{welcome_tutorial}
-)
+#{welcome_tutorial})
     step.needs_input = false
     step.complete = true
     return [step, me]

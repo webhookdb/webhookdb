@@ -12,7 +12,7 @@ module Webhookdb::Replicator::MicrosoftCalendarV1Mixin
     end
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! You are all set.
-Refer to https://webhookdb.com/docs/outlook-calendar for detailed instructions
+Refer to https://docs.webhookdb.com/guides/outlook-calendar/ for detailed instructions
 on replicating data for your linked Outlook accounts.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}")})
@@ -21,7 +21,7 @@ on replicating data for your linked Outlook accounts.
 
   def backfill_not_supported_message
     return %(#{self.resource_name_singular} does not support backfilling.
-See https://webhookdb.com/docs/outlook-calendar for instructions on setting up your integration.
+See https://docs.webhookdb.com/guides/outlook-calendar/ for instructions on setting up your integration.
 You can send WebhookDB the 'REFRESH' and 'RESYNC' messages to refresh a user's access token,
 and resync all their Outlook Calendar data, respectively.
 

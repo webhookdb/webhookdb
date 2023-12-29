@@ -152,9 +152,7 @@ you currently have access to:
 \t#{available_services_list}
 
 You can run `webhookdb services list` at any time to see the list of services available to your organization.
-If the list does not look correct, you can contact support at #{Webhookdb.support_email}.
-                    )
-                # maybe include a support email to contact? i'd want to add the support email as a config var
+If the list does not look correct, you can contact support at #{Webhookdb.support_email}.)
                 step.complete = true
                 return step
               end

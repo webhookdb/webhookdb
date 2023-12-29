@@ -166,7 +166,7 @@ module Webhookdb::Service::Helpers
     merror!(
       403,
       "Sorry, this endpoint has been removed. Run `webhookdb update` to upgrade your CLI, " \
-      "or email webhookdb@lithic.tech for help.",
+      "or file a ticket at #{Webhookdb.oss_repo_url} for help.",
       code: "endpoint_removed",
     )
   end

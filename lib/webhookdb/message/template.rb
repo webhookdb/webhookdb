@@ -65,7 +65,12 @@ class Webhookdb::Message::Template
   # By default, templates are rendered with some default variables,
   # such as 'recipient', 'environment', and 'app_url'.
   def liquid_drops
-    return {}
+    return {
+      api_url: Webhookdb.api_url,
+      support_email: Webhookdb.support_email,
+      oss_repo: Webhookdb.oss_repo_url,
+      docs_url: "https://docs.webhookdb.com",
+    }
   end
 
   # Liquify wraps any object in a Liquification.

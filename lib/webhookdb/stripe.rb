@@ -6,9 +6,9 @@ class Webhookdb::Stripe
   include Appydays::Loggable
 
   configurable(:stripe) do
-    setting :api_key, "lithic_stripe_api_key", key: "STRIPE_API_KEY"
+    setting :api_key, "whdb_stripe_api_key", key: "STRIPE_API_KEY"
     setting :http_timeout, 30
-    setting :webhook_secret, "lithic_stripe_webhook_secret", key: "STRIPE_WEBHOOK_SECRET"
+    setting :webhook_secret, "whdb_stripe_webhook_secret", key: "STRIPE_WEBHOOK_SECRET"
 
     after_configured do
       ::Stripe.api_key = self.api_key

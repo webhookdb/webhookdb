@@ -63,7 +63,7 @@ class Webhookdb::Replicator::MicrosoftCalendarUserV1 < Webhookdb::Replicator::Ba
 which is required for replicating the calendars and events themselves.
 
 We have detailed instructions on this process
-at https://webhookdb.com/docs/outlook-calendar.
+at https://docs.webhookdb.com/guides/outlook-calendar/.
 
 The first step is to generate a secret you will use for signing
 API requests you send to WebhookDB. You can use '#{Webhookdb::Id.rand_enc(16)}'
@@ -74,14 +74,14 @@ Copy and paste or enter a new value, and press enter.)
     if self.service_integration.backfill_key.blank?
       step.output = %(In order to generate OAuth access tokens,
 we will need the Client ID and Client Secret for your registered app, plus the associated tenant id.
-Again, see detailed instructions at https://webhookdb.com/docs/outlook-calendar.)
+Again, see detailed instructions at https://docs.webhookdb.com/guides/outlook-calendar/.)
       return step.secret_prompt("Client ID").backfill_key(self.service_integration)
     end
     if self.service_integration.backfill_secret.blank?
       return step.secret_prompt("Client Secret").backfill_secret(self.service_integration)
     end
     step.output = %(All set! Here is the endpoint to send requests to
-from your backend. Refer to https://webhookdb.com/docs/outlook-calendar
+from your backend. Refer to https://docs.webhookdb.com/guides/outlook-calendar/
 for details on the format of the request:
 
 #{self.webhook_endpoint}

@@ -6,8 +6,8 @@ module Webhookdb::Intercom
   include Appydays::Configurable
 
   configurable(:intercom) do
-    setting :client_id, "lithic_intercom_client_id", key: "INTERCOM_CLIENT_ID"
-    setting :client_secret, "lithic_intercom_client_secret", key: "INTERCOM_CLIENT_SECRET"
+    setting :client_id, "whdb_intercom_client_id", key: "INTERCOM_CLIENT_ID"
+    setting :client_secret, "whdb_intercom_client_secret", key: "INTERCOM_CLIENT_SECRET"
     setting :http_timeout, 30
     setting :page_size, 20
   end
