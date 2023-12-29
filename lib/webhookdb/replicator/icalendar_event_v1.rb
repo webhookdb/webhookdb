@@ -317,7 +317,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     end
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(Great! You are all set.
-Refer to https://webhookdb.com/docs/icalendar for detailed instructions
+Refer to https://docs.webhookdb.com/guides/icalendar/ for detailed instructions
 on syncing data from iCalendar/ics feeds.
 
 #{self._query_help_output(prefix: "Once data is available, you can query #{self.resource_name_plural}")})
@@ -326,7 +326,7 @@ on syncing data from iCalendar/ics feeds.
 
   def backfill_not_supported_message
     return %(#{self.resource_name_singular} does not support backfilling.
-See https://webhookdb.com/docs/icalendar for instructions on setting up your integration.
+See https://docs.webhookdb.com/guides/icalendar/ for instructions on setting up your integration.
 
 You can POST 'SYNC' messages to WebhookDB to force-sync a user's feed,
 though keep in mind calendar providers only refresh feeds periodically.)

@@ -236,7 +236,7 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
       req = stub_request(:post, "https://api.stripe.com/v1/customers").
         with(
           body: {"email" => "", "metadata" => {"org_id" => o.id.to_s}, "name" => o.name},
-          headers: {"Authorization" => "Bearer lithic_stripe_api_key"},
+          headers: {"Authorization" => "Bearer whdb_stripe_api_key"},
         ).
         to_return(body: load_fixture_data("stripe/customer_create", raw: true))
       o.stripe_customer_id = ""

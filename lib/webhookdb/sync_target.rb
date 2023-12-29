@@ -318,7 +318,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
     # Get the dataset of rows that need to be synced.
     # Note that there are a couple race conditions here.
-    # First, those in https://github.com/lithictech/webhookdb-api/issues/571.
+    # First, those in https://github.com/webhookdb/webhookdb/issues/571.
     # There is also the condition that we could send the same row
     # multiple times when the row timestamp is set to last_synced_at but
     # it wasn't in the last sync; however that is likely not a big problem

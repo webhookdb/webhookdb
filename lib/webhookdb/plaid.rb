@@ -12,7 +12,7 @@ module Webhookdb::Plaid
 
   # Manual backfilling is not supported on Plaid integrations.
   # If a manual backfill is attempted, direct customer to this url.
-  DOCUMENTATION_URL = "https://webhookdb.com/docs/plaid"
+  DOCUMENTATION_URL = "https://docs.webhookdb.com/guides/plaid/"
 
   def self.webhook_response(request, webhook_secret)
     # Eventually we can figure out how to verify Plaid webhooks,

@@ -8,7 +8,7 @@ class Webhookdb::DBAdapter
   VALID_IDENTIFIER = /^[a-zA-Z][a-zA-Z\d_ ]*$/
   INVALID_IDENTIFIER_MESSAGE = "Identifiers must start with a letter and " \
                                "contain only letters, numbers, spaces, and underscores. " \
-                               "See https://webhookdb.com/docs/cli#db-identifiers for rules " \
+                               "See https://docs.webhookdb.com/concepts/valid-identifiers/ for rules " \
                                "about identifiers like schema, table, and column names."
 
   class Schema < Webhookdb::TypedStruct

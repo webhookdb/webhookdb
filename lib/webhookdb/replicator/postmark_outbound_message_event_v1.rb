@@ -100,7 +100,7 @@ All set! Events will be synced as they come in.
   def backfill_not_supported_message
     return %(We don't yet support backfilling Postmark Outbound Message Events.
 
-Please email hello@webhookdb.com to let us know if this is something you want!
+File an issue at #{Webhookdb.oss_repo_url} or email hello@webhookdb.com to let us know if this is something you want!
 
 Run `webhookdb integration reset #{self.service_integration.opaque_id}` to go through webhook setup.)
   end
