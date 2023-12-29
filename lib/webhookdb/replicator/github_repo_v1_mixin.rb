@@ -31,10 +31,23 @@ module Webhookdb::Replicator::GithubRepoV1Mixin
   def _reponame = self._fullreponame.split("/").last
   def _valid_repo_name?(s) = %r{^[\w\-.]+/[\w\-.]+$} =~ s
 
+  # Extract the resource from the request.
+  # The resource can be a normal resource, or a webhook,
+  # with X-GitHub-Hook-ID key as per https://docs.github.com/en/webhooks/webhook-events-and-payloads
+  # The headers are the only things that identify a webhook payload consistently.
+  #
+  # Note that webhooks to a given integration can be for events we do not expect,
+  # such as someone sending events we aren't handling (ie, if they don't uncheck Pushes,
+  # we may get push events sent to the github_issue_v1 integration),
+  # and also for automated events like 'ping'.
   def _resource_and_event(request)
-    is_webhook = request.body.key?("sender") && request.body.key?("action")
+    # Note the canonical casing on the header name. GitHub sends X-GitHub-Hook-ID
+    # but it's normalized here.
+    is_webhook = (request.headers || {})["X-Github-Hook-Id"]
     return request.body, nil unless is_webhook
-    return request.body.fetch(self._mixin_webhook_key), request.body
+    resource = request.body.fetch(self._mixin_webhook_key, nil)
+    return nil, nil if resource.nil?
+    return resource, request.body
   end
 
   def _update_where_expr

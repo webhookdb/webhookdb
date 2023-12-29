@@ -85,6 +85,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
   end
   it_behaves_like "a replicator that deals with resources and wrapped events", "github_issue_comment_v1" do
     let(:resource_json) { resource_in_envelope_json.fetch("comment") }
+    let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~JSON)
         {
