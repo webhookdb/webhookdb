@@ -620,7 +620,7 @@ for information on how to refresh data.)
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    data_col_val = self._resource_to_data(resource, event, request)
+    data_col_val = self._resource_to_data(resource, event, request, enrichment)
     inserting[:data] = self._to_json(data_col_val)
     inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
     inserting.merge!(prepared)
@@ -773,7 +773,9 @@ for information on how to refresh data.)
   # @param [Hash,nil] resource
   # @param [Hash,nil] event
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  def _resource_to_data(resource, event, request)
+  # @param [Hash,nil] enrichment
+  # @return [Hash]
+  def _resource_to_data(resource, event, request, enrichment)
     return resource
   end
 
