@@ -107,7 +107,7 @@ module Webhookdb::Service::Helpers
     body = Webhookdb::Service.error_body(status, message, code:, more:)
     if alert
       Sentry.with_scope do |scope|
-        scope.set_extras(**body)
+        scope&.set_extras(**body)
         Sentry.capture_message(message)
       end
     end

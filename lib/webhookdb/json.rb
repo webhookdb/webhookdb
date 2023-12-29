@@ -31,7 +31,7 @@ module Webhookdb
       attr_reader :options
 
       def initialize(options=nil)
-        @options = (options || DEFAULT_OPTIONS)
+        @options = options || DEFAULT_OPTIONS
       end
 
       def encode(value)

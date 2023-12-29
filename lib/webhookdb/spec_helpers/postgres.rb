@@ -91,7 +91,7 @@ module Webhookdb::SpecHelpers::Postgres
       Webhookdb::Postgres::Model.create_schema!(qualifier)
       prefix = name[1]
     end
-    table_name = "testtable_#{prefix}_#{Webhookdb::SpecHelpers::Postgres.current_test_model_uid}".to_sym
+    table_name = :"testtable_#{prefix}_#{Webhookdb::SpecHelpers::Postgres.current_test_model_uid}"
     qualified_name = qualifier[table_name]
 
     Webhookdb::Postgres.logger.info "Creating table: %p" % [qualified_name]

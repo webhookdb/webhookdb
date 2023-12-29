@@ -12,8 +12,8 @@ class Webhookdb::Liquid::Liquification
     @wrapped = wrapped
   end
 
-  def method_missing(m, *args, &)
-    return @wrapped.respond_to?(m) ? @wrapped.send(m, *args, &) : super
+  def method_missing(m, *, &)
+    return @wrapped.respond_to?(m) ? @wrapped.send(m, *, &) : super
   end
 
   def respond_to_missing?(m, include_private: false)
