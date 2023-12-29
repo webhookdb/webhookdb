@@ -66,8 +66,8 @@ module Webhookdb::MethodUtilities
   ### Create a reader in the form of a predicate for the given +attrname+.
   def attr_predicate(attrname)
     attrname = attrname.to_s.chomp("?")
-    define_method("#{attrname}?") do
-      instance_variable_get("@#{attrname}") ? true : false
+    define_method(:"#{attrname}?") do
+      instance_variable_get(:"@#{attrname}") ? true : false
     end
   end
 

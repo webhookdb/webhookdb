@@ -90,7 +90,7 @@ module Amigo::DurableJob
     def set_database_setting(key, value)
       @database_settings ||= {}
       @database_settings[key] = value
-      self.storage_databases.each { |db| db.send("#{key}=", value) }
+      self.storage_databases.each { |db| db.send(:"#{key}=", value) }
     end
 
     # Reconnect to all databases using the given settings.

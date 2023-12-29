@@ -196,7 +196,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "MessageDispatched", messaging: true do
+  describe "MessageDispatched", :messaging do
     it "sends the delivery on create" do
       email = "wibble@lithic.tech"
 

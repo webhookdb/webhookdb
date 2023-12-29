@@ -64,7 +64,7 @@ class Webhookdb::API::TestService < Webhookdb::Service
   params do
     requires :email, type: String, coerce_with: NormalizedEmail
     requires :phone, type: String, coerce_with: NormalizedPhone
-    requires :arr, type: Array[String], coerce_with: CommaSepArray
+    requires :arr, type: [String], coerce_with: CommaSepArray
   end
   get :custom_types do
     present({email: params[:email], phone: params[:phone], arr: params[:arr]})
@@ -72,7 +72,7 @@ class Webhookdb::API::TestService < Webhookdb::Service
   params do
     requires :email, type: String, coerce_with: NormalizedEmail
     requires :phone, type: String, coerce_with: NormalizedPhone
-    requires :arr, type: Array[String], coerce_with: CommaSepArray
+    requires :arr, type: [String], coerce_with: CommaSepArray
   end
   post :custom_types do
     status 200

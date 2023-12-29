@@ -26,12 +26,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   one_to_many :verified_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: true},
-              adder: (->(om) { om.update(organization_id: id, verified: true) }),
+              adder: ->(om) { om.update(organization_id: id, verified: true) },
               order: :id
   one_to_many :invited_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: false},
-              adder: (->(om) { om.update(organization_id: id, verified: false) }),
+              adder: ->(om) { om.update(organization_id: id, verified: false) },
               order: :id
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration", order: :id
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription", order: :id
@@ -322,7 +322,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     self.service_integrations.each do |sint|
       svc = sint.replicator
       existing_columns = cols_in_org_db.fetch(sint.table_name) { [] }
-      cols_for_sint = svc.storable_columns.map(&:name).map(&:to_s)
+      cols_for_sint = svc.storable_columns.map { |c| c.name.to_s }
       all_sint_cols_exist = (cols_for_sint - existing_columns).empty?
 
       all_indices_exist = svc.indices(svc.dbadapter_table).all? do |ind|

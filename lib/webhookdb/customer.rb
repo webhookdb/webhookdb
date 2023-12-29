@@ -41,11 +41,11 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   one_to_many :invited_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: false},
-              adder: (->(om) { om.update(customer_id: id, verified: false) })
+              adder: ->(om) { om.update(customer_id: id, verified: false) }
   one_to_many :verified_memberships,
               class: "Webhookdb::OrganizationMembership",
               conditions: {verified: true},
-              adder: (->(om) { om.update(customer_id: id, verified: true) })
+              adder: ->(om) { om.update(customer_id: id, verified: true) }
   one_to_one :default_membership, class: "Webhookdb::OrganizationMembership", conditions: {is_default: true}
   one_to_many :message_deliveries, key: :recipient_id, class: "Webhookdb::Message::Delivery"
   one_to_many :reset_codes, class: "Webhookdb::Customer::ResetCode", order: Sequel.desc([:created_at])
