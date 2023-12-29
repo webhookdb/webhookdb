@@ -485,10 +485,11 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
   end
 end
 
-RSpec.shared_examples "a replicator that uses enrichments" do |name|
+RSpec.shared_examples "a replicator that uses enrichments" do |name, stores_enrichment_column: true|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
+  # Needed if stores_enrichment_column is true
   let(:expected_enrichment_data) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
@@ -517,12 +518,14 @@ RSpec.shared_examples "a replicator that uses enrichments" do |name|
     raise NotImplementedError, 'something like: expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})'
   end
 
-  it "adds enrichment column to main table" do
-    req = stub_service_request
-    upsert_webhook(svc, body:)
-    expect(req).to have_been_made unless req.nil?
-    row = svc.readonly_dataset(&:first)
-    expect(row[:enrichment]).to eq(expected_enrichment_data)
+  if stores_enrichment_column
+    it "adds enrichment column to main table" do
+      req = stub_service_request
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made unless req.nil?
+      row = svc.readonly_dataset(&:first)
+      expect(row[:enrichment]).to eq(expected_enrichment_data)
+    end
   end
 
   it "can use enriched data when inserting" do
