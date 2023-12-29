@@ -456,6 +456,8 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:resource_json) { raise NotImplementedError }
   let(:resource_in_envelope_json) { raise NotImplementedError }
+  let(:resource_headers) { nil }
+  let(:resource_in_envelope_headers) { nil }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -468,7 +470,7 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
 
   it "puts the raw resource in the data column" do
     svc.create_table
-    upsert_webhook(svc, body: resource_json)
+    upsert_webhook(svc, body: resource_json, headers: resource_headers)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)
@@ -477,7 +479,7 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
 
   it "puts the enveloped resource in the data column" do
     svc.create_table
-    upsert_webhook(svc, body: resource_in_envelope_json)
+    upsert_webhook(svc, body: resource_in_envelope_json, headers: resource_in_envelope_headers)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)

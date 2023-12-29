@@ -203,6 +203,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
 
   it_behaves_like "a replicator that deals with resources and wrapped events", "github_pull_v1" do
     let(:resource_json) { resource_in_envelope_json.fetch("pull_request") }
+    let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~JSON)
         {

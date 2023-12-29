@@ -265,6 +265,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
   end
   it_behaves_like "a replicator that deals with resources and wrapped events", "github_issue_v1" do
     let(:resource_json) { resource_in_envelope_json.fetch("issue") }
+    let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~JSON)
         {
@@ -295,6 +296,15 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
           }
         }
       JSON
+    end
+
+    it "noops if the event is a webhook but is missing the required payload key" do
+      r = {}
+      svc.create_table
+      upsert_webhook(svc, body: r, headers: resource_in_envelope_headers)
+      svc.readonly_dataset do |ds|
+        expect(ds.all).to be_empty
+      end
     end
   end
 
@@ -361,6 +371,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     let(:failed_step_matchers) do
       {output: include("That access token "), prompt_is_secret: true}
     end
+
     def stub_service_request
       return stub_request(:get, "https://api.github.com/repos/my/code/issues?per_page=100&state=all").
           with(headers: {"Authorization" => "Bearer mytoken"}).
@@ -457,6 +468,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
       JSON
     end
     let(:expected_items_count) { 3 }
+
     def stub_service_requests
       return [
         stub_request(:get, "https://api.github.com/repos/my/code/issues?per_page=100&state=all").
