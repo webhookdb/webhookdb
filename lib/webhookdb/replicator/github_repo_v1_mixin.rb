@@ -216,10 +216,23 @@ Then click 'Generate token'.)
   end
 
   def _fetch_enrichment(resource, _event, _request)
+    # If we're not set up to backfill, we cannot make an API call.
+    return nil if self.service_integration.backfill_secret.nil?
+    # We should fetch the full resource if the replicator needs it,
+    # and the resource does not have the key we require.
     sentinel_key = self._mixin_fetch_resource_if_field_missing
     return nil if sentinel_key.nil? || resource.key?(sentinel_key)
     resource_url = resource.fetch("url")
-    _response, data = self._http_get(resource_url, {})
+    begin
+      _response, data = self._http_get(resource_url, {})
+    rescue Webhookdb::Http::Error => e
+      # If the HTTP call fails due to an auth issue (or a deleted item),
+      # we should still upsert what we have.
+      # Tokens expire or can be revoked, but we don't want the webhook to stop inserting.
+      ignore_error = [401, 403, 404].include?(e.response.code)
+      return nil if ignore_error
+      raise e
+    end
     return data
   end
 
