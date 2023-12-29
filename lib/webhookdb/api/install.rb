@@ -188,7 +188,6 @@ class Webhookdb::API::Install < Webhookdb::API::V1
     resource :front do
       post :webhook do
         is_initial_request = request.headers["X-Front-Challenge"].present?
-
         if is_initial_request
           whresp = Webhookdb::Front.initial_verification_request_response(request)
           s_status, s_headers, s_body = whresp.to_rack
@@ -200,34 +199,39 @@ class Webhookdb::API::Install < Webhookdb::API::V1
             body s_body
           end
           status s_status
-        else
+          break
+        end
+
+        resource_url = params.dig(:payload, :_links, :self)
+        handle_webhook_request("front_marketplace_host-#{resource_url || '?'}") do
+          if resource_url.nil?
+            logger.warn "front_webhook_empty_resource_url"
+            status 200
+            present({message: "unregistered/empty app"})
+            next :pass
+          end
+
           # In cases where there is a change to a message, the event payload will have a "target" object and that object
           # will have a "type" of "message". In cases where there is a change to a conversation, there will be no
           # "target" object. In these cases the conversation resource is in the event as the "conversation" object.
           target_type = params.dig(:payload, :target, :_meta, :type) || "conversation"
           service_name = "front_#{target_type}_v1"
-
-          resource_url = params.dig(:payload, :_links, :self)
-          api_url = resource_url.nil? ? nil : URI.parse(resource_url).host
-          root_sint = Webhookdb::ServiceIntegration[service_name: "front_marketplace_root_v1", api_url:]
-          if root_sint.nil?
+          api_url = URI.parse(resource_url).host
+          unless (root_sint = Webhookdb::ServiceIntegration[service_name: "front_marketplace_root_v1", api_url:])
             logger.warn "front_webhook_unregistered_app", front_api_url: api_url
             status 200
             present({message: "unregistered app"})
-          else
-            handling_sint = root_sint&.recursive_dependents&.find do |d|
-              d.service_name == service_name
-            end
-            if handling_sint.nil?
-              logger.warn "front_webhook_invalid_topic", front_api_url: api_url, front_topic: target_type
-              status 200
-              present({message: "invalid topic"})
-            else
-              handle_webhook_request(handling_sint.opaque_id) do
-                handling_sint
-              end
-            end
+            next :pass
           end
+
+          handling_sint = root_sint.recursive_dependents.find { |d| d.service_name == service_name }
+          if handling_sint.nil?
+            logger.warn "front_webhook_invalid_topic", front_api_url: api_url, front_topic: target_type
+            status 200
+            present({message: "invalid topic"})
+            next :pass
+          end
+          next handling_sint
         end
       end
     end
@@ -238,26 +242,26 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         # advisable to do the integration lookup before performing a webhook verification when we don't
         # need that info. Something to consider upon refactor
 
-        # Notification topics are formatted like "{model}.{thing that happened}" (e.g. "contact.created")
-        # to get the model type of the notification, for our purposes we can just grab that first chunk
-        type = params[:topic].split(".")[0]
-        app_id = params[:app_id]
-        root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1", api_url: app_id]
-        if root_sint.nil?
-          logger.warn "intercom_webhook_unregistered_app", intercom_app_id: app_id
-          status 200
-          present({message: "unregistered app"})
-        else
-          handling_sint = root_sint.recursive_dependents.find { |d| d.service_name == "intercom_#{type}_v1" }
-          if handling_sint.nil?
+        handle_webhook_request("intercom_marketplace_appid-#{params[:app_id] || '?'}") do
+          app_id = params[:app_id]
+          root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1", api_url: app_id]
+          if root_sint.nil?
+            logger.warn "intercom_webhook_unregistered_app", intercom_app_id: app_id
+            status 200
+            present({message: "unregistered app"})
+            next :pass
+          end
+          # Notification topics are formatted like "{model}.{thing that happened}" (e.g. "contact.created")
+          # to get the model type of the notification, for our purposes we can just grab that first chunk
+          type = params[:topic].split(".")[0]
+          handling_type = "intercom_#{type}_v1"
+          unless (handling_sint = root_sint.recursive_dependents.find { |d| d.service_name == handling_type })
             logger.warn "intercom_webhook_invalid_topic", intercom_app_id: app_id, intercom_topic: params[:topic]
             status 200
             present({message: "invalid topic"})
-          else
-            handle_webhook_request(handling_sint.opaque_id) do
-              handling_sint
-            end
+            next :pass
           end
+          next handling_sint
         end
       end
 

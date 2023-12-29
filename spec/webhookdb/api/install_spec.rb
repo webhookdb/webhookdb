@@ -340,6 +340,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
         post "/v1/install/front/webhook", body
         expect(last_response).to have_status(401)
+        expect(Webhookdb::LoggedWebhook.all).to be_empty
       end
 
       it "401s if webhook auth header is invalid" do
@@ -349,6 +350,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
         post "/v1/install/front/webhook", body
         expect(last_response).to have_status(401)
+        expect(Webhookdb::LoggedWebhook.all).to be_empty
       end
 
       it "200s and returns X-Front-Challenge string" do
@@ -361,6 +363,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
         expect(last_response).to have_json_body.that_includes(
           challenge: "initial_request",
         )
+        expect(Webhookdb::LoggedWebhook.all).to be_empty
       end
     end
 
@@ -372,6 +375,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: "unregistered app")
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("front_marketplace_host-https://web")),
+      )
     end
 
     it "noops if there is no integration with given topic id" do
@@ -381,11 +387,17 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: "invalid topic")
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("front_marketplace_host-https://web")),
+      )
     end
 
     it "401s if webhook auth header is missing" do
       post "/v1/install/front/webhook", body
       expect(last_response).to have_status(401)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("svi_")),
+      )
     end
 
     it "401s if webhook auth header is invalid" do
@@ -394,6 +406,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       post "/v1/install/front/webhook", body
       expect(last_response).to have_status(401)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("svi_")),
+      )
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
@@ -409,6 +424,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       post "/v1/install/front/webhook", body
       expect(last_response).to have_status(200)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("svi_")),
+      )
     end
   end
 
@@ -436,6 +454,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     it "401s if webhook auth header is missing" do
       post "/v1/install/intercom/webhook", body
       expect(last_response).to have_status(401)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("svi_")),
+      )
     end
 
     it "401s if webhook auth header is invalid" do
@@ -443,6 +464,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       post "/v1/install/intercom/webhook", body
       expect(last_response).to have_status(401)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("svi_")),
+      )
     end
 
     it "noops if there is no integration with given app id" do
@@ -455,6 +479,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: "unregistered app")
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("intercom_marketplace_appid-lithic")),
+      )
     end
 
     it "noops if there is no integration with given topic id" do
@@ -466,6 +493,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: "invalid topic")
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("intercom_marketplace_appid-lithic")),
+      )
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
@@ -480,6 +510,9 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       post "/v1/install/intercom/webhook", body
 
       expect(last_response).to have_status(202)
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("")),
+      )
     end
   end
 
