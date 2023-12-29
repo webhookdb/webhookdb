@@ -96,7 +96,7 @@ The secret to use for signing is:
     return update
   end
 
-  def _resource_to_data(resource, _event, _request)
+  def _resource_to_data(resource, *)
     data = resource.dup
     # Remove the client-provided webhook fields.
     data.clear

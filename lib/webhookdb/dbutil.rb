@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "sequel"
+
 # Mixin that provides helpers when dealing with databases and connections.
 #
 # Use borrow_conn to create a connection that is disconnected after the block runs.
@@ -37,6 +39,9 @@ module Webhookdb::Dbutil
     # See https://github.com/ged/ruby-pg/issues/538
     setting :gssencmode, ""
   end
+
+  # Needed when we need to work with a source.
+  MOCK_CONN = Sequel.connect("mock://")
 
   module_function def borrow_conn(url, **opts, &block)
     raise LocalJumpError, "borrow_conn requires a block" if block.nil?

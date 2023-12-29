@@ -216,6 +216,37 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "with a column type BIGINT_ARRAY" do
+      let(:col) { described_class.new(:intarr, described_class::BIGINT_ARRAY) }
+
+      def to_sql(pgarr)
+        ds = Webhookdb::Postgres::Model.db[:x]
+        s = +""
+        pgarr.sql_literal_append(ds, s)
+        return s
+      end
+      it "handles an array with values" do
+        v = to_ruby_value(col, {"intarr" => [1, 2, 3]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1,2,3]::bigint[]")
+      end
+
+      it "handles an empty array" do
+        v = to_ruby_value(col, {"intarr" => []}, nil, nil)
+        expect(to_sql(v)).to eq("'{}'::bigint[]")
+      end
+
+      it "uses null if null" do
+        v = to_ruby_value(col, {"intarr" => nil}, nil, nil)
+        expect(v).to be_nil
+      end
+
+      it "applies to a column with a custom converter" do
+        col = described_class.new(:textarr, described_class::BIGINT_ARRAY, converter: identity_conv)
+        v = to_ruby_value(col, {"textarr" => [1]}, nil, nil)
+        expect(to_sql(v)).to eq("ARRAY[1]::bigint[]")
+      end
+    end
+
     describe "with a column type TIMESTAMP" do
       it "puts non-UTC year-0 times into UTC" do
         col = described_class.new(:ts, described_class::TIMESTAMP, converter: identity_conv)
@@ -598,6 +629,39 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       it_behaves_like "a service column converter", conv do
         let(:initial_value) { "1.1;5.3" }
         let(:expected_value) { BigDecimal("5.3") }
+      end
+    end
+
+    describe "converter_array_pluck" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
+      it "plucks from a Ruby array" do
+        conv = described_class.converter_array_pluck("my_id", :int)
+        expect(conv.ruby.call([{"my_id" => 1}, {"my_id" => 2}])).to eq([1, 2])
+        expect(conv.ruby.call([])).to eq([])
+        expect(conv.ruby.call(nil)).to be_nil
+        expect(conv.ruby.call(5)).to be_nil
+      end
+
+      it "plucks from an sql array" do
+        conv = described_class.converter_array_pluck("my_id", :bigint)
+        e = conv.sql.call(Sequel.lit('\'[{"my_id":1},{"my_id":2}]\'::jsonb'))
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[1, 2]])
+
+        e = conv.sql.call([{my_id: 1}, {my_id: 2}])
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[1, 2]])
+
+        e = conv.sql.call(Sequel.lit("'[]'::jsonb"))
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[]])
+
+        e = conv.sql.call(nil)
+        expect(db.from(e).all.map { |r| r[:array_agg].to_a }).to eq([[]])
+      end
+
+      conv = described_class.converter_array_pluck("my_id", :int)
+      it_behaves_like "a service column converter", conv do
+        let(:initial_value) { [{"my_id" => 5}] }
+        let(:expected_value) { [5] }
       end
     end
 

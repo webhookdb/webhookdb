@@ -456,6 +456,8 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:resource_json) { raise NotImplementedError }
   let(:resource_in_envelope_json) { raise NotImplementedError }
+  let(:resource_headers) { nil }
+  let(:resource_in_envelope_headers) { nil }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
   before(:each) do
@@ -468,7 +470,7 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
 
   it "puts the raw resource in the data column" do
     svc.create_table
-    upsert_webhook(svc, body: resource_json)
+    upsert_webhook(svc, body: resource_json, headers: resource_headers)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)
@@ -477,7 +479,7 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
 
   it "puts the enveloped resource in the data column" do
     svc.create_table
-    upsert_webhook(svc, body: resource_in_envelope_json)
+    upsert_webhook(svc, body: resource_in_envelope_json, headers: resource_in_envelope_headers)
     svc.readonly_dataset do |ds|
       expect(ds.all).to have_length(1)
       expect(ds.first[:data]).to eq(resource_json)
@@ -485,10 +487,11 @@ RSpec.shared_examples "a replicator that deals with resources and wrapped events
   end
 end
 
-RSpec.shared_examples "a replicator that uses enrichments" do |name|
+RSpec.shared_examples "a replicator that uses enrichments" do |name, stores_enrichment_column: true|
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
   let(:svc) { Webhookdb::Replicator.create(sint) }
   let(:body) { raise NotImplementedError }
+  # Needed if stores_enrichment_column is true
   let(:expected_enrichment_data) { raise NotImplementedError }
   Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
 
@@ -517,12 +520,14 @@ RSpec.shared_examples "a replicator that uses enrichments" do |name|
     raise NotImplementedError, 'something like: expect(row[:data]["enrichment"]).to eq({"extra" => "abc"})'
   end
 
-  it "adds enrichment column to main table" do
-    req = stub_service_request
-    upsert_webhook(svc, body:)
-    expect(req).to have_been_made unless req.nil?
-    row = svc.readonly_dataset(&:first)
-    expect(row[:enrichment]).to eq(expected_enrichment_data)
+  if stores_enrichment_column
+    it "adds enrichment column to main table" do
+      req = stub_service_request
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made unless req.nil?
+      row = svc.readonly_dataset(&:first)
+      expect(row[:enrichment]).to eq(expected_enrichment_data)
+    end
   end
 
   it "can use enriched data when inserting" do
