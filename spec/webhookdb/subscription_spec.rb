@@ -52,7 +52,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
   end
 
   describe "create_or_update" do
-    describe "create_or_update_from_stripe_hash", async: true do
+    describe "create_or_update_from_stripe_hash", :async do
       let(:stripe_data) { load_fixture_data("stripe/subscription_get") }
 
       it "creates a subscription for a given org if one doesn't exist" do

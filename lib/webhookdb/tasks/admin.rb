@@ -30,7 +30,7 @@ module Webhookdb::Tasks
           self.setup
           org = self.find_org(args)
           type = args.fetch(:type, "readonly")
-          puts org.send("#{type}_connection_url")
+          puts org.send(:"#{type}_connection_url")
         end
       end
     end

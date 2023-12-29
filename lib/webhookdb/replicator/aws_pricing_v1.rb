@@ -188,8 +188,7 @@ It normally takes about 20 minutes to sync.
   class ServiceBackfiller < Webhookdb::Backfiller
     include Webhookdb::Backfiller::Bulk
 
-    attr_reader :replicator
-    attr_reader :pricing, :service_code, :currency_code, :effective_date
+    attr_reader :replicator, :pricing, :service_code, :currency_code, :effective_date
 
     def initialize(replicator, service_code, currency_code, effective_date)
       @replicator = replicator

@@ -10,7 +10,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
       url = params[:connection_url]
       case @option
         when "db", "http"
-          if (err = Webhookdb::SyncTarget.send("validate_#{@option}_url", url))
+          if (err = Webhookdb::SyncTarget.send(:"validate_#{@option}_url", url))
             raise Grape::Exceptions::Validation.new params: [url], message: err
           end
       else

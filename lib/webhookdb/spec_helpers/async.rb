@@ -13,7 +13,7 @@ module Webhookdb::SpecHelpers::Async
 
     context.before(:each) do |example|
       if (sidekiq_mode = example.metadata[:sidekiq])
-        Sidekiq::Testing.send("#{sidekiq_mode}!")
+        Sidekiq::Testing.send(:"#{sidekiq_mode}!")
       else
         Sidekiq::Testing.inline!
       end

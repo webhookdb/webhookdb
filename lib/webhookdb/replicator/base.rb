@@ -180,7 +180,7 @@ class Webhookdb::Replicator::Base
         raise ArgumentError, "Field '#{field}' is not valid for a state change"
     end
     self.service_integration.db.transaction do
-      self.service_integration.send("#{attr}=", value)
+      self.service_integration.send(:"#{attr}=", value)
       self.service_integration.save_changes
       step = self.send(meth)
       if step.successful? && meth == :calculate_backfill_state_machine
@@ -909,8 +909,8 @@ for information on how to refresh data.)
       # begin backfill attempt but do not return backfill result
       backfiller.fetch_backfill_page(nil, last_backfilled: nil)
     rescue Webhookdb::Http::Error => e
-      msg = if self.respond_to?("_verify_backfill_#{e.status}_err_msg")
-              self.send("_verify_backfill_#{e.status}_err_msg")
+      msg = if self.respond_to?(:"_verify_backfill_#{e.status}_err_msg")
+              self.send(:"_verify_backfill_#{e.status}_err_msg")
       else
         self._verify_backfill_err_msg
       end

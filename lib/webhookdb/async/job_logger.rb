@@ -22,11 +22,11 @@ class Webhookdb::Async::JobLogger < Appydays::Loggable::SidekiqJobLogger
       {title: "Job Class", value: "`#{jcls}`", short: true},
       {title: "Args", value: "```#{jargs.to_json}```"},
       {title: "Queue", value: jq, short: true},
-      {title: "Created At", value: self._ts?("created_at", jcreated), short: true},
+      {title: "Created At", value: self._ts("created_at", jcreated), short: true},
     ]
     # The remaining fields can be added dynamically.
     other_fields = job.compact.
-      map { |k, v| {title: k.humanize, value: self._ts?(k, v), short: true} }
+      map { |k, v| {title: k.humanize, value: self._ts(k, v), short: true} }
     Webhookdb::DeveloperAlert.new(
       subsystem: "Job Died",
       emoji: ":zombie:",
@@ -35,7 +35,7 @@ class Webhookdb::Async::JobLogger < Appydays::Loggable::SidekiqJobLogger
     ).emit
   end
 
-  def self._ts?(k, v)
+  def self._ts(k, v)
     return nil if v.nil?
     return v unless k.end_with?("_at")
     return Time.at(v) if v.is_a?(Numeric)

@@ -17,13 +17,13 @@ class Webhookdb::TypedStruct
   def _apply(kwargs)
     kwargs.each do |k, v|
       raise TypeError, "invalid struct field #{k}" unless self.respond_to?(k)
-      self.instance_variable_set("@#{k}".to_sym, v)
+      self.instance_variable_set(:"@#{k}", v)
     end
   end
 
-  def change(**kwargs)
+  def change(**)
     c = self.dup
-    c._apply(**kwargs)
+    c._apply(**)
     return c
   end
 

@@ -98,12 +98,12 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
       this.class.smtp_headers.each do |k, v|
         header[k] = v
       end
-      custom_method = "_handle_#{this.class.smtp_provider}".to_sym
+      custom_method = :"_handle_#{this.class.smtp_provider}"
       this.send(custom_method, delivery, self, message_id) if this.respond_to?(custom_method)
       from from
       to to
       reply_to(delivery.extra_fields["reply_to"]) if delivery.extra_fields["reply_to"].present?
-      subject  delivery.body_with_mediatype("subject")&.content
+      subject delivery.body_with_mediatype("subject")&.content
       text_part do
         content_type "text/plain; charset=UTF-8"
         body delivery.body_with_mediatype!("text/plain")&.content

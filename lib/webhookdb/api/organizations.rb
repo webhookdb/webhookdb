@@ -137,7 +137,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           merror!(403, "That field is not editable from the command line")
         end
         customer.db.transaction do
-          org.send("#{field_name}=", params[:value])
+          org.send(:"#{field_name}=", params[:value])
           org.save_changes
           status 200
           present org, with: Webhookdb::API::OrganizationEntity,
@@ -147,7 +147,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allows organization admin to change customer's role in an organization"
       params do
-        optional :emails, type: Array[String], coerce_with: CommaSepArray,
+        optional :emails, type: [String], coerce_with: CommaSepArray,
                           prompt: "Enter the emails to modify the roles of as a comma-separated list:"
         optional :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
                              prompt: "Enter the name of the role to assign " \

@@ -36,7 +36,7 @@ class Webhookdb::AdminAPI::Customers < Webhookdb::AdminAPI::V1
         optional :name, type: String
         optional :note, type: String
         optional :email, type: String
-        optional :roles, type: Array[String]
+        optional :roles, type: [String]
       end
       post do
         fields = params

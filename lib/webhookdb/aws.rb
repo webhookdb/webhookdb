@@ -94,5 +94,5 @@ module Webhookdb::AWS
       h[region.name] = region.description
     end
   end.freeze
-  LOCATIONS_TO_REGIONS = REGIONS_TO_LOCATIONS.to_a.map(&:reverse!).to_h.freeze
+  LOCATIONS_TO_REGIONS = REGIONS_TO_LOCATIONS.to_a.to_h(&:reverse!).freeze
 end

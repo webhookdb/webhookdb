@@ -15,9 +15,9 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
       @url = url
     end
 
-    def execute(sql, **opts)
+    def execute(sql, **)
       self.logger.debug("snowflake_exec", statement: sql)
-      result = Webhookdb::Snowflake.run_cli(@url, sql, **opts)
+      result = Webhookdb::Snowflake.run_cli(@url, sql, **)
       self.logger.debug("snowflake_exec_result", result:)
       return result
     end
