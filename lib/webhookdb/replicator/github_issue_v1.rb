@@ -11,6 +11,7 @@ class Webhookdb::Replicator::GithubIssueV1 < Webhookdb::Replicator::Base
   def _mixin_webhook_events = ["Issues"]
   def _mixin_webhook_key = "issue"
   def _mixin_fine_grained_permission = "Issues"
+  def _mixin_fetch_resource_if_field_missing = "closed_by"
 
   def _mixin_query_params(last_backfilled:)
     q = {state: "all"}

@@ -156,22 +156,14 @@ RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
               },
             ),
         stub_request(:get, "https://api.github.com/repos/my/code/releases?page=2").
-            to_return(
-              status: 200,
-              body: page2_response,
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: page2_response, headers: json_headers),
       ]
     end
 
     def stub_empty_requests
       return [
         stub_request(:get, "https://api.github.com/repos/my/code/releases?per_page=100").
-            to_return(
-              status: 200,
-              body: "[]",
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: "[]", headers: json_headers),
       ]
     end
 

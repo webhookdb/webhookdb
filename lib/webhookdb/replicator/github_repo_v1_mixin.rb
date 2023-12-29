@@ -21,6 +21,11 @@ module Webhookdb::Replicator::GithubRepoV1Mixin
   def _mixin_fine_grained_permission = raise NotImplementedError("Issues", etc)
   # Query params to use in the list call. Should include sorting when available.
   def _mixin_query_params(last_backfilled:) = raise NotImplementedError
+  # Some resources, like issues and pull requests, have a 'simple' representation
+  # in the list, and a full representation when fetched individually.
+  # Return the field that can be used to determine if the full resource needs to be fetched.
+  def _mixin_fetch_resource_if_field_missing = nil
+
   def _fullreponame = self.service_integration.api_url
   def _repoowner = self._fullreponame.split("/").first
   def _reponame = self._fullreponame.split("/").last
@@ -170,6 +175,16 @@ Then click 'Generate token'.)
       query = {per_page: 100}
       query.merge!(self._mixin_query_params(last_backfilled:))
     end
+    response, data = self._http_get(url, query)
+    next_link = nil
+    if response.headers.key?("link")
+      links = Webhookdb::Github.parse_link_header(response.headers["link"])
+      next_link = links[:next] if links.key?(:next)
+    end
+    return data, next_link
+  end
+
+  def _http_get(url, query)
     response = Webhookdb::Http.get(
       url,
       query,
@@ -182,16 +197,28 @@ Then click 'Generate token'.)
       timeout: Webhookdb::Github.http_timeout,
     )
     # Handle the GH-specific vnd JSON or general application/json
-    data = if response.headers["Content-Type"] == JSON_CONTENT_TYPE
-             Oj.load(response.parsed_response)
-    else
-      response.parsed_response
-           end
-    next_link = nil
-    if response.headers.key?("link")
-      links = Webhookdb::Github.parse_link_header(response.headers["link"])
-      next_link = links[:next] if links.key?(:next)
-    end
-    return data, next_link
+    parsed = response.parsed_response
+    (parsed = Oj.load(parsed)) if response.headers["Content-Type"] == JSON_CONTENT_TYPE
+    return response, parsed
+  end
+
+  def _fetch_enrichment(resource, _event, _request)
+    sentinel_key = self._mixin_fetch_resource_if_field_missing
+    return nil if sentinel_key.nil? || resource.key?(sentinel_key)
+    resource_url = resource.fetch("url")
+    _response, data = self._http_get(resource_url, {})
+    return data
+  end
+
+  def _prepare_for_insert(resource, event, request, enrichment)
+    # if enrichment is not nil, it's the detailed resource.
+    # See _mixin_fetch_resource_if_field_missing
+    return super(enrichment || resource, event, request, nil)
+  end
+
+  def _resource_to_data(resource, _event, _request, enrichment)
+    # if enrichment is not nil, it's the detailed resource.
+    # See _mixin_fetch_resource_if_field_missing
+    return enrichment || resource
   end
 end

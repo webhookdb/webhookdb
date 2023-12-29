@@ -11,6 +11,7 @@ class Webhookdb::Replicator::GithubPullV1 < Webhookdb::Replicator::Base
   def _mixin_webhook_events = ["Pull requests"]
   def _mixin_webhook_key = "pull_request"
   def _mixin_fine_grained_permission = "Pull requests"
+  def _mixin_fetch_resource_if_field_missing = "merged_by"
 
   def _mixin_query_params(last_backfilled:)
     q = {state: "all"}
