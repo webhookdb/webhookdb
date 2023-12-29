@@ -238,6 +238,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
   end
 
   it_behaves_like "a replicator that uses enrichments", "github_pull_v1", stores_enrichment_column: false do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "github_pull_v1", backfill_secret: "x") }
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -266,7 +267,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.github.com/repos/my/CODE/pulls/1347").to_return(status: 404)
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/pulls/1347").to_return(status: 405)
     end
 
     def assert_is_enriched(row)

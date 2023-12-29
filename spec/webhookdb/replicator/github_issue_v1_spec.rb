@@ -299,16 +299,15 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
 
     it "noops if the event is a webhook but is missing the required payload key" do
-      r = {}
       svc.create_table
-      upsert_webhook(svc, body: r, headers: resource_in_envelope_headers)
-      svc.readonly_dataset do |ds|
-        expect(ds.all).to be_empty
-      end
+      upsert_webhook(svc, body: {}, headers: resource_in_envelope_headers)
+      expect(svc.readonly_dataset(&:all)).to be_empty
     end
   end
 
   it_behaves_like "a replicator that uses enrichments", "github_issue_v1", stores_enrichment_column: false do
+    # super() is not working here for some reason
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "github_issue_v1", backfill_secret: "x") }
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -344,11 +343,24 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.github.com/repos/my/CODE/issues/1347").to_return(status: 404)
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/issues/1347").to_return(status: 500)
     end
 
     def assert_is_enriched(row)
       expect(row).to include(closed_by_id: 55)
+    end
+
+    it "noops if there is no backfill secret" do
+      sint.update(backfill_secret: nil)
+      upsert_webhook(svc, body:)
+      expect(svc.readonly_dataset(&:first)).to include(closed_by_id: nil)
+    end
+
+    it "noops if the enrichment fails do to invalid auth" do
+      req = stub_request(:get, "https://api.github.com/repos/my/CODE/issues/1347").to_return(status: [403, 401].sample)
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made
+      expect(svc.readonly_dataset(&:first)).to include(closed_by_id: nil)
     end
   end
 
