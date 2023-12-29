@@ -129,6 +129,23 @@ class Webhookdb::Replicator::Column
     )
   end
 
+  def self.converter_array_pluck(key, coltype)
+    pgtype = Webhookdb::DBAdapter::PG::COLTYPE_MAP.fetch(coltype)
+    return IsomorphicProc.new(
+      ruby: lambda do |value, **|
+        break nil if value.nil?
+        break nil unless value.respond_to?(:to_ary)
+        value.map { |v| v[key] }
+      end,
+      sql: lambda do |expr|
+        expr = Sequel.lit("'#{JSON.generate(expr)}'::jsonb") if expr.is_a?(Hash) || expr.is_a?(Array)
+        Webhookdb::Dbutil::MOCK_CONN.
+          from(Sequel.function(:jsonb_to_recordset, expr).as(Sequel.lit("x(#{key} #{pgtype})"))).
+          select(Sequel.function(:array_agg, Sequel.lit(key)))
+      end,
+    )
+  end
+
   DAYS_OF_WEEK = [
     "SUNDAY",
     "MONDAY",
@@ -347,6 +364,8 @@ class Webhookdb::Replicator::Column
       v = Sequel.pg_array(v, "integer")
     elsif (self.type == TEXT_ARRAY) && !v.nil?
       v = Sequel.pg_array(v, "text")
+    elsif (self.type == BIGINT_ARRAY) && !v.nil?
+      v = Sequel.pg_array(v, "bigint")
     elsif (self.type == TIMESTAMP) && !v.nil?
       # Postgres CANNOT handle timestamps with a 0000 year,
       # even if the actual time it represents is valid (due to timezone offset).

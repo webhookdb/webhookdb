@@ -73,7 +73,7 @@ class Webhookdb::Replicator::AwsPricingV1 < Webhookdb::Replicator::Base
     return request.body, nil
   end
 
-  def _resource_to_data(_resource, _event, _request)
+  def _resource_to_data(*)
     return {}
   end
 

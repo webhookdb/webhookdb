@@ -135,6 +135,15 @@ class Webhookdb::Replicator::Base
     raise NotImplementedError
   end
 
+  # If we support webhooks, these fields correspond to the webhook state machine.
+  # Override them if some other fields are also needed for webhooks.
+  def _webhook_state_change_fields = ["webhook_secret"]
+
+  # If we support backfilling, these keys are used for them.
+  # Override if other fields are used instead.
+  # There cannot be overlap between these and the webhook state change fields.
+  def _backfill_state_change_fields = ["backfill_key", "backfill_secret", "api_url"]
+
   # Set the new service integration field and
   # return the newly calculated state machine.
   #
@@ -143,16 +152,18 @@ class Webhookdb::Replicator::Base
   #
   # @param field [String] Like 'webhook_secret', 'backfill_key', etc.
   # @param value [String] The value of the field.
+  # @param attr [String] Subclasses can pass in a custom field that does not correspond
+  #   to a service integration column. When doing that, they must pass in attr,
+  #   which is what will be set during the state change.
   # @return [Webhookdb::Replicator::StateMachineStep]
-  def process_state_change(field, value)
+  def process_state_change(field, value, attr: nil)
+    attr ||= field
     desc = self.descriptor
     case field
-      when "webhook_secret"
-        # If we support webhooks, the secret must always correspond to the webhook state machine.
+      when *self._webhook_state_change_fields
         # If we don't support webhooks, then the backfill state machine may be using it.
         meth = desc.supports_webhooks? ? :calculate_webhook_state_machine : :calculate_backfill_state_machine
-      when "backfill_key", "backfill_secret", "api_url"
-        # If we support backfilling, these keys must always be used for backfills.
+      when *self._backfill_state_change_fields
         # If we don't support backfilling, then the create state machine may be using them.
         meth = desc.supports_backfill? ? :calculate_backfill_state_machine : :calculate_webhook_state_machine
       when "dependency_choice"
@@ -160,7 +171,7 @@ class Webhookdb::Replicator::Base
         # See where this is used for more details.
         meth = self.preferred_create_state_machine_method
         value = self._find_dependency_candidate(value)
-        field = "depends_on"
+        attr = "depends_on"
       when "noop_create"
         # Use this to just recalculate the state machine,
         # not make any changes to the data.
@@ -169,7 +180,7 @@ class Webhookdb::Replicator::Base
         raise ArgumentError, "Field '#{field}' is not valid for a state change"
     end
     self.service_integration.db.transaction do
-      self.service_integration.send("#{field}=", value)
+      self.service_integration.send("#{attr}=", value)
       self.service_integration.save_changes
       step = self.send(meth)
       if step.successful? && meth == :calculate_backfill_state_machine
@@ -609,7 +620,7 @@ for information on how to refresh data.)
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    data_col_val = self._resource_to_data(resource, event, request)
+    data_col_val = self._resource_to_data(resource, event, request, enrichment)
     inserting[:data] = self._to_json(data_col_val)
     inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
     inserting.merge!(prepared)
@@ -762,7 +773,9 @@ for information on how to refresh data.)
   # @param [Hash,nil] resource
   # @param [Hash,nil] event
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  def _resource_to_data(resource, event, request)
+  # @param [Hash,nil] enrichment
+  # @return [Hash]
+  def _resource_to_data(resource, event, request, enrichment)
     return resource
   end
 

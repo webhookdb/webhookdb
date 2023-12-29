@@ -2,6 +2,7 @@
 
 module Webhookdb::DBAdapter::ColumnTypes
   BIGINT = :bigint
+  BIGINT_ARRAY = :bigintarray
   BOOLEAN = :bool
   DATE = :date
   DECIMAL = :decimal
@@ -18,6 +19,7 @@ module Webhookdb::DBAdapter::ColumnTypes
   COLUMN_TYPES = Set.new(
     [
       BIGINT,
+      BIGINT_ARRAY,
       BOOLEAN,
       DATE,
       DECIMAL,

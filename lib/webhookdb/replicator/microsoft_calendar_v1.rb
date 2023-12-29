@@ -55,7 +55,7 @@ class Webhookdb::Replicator::MicrosoftCalendarV1 < Webhookdb::Replicator::Base
     return update
   end
 
-  def _resource_to_data(resource, _event, _request)
+  def _resource_to_data(resource, *)
     data = resource.dup
     data.delete("microsoft_user_id")
     return data
