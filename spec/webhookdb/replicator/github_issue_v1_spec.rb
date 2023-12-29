@@ -254,6 +254,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
           "active_lock_reason": "too heated",
           "comments": 0,
           "closed_at": null,
+          "closed_by": null,
           "created_at": "2011-04-22T13:33:48Z",
           "updated_at": "2011-04-22T13:33:48Z",
           "author_association": "COLLABORATOR",
@@ -288,11 +289,56 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "closed_at": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
+            "closed_by": null,
             "author_association": "COLLABORATOR",
             "state_reason": "completed"
           }
         }
       JSON
+    end
+  end
+
+  it_behaves_like "a replicator that uses enrichments", "github_issue_v1", stores_enrichment_column: false do
+    let(:body) do
+      JSON.parse(<<~JSON)
+        {
+          "id": 1,
+          "node_id": "MDU6SXNzdWUx",
+          "url": "https://api.github.com/repos/my/CODE/issues/1347",
+          "repository_url": "https://api.github.com/repos/octocat/Hello-World",
+          "labels_url": "https://api.github.com/repos/octocat/Hello-World/issues/1347/labels{/name}",
+          "comments_url": "https://api.github.com/repos/octocat/Hello-World/issues/1347/comments",
+          "events_url": "https://api.github.com/repos/octocat/Hello-World/issues/1347/events",
+          "html_url": "https://github.com/octocat/Hello-World/issues/1347",
+          "number": 1347,
+          "state": "open",
+          "title": "Found a bug",
+          "body": "I'm having a problem with this.",
+          "locked": true,
+          "active_lock_reason": "too heated",
+          "comments": 0,
+          "closed_at": null,
+          "created_at": "2011-04-22T13:33:48Z",
+          "updated_at": "2011-04-22T13:33:48Z",
+          "author_association": "COLLABORATOR",
+          "state_reason": "completed"
+        }
+      JSON
+    end
+
+    def stub_service_request
+      body2 = body.dup
+      body2[:closed_by] = {id: 55}
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/issues/1347").
+          to_return(status: 200, body: body2.to_json, headers: json_headers)
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/issues/1347").to_return(status: 404)
+    end
+
+    def assert_is_enriched(row)
+      expect(row).to include(closed_by_id: 55)
     end
   end
 
@@ -349,6 +395,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",
@@ -371,6 +418,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",
@@ -399,6 +447,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",
@@ -475,6 +524,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",
@@ -503,6 +553,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",
@@ -531,6 +582,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
             "active_lock_reason": "too heated",
             "comments": 0,
             "closed_at": null,
+            "closed_by": null,
             "created_at": "2011-04-22T13:33:48Z",
             "updated_at": "2011-04-22T13:33:48Z",
             "author_association": "COLLABORATOR",

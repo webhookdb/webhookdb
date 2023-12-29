@@ -131,6 +131,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
           "updated_at": "2011-01-26T19:01:12Z",
           "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
           "mergeable_state": "clean",
+          "merged_by": null,
           "comments": 10,
           "review_comments": 0,
           "maintainer_can_modify": true,
@@ -157,6 +158,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
           "updated_at": "2012-01-26T19:01:12Z",
           "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
           "mergeable_state": "clean",
+          "merged_by": null,
           "comments": 10,
           "review_comments": 0,
           "maintainer_can_modify": true,
@@ -186,6 +188,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
           "updated_at": "2011-01-26T19:01:12Z",
           "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
           "mergeable_state": "clean",
+          "merged_by": null,
           "comments": 10,
           "review_comments": 0,
           "maintainer_can_modify": true,
@@ -197,6 +200,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
       JSON
     end
   end
+
   it_behaves_like "a replicator that deals with resources and wrapped events", "github_pull_v1" do
     let(:resource_json) { resource_in_envelope_json.fetch("pull_request") }
     let(:resource_in_envelope_json) do
@@ -218,6 +222,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -228,6 +233,43 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
           }
         }
       JSON
+    end
+  end
+
+  it_behaves_like "a replicator that uses enrichments", "github_pull_v1", stores_enrichment_column: false do
+    let(:body) do
+      JSON.parse(<<~JSON)
+        {
+          "url": "https://api.github.com/repos/my/CODE/pulls/1347",
+          "id": 1,
+          "node_id": "MDExOlB1bGxSZXF1ZXN0MQ==",
+          "number": 1347,
+          "state": "open",
+          "locked": true,
+          "title": "Amazing new feature",
+          "active_lock_reason": "too heated",
+          "created_at": "2011-01-26T19:01:12Z",
+          "updated_at": "2011-01-26T19:01:12Z",
+          "closed_at": "2011-01-26T19:01:12Z",
+          "merged_at": "2011-01-26T19:01:12Z",
+          "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6"
+        }
+      JSON
+    end
+
+    def stub_service_request
+      body2 = body.dup
+      body2[:merged_by] = {id: 55}
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/pulls/1347").
+          to_return(status: 200, body: body2.to_json, headers: json_headers)
+    end
+
+    def stub_service_request_error
+      return stub_request(:get, "https://api.github.com/repos/my/CODE/pulls/1347").to_return(status: 404)
+    end
+
+    def assert_is_enriched(row)
+      expect(row).to include(merged_by_id: 55)
     end
   end
 
@@ -253,6 +295,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -275,6 +318,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -303,6 +347,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -327,22 +372,14 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
               },
             ),
         stub_request(:get, "https://api.github.com/repos/my/code/pulls?page=2").
-            to_return(
-              status: 200,
-              body: page2_response,
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: page2_response, headers: json_headers),
       ]
     end
 
     def stub_empty_requests
       return [
         stub_request(:get, "https://api.github.com/repos/my/code/pulls?per_page=100&state=all").
-            to_return(
-              status: 200,
-              body: "[]",
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: "[]", headers: json_headers),
       ]
     end
 
@@ -372,6 +409,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -400,6 +438,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -428,6 +467,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
             "updated_at": "2011-01-26T19:01:12Z",
             "merge_commit_sha": "e5bd3914e2e596debea16f433f57875b5b90bcd6",
             "mergeable_state": "clean",
+            "merged_by": null,
             "comments": 10,
             "review_comments": 0,
             "maintainer_can_modify": true,
@@ -454,7 +494,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
         return [
           stub_request(:get, "https://api.github.com/repos/my/code/pulls?" \
                              "per_page=100&since=2019-05-15T18:00:00Z&sort=updated&state=all",).
-              to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+              to_return(status: 200, body: page3_response, headers: json_headers),
         ]
       end
       return [
@@ -477,11 +517,7 @@ RSpec.describe Webhookdb::Replicator::GithubPullV1, :db do
               },
             ),
         stub_request(:get, "https://api.github.com/repos/my/code/pulls?page=3").
-            to_return(
-              status: 200,
-              body: page3_response,
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: page3_response, headers: json_headers),
       ]
     end
   end

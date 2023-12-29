@@ -160,22 +160,14 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
               },
             ),
         stub_request(:get, "https://api.github.com/repos/my/code/events?page=2").
-            to_return(
-              status: 200,
-              body: page2_response,
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: page2_response, headers: json_headers),
       ]
     end
 
     def stub_empty_requests
       return [
         stub_request(:get, "https://api.github.com/repos/my/code/events?per_page=100").
-            to_return(
-              status: 200,
-              body: "[]",
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: "[]", headers: json_headers),
       ]
     end
 
@@ -295,7 +287,7 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
       if partial
         return [
           stub_request(:get, "https://api.github.com/repos/my/code/events?per_page=100").
-              to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+              to_return(status: 200, body: page3_response, headers: json_headers),
         ]
       end
       return [
@@ -318,11 +310,7 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
               },
             ),
         stub_request(:get, "https://api.github.com/repos/my/code/events?page=3").
-            to_return(
-              status: 200,
-              body: page3_response,
-              headers: {"Content-Type" => "application/json"},
-            ),
+            to_return(status: 200, body: page3_response, headers: json_headers),
       ]
     end
   end
