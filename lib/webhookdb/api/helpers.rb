@@ -141,11 +141,36 @@ module Webhookdb::API::Helpers
   # but in some cases we need a 'static' endpoint for apps to send to,
   # like /v1/install/front/webhooks.
   # Those endpoints share the webhook handling behavior with this method.
-  def handle_webhook_request(opaque_id, &)
+  #
+  # The block passed to this method yields the service integration.
+  # This is important because we want to make sure to log the webhook if something goes wrong
+  # while looking up the service integration.
+  #
+  # The potential_opaque_id should be a way to identify who is responsible for
+  # the webhook request. For example, to `/v1/service_integrations/svi_abc`,
+  # this would be `svi_abc` (even though it's an invalid opaque id).
+  # In other cases, especially marketplace integrations, this could be some other value
+  # to identify the webhook that was sent.
+  #
+  # If the block yields the Symbol :pass, no further handling is done;
+  # this would be done for example when there is no valid service integration.
+  # Otherwise, the block must yield a service integration.
+  def handle_webhook_request(potential_opaque_id, &)
+    opaque_id = potential_opaque_id
+    organization_id = nil
+    s_status = nil
+    request_headers = {}
     raise LocalJumpError unless block_given?
     begin
       sint = yield
+      return if sint == :pass
+      raise "error instead of return nil if there is no service integration" if sint.nil?
+      opaque_id = sint.opaque_id
+      organization_id = sint.organization_id
       request_headers = request.headers.dup
+      if (content_type = env["CONTENT_TYPE"])
+        request_headers["Content-Type"] = content_type
+      end
       svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
       svc.preprocess_headers_for_logging(request_headers)
       handling_sint = svc.service_integration
@@ -154,13 +179,14 @@ module Webhookdb::API::Helpers
       (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
 
       if s_status >= 400
-        logger.warn "rejected_webhook", webhook_headers: request.headers.to_h,
-                                        webhook_body: env["api.request.body"]
+        logger.warn "rejected_webhook", webhook_headers: request_headers, webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
+        req_body = env.key?("api.request.body") ? env["api.request.body"] : env["rack.input"].read
+        req_body = {} if req_body.blank?
         process_kwargs = {
-          headers: request.headers,
-          body: env["api.request.body"] || {},
+          headers: request_headers,
+          body: req_body,
           request_path: request.path_info,
           request_method: request.request_method,
         }
@@ -195,7 +221,7 @@ module Webhookdb::API::Helpers
       end
       status s_status
     ensure
-      _log_webhook_request(opaque_id, sint&.organization_id, s_status, request_headers)
+      _log_webhook_request(opaque_id, organization_id, s_status, request_headers)
     end
   end
 
