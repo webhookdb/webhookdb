@@ -196,6 +196,25 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "LoggedWebhookReplay" do
+    it "replays the logged webhook" do
+      lwh = Webhookdb::Fixtures.logged_webhook.create(request_path: "/foo")
+      res = stub_request(:post, "http://localhost:18001/foo").and_return(status: 202)
+      expect do
+        lwh.publish_immediate("replay", lwh.id)
+      end.to perform_async_job(Webhookdb::Jobs::LoggedWebhooksReplay)
+      expect(res).to have_been_made
+    end
+  end
+
+  describe "LoggedWebhookResilientReplay" do
+    it "calls the method" do
+      expect(Webhookdb::LoggedWebhook).to receive(:resilient_replay)
+      # Use mocking because setting this up for real is painful
+      Webhookdb::Jobs::LoggedWebhooksResilientReplay.new.perform
+    end
+  end
+
   describe "MessageDispatched", :messaging do
     it "sends the delivery on create" do
       email = "wibble@lithic.tech"

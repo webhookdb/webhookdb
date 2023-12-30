@@ -110,7 +110,14 @@ module Webhookdb::Service::Middleware
   class RequestLogger < Appydays::Loggable::RequestLogger
     def request_tags(env)
       tags = super
-      tags[:customer_id] = env["warden"].user(:customer)&.id || 0
+      begin
+        tags[:customer_id] = env["warden"].user(:customer)&.id || 0
+      rescue Sequel::DatabaseError
+        # If we cant hit the database, ignore this for now.
+        # We run this code on all code paths, including those that don't need the customer,
+        # and we want those to run even if the DB is down (like health checks, for example).
+        nil
+      end
       return tags
     end
   end

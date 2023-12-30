@@ -143,4 +143,137 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
       expect(failure_older.refresh).to be_truncated
     end
   end
+
+  describe "Resilient" do
+    resil = Webhookdb::LoggedWebhook::Resilient.new
+    # We can reuse the test db as our resilient db for unit tests,
+    # obviously in production this wouldn't make sense.
+    let(:resilient_url) { Webhookdb::Postgres::Model.uri }
+
+    before(:each) do
+      described_class.reset_configuration
+      Sequel.connect(resilient_url) do |db|
+        db << "DROP TABLE IF EXISTS #{described_class.resilient_table_name}"
+      end
+    end
+
+    after(:each) do
+      described_class.reset_configuration
+      Sequel.connect(resilient_url) do |db|
+        db << "DROP TABLE IF EXISTS #{described_class.resilient_table_name}"
+      end
+    end
+
+    def values(opaqueid)
+      return {
+        request_path: "/service_integrations/#{opaqueid}",
+        request_body: "{}",
+        request_headers: "{}",
+        request_method: "POST",
+        response_status: 0,
+        service_integration_opaque_id: opaqueid,
+      }
+    end
+
+    def resilient_dataset
+      Sequel.connect(resilient_url) do |db|
+        yield db.from(described_class.resilient_table_name)
+      end
+    end
+
+    describe "resilient_insert" do
+      def cause_insert_error
+        # This is the easiest way.
+        described_class.db << "DROP TABLE logged_webhooks"
+      end
+
+      it "does nothing if the insert succeeds" do
+        logs = capture_logs_from(described_class.logger, level: :debug, formatter: :json) do
+          expect(described_class.resilient_insert(**values("x"))).to be_a(Integer)
+        end
+        expect(logs).to be_empty
+        expect(described_class.all).to contain_exactly(include(service_integration_opaque_id: "x"))
+      end
+
+      it "logs an error and raises if no resilient insert succeeds" do
+        cause_insert_error
+        logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+          expect do
+            described_class.resilient_insert(**values("x"))
+          end.to raise_error(Sequel::DatabaseError, /relation "logged_webhooks" does not exist/)
+        end
+        expect(logs).to contain_exactly(include_json(level: "error", message: "resilient_insert_unhandled"))
+      end
+
+      it "inserts into the first available database and logs a warning" do
+        described_class.available_resilient_database_urls = [
+          "#{resilient_url}_INVALID1",
+          resilient_url,
+          "#{resilient_url}_INVALID2",
+        ]
+        cause_insert_error
+        logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+          expect(described_class.resilient_insert(**values("x"))).to be(true)
+        end
+        expect(logs).to contain_exactly(include_json(level: "warn", message: "resilient_insert_handled"))
+        expect(resilient_dataset(&:all)).to contain_exactly(
+          include(
+            json_payload: '{"request_path":"/service_integrations/x","request_body":"{}","request_headers":"{}",' \
+                          '"request_method":"POST","response_status":0,"service_integration_opaque_id":"x"}',
+          ),
+        )
+      end
+
+      it "handles multiple and concurrent inserts", db: :no_transaction do
+        described_class.available_resilient_database_urls = [
+          "#{resilient_url}_INVALID1",
+          resilient_url,
+        ]
+        # Using threads causes issues with connection pools, so fake it out.
+        # The 201st time is due to unit tests, we only get 200 calls from resilient_insert
+        # We cannot mock dataset.insert unfortunately.
+        expect(described_class).to receive(:dataset).and_raise(Sequel::DatabaseError).exactly(51).times
+        errors = []
+        threads = Array.new(5) do |i|
+          Thread.new(name: "resilwh-#{i}") do
+            Array.new(10) do |j|
+              described_class.resilient_insert(**values("id-#{i}-#{j}"))
+            end
+          rescue StandardError => e
+            pp e, e.message, e.backtrace
+            errors << e.inspect
+          end
+        end
+        threads.each(&:join)
+        expect(errors).to be_empty
+        expect(resilient_dataset(&:all)).to have_length(50)
+      end
+    end
+
+    describe "resilient_replay" do
+      before(:each) do
+        described_class.available_resilient_database_urls = [resilient_url]
+      end
+
+      it "creates logged webhooks and deletes in all reachable resilient dbs" do
+        resil.write_to(resilient_url, "x", values("x").to_json)
+        resil.write_to(resilient_url, "z", values("z").to_json)
+        expect do
+          expect(resil.replay).to eq(2)
+        end.to publish("webhookdb.loggedwebhook.replay").with_payload(contain_exactly(be_an(Integer)))
+        expect(described_class.dataset.select_map(&:service_integration_opaque_id)).to contain_exactly("x", "z")
+        expect(resilient_dataset(&:all)).to be_empty
+      end
+
+      it "ignores unreachable resilient databases" do
+        described_class.available_resilient_database_urls = ["#{resilient_url}_INVALID"]
+        expect(resil.replay).to be_nil
+      end
+
+      it "noops if the primary db is unavailable" do
+        expect(described_class.db).to receive(:execute).and_raise(Sequel::DatabaseError)
+        expect(resil.replay).to be_nil
+      end
+    end
+  end
 end

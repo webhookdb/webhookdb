@@ -14,99 +14,13 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
   # they are the url that customers should point their webhooks to.
   # We can't check org permissions on this endpoint
   # because external services (so no auth) will be posting webhooks here.
-  # So, we have a special lookup function, and depend on webhook verification
-  # to ensure the request is valid.
+  # Depend on webhook verification to ensure the request is valid.
   resource :service_integrations do
-    helpers do
-      def lookup_unauthed!(opaque_id)
-        sint = Webhookdb::ServiceIntegration[opaque_id:]
-        merror!(400, "No integration with that id") if sint.nil?
-        return sint
-      end
-
-      def log_webhook(opaque_id, organization_id, sstatus, request_headers)
-        return if request.headers[Webhookdb::LoggedWebhook::RETRY_HEADER]
-        # Status can be set from:
-        # - the 'status' method, which will be 201 if it hasn't been set,
-        # or another value if it has been set.
-        # - the webhook responder, which could respond with 401, etc
-        # - if there was an exception- so no status is set yet- use 0
-        # The main thing to watch out for is that we:
-        # - Cannot assume an exception is a 500 (it can be rescued later)
-        # - Must handle error! calls
-        # Anyway, this is all pretty confusing, but it's all tested.
-        rstatus = status == 201 ? (sstatus || 0) : status
-        request.body.rewind
-        Webhookdb::LoggedWebhook.dataset.insert(
-          request_body: request.body.read,
-          request_headers: request_headers.to_json,
-          request_method: request.request_method,
-          request_path: request.path_info,
-          response_status: rstatus,
-          organization_id:,
-          service_integration_opaque_id: opaque_id,
-        )
-      end
-    end
-
     route [:post, :put, :delete, :patch], "/:opaque_id*" do
-      request_headers = request.headers.dup
-      if (content_type = env["CONTENT_TYPE"])
-        request_headers["Content-Type"] = content_type
+      opaque_id = params[:opaque_id]
+      handle_webhook_request(opaque_id) do
+        Webhookdb::ServiceIntegration[opaque_id:] or merror!(400, "No integration with that id")
       end
-      sint = lookup_unauthed!(params[:opaque_id])
-      svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
-      svc.preprocess_headers_for_logging(request_headers)
-      handling_sint = svc.service_integration
-      whresp = svc.webhook_response(request)
-      s_status, s_headers, s_body = whresp.to_rack
-      (s_status = 200) if s_status >= 400 && Webhookdb.regression_mode?
-
-      if s_status >= 400
-        logger.warn "rejected_webhook", webhook_headers: request_headers,
-                                        webhook_body: env["api.request.body"]
-        header "Whdb-Rejected-Reason", whresp.reason
-      else
-        req_body = env.key?("api.request.body") ? env["api.request.body"] : env["rack.input"].read
-        req_body = {} if req_body.blank?
-        process_kwargs = {
-          headers: request_headers,
-          body: req_body || {},
-          request_path: request.path_info,
-          request_method: request.request_method,
-        }
-        event_json = Amigo::Event.create(
-          "webhookdb.serviceintegration.webhook", [handling_sint.id, process_kwargs],
-        ).as_json
-        # Audit Log this synchronously.
-        # It should be fast enough. We may as well log here so we can avoid
-        # serializing the (large) webhook payload multiple times, as with normal pubsub.
-        Webhookdb::Async::AuditLogger.new.perform(event_json)
-        if svc.process_webhooks_synchronously? || Webhookdb::Replicator.always_process_synchronously
-          whreq = Webhookdb::Replicator::WebhookRequest.new(
-            method: process_kwargs[:request_method],
-            path: process_kwargs[:request_path],
-            headers: process_kwargs[:headers],
-            body: process_kwargs[:body],
-          )
-          inserted = svc.upsert_webhook(whreq)
-          s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)
-        else
-          queue = svc.upsert_has_deps? ? "netout" : "webhook"
-          Webhookdb::Jobs::ProcessWebhook.set(queue:).perform_async(event_json)
-        end
-      end
-
-      s_headers.each { |k, v| header k, v }
-      if s_headers["Content-Type"] == "application/json"
-        body Oj.load(s_body)
-      else
-        env["api.format"] = :binary
-        body s_body
-      end
-      status s_status
-    ensure
-      log_webhook(params[:opaque_id], sint&.organization_id, s_status, request_headers)
     end
   end
 
