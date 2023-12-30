@@ -9,7 +9,7 @@ RSpec.describe "service integrations", :integration do
     return default
   end
 
-  it "can create a full webhookdb customer integration" do
+  it "can create a full webhookdb customer integration and POST webhooks" do
     c = auth_customer
     expect { c.refresh.all_memberships }.to eventually(have_attributes(length: 1))
     org = c.verified_memberships.last.organization
@@ -36,6 +36,18 @@ RSpec.describe "service integrations", :integration do
     expect do
       catch_missing_db(["default"]) { sint.replicator.readonly_dataset(&:all) }
     end.to eventually(have_attributes(length: 1))
+
+    # puts sint.opaque_id, "/v1/service_integrations/#{sint.opaque_id}"
+    resp = post(
+      "/v1/service_integrations/#{sint.opaque_id}",
+      body: c.values.as_json,
+      headers: {"Whdb-Secret" => sint.webhook_secret},
+      json: true,
+    )
+    expect(resp).to party_status(202)
+    expect(resp).to party_response(match(o: "k"))
+    logged_whs = Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).all
+    expect(logged_whs).to have_length(be_positive)
   end
 
   it "can upsert data synchrononously through endpoint" do
