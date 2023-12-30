@@ -1,8 +1,28 @@
 # frozen_string_literal: true
 
+require "appydays/configurable"
+
 require "webhookdb/postgres/model"
 
 class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
+  include Appydays::Configurable
+
+  class << self
+    attr_accessor :available_resilient_database_urls
+  end
+
+  configurable(:logged_webhooks) do
+    # Space-separated URLs to use for resilient/high availability writes.
+    setting :resilient_database_urls, [], convert: ->(s) { s.split.map(&:strip) }
+    setting :resilient_database_env_vars, [], convert: ->(s) { s.split.map(&:strip) }
+    setting :resilient_table_name, "_logged_webhooks_resilient_writes"
+
+    after_configured do
+      self.available_resilient_database_urls = self.resilient_database_urls.dup
+      self.available_resilient_database_urls.concat(self.resilient_database_env_vars.map { |e| ENV.fetch(e, nil) })
+    end
+  end
+
   many_to_one :organization, class: "Webhookdb::Organization"
 
   many_to_one :service_integration,
@@ -122,7 +142,25 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   def truncated?
     return self.truncated_at ? true : false
   end
+
+  # Insert the logged webhook, and fall back to inserting into the configured
+  # available_resilient_database_urls. If none are inserted successfully, raise the error;
+  # otherwise, swallow the insert error and more on.
+  #
+  # Note that these resilient inserts are MUCH slower than normal inserts;
+  # they require a separate database connection, CREATE TABLE call, etc.
+  # But it's a reasonable way to handle when the database is down.
+  def self.resilient_insert(**kwargs)
+    Resilient.new.insert(kwargs)
+  end
+
+  # Replay and delete all rows in the resilient database tables.
+  def self.resilient_replay
+    Resilient.new.replay
+  end
 end
+
+require "webhookdb/logged_webhook/resilient"
 
 # Table: logged_webhooks
 # ---------------------------------------------------------------------------------------------------------------------------
