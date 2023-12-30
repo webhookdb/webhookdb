@@ -32,6 +32,8 @@ module Webhookdb::Async
     "webhookdb/jobs/google_calendar_sync",
     "webhookdb/jobs/icalendar_enqueue_syncs",
     "webhookdb/jobs/icalendar_sync",
+    "webhookdb/jobs/logged_webhook_replay",
+    "webhookdb/jobs/logged_webhook_resilient_replay",
     "webhookdb/jobs/message_dispatched",
     "webhookdb/jobs/nextpax_sync_property_changes",
     "webhookdb/jobs/organization_database_migration_notify_finished",
