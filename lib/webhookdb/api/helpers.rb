@@ -238,7 +238,7 @@ module Webhookdb::API::Helpers
     # Anyway, this is all pretty confusing, but it's all tested.
     rstatus = status == 201 ? (sstatus || 0) : status
     request.body.rewind
-    Webhookdb::LoggedWebhook.dataset.insert(
+    Webhookdb::LoggedWebhook.resilient_insert(
       request_body: request.body.read,
       request_headers: request_headers.to_json,
       request_method: request.request_method,
