@@ -520,6 +520,7 @@ for information on how to refresh data.)
   # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
     existing_cols, existing_indices = nil
+    max_pk = 0
     sint = self.service_integration
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
@@ -528,30 +529,51 @@ for information on how to refresh data.)
         schemaname: sint.organization.replication_schema,
         tablename: sint.table_name,
       ).select_map(:indexname).to_set
+      max_pk = ds.max(:pk) || 0
     end
     adapter = Webhookdb::DBAdapter::PG.new
     table = self.dbadapter_table
     result = Webhookdb::Replicator::SchemaModification.new
 
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
-    unless missing_columns.empty?
-      # Add missing columns, and an UPDATE to fill in the defaults.
-      missing_columns.each do |whcol|
-        # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
-        result.transaction_statements << adapter.add_column_sql(table, whcol.to_dbadapter)
-        result.transaction_statements << whcol.backfill_statement if whcol.backfill_statement
-      end
-      self.admin_dataset do |ds|
-        update_query = ds.update_sql(missing_columns.to_h { |col| [col.name, col.backfill_expr || col.to_sql_expr] })
-        result.transaction_statements << update_query
-      end
+    # Add missing columns
+    missing_columns.each do |whcol|
+      # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
+      result.transaction_statements << adapter.add_column_sql(table, whcol.to_dbadapter)
+      result.transaction_statements << whcol.backfill_statement if whcol.backfill_statement
     end
     # Easier to handle this explicitly than use storage_columns, but it a duplicated concept so be careful.
     if (enrich_col = self.enrichment_column) && !existing_cols.include?(enrich_col.name)
       result.transaction_statements << adapter.add_column_sql(table, enrich_col)
     end
 
-    # Add missing indices
+    # Backfill values for new columns.
+    if missing_columns.any?
+      # We need to backfill values into the new column, but we don't want to lock the entire table
+      # as we update each row. So we need to update in chunks of rows.
+      # Chunk size should be large for speed (and sending over fewer queries), but small enough
+      # to induce a viable delay if another query is updating the same row.
+      # Note that the delay will only be for writes to those rows; reads will not block,
+      # so something a bit longer should be ok.
+      #
+      # Note that at the point these UPDATEs are running, we have the new column AND the new code inserting
+      # into that new column. We could in theory skip all the PKs that were added after this modification
+      # started to run. However considering the number of rows in this window will always be relatively low
+      # (though not absolutely low), and the SQL backfill operation should yield the same result
+      # as the Ruby operation, this doesn't seem too important.
+      update_expr = missing_columns.to_h { |c| [c.name, c.backfill_expr || c.to_sql_expr] }
+      self.admin_dataset do |ds|
+        chunks = Webhookdb::Replicator::Base.chunked_row_update_bounds(max_pk)
+        chunks[...-1].each do |(lower, upper)|
+          update_query = ds.where { pk > lower }.where { pk <= upper }.update_sql(update_expr)
+          result.nontransaction_statements << update_query
+        end
+        final_update_query = ds.where { pk > chunks[-1][0] }.update_sql(update_expr)
+        result.nontransaction_statements << final_update_query
+      end
+    end
+
+    # Add missing indices. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indices.
     self.indices(table).map do |index|
       next if existing_indices.include?(index.name.to_s)
       result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
@@ -559,6 +581,31 @@ for information on how to refresh data.)
 
     result.application_database_statements << sint.ensure_sequence_sql if self.requires_sequence?
     return result
+  end
+
+  # Return an array of tuples used for splitting UPDATE queries so locks are not held on the entire table
+  # when backfilling values when adding new columns. See +ensure_all_columns_modification+.
+  #
+  # The returned chunks are like: [[0, 100], [100, 200], [200]],
+  # and meant to be used like `0 < pk <= 100`, `100 < pk <= 200`, `p, > 200`.
+  #
+  # Note that final value in the array is a single item, used like `pk > chunks[-1][0]`.
+  def self.chunked_row_update_bounds(max_pk, chunk_size: 1_000_000)
+    result = []
+    chunk_lower_pk = 0
+    chunk_upper_pk = chunk_size
+    while chunk_upper_pk <= max_pk
+      # Get chunks like 0 < pk <= 100, 100 < pk <= 200, etc
+      # Each loop we increment one row chunk size, until we find the chunk containing our max PK.
+      # Ie if row chunk size is 100, and max_pk is 450, the final chunk here is 400-500.
+      result << [chunk_lower_pk, chunk_upper_pk]
+      chunk_lower_pk += chunk_size
+      chunk_upper_pk += chunk_size
+    end
+    # Finally, one final chunk for all rows greater than our biggest chunk.
+    # For example, with a row chunk size of 100, and max_pk of 450, we got a final chunk of 400-500.
+    # But we could have gotten 100 writes (with a new max pk of 550), so this 'pk > 500' catches those.
+    result << [chunk_lower_pk]
   end
 
   # Some integrations require sequences, like when upserting rows with numerical unique ids

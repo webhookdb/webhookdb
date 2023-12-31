@@ -321,7 +321,8 @@ RSpec.describe "fake implementations", :db do
           [Webhookdb::Replicator::IndexSpec.new(columns: [:c2, :at])]
         end
 
-        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
+        mod_sql = fake.ensure_all_columns_modification.to_s.strip
+        expect(mod_sql).to include(<<~SQL.strip)
           ALTER TABLE #{table_str} ADD COLUMN c2 timestamptz;
           ALTER TABLE #{table_str} ADD COLUMN c3 date;
           ALTER TABLE #{table_str} ADD COLUMN "from" text;
@@ -329,18 +330,62 @@ RSpec.describe "fake implementations", :db do
           CREATE OR REPLACE FUNCTION pg_temp.faketest_mapper(integer[])
           RETURNS integer[] AS 'SELECT ARRAY(SELECT (n * 2) FROM unnest($1) AS n)' LANGUAGE sql IMMUTABLE;
         SQL
-        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
+        expect(mod_sql).to include(<<~SQL.strip)
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_idx ON #{table_str} (c2);
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_from_idx ON #{table_str} ("from");
           CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_xyz_c2_at_idx ON #{table_str} (c2, at);
         SQL
-        expect(fake.ensure_all_columns_modification.to_s.strip).to include(<<~SQL.strip)
-          UPDATE #{fqtable_str} SET "c2" = CAST(("data" ->> 'c2') AS timestamptz), "c3" = CAST(("data" ->> 'c3') AS date), "from" = CAST(("data" ->> 'from') AS text), "bf2" = pg_temp.faketest_mapper(bf1);
+        expect(mod_sql).to include(<<~SQL.strip)
+          UPDATE #{fqtable_str} SET "c2" = CAST(("data" ->> 'c2') AS timestamptz), "c3" = CAST(("data" ->> 'c3') AS date), "from" = CAST(("data" ->> 'from') AS text), "bf2" = pg_temp.faketest_mapper(bf1) WHERE ("pk" > 0);
         SQL
         fake.ensure_all_columns
         fake.readonly_dataset do |ds|
           expect(ds.columns).to eq([:pk, :my_id, :at, :bf1, :data, :c2, :c3, :from, :bf2])
         end
+      end
+
+      it "backfills new columns with chunked UPDATE statements" do
+        fake.service_integration.table_name = "faketbl"
+        fake.create_table
+
+        # Add a column that we'll backfill
+        orig_cols = fake._denormalized_columns
+        fake.define_singleton_method(:_denormalized_columns) do
+          orig_cols + [Webhookdb::Replicator::Column.new(:tcol, Webhookdb::DBAdapter::ColumnTypes::TEXT)]
+        end
+
+        fake.admin_dataset do |ds|
+          # Pretend we've inserted plenty of rows already.
+          ds.db.execute "SELECT setval('#{fake.service_integration.table_name}_pk_seq', 3_000_001, true)"
+          # Now insert an actual row, which will get a higher PK now
+          ds.insert({my_id: "1", data: "{}"})
+        end
+
+        # Ensure the UPDATEs are done in chunks
+        mod_sql = fake.ensure_all_columns_modification.to_s.strip
+        expect(mod_sql).to eq(<<~SQL.strip)
+          ALTER TABLE public.faketbl ADD COLUMN tcol text;
+          UPDATE "public"."faketbl" SET "tcol" = CAST(("data" ->> 'tcol') AS text) WHERE (("pk" > 0) AND ("pk" <= 1000000));
+          UPDATE "public"."faketbl" SET "tcol" = CAST(("data" ->> 'tcol') AS text) WHERE (("pk" > 1000000) AND ("pk" <= 2000000));
+          UPDATE "public"."faketbl" SET "tcol" = CAST(("data" ->> 'tcol') AS text) WHERE (("pk" > 2000000) AND ("pk" <= 3000000));
+          UPDATE "public"."faketbl" SET "tcol" = CAST(("data" ->> 'tcol') AS text) WHERE ("pk" > 3000000);
+        SQL
+        fake.ensure_all_columns
+        fake.readonly_dataset do |ds|
+          expect(ds.columns).to eq([:pk, :my_id, :at, :data, :tcol])
+        end
+      end
+
+      it "chunks rows for update properly" do
+        chunks = ->(n) { Webhookdb::Replicator::Fake.chunked_row_update_bounds(n) }
+        expect(chunks.call(0)).to eq([[0]])
+        expect(chunks.call(1)).to eq([[0]])
+        expect(chunks.call(999_999)).to eq([[0]])
+        expect(chunks.call(1_000_000)).to eq([[0, 1_000_000], [1_000_000]])
+        expect(chunks.call(1_000_001)).to eq([[0, 1_000_000], [1_000_000]])
+        expect(chunks.call(1_999_999)).to eq([[0, 1_000_000], [1_000_000]])
+        expect(chunks.call(2_000_000)).to eq([[0, 1_000_000], [1_000_000, 2_000_000], [2_000_000]])
+        expect(chunks.call(2_000_001)).to eq([[0, 1_000_000], [1_000_000, 2_000_000], [2_000_000]])
       end
 
       it "can build and execute SQL for indices that exist in code but not in the DB" do
