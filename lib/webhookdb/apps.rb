@@ -15,6 +15,7 @@ require "webhookdb/api/db"
 require "webhookdb/api/install"
 require "webhookdb/api/me"
 require "webhookdb/api/organizations"
+require "webhookdb/api/replay"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/services"
 require "webhookdb/api/stripe"
@@ -38,6 +39,7 @@ module Webhookdb::Apps
     mount Webhookdb::API::Install
     mount Webhookdb::API::Me
     mount Webhookdb::API::Organizations
+    mount Webhookdb::API::Replay
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Services
     mount Webhookdb::API::Stripe
