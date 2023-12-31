@@ -16,6 +16,11 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     setting :resilient_database_urls, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_database_env_vars, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_table_name, "_logged_webhooks_resilient_writes"
+    # Using /replay can send this many webhooks in one request.
+    # Making this too high can cause timeouts- the caller may have to make multiple calls instead.
+    setting :maximum_replay_interval_hours, 4
+    # Webhooks this old cannot be replayed; they are probably truncated anyway.
+    setting :maximum_replay_history_hours, 7 * 24
 
     after_configured do
       self.available_resilient_database_urls = self.resilient_database_urls.dup
@@ -126,6 +131,10 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   def retry_one(truncate_successful: false)
     _, bad = self.class.retry_logs([self], truncate_successful:)
     return bad.empty?
+  end
+
+  def replay_async
+    return self.publish_immediate("replay", self.id)
   end
 
   # Truncate the logs id'ed by the given instances.

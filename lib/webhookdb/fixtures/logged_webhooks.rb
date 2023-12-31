@@ -40,6 +40,12 @@ module Webhookdb::Fixtures::LoggedWebhooks
     self.organization = org
   end
 
+  decorator :for_service_integration do |sint={}|
+    sint = Webhookdb::Fixtures.service_integration.create(sint) unless sint.is_a?(Webhookdb::ServiceIntegration)
+    self.organization = sint.organization
+    self.service_integration_opaque_id = sint.opaque_id
+  end
+
   decorator :body do |b|
     self.request_body = b.is_a?(String) ? b : b.to_json
   end

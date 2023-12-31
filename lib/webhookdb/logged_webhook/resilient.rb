@@ -80,7 +80,7 @@ class Webhookdb::LoggedWebhook::Resilient
             # We replay the webhook from a separate job
             # so it can be done idempotently/exclusively.
             lwh = Webhookdb::LoggedWebhook.create(payload)
-            lwh.publish_immediate("replay", lwh.id)
+            lwh.replay_async
             replayed += 1
             rdb.from(tblname).where(pk:).delete
           end
