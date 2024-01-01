@@ -191,9 +191,12 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # It should never be more than 20 seconds,
   # nor should it be more than 1/4 of the total period,
   # since it needs to run at a reasonably predictable time.
+  # Jitter is always >= 1, since it is helpful to be able to assert it
+  # will always be in the future.
   def jitter
     max_jitter = [20, self.period_seconds / 4].min
-    return RAND.rand(0..max_jitter)
+    max_jitter = [1, max_jitter].max
+    return RAND.rand(1..max_jitter)
   end
 
   # Running a sync involves some work we always do (export, transform),
