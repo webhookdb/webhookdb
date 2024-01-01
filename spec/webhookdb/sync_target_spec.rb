@@ -114,22 +114,22 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       stub_const("Webhookdb::SyncTarget::RAND", r)
     end
 
-    it "chooses a random value between 0 and 20 seconds" do
+    it "chooses a random value between 1 and 20 seconds" do
       stgt = Webhookdb::Fixtures.sync_target(period_seconds: 600).instance
-      expect(stgt.jitter).to eq(3)
-      expect(stgt.jitter).to eq(14)
+      expect(stgt.jitter).to eq(4)
+      expect(stgt.jitter).to eq(15)
     end
 
     it "will never use a jitter greater than 1/4 of the period" do
       stgt = Webhookdb::Fixtures.sync_target(period_seconds: 0).instance
-      expect(stgt.jitter).to eq(0)
-      stgt.period_seconds = 1
-      expect(stgt.jitter).to eq(0)
-      stgt.period_seconds = 3
-      expect(stgt.jitter).to eq(0)
-      stgt.period_seconds = 4
       expect(stgt.jitter).to eq(1)
-      expect(stgt.jitter).to eq(0)
+      stgt.period_seconds = 1
+      expect(stgt.jitter).to eq(1)
+      stgt.period_seconds = 4
+      20.times { expect(stgt.jitter).to eq(1) }
+      stgt.period_seconds = 20
+      expect(stgt.jitter).to eq(4)
+      40.times { expect(stgt.jitter).to be <= 5 }
     end
   end
 
