@@ -3,6 +3,11 @@
 module Webhookdb::Replicator::ConvertkitV1Mixin
   include Webhookdb::DBAdapter::ColumnTypes
 
+  # ConvertKit gets a decent number of 5xx responses.
+  # Wait for about 20 minutes before the job dies.
+  def backfiller_server_error_retries = 10
+  def backfiller_server_error_backoff = 121.seconds
+
   def _webhook_response(_request)
     # Webhook Authentication isn't supported
     return Webhookdb::WebhookResponse.ok

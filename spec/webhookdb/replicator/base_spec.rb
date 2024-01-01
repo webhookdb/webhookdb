@@ -274,6 +274,22 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
         expect(req).to have_been_made
       end
 
+      it "uses a default backoff/retry" do
+        bf = described_class::ServiceBackfiller.new(o.new)
+        expect(bf.server_error_retries).to eq(2)
+        expect(bf.server_error_backoff).to eq(63)
+      end
+
+      it "can read backoff/retry from the service" do
+        o2 = Class.new(o) do
+          define_method(:backfiller_server_error_retries) { 5 }
+          define_method(:backfiller_server_error_backoff) { 100 }
+        end
+        bf = described_class::ServiceBackfiller.new(o2.new)
+        expect(bf.server_error_retries).to eq(5)
+        expect(bf.server_error_backoff).to eq(100)
+      end
+
       it "propogates other responses" do
         req = stub_request(:get, "https://fake.com/").and_return({status: 404}, {status: 404}, {status: 404})
         expect(Webhookdb::Backfiller).to receive(:do_retry_wait).twice
