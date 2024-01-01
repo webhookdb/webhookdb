@@ -1066,7 +1066,8 @@ for information on how to refresh data.)
 
   # Basic backfiller that calls +_fetch_backfill_page+ on the given replicator.
   # Any timeouts or 5xx errors are automatically re-enqueued for a retry.
-  # This behavior can be customized somewhat by setting class attributes,
+  # This behavior can be customized somewhat setting :backfiller_server_error_retries (default to 2)
+  # and :backfiller_server_error_backoff on the replicator (default to 63 seconds),
   # though customization beyond that should use a custom backfiller.
   class ServiceBackfiller < Webhookdb::Backfiller
     # @!attribute svc
@@ -1077,10 +1078,15 @@ for information on how to refresh data.)
 
     def initialize(svc)
       @svc = svc
-      @server_error_retries = 2
-      @server_error_backoff = 63.seconds
+      @server_error_retries = _getifrespondto(:backfiller_server_error_retries, 2)
+      @server_error_backoff = _getifrespondto(:backfiller_server_error_backoff, 63.seconds)
       raise "#{svc} must implement :_fetch_backfill_page" unless svc.respond_to?(:_fetch_backfill_page)
       super()
+    end
+
+    private def _getifrespondto(sym, default)
+      return default unless @svc.respond_to?(sym)
+      return @svc.send(sym)
     end
 
     def handle_item(item)
