@@ -479,9 +479,8 @@ RSpec.describe "fake implementations", :db do
             Webhookdb::Replicator::Column.new(:from, Webhookdb::DBAdapter::ColumnTypes::TEXT, index: true),
           ]
         end
-        table_str = fake.schema_and_table_symbols.map(&:to_s).join('"."')
         expect(fake.ensure_all_columns_modification.to_s).to include(
-          %{"c2" = CAST(CAST(("data" #> ARRAY['c2']) AS integer) AS integer)},
+          %{"c2" = CAST(CAST(("data" ->> 'c2') AS integer) AS integer)},
         )
         expect(fake.ensure_all_columns_modification.to_s).to include(
           %{"c3" = coalesce(CAST(("data" ->> 'c3') AS timestamptz), now())},

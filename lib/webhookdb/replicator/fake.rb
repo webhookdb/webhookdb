@@ -315,3 +315,139 @@ class Webhookdb::Replicator::FakeBackfillWithCriteria < Webhookdb::Replicator::F
     end
   end
 end
+
+class Webhookdb::Replicator::FakeExhaustiveConverter < Webhookdb::Replicator::Fake
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_exhaustive_converter_v1",
+      ctor: ->(sint) { Webhookdb::Replicator::FakeExhaustiveConverter.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "Fake with all converters",
+      supports_webhooks: true,
+      supports_backfill: false,
+    )
+  end
+
+  def requires_sequence? = true
+
+  # True to return only the superclass columns. Used to test column updates.
+  attr_accessor :super_cols_only
+  # True to return only the columns that can be used for updates. Used to test column updates.
+  # Should be true when testing Ruby converters.
+  attr_accessor :exclude_unimplemented_sql_update_cols
+
+  def _denormalized_columns
+    cols = super
+    return cols if self.super_cols_only
+    cols += [
+      Webhookdb::Replicator::Column.new(
+        :comma_sep,
+        TEXT_ARRAY,
+        converter: Webhookdb::Replicator::Column::CONV_COMMA_SEP,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :geo_lat,
+        DECIMAL,
+        data_key: "latlng",
+        converter: Webhookdb::Replicator::Column.converter_array_element(index: 0, sep: " ", cls: DECIMAL),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :geo_lng,
+        DECIMAL,
+        data_key: "latlng",
+        converter: Webhookdb::Replicator::Column.converter_array_element(index: 1, sep: " ", cls: DECIMAL),
+      ),
+      Webhookdb::Replicator::Column.new(:date, DATE, converter: :date),
+      Webhookdb::Replicator::Column.new(:datetime, TIMESTAMP, converter: :time),
+      Webhookdb::Replicator::Column.new(:parsed_int, INTEGER, converter: :to_i),
+      Webhookdb::Replicator::Column.new(:unix_ts, TIMESTAMP, converter: :tsat),
+      Webhookdb::Replicator::Column.new(
+        :strptime,
+        TIMESTAMP,
+        converter: Webhookdb::Replicator::Column.converter_strptime("%d%m%Y %H%M%S%Z", "DDMMYYYY HH24MISS", cls: Time),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :strptime_date,
+        DATE,
+        converter: Webhookdb::Replicator::Column.converter_strptime("%d%Y%m", "DDYYYYMM", cls: Date),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :int_array,
+        BIGINT_ARRAY,
+        data_key: "obj_array",
+        converter: Webhookdb::Replicator::Column.converter_array_pluck("id", BIGINT),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :text_array,
+        TEXT_ARRAY,
+        data_key: "obj_array",
+        converter: Webhookdb::Replicator::Column.converter_array_pluck("name", TEXT),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :subtext,
+        TEXT,
+        converter: Webhookdb::Replicator::Column.converter_gsub("^hello", "goodbye"),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :regex_extract,
+        TEXT,
+        data_key: "regex_conv",
+        converter: Webhookdb::Replicator::Column.converter_from_regex('/resources/(\d+)'),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :regex_conv,
+        INTEGER,
+        converter: Webhookdb::Replicator::Column.converter_from_regex('/resources/(\d+)', dbtype: INTEGER),
+      ),
+      Webhookdb::Replicator::Column.new(
+        :to_utc_date,
+        DATE,
+        converter: Webhookdb::Replicator::Column::CONV_TO_UTC_DATE,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :using_backfill_expr,
+        TEXT,
+        data_key: "my_id",
+        backfill_expr: "hi there",
+      ),
+      Webhookdb::Replicator::Column.new(
+        :using_backfill_statement,
+        TEXT,
+        data_key: "my_id",
+        backfill_statement: Sequel.lit(<<~SQL),
+          CREATE OR REPLACE FUNCTION pg_temp.fake_backfiller_update_tests(text)
+            RETURNS text AS 'SELECT $1 || $1' LANGUAGE sql IMMUTABLE
+        SQL
+        backfill_expr: Sequel.lit("pg_temp.fake_backfiller_update_tests(my_id)"),
+      ),
+    ]
+    return cols if self.exclude_unimplemented_sql_update_cols
+    cols << Webhookdb::Replicator::Column.new(
+      :int_or_seq_has,
+      INTEGER,
+      converter: Webhookdb::Replicator::Column.converter_int_or_sequence_from_regex('/resources/(\d+)'),
+    )
+    cols << Webhookdb::Replicator::Column.new(
+      :int_or_seq_has_not,
+      INTEGER,
+      converter: Webhookdb::Replicator::Column.converter_int_or_sequence_from_regex('/resources/(\d+)'),
+    )
+    cols << Webhookdb::Replicator::Column.new(
+      :map_lookup,
+      TEXT,
+      converter: Webhookdb::Replicator::Column.converter_map_lookup(
+        array: false,
+        map: {"a" => "A", "b" => "B"},
+      ),
+    )
+    cols << Webhookdb::Replicator::Column.new(
+      :map_lookup_array,
+      TEXT_ARRAY,
+      converter: Webhookdb::Replicator::Column.converter_map_lookup(
+        array: true,
+        map: {"a" => "A", "b" => "B"},
+      ),
+    )
+    return cols
+  end
+end
