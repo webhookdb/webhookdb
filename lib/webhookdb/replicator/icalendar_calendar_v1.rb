@@ -73,7 +73,7 @@ The secret to use for signing is:
       col.new(:row_created_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
       col.new(:row_updated_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
       col.new(:last_synced_at, TIMESTAMP, index: true, optional: true),
-      col.new(:ics_url, TEXT, converter: col.converter_gsub(/^webcal/, "https")),
+      col.new(:ics_url, TEXT, converter: col.converter_gsub("^webcal", "https")),
     ]
   end
 

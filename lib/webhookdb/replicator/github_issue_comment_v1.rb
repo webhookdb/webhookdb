@@ -45,7 +45,7 @@ class Webhookdb::Replicator::GithubIssueCommentV1 < Webhookdb::Replicator::Base
         BIGINT,
         index: true,
         data_key: "issue_url",
-        converter: Webhookdb::Replicator::Column.converter_from_regex(%r{/issues/(\d+)$}, coerce: :to_i),
+        converter: Webhookdb::Replicator::Column.converter_from_regex('/issues/(\d+)$', dbtype: BIGINT),
       ),
       Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
       Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, index: true),

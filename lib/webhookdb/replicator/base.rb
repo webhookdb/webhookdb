@@ -540,7 +540,6 @@ for information on how to refresh data.)
     missing_columns.each do |whcol|
       # Don't bother bulking the ADDs into a single ALTER TABLE, it won't really matter.
       result.transaction_statements << adapter.add_column_sql(table, whcol.to_dbadapter)
-      result.transaction_statements << whcol.backfill_statement if whcol.backfill_statement
     end
     # Easier to handle this explicitly than use storage_columns, but it a duplicated concept so be careful.
     if (enrich_col = self.enrichment_column) && !existing_cols.include?(enrich_col.name)
@@ -561,6 +560,7 @@ for information on how to refresh data.)
       # started to run. However considering the number of rows in this window will always be relatively low
       # (though not absolutely low), and the SQL backfill operation should yield the same result
       # as the Ruby operation, this doesn't seem too important.
+      result.nontransaction_statements.concat(missing_columns.filter_map(&:backfill_statement))
       update_expr = missing_columns.to_h { |c| [c.name, c.backfill_expr || c.to_sql_expr] }
       self.admin_dataset do |ds|
         chunks = Webhookdb::Replicator::Base.chunked_row_update_bounds(max_pk)

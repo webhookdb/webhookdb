@@ -506,43 +506,68 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
     end
 
     describe "converter_from_regex" do
-      it "always uses the only group" do
-        conv = described_class.converter_from_regex(%r{/[a-z]+/\d+/[a-z]+/(\d+)/[a-z]+})
-        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("45")
+      describe "ruby converter" do
+        it "always uses the only group" do
+          conv = described_class.converter_from_regex('/[a-z]+/\d+/[a-z]+/(\d+)/[a-z]+')
+          expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("45")
+        end
+
+        it "always uses the first group" do
+          conv = described_class.converter_from_regex('/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+')
+          expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("xy")
+        end
+
+        it "returns nil if no match" do
+          conv = described_class.converter_from_regex('/abc/(\d+)', dbtype: described_class::INTEGER)
+          expect(conv.ruby.call("/abc/xyz")).to be_nil
+        end
+
+        it "returns nil if given nil" do
+          conv = described_class.converter_from_regex('/abc/(\d+)', dbtype: described_class::INTEGER)
+          expect(conv.ruby.call(nil)).to be_nil
+        end
+
+        it "can call the given additional method" do
+          conv = described_class.converter_from_regex('/\d+/(\d+)', dbtype: described_class::INTEGER)
+          expect(conv.ruby.call("/xy/123/45/z")).to eq(45)
+        end
       end
 
-      it "returns the specified group index" do
-        conv = described_class.converter_from_regex(%r{/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+})
-        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("45")
+      describe "sql converter" do
+        let(:db) { Webhookdb::Postgres::Model.db }
 
-        conv = described_class.converter_from_regex(%r{/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+}, index: 0)
-        expect(conv.ruby.call("/xy/123/ab/45/z")).to eq("xy")
-      end
+        it "converts" do
+          conv = described_class.converter_from_regex('/[a-z]+/\d+/[a-z]+/(\d+)/[a-z]+')
+          e = conv.sql.call("/xy/123/ab/45/z")
+          expect(db.select(e).first.to_a[0][1]).to eq("45")
 
-      it "returns nil if no match" do
-        conv = described_class.converter_from_regex(%r{/abc/(\d+)+}, coerce: :to_i)
-        expect(conv.ruby.call("/abc/xyz")).to be_nil
-      end
+          conv = described_class.converter_from_regex('/([a-z]+)/\d+/[a-z]+/(\d+)/[a-z]+')
+          e = conv.sql.call("/xy/123/ab/45/z")
+          expect(db.select(e).first.to_a[0][1]).to eq("xy")
 
-      it "returns nil if given nil" do
-        conv = described_class.converter_from_regex(%r{/abc/(\d+)+}, coerce: :to_i)
-        expect(conv.ruby.call(nil)).to be_nil
-      end
+          conv = described_class.converter_from_regex('/abc/(\d+)', dbtype: described_class::INTEGER)
+          e = conv.sql.call("/abc/xyz")
+          expect(db.select(e).first.to_a[0][1]).to be_nil
 
-      it "can call the given additional method" do
-        conv = described_class.converter_from_regex(%r{/\d+/(\d+)+}, coerce: :to_i)
-        expect(conv.ruby.call("/xy/123/45/z")).to eq(45)
+          conv = described_class.converter_from_regex('/abc/(\d+)', dbtype: described_class::INTEGER)
+          e = conv.sql.call("")
+          expect(db.select(e).first.to_a[0][1]).to be_nil
+
+          conv = described_class.converter_from_regex('/\d+/(\d+)', dbtype: described_class::INTEGER)
+          e = conv.sql.call("/xy/123/45/z")
+          expect(db.select(e).first.to_a[0][1]).to eq(45)
+        end
       end
     end
 
     describe "converter_int_or_sequence_from_regex" do
       it "uses the regex value if captured" do
-        conv = described_class.converter_int_or_sequence_from_regex(%r{/a/(\d+)/b})
+        conv = described_class.converter_int_or_sequence_from_regex('/a/(\d+)/b')
         expect(conv.ruby.call("/a/123/b", service_integration: nil)).to eq(123)
       end
 
       it "uses the service integration sequence if not captured" do
-        conv = described_class.converter_int_or_sequence_from_regex(%r{/a/(\d+)/b})
+        conv = described_class.converter_int_or_sequence_from_regex('/a/(\d+)/b')
         sint = Webhookdb::Fixtures.service_integration.create
         sint.ensure_sequence(skip_check: true)
         expect(conv.ruby.call("/ab", service_integration: sint)).to eq(1)
@@ -550,27 +575,51 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
     end
 
     describe "converter_strptime" do
-      it "converts the value using the specified format" do
-        conv = described_class.converter_strptime("%Y%m%dT%H%M%S%Z")
-        expect(conv.ruby.call("19970714T173000Z")).to eq(Time.rfc2822("Mon, 14 Jul 1997 17:30:00 -0000"))
-        conv = described_class.converter_strptime("%Y%m%d", cls: Date)
-        expect(conv.ruby.call("19970714")).to eq(Date.new(1997, 7, 14))
+      describe "ruby" do
+        it "converts the value using the specified format" do
+          conv = described_class.converter_strptime("%Y%m%dT%H%M%S%Z")
+          expect(conv.ruby.call("19970714T173000Z")).to eq(Time.rfc2822("Mon, 14 Jul 1997 17:30:00 -0000"))
+          conv = described_class.converter_strptime("%Y%m%d", cls: Date)
+          expect(conv.ruby.call("19970714")).to eq(Date.new(1997, 7, 14))
+        end
+
+        it "raises for an invalid value" do
+          conv = described_class.converter_strptime("%Y%m")
+          expect { conv.ruby.call("1") }.to raise_error(/invalid date or strptime format/)
+        end
+
+        it "uses nil if value is nil" do
+          conv = described_class.converter_strptime("%Y%m%d")
+          expect(conv.ruby.call(nil)).to be_nil
+        end
       end
 
-      it "raises for an invalid value" do
-        conv = described_class.converter_strptime("%Y%m")
-        expect { conv.ruby.call("1") }.to raise_error(/invalid date or strptime format/)
-      end
+      describe "sql" do
+        let(:db) { Webhookdb::Postgres::Model.db }
 
-      it "uses nil if value is nil" do
-        conv = described_class.converter_strptime("%Y%m%d")
-        expect(conv.ruby.call(nil)).to be_nil
+        it "converts" do
+          conv = described_class.converter_strptime("", "YYYYMMDD HH24MISS")
+          e = conv.sql.call("19970714 173000")
+          expect(db.select(e).first.to_a[0][1]).to eq(Time.rfc2822("Mon, 14 Jul 1997 17:30:00 -0000"))
+
+          conv = described_class.converter_strptime("", "YYYYMMDD", cls: Date)
+          e = conv.sql.call("19970714")
+          expect(db.select(e).first.to_a[0][1]).to eq(Date.new(1997, 7, 14))
+
+          conv = described_class.converter_strptime("", "YYYYMM")
+          e = conv.sql.call("1")
+          expect do
+            db.select(e).first
+          end.to raise_error(Sequel::DatabaseError, /source string too short for "YYYY" formatting field/)
+        end
       end
     end
 
     describe "converter_gsub" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
       it "converts with gsub" do
-        conv = described_class.converter_gsub(/^xyz/, "abc")
+        conv = described_class.converter_gsub("^xyz", "abc")
         expect(conv.ruby.call("xyz://123")).to eq("abc://123")
         expect(conv.ruby.call("xyz://xyz")).to eq("abc://xyz")
         expect(conv.ruby.call("abc://xyz")).to eq("abc://xyz")
@@ -578,9 +627,26 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         expect(conv.ruby.call("xyz://xyz")).to eq("abc://abc")
         expect(conv.ruby.call(nil)).to be_nil
       end
+
+      it "converts with pg" do
+        conv = described_class.converter_gsub("^xyz", "abc")
+        e = conv.sql.call("xyz://123")
+        expect(db.select(e).first.to_a[0][1]).to eq("abc://123")
+        e = conv.sql.call("xyz://xyz")
+        expect(db.select(e).first.to_a[0][1]).to eq("abc://xyz")
+        e = conv.sql.call("abc://xyz")
+        expect(db.select(e).first.to_a[0][1]).to eq("abc://xyz")
+        conv = described_class.converter_gsub("xyz", "abc")
+        e = conv.sql.call("xyz://xyz")
+        expect(db.select(e).first.to_a[0][1]).to eq("abc://abc")
+        e = conv.sql.call(nil)
+        expect(db.select(e).first.to_a[0][1]).to be_nil
+      end
     end
 
     describe "CONV_COMMA_SEP" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
       it "converts the value" do
         conv = described_class::CONV_COMMA_SEP
         expect(conv.ruby.call("a,b")).to eq(["a", "b"])
@@ -588,6 +654,33 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         expect(conv.ruby.call("a")).to eq(["a"])
         expect(conv.ruby.call("")).to eq([])
         expect(conv.ruby.call(nil)).to eq([])
+      end
+
+      it "converts SQL values" do
+        conv = described_class::CONV_COMMA_SEP
+        db.execute("CREATE TEMP TABLE commasepconvtest(d jsonb)")
+        ds = db[:commasepconvtest]
+        ds.insert(d: "{}")
+
+        ds.update(d: {x: "a,b"}.to_json)
+        e = conv.sql.call(nil, source_col: Sequel.pg_json(:d), json_path: "x")
+        expect(ds.select(e).first[:array]).to eq(["a", "b"])
+
+        ds.update(d: {x: " a, b "}.to_json)
+        e = conv.sql.call(nil, source_col: Sequel.pg_json(:d), json_path: "x")
+        expect(ds.select(e).first[:array]).to eq(["a", "b"])
+
+        ds.update(d: {x: "a"}.to_json)
+        e = conv.sql.call(nil, source_col: Sequel.pg_json(:d), json_path: "x")
+        expect(ds.select(e).first[:array]).to eq(["a"])
+
+        ds.update(d: {x: ""}.to_json)
+        e = conv.sql.call(nil, source_col: Sequel.pg_json(:d), json_path: "x")
+        expect(ds.select(e).first[:array]).to eq([])
+
+        ds.update(d: {}.to_json)
+        e = conv.sql.call(nil, source_col: Sequel.pg_json(:d), json_path: "x")
+        expect(ds.select(e).first[:array]).to eq([])
       end
     end
 
@@ -818,6 +911,104 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         e = converter.sql.call(initial_value)
         v = Webhookdb::Postgres::Model.db.select(e).first.to_a[0][1]
         expect(v).to eq("do not use")
+      end
+    end
+
+    describe "the FakeExhaustiveConverter replicator" do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_exhaustive_converter_v1") }
+      let(:svc) { Webhookdb::Replicator.create(sint) }
+
+      before(:each) do
+        sint.organization.prepare_database_connections
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      body = {
+        my_id: 1,
+        at: "2012-01-01T12:00:00Z",
+        comma_sep: "a, b,c",
+        latlng: "41.5 120.3",
+        date: "2013-01-01",
+        datetime: "2013-01-01T12:00:00-01:00",
+        strptime: "01012013 120000Z",
+        strptime_date: "31200012",
+        parsed_int: "5",
+        unix_ts: 6000,
+        obj_array: [{id: 10, name: "ten"}, {id: 11, name: "eleven"}],
+        subtext: "hello there, hello",
+        to_utc_date: "2013-01-01T23:00:00-05:00",
+        map_lookup: "a",
+        map_lookup_array: ["a", "b"],
+        regex_conv: "https://webhookdb.com/resources/123",
+        int_or_seq_has: "https://webhookdb.com/resources/500",
+        int_or_seq_has_not: "",
+      }.as_json
+
+      it "can extract values from Ruby" do
+        svc.super_cols_only = false
+        svc.exclude_unimplemented_sql_update_cols = false
+        svc.create_table
+        svc.upsert_webhook_body(body)
+        expect(svc.readonly_dataset(&:first)).to include(
+          comma_sep: ["a", "b", "c"],
+          date: Date.new(2013, 1, 1),
+          datetime: Time.parse("2013-01-01T13:00:00Z"),
+          geo_lat: 41.5,
+          geo_lng: 120.3,
+          int_array: [10, 11],
+          int_or_seq_has: 500,
+          int_or_seq_has_not: 1,
+          map_lookup: "A",
+          map_lookup_array: ["A", "B"],
+          parsed_int: 5,
+          regex_extract: "123",
+          regex_conv: 123,
+          strptime: Time.parse("2013-01-01T12:00:00Z"),
+          strptime_date: Date.parse("2000-12-31"),
+          subtext: "goodbye there, hello",
+          text_array: ["ten", "eleven"],
+          to_utc_date: Date.new(2013, 1, 2),
+          unix_ts: Time.parse("1970-01-01 01:40:00Z"),
+          using_backfill_expr: "1",
+          using_backfill_statement: "1",
+        )
+      end
+
+      it "can build and execute SQL statements to fill columns" do
+        svc.exclude_unimplemented_sql_update_cols = true
+        svc.super_cols_only = true
+        svc.create_table
+        svc.upsert_webhook_body(body)
+        expect(svc.readonly_dataset(&:first).keys).to contain_exactly(:pk, :my_id, :at, :data)
+        svc.super_cols_only = false
+        svc.ensure_all_columns
+        row = svc.readonly_dataset(&:first)
+        expect(row).to include(
+          comma_sep: ["a", "b", "c"],
+          date: Date.new(2013, 1, 1),
+          datetime: Time.parse("2013-01-01T13:00:00Z"),
+          geo_lat: 41.5,
+          geo_lng: 120.3,
+          int_array: [10, 11],
+          # int_or_seq_has: 500,
+          # int_or_seq_has_not: 1,
+          # map_lookup: "A",
+          # map_lookup_array: ["A", "B"],
+          parsed_int: 5,
+          regex_extract: "123",
+          regex_conv: 123,
+          strptime: Time.parse("2013-01-01T12:00:00Z"),
+          strptime_date: Date.parse("2000-12-31"),
+          subtext: "goodbye there, hello",
+          text_array: ["ten", "eleven"],
+          to_utc_date: Date.new(2013, 1, 2),
+          unix_ts: Time.parse("1970-01-01 01:40:00Z"),
+          using_backfill_expr: "hi there",
+          using_backfill_statement: "11",
+        )
       end
     end
   end

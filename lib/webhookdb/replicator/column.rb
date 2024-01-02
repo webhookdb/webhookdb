@@ -9,6 +9,8 @@ class Webhookdb::Replicator::Column
     attr_reader :ruby, :sql
   end
 
+  NOT_IMPLEMENTED = ->(*) { raise NotImplementedError }
+
   # Convert a Unix timestamp (fractional seconds) to a Datetime.
   CONV_UNIX_TS = IsomorphicProc.new(
     ruby: lambda do |i, **_|
@@ -51,52 +53,111 @@ class Webhookdb::Replicator::Column
 
   CONV_COMMA_SEP = IsomorphicProc.new(
     ruby: ->(value, **_) { value.nil? ? [] : value.split(",").map(&:strip) },
-    sql: ->(*) { raise NotImplementedError },
+    sql: lambda do |_e, json_path:, source_col:|
+      e = source_col.get_text(json_path)
+      parts = Sequel.function(:string_to_array, e, ",")
+      parts = Sequel.function(:unnest, parts)
+      sel = Webhookdb::Dbutil::MOCK_CONN.
+        from(parts.as(:parts)).
+        select(Sequel.function(:trim, :parts))
+      f = Sequel.function(:array, sel)
+      return f
+    end,
   )
 
   # Return a converter that parses a value using the given regex,
   # and returns the capture group at index.
   # The 'coerce' function can be applied to, for example,
   # capture a number from a request path and store it as an integer.
-  def self.converter_from_regex(re, coerce: nil, index: -1)
+  #
+  # @param pattern [String]
+  # @param dbtype [Symbol] The DB type to use, like INTEGER or BIGINT.
+  #
+  # @note Only the first capture group can be extracted at this time.
+  def self.converter_from_regex(pattern, dbtype: nil)
+    re = self._assert_regex_converter_type(pattern)
+    case dbtype
+      when INTEGER
+        rcoerce = :to_i
+        pgcast = :integer
+      when BIGINT
+        rcoerce = :to_i
+        pgcast = :bigint
+      when nil
+        rcoerce = nil
+        pgcast = nil
+      else
+        raise NotImplementedError, "unhandled converter_from_regex dbtype: #{dbtype}"
+    end
     return IsomorphicProc.new(
       ruby: lambda do |value, **_|
         matched = value&.match(re) do |md|
-          md.captures ? md.captures[index] : nil
+          md.captures ? md.captures[0] : nil
         end
-        (matched = matched.send(coerce)) if !matched.nil? && coerce
+        (matched = matched.send(rcoerce)) if !matched.nil? && rcoerce
         matched
       end,
-      sql: ->(*) { raise "not yet supported" },
+      sql: lambda do |e|
+        f = Sequel.function(:substring, e.cast(:text), pattern)
+        f = f.cast(pgcast) if pgcast
+        f
+      end,
     )
   end
 
-  def self.converter_int_or_sequence_from_regex(re, index: -1)
+  # Extract a number from a string using the given regexp.
+  # If nothing can be extracted, get the next value from the sequence.
+  #
+  # Note this requires `requires_sequence=true` on the replicator.
+  #
+  # Used primarily where the ID is sent by an API only in the request URL (not a key in the body),
+  # and the URL will not include an ID when it's being sent for the first time.
+  # We see this in channel manager APIs primarily, that replicate their data to 3rd parties.
+  #
+  # @note This converter does not work for backfilling/UPDATE of existing columns.
+  # It is generally only of use for unique ids.
+  def self.converter_int_or_sequence_from_regex(re, dbtype: BIGINT)
     return Webhookdb::Replicator::Column::IsomorphicProc.new(
       ruby: lambda do |value, service_integration:, **kw|
-        url_id = Webhookdb::Replicator::Column.converter_from_regex(re, coerce: :to_i, index:).
+        url_id = Webhookdb::Replicator::Column.converter_from_regex(re, dbtype:).
           ruby.call(value, service_integration:, **kw)
         url_id || service_integration.sequence_nextval
       end,
-      sql: ->(*) { raise NotImplementedError },
+      sql: NOT_IMPLEMENTED,
     )
   end
 
-  def self.converter_strptime(format, cls: Time)
+  # Parse the value in the column using the given strptime string.
+  #
+  # To provide an `sql` proc, provide the sqlformat string, which is used in TO_TIMESTAMP(col, sqlformat).
+  # Note that TO_TIMESTAMP does not support timezone offsets,
+  # so the time will always be in UTC.
+  #
+  # Future note: We may want to derive sqlformat from format,
+  # and handle timezone offsets in the timestamp strings.
+  def self.converter_strptime(format, sqlformat=nil, cls: Time)
     return Webhookdb::Replicator::Column::IsomorphicProc.new(
       ruby: lambda do |value, **|
         value.nil? ? nil : cls.strptime(value, format)
       end,
-      sql: ->(*) { raise NotImplementedError },
+      sql: lambda do |e|
+        raise NotImplementedError if sqlformat.nil?
+        f = Sequel.function(:to_timestamp, e, sqlformat)
+        f = f.cast(:date) if cls == Date
+        f
+      end,
     )
   end
 
   def self.converter_gsub(pattern, replacement)
+    re = self._assert_regex_converter_type(pattern)
     return Webhookdb::Replicator::Column::IsomorphicProc.new(
       ruby: lambda do |value, **|
-        value&.gsub(pattern, replacement)
+        value&.gsub(re, replacement)
       end,
-      sql: ->(*) { raise NotImplementedError },
+      sql: lambda do |e|
+        Sequel.function(:regexp_replace, e, pattern, replacement, "g")
+      end,
     )
   end
 
@@ -157,7 +218,8 @@ class Webhookdb::Replicator::Column
   ].freeze
 
   # Convert a value or array by looking up its value in a map.
-  # Does not yet support SQL conversions.
+  # @param array [Boolean] If true, the empty value is an array. If false, nil.
+  # @param map [Hash]
   def self.converter_map_lookup(array:, map:)
     empty = array ? Sequel.pg_array([]) : nil
     return IsomorphicProc.new(
@@ -173,9 +235,7 @@ class Webhookdb::Replicator::Column
         end
         break is_ary ? r : r[0]
       end,
-      sql: lambda do |_expr|
-        raise NotImplementedError
-      end,
+      sql: NOT_IMPLEMENTED,
     )
   end
 
@@ -333,16 +393,28 @@ class Webhookdb::Replicator::Column
   # To support others will require additional work and some abstraction.
   def to_sql_expr
     source_col = @from_enrichment ? :enrichment : :data
-    expr = Sequel.pg_json(source_col)
+    source_col_expr = Sequel.pg_json(source_col)
     # Have to use string keys here, PG handles it alright though.
     dkey = @data_key.respond_to?(:to_ary) ? @data_key.map(&:to_s) : @data_key
     expr = case self.type
-      when TIMESTAMP, DATE, TEXT
-        expr.get_text(dkey)
+      # If we're pulling out a normal value from JSON, get it as a 'native' value (not jsonb) (ie, ->> op).
+      when TIMESTAMP, DATE, TEXT, INTEGER, BIGINT
+        source_col_expr.get_text(dkey)
       else
-        expr[Array(dkey)]
+        # If this is a more complex value, get it as jsonb (ie, -> op).
+        # Note that this can be changed by the sql converter.
+        source_col_expr[Array(dkey)]
     end
-    (expr = self.converter.sql.call(expr)) if self.converter
+    if self.converter
+      if self.converter.sql == NOT_IMPLEMENTED
+        msg = "Converter SQL for #{self.name} is not implemented. This column cannot be added after the fact, " \
+              "backfill_expr should be set on the column to provide a manual UPDATE/backfill converter, " \
+              "or the :sql converter can be implemented (may not be possible or feasible in all cases)."
+        raise TypeError, msg
+      end
+      conv_kwargs = self.converter.sql.arity == 1 ? {} : {json_path: dkey, source_col: source_col_expr}
+      expr = self.converter.sql.call(expr, **conv_kwargs)
+    end
     pgcol = Webhookdb::DBAdapter::PG::COLTYPE_MAP.fetch(self.type)
     expr = expr.cast(pgcol)
     (expr = Sequel.function(:coalesce, expr, self.defaulter.sql.call)) if self.defaulter
@@ -401,5 +473,10 @@ class Webhookdb::Replicator::Column
       break if optional && v.nil?
     end
     return v
+  end
+
+  def self._assert_regex_converter_type(re)
+    return Regexp.new(re) if re.is_a?(String)
+    raise ArgumentError, "regexp must be a string, not a Ruby regex, so it can be used in the database verbatim"
   end
 end
