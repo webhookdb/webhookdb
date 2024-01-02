@@ -4,7 +4,7 @@
 class Webhookdb::Replicator::Docgen
   def self.documentable_descriptors
     return Webhookdb::Replicator.registry.values.reject do |repl|
-      repl.name.start_with?("webhookdb_", "theranest_", "fake_")
+      repl.name.start_with?("webhookdb_", "fake_")
     end.sort_by(&:name)
   end
 

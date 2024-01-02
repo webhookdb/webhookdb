@@ -12,8 +12,6 @@ require "webhookdb/tasks/admin"
 Webhookdb::Tasks::Admin.new
 require "webhookdb/tasks/annotate"
 Webhookdb::Tasks::Annotate.new
-require "webhookdb/tasks/bootstrap"
-Webhookdb::Tasks::Bootstrap.new
 require "webhookdb/tasks/db"
 Webhookdb::Tasks::DB.new
 require "webhookdb/tasks/docs"

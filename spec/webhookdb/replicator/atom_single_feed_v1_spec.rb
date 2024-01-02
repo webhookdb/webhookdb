@@ -43,7 +43,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
     let(:supports_row_diff) { true }
   end
 
-  it_behaves_like "a replicator that may have a minimal body", "theranest_appointment_v1" do
+  it_behaves_like "a replicator that may have a minimal body", "atom_single_feed_v1" do
     let(:body) do
       Webhookdb::Xml::Atom.parse_entry(<<~J)
         <entry>
