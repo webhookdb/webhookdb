@@ -61,10 +61,6 @@ module Webhookdb::Jobs
         Webhookdb::Sponsy.cron_expression, 30.seconds, true,
       ),
       Spec.new(
-        "TheranestScheduledBackfill", "theranest_auth_v1",
-        Webhookdb::Theranest.cron_expression, 5.minutes, false,
-      ),
-      Spec.new(
         "TransistorEpisodeBackfill", "transistor_episode_v1",
         Webhookdb::Transistor.episode_cron_expression, 2.minutes, true,
       ),

@@ -29,7 +29,6 @@ module Webhookdb::Async
     "webhookdb/jobs/developer_alert_handle",
     "webhookdb/jobs/durable_job_recheck_poller",
     "webhookdb/jobs/emailer",
-    "webhookdb/jobs/google_calendar_sync",
     "webhookdb/jobs/icalendar_enqueue_syncs",
     "webhookdb/jobs/icalendar_sync",
     "webhookdb/jobs/logged_webhook_replay",
@@ -52,7 +51,6 @@ module Webhookdb::Async
     "webhookdb/jobs/sync_target_enqueue_scheduled",
     "webhookdb/jobs/sync_target_run_sync",
     "webhookdb/jobs/trim_logged_webhooks",
-    "webhookdb/jobs/unwatchable_google_calendar_enqueue",
     "webhookdb/jobs/webhook_resource_notify_integrations",
   ].freeze
 
