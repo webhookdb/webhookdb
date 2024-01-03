@@ -90,6 +90,21 @@ message-render-html: env-MESSAGE
 	sleep 3
 	rm message.html
 
+docker-build:
+	@docker build -f docker/Dockerfile -t webhookdb \
+		--build-arg GIT_SHA=`git rev-list --abbrev-commit -1 HEAD` \
+		--build-arg RELEASED_AT=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		.
+
+docker-run-%:
+	docker run \
+		--init \
+		-p 18001:18001 \
+		-e PORT=18001 \
+		--env-file=.env.development \
+		--env-file=.env.development.docker \
+		webhookdb $(*)
+
 env-%:
 	@if [ -z '${${*}}' ]; then echo 'ERROR: variable $* not set' && exit 1; fi
 
