@@ -19,18 +19,19 @@ module Webhookdb::Tasks
           Webhookdb::SpecHelpers::Citest.run_tests("integration")
         end
 
-        desc "See README."
-        task :integration_step1 do
+        desc "The release process needs to finish quickly, so start the integration tests in another dyno."
+        task :heroku_integration_step1 do
           require "webhookdb/heroku"
           Webhookdb::Heroku.client.dyno.create(
             Webhookdb::Heroku.app_name,
-            command: "bundle exec rake specs:integration_step2",
+            command: "bundle exec rake specs:heroku_integration_step2",
             attach: false,
             time_to_live: 1.minute.to_i,
             type: "run",
           )
         end
-        task :integration_step2 do
+        desc "Sleep 20 seconds to wait for the **next** one-off dyno to have the new code."
+        task :heroku_integration_step2 do
           sleep(20)
           require "webhookdb/heroku"
           Webhookdb::Heroku.client.dyno.create(
@@ -42,7 +43,8 @@ module Webhookdb::Tasks
             type: "run",
           )
         end
-        task :integration_step3 do
+        desc "Run the actual integration tests."
+        task :heroku_integration_step3 do
           require "webhookdb/heroku"
           Rake::Task["specs:integration"].invoke
         end

@@ -99,6 +99,17 @@ RSpec.describe Webhookdb::API::Auth, :db do
         expect(last_response).to have_status(202)
       end
     end
+
+    describe "when demo_mode is set", reset_configuration: Webhookdb::DemoMode do
+      it "logs in a customer" do
+        Webhookdb::DemoMode.client_enabled = true
+
+        post "/v1/auth"
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(message: /This is a demo version of WebhookDB/)
+      end
+    end
   end
 
   describe "POST /v1/auth/login_otp" do

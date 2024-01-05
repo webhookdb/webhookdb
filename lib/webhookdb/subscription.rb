@@ -25,19 +25,17 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
   plugin :soft_deletes
 
   configurable(:subscription) do
-    setting :disable_billing, false
-    setting :max_free_integrations, 2
+    setting :billing_enabled, false
+    setting :free_integrations_with_billing, 2
+  end
 
-    after_configured do
-      self.max_free_integrations = 9999 if self.disable_billing
-    end
+  class << self
+    def billing_enabled? = self.billing_enabled
+    def billing_disabled? = !self.billing_enabled?
+    def max_free_integrations = self.billing_enabled? ? self.free_integrations_with_billing : 9999
   end
 
   one_to_one :organization, class: "Webhookdb::Organization", key: :stripe_customer_id, primary_key: :stripe_customer_id
-
-  def self.billing_disabled?
-    return self.disable_billing
-  end
 
   def self.list_plans
     return [] if self.billing_disabled?

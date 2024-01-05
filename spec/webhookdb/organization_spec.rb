@@ -354,7 +354,11 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
     end
   end
 
-  describe "can_add_new_integration?" do
+  describe "can_add_new_integration?", reset_configuration: Webhookdb::Subscription do
+    before(:each) do
+      Webhookdb::Subscription.billing_enabled = true
+    end
+
     it "returns true if org has active subscription" do
       Webhookdb::Fixtures.subscription.active.for_org(o).create
       expect(o.can_add_new_integration?).to be(true)
@@ -366,10 +370,9 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
     end
 
     it "returns false if org has no active subscription and uses at least max free integrations" do
-      Webhookdb::Subscription.max_free_integrations = 1
-      sint = Webhookdb::Fixtures.service_integration.create(organization: o)
+      Webhookdb::Subscription.free_integrations_with_billing = 1
+      Webhookdb::Fixtures.service_integration.create(organization: o)
       expect(o.can_add_new_integration?).to be(false)
-      Webhookdb::Subscription.max_free_integrations = 2
     end
   end
 

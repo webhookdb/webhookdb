@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -e
-
-bundle exec rake release
-if [[ "${RUN_INTEGRATION_TESTS_ON_RELEASE}" = "true" ]]; then
-    bundle exec rake specs:integration_step1
-fi
