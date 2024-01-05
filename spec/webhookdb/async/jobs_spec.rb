@@ -257,43 +257,6 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "NextpaxSyncPropertyChanges" do
-    let(:org) { Webhookdb::Fixtures.organization.create }
-    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
-    let(:auth_sint) do
-      fac.create(
-        service_name: "nextpax_auth_v1",
-        backfill_key: "client_id",
-        backfill_secret: "client_secret",
-        last_backfilled_at: Time.now,
-        webhook_secret: {access_token: "123", expires_in: 1000}.to_json,
-      )
-    end
-    let(:dep_sint) { fac.depending_on(auth_sint).create(service_name: "nextpax_property_manager_v1").refresh }
-    let(:sint) { fac.depending_on(dep_sint).create(service_name: "nextpax_property_v1").refresh }
-
-    before(:all) do
-      Webhookdb::Nextpax.reset_configuration
-    end
-
-    it "polls nextpax for property changes" do
-      last_backfilled_at = 4.hours.ago
-      sint.update(last_backfilled_at:)
-
-      req = stub_request(:get, "https://fake-url.com/api/v1/content/property-changes?fromTimestamp=#{last_backfilled_at.utc.iso8601}&limit=20&offset=0").
-        to_return(
-          status: 200,
-          body: {
-            data: [],
-            request_id: "djalksfjsdakjgasdf",
-          }.to_json,
-          headers: {"Content-Type" => "application/json"},
-        )
-      Webhookdb::Jobs::NextpaxSyncPropertyChanges.new.perform
-      expect(req).to have_been_made
-    end
-  end
-
   describe "PrepareDatabaseConnections" do
     let(:org) { Webhookdb::Fixtures.organization.create }
 

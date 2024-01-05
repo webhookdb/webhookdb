@@ -18,43 +18,6 @@ module Webhookdb::Async
   include Appydays::Loggable
   extend Webhookdb::MethodUtilities
 
-  # Registry of all jobs that will be required when the async system is started/run.
-  JOBS = [
-    "webhookdb/jobs/amigo_test_jobs",
-    "webhookdb/jobs/backfill",
-    "webhookdb/jobs/create_mirror_table",
-    "webhookdb/jobs/create_stripe_customer",
-    "webhookdb/jobs/customer_created_notify_internal",
-    "webhookdb/jobs/demo_mode_sync_data",
-    "webhookdb/jobs/deprecated_jobs",
-    "webhookdb/jobs/developer_alert_handle",
-    "webhookdb/jobs/durable_job_recheck_poller",
-    "webhookdb/jobs/emailer",
-    "webhookdb/jobs/icalendar_enqueue_syncs",
-    "webhookdb/jobs/icalendar_sync",
-    "webhookdb/jobs/logged_webhook_replay",
-    "webhookdb/jobs/logged_webhook_resilient_replay",
-    "webhookdb/jobs/message_dispatched",
-    "webhookdb/jobs/nextpax_sync_property_changes",
-    "webhookdb/jobs/organization_database_migration_notify_finished",
-    "webhookdb/jobs/organization_database_migration_notify_started",
-    "webhookdb/jobs/organization_database_migration_run",
-    "webhookdb/jobs/process_webhook",
-    "webhookdb/jobs/prepare_database_connections",
-    "webhookdb/jobs/renew_google_watch_channels",
-    "webhookdb/jobs/renew_watch_channel",
-    "webhookdb/jobs/replication_migration",
-    "webhookdb/jobs/reset_code_create_dispatch",
-    "webhookdb/jobs/scheduled_backfills",
-    "webhookdb/jobs/send_invite",
-    "webhookdb/jobs/send_webhook",
-    "webhookdb/jobs/send_test_webhook",
-    "webhookdb/jobs/sync_target_enqueue_scheduled",
-    "webhookdb/jobs/sync_target_run_sync",
-    "webhookdb/jobs/trim_logged_webhooks",
-    "webhookdb/jobs/webhook_resource_notify_integrations",
-  ].freeze
-
   require "webhookdb/async/job_logger"
   require "webhookdb/async/audit_logger"
 
@@ -160,7 +123,9 @@ module Webhookdb::Async
       loggers: [Webhookdb.logger],
       **Webhookdb::Dbutil.configured_connection_options,
     )
-    JOBS.each { |j| require(j) }
+    Gem.find_files(File.join("webhookdb/jobs/*.rb")).each do |path|
+      require path
+    end
   end
 
   def self._setup_common
