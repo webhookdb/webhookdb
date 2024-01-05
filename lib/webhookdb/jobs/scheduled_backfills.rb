@@ -49,10 +49,6 @@ module Webhookdb::Jobs
         "*/1 * * * *", 0, false,
       ),
       Spec.new(
-        "NextpaxSyncConstants", "nextpax_amenity_code_v1",
-        Webhookdb::Nextpax.constants_sync_cron_expression, 10.seconds, true,
-      ),
-      Spec.new(
         "AtomSingleFeedPoller", "atom_single_feed_v1",
         "11 * * * *", 10.seconds, true,
       ),
