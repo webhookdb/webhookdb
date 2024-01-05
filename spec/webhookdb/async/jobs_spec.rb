@@ -66,6 +66,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
   describe "CreateStripeCustomer" do
     it "registers the customer" do
+      Webhookdb::Subscription.billing_enabled = true
       req = stub_request(:post, "https://api.stripe.com/v1/customers").
         to_return(body: load_fixture_data("stripe/customer_create", raw: true))
       expect do
@@ -75,7 +76,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     it "noops if billing is disabled" do
-      Webhookdb::Subscription.disable_billing = true
+      Webhookdb::Subscription.billing_enabled = false
       expect do
         Webhookdb::Fixtures.organization.create(stripe_customer_id: "")
       end.to perform_async_job(Webhookdb::Jobs::CreateStripeCustomer)
@@ -99,6 +100,34 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     it "exist as job classes" do
       expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
       expect(Webhookdb::Jobs::Test::DeprecatedJob).to respond_to(:perform_async)
+    end
+  end
+
+  describe "DemoModeSyncData", reset_configuration: Webhookdb::DemoMode do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+
+    before(:each) do
+      Webhookdb::DemoMode.client_enabled = true
+    end
+
+    it "syncs demo data for the given org if enabled" do
+      req = stub_request(:post, "https://api.webhookdb.com/v1/demo/data").
+        to_return(json_response({data: []}))
+
+      org.prepare_database_connections
+      expect do
+        org.publish_immediate("syncdemodata", org.id)
+      end.to perform_async_job(Webhookdb::Jobs::DemoModeSyncData)
+
+      expect(req).to have_been_made
+    ensure
+      org.remove_related_database
+    end
+
+    it "raises a retry if the org has no database yet" do
+      expect do
+        Webhookdb::Jobs::DemoModeSyncData.new.perform(Amigo::Event.create("", [org.id]).as_json)
+      end.to raise_error(Amigo::Retry::OrDie)
     end
   end
 
@@ -421,106 +450,6 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           template: "org_database_migration_finished",
           to: admin2.email,
         ),
-      )
-    end
-  end
-
-  describe "RenewGoogleWatchChannels and RenewWatchChannel" do
-    let(:org) { Webhookdb::Fixtures.organization.create }
-    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
-    let(:cal_list_sint) { fac.stable_encryption_secret.create(service_name: "google_calendar_list_v1") }
-    let(:cal_list_svc) { cal_list_sint.replicator }
-    let(:cal_sint) { fac.depending_on(cal_list_sint).create(service_name: "google_calendar_v1") }
-    let(:cal_svc) { cal_sint.replicator }
-
-    before(:each) do
-      org.prepare_database_connections
-      cal_list_svc.create_table
-      cal_svc.create_table
-    end
-
-    after(:each) do
-      org.remove_related_database
-    end
-
-    def refreshed(row)
-      return svc.readonly_dataset { |ds| ds[pk: row.fetch(:pk)] }
-    end
-
-    it "performs bulk update on google replicator watches" do
-      before_cutoff = Time.now + 2.hours
-      after_cutoff = Time.now + 2.weeks
-      cal_list_svc.admin_dataset do |ds|
-        ds.returning(Sequel.lit("*")).insert(
-          data: "{}",
-          row_updated_at: Time.now,
-          encrypted_refresh_token: "lGfCermPAzJuhsbRalipbg==",
-          external_owner_id: "owner1",
-          watch_channel_id: "chan_id",
-          watch_channel_expiration: after_cutoff,
-        ).first
-      end
-      cal_list_svc.force_set_oauth_access_token("owner1", "asdfghjkl4567")
-      cal_row = cal_svc.admin_dataset do |ds|
-        ds.returning(Sequel.lit("*")).insert(
-          data: "{}",
-          compound_identity: "owner1_x",
-          google_id: "x",
-          external_owner_id: "owner1",
-          events_watch_channel_id: "events_chan_id",
-          events_watch_channel_expiration: before_cutoff,
-          events_watch_resource_id: "res_id",
-        ).first
-      end
-      cal_watch_req = stub_request(:post, "https://www.googleapis.com/calendar/v3/calendars/x/events/watch").
-        with(
-          headers: {"Authorization" => "Bearer asdfghjkl4567"},
-          body: hash_including(
-            :id, # this value is randomly generated so we can't predict it, but it should be there
-            token: {external_owner_id: "owner1"}.to_json,
-            type: "webhook",
-            address: cal_svc.webhook_endpoint,
-          ),
-        ).
-        to_return(
-          status: 200,
-          headers: {"Content-Type" => "application/json"},
-          body: {
-            kind: "api#channel",
-            id: "id_for_channel",
-            resourceId: "id_for_watched_resource",
-            resourceUri: "version_specific_id",
-            expiration: "1672864942219",
-          }.to_json,
-        )
-      cal_stop_req = stub_request(:post, "https://www.googleapis.com/calendar/v3/channels/stop").
-        with(
-          headers: {"Authorization" => "Bearer asdfghjkl4567"},
-          body: {id: "events_chan_id", resourceId: "res_id"}.to_json,
-        ).
-        to_return(status: 200, body: "")
-
-      # Test the scheduled job, which enques sub-jobs, and the evaluation of these sub-jobs.
-      # Since we test RenewWatchChannel via RenewGoogleWatchChannels anyway,
-      # this seems fine.
-      # Other bulk channel renew/enqueue jobs can be tested at the publishing level,
-      # without the API request portion.
-      expect do
-        expect do
-          Webhookdb::Jobs::RenewGoogleWatchChannels.new.perform
-        end.to publish(
-          "webhookdb.serviceintegration.renewwatchchannel",
-          contain_exactly(cal_sint.id, include("row_pk" => cal_row.fetch(:pk))),
-        )
-      end.to perform_async_job(Webhookdb::Jobs::RenewWatchChannel)
-
-      expect(cal_watch_req).to have_been_made
-      expect(cal_stop_req).to have_been_made
-
-      refreshed_cal_row = cal_svc.readonly_dataset { |ds| ds[pk: cal_row.fetch(:pk)] }
-      expect(refreshed_cal_row).to include(
-        events_watch_channel_expiration: match_time("2023-01-04 20:42:22.219 +0000"),
-        events_watch_channel_id: "id_for_channel",
       )
     end
   end

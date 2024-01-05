@@ -3,7 +3,7 @@
 require "webhookdb/api/subscriptions"
 require "webhookdb/admin_api/entities"
 
-RSpec.describe Webhookdb::API::Subscriptions, :db do
+RSpec.describe Webhookdb::API::Subscriptions, :db, reset_configuration: Webhookdb::Subscription do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -12,7 +12,7 @@ RSpec.describe Webhookdb::API::Subscriptions, :db do
 
   before(:each) do
     login_as(customer)
-    Webhookdb::Subscription.reset_configuration
+    Webhookdb::Subscription.billing_enabled = true
   end
 
   describe "GET /v1/organizations/:identifier/subscriptions/plans" do

@@ -1,0 +1,58 @@
+version: "3.4"
+
+services:
+  demo-db:
+    image: "postgres:16"
+    ports:
+      - "18105:5432"
+    environment:
+      POSTGRES_USER: 'webhookdb'
+      POSTGRES_PASSWORD: 'webhookdb'
+      POSTGRES_DB: 'webhookdb'
+  demo-redis:
+    image: "redis:7"
+    ports:
+      - "18107:6379"
+  demo-mailpit:
+    image: "axllent/mailpit"
+    ports:
+      - "18111:8025"
+      - "18112:1025"
+  demo-release:
+    image: "webhookdb/webhookdb:latest"
+    command: release
+    depends_on:
+      - demo-db
+      - demo-redis
+    environment:
+      DATABASE_URL: 'postgres://webhookdb:webhookdb@host.docker.internal:18105/webhookdb'
+      REDIS_URL: 'redis://host.docker.internal:18107/0'
+  demo-web:
+    image: "webhookdb/webhookdb:latest"
+    command: web
+    depends_on:
+      demo-release:
+        condition: service_completed_successfully
+    environment:
+      CUSTOMER_SKIP_AUTHENTICATION: 'true'
+      DATABASE_URL: 'postgres://webhookdb:webhookdb@host.docker.internal:18105/webhookdb'
+      DEMO_MODE_CLIENT_ENABLED: 'true'
+      EMAIL_MAILPIT_URL: 'http://localhost:18111'
+      EMAIL_SMTP_PORT: '18112'
+      PORT: '18101'
+      REDIS_URL: 'redis://host.docker.internal:18107/0'
+      SERVICE_ENFORCE_SSL: 'false'
+      WEBTERM_ENFORCE_SSL: 'false'
+    ports:
+      - "18101:18101"
+  demo-worker:
+    image: "webhookdb/webhookdb:latest"
+    command: worker
+    depends_on:
+      demo-release:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: 'postgres://webhookdb:webhookdb@host.docker.internal:18105/webhookdb'
+      EMAIL_MAILPIT_URL: 'http://localhost:18111'
+      EMAIL_SMTP_PORT: '18112'
+      REDIS_URL: 'redis://host.docker.internal:18107/0'

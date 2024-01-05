@@ -5,6 +5,7 @@ require "bcrypt"
 require "openssl"
 require "webhookdb/id"
 require "webhookdb/postgres/model"
+require "webhookdb/demo_mode"
 
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   extend Webhookdb::MethodUtilities
@@ -89,6 +90,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
     mem = customer.add_membership(
       organization: self_org, membership_role: Webhookdb::Role.admin_role, verified: true, is_default: true,
     )
+    self_org.publish_deferred("syncdemodata", self_org.id) if Webhookdb::DemoMode.example_datasets_enabled
     return [true, mem]
   end
 

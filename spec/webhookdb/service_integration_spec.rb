@@ -27,7 +27,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     end
   end
 
-  describe "plan_supports_integration?" do
+  describe "plan_supports_integration?", reset_configuration: Webhookdb::Subscription do
+    before(:each) do
+      Webhookdb::Subscription.billing_enabled = true
+    end
+
     it "returns true if the organization has an active subscription" do
       Webhookdb::Fixtures.subscription.active.for_org(sint.organization).create
       expect(sint.plan_supports_integration?).to be(true)

@@ -189,6 +189,20 @@ RSpec.describe "Webhookdb::Customer", :db do
           have_attributes(status: "admin", verified?: true, default?: true),
         )
       end
+
+      describe "example datasets", :async, :do_not_defer_events, reset_configuration: Webhookdb::DemoMode do
+        it "are synced if configured" do
+          Webhookdb::DemoMode.example_datasets_enabled = true
+          expect do
+            described_class.register_or_login(email:)
+          end.to publish("webhookdb.organization.syncdemodata").with_payload(contain_exactly(be_a(Integer)))
+        end
+
+        it "are not synced if not configured" do
+          Webhookdb::DemoMode.example_datasets_enabled = false
+          expect { described_class.register_or_login(email:) }.to_not publish("webhookdb.organization.syncdemodata")
+        end
+      end
     end
 
     describe "for an email matching an existing customer" do

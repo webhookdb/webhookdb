@@ -1,10 +1,7 @@
 # frozen_string_literal: true
 
-require "grape"
-require "name_of_person"
-
 require "webhookdb/api"
-require "webhookdb/organization_membership"
+require "webhookdb/demo_mode"
 
 class Webhookdb::API::Auth < Webhookdb::API::V1
   include Webhookdb::Service::Types
@@ -28,13 +25,24 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     params do
-      optional :email, type: String, coerce_with: NormalizedEmail,
-                       prompt: "Welcome to WebhookDB!\nPlease enter your email:"
+      optional :email,
+               type: String,
+               coerce_with: NormalizedEmail,
+               prompt: {
+                 message: "Welcome to WebhookDB!\nPlease enter your email:",
+                 demo_mode_proc: ->(r) { r.params[:email] = "demo@webhookdb.com" },
+               }
       optional :token, type: String
     end
     post do
-      guard_logged_in!
-      if params[:token].blank?
+      message = ""
+      if Webhookdb::DemoMode.client_enabled?
+        membership, step, message = Webhookdb::DemoMode.handle_auth
+        me = membership.customer
+        extras = finish_auth(me)
+        status 200
+      elsif params[:token].blank?
+        guard_logged_in!
         begin
           step, _ = Webhookdb::Customer.register_or_login(email: params[:email])
         rescue Webhookdb::Customer::SignupDisabled
@@ -43,13 +51,14 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
         extras = {}
         status 202
       else
+        guard_logged_in!
         step, me = Webhookdb::Customer.finish_otp(
           Webhookdb::Customer[email: params[:email]], token: params[:token],
         )
         extras = finish_auth(me)
         status 200
       end
-      present step, with: Webhookdb::API::StateMachineEntity, extras:
+      present step, with: Webhookdb::API::StateMachineEntity, extras:, message:
     end
 
     resource :login_otp do

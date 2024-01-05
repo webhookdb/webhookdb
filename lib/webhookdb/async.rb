@@ -25,6 +25,7 @@ module Webhookdb::Async
     "webhookdb/jobs/create_mirror_table",
     "webhookdb/jobs/create_stripe_customer",
     "webhookdb/jobs/customer_created_notify_internal",
+    "webhookdb/jobs/demo_mode_sync_data",
     "webhookdb/jobs/deprecated_jobs",
     "webhookdb/jobs/developer_alert_handle",
     "webhookdb/jobs/durable_job_recheck_poller",

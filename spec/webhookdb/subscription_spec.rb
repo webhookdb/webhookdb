@@ -2,11 +2,11 @@
 
 require "webhookdb/subscription"
 
-RSpec.describe "Webhookdb::Subscription", :db do
+RSpec.describe "Webhookdb::Subscription", :db, reset_configuration: Webhookdb::Subscription do
   let(:described_class) { Webhookdb::Subscription }
 
   before(:each) do
-    described_class.reset_configuration
+    described_class.billing_enabled = true
   end
 
   it "can find its organization" do
@@ -25,7 +25,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
     expect(described_class).to_not be_billing_disabled
     expect(described_class.max_free_integrations).to eq(2)
 
-    described_class.disable_billing = true
+    described_class.billing_enabled = false
     described_class.run_after_configured_hooks
     expect(described_class).to be_billing_disabled
     expect(described_class.max_free_integrations).to eq(9999)
@@ -46,7 +46,7 @@ RSpec.describe "Webhookdb::Subscription", :db do
     end
 
     it "returns empty list if subscription billing is disabled" do
-      described_class.disable_billing = true
+      described_class.billing_enabled = false
       expect(described_class.list_plans).to be_empty
     end
   end

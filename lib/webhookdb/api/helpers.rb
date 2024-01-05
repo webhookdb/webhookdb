@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "grape"
+require "webhookdb/demo_mode"
 require "webhookdb/jobs/process_webhook"
 
 module Webhookdb::API::Helpers
@@ -83,6 +84,7 @@ module Webhookdb::API::Helpers
       if (disable_proc = options[:disable]) && (disable_proc[request])
         return false
       end
+      options[:demo_mode_proc][request] if Webhookdb::DemoMode.client_enabled? && options[:demo_mode_proc]
       params = request.params
       if options[:confirm]
         return true unless params.key?(attr_name)

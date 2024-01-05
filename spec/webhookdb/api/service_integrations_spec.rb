@@ -4,7 +4,11 @@ require "webhookdb/api/service_integrations"
 require "webhookdb/admin_api/entities"
 require "webhookdb/async"
 
-RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicator do
+RSpec.describe Webhookdb::API::ServiceIntegrations,
+               :async,
+               :db,
+               :fake_replicator,
+               reset_configuration: Webhookdb::Subscription do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -23,6 +27,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations, :async, :db, :fake_replicato
 
   before(:each) do
     login_as(customer)
+    Webhookdb::Subscription.billing_enabled = true
   end
 
   def max_out_plan_integrations(org)
