@@ -10,14 +10,12 @@ Cut everything below the above line.
 
 Checklist for a pull request:
 
-- Try to follow [the seven rules of a great Git commit
-  message](https://chris.beams.io/posts/git-commit/).
+- Try to follow [the seven rules of a great Git commit message](https://chris.beams.io/posts/git-commit/) and
+  [subject-first commit messages](https://github.com/aaronjensen/software-development/blob/master/commit-messages.md)
 - Write unit tests! Nothing gets merged without unit tests.
 - Rebase on latest `main` code.
-- Reference the issue(s) resolved with `Fixes #<issue number>`, or
-  `Closes #<issue number>`.
-- Make sure the PR has appropriate `CHANGELOG` updates, including thanks
-  to people that reported issues.
+- Reference the issue(s) resolved with `Fixes #<issue number>`, or `Closes #<issue number>`.
+- Make sure the PR has appropriate `CHANGELOG` updates, including thanks to people that reported issues.
 - Include appropriate documentation changes.
 
 ### The seven rules of a great Git commit message
@@ -26,7 +24,7 @@ Checklist for a pull request:
 2. Limit the subject line to 50 characters
 3. Capitalize the subject line
 4. Do not end the subject line with a period
-5. Use the imperative mood in the subject line
+5. Use subject-first messages, as linked above
 6. Wrap the body at 72 characters
 7. Use the body to explain what and why vs. how
 
@@ -46,4 +44,4 @@ and there are tests, it'll make it in.
 
 If the code change adds a new feature, limitation, or change in
 behavior, the PR might need to include documentation or a separate
-follow-up PR to the [documentation repository](https://github.com/timescale/docs).
+follow-up PR to the [documentation repository](https://github.com/webhookdb/docs).
