@@ -1,3 +1,7 @@
+[![Tests](https://github.com/webhookdb/webhookdb/actions/workflows/backend-checks.yml/badge.svg)](https://github.com/webhookdb/webhookdb/actions/workflows/backend-checks.yml)
+[![Build](https://github.com/webhookdb/webhookdb/actions/workflows/deploy-dockerhub.yml/badge.svg)](https://hub.docker.com/r/webhookdb/webhookdb)
+[![Docs](https://img.shields.io/badge/docs-blue)](https://docs.webhookdb.com)
+
 # WebhookDB
 
 Replicate any API to your database with WebhookDB.
