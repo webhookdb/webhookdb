@@ -20,11 +20,15 @@ module Webhookdb::Tasks
             repl = Webhookdb::Replicator.registered!(rname)
             puts self.replicator_md(repl)
           else
-            Webhookdb::Replicator::Docgen.documentable_descriptors.each do |repl|
+            descriptors = Webhookdb::Replicator::Docgen.documentable_descriptors
+            descriptors.each do |repl|
               md = self.replicator_md(repl)
               path = File.join(out, "#{repl.name}.md")
               File.write(path, md)
             end
+            list_md = Webhookdb::Replicator::Docgen.replicator_list_md(descriptors)
+            list_path = File.join(out, "../_includes/replicator_list.md")
+            File.write(list_path, list_md)
           end
         end
       end

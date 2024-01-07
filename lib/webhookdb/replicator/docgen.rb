@@ -154,4 +154,14 @@ other data types maybe used."
   def boolmoji(b) = b ? "✅" : "❌"
   def truecheck(b) = b ? "✅" : ""
   def pgtype(t) = Webhookdb::DBAdapter::PG::COLTYPE_MAP[t]
+
+  def self.replicator_list_md(descriptors)
+    lines = []
+    descriptors.each do |d|
+      line = "- [#{d.resource_name_singular}]({% link _integrations/#{d.name}.md %})"
+      line += " ([Enterprise]({% link docs/enterprise.md %}) only)" if d.enterprise
+      lines << line
+    end
+    return lines.join("\n")
+  end
 end
