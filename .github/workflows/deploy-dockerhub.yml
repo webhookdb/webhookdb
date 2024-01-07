@@ -1,4 +1,4 @@
-name: Deploy to Dockerhub
+name: Build
 
 on:
   release:
