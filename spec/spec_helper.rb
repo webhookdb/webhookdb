@@ -6,6 +6,12 @@
 require "appydays/dotenviable"
 Appydays::Dotenviable.load(default_rack_env: "test")
 
+require "simplecov"
+require "simplecov-cobertura"
+
+(SimpleCov.formatter = SimpleCov::Formatter::CoberturaFormatter) if ENV["CI"]
+SimpleCov.start if ENV["CI"] || ENV["COVERAGE"]
+
 require "httparty"
 require "rack/test"
 require "rack/test/methods"
