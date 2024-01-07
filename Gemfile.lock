@@ -61,6 +61,7 @@ GEM
       addressable
     date (3.3.4)
     diff-lcs (1.5.0)
+    docile (1.4.0)
     dotenv (2.8.1)
     down (5.4.1)
       addressable (~> 2.8)
@@ -302,6 +303,15 @@ GEM
       fugit (~> 1.8)
       globalid (>= 1.0.1)
       sidekiq (>= 6)
+    simplecov (0.22.0)
+      docile (~> 1.1)
+      simplecov-html (~> 0.11)
+      simplecov_json_formatter (~> 0.1)
+    simplecov-cobertura (2.1.0)
+      rexml
+      simplecov (~> 0.19)
+    simplecov-html (0.12.3)
+    simplecov_json_formatter (0.1.4)
     slack-notifier (2.4.0)
     statsd-ruby (1.5.0)
     stripe (10.4.0)
@@ -392,6 +402,8 @@ DEPENDENCIES
   sidekiq (~> 6)
   sidekiq-amigo (>= 1.6.0)
   sidekiq-cron
+  simplecov
+  simplecov-cobertura
   slack-notifier
   stripe
   timecop
