@@ -3,9 +3,10 @@
 # Write docs for docs.webhookdb.com Jekyll site.
 class Webhookdb::Replicator::Docgen
   def self.documentable_descriptors
-    return Webhookdb::Replicator.registry.values.reject do |repl|
-      repl.name.start_with?("webhookdb_", "fake_")
-    end.sort_by(&:name)
+    return Webhookdb::Replicator.registry.
+        values.
+        select(&:documentable?).
+        sort_by(&:name)
   end
 
   # @!attribute desc
