@@ -1,4 +1,5 @@
 [![Latest Release](https://img.shields.io/github/v/release/webhookdb/webhookdb?color=blue&sort=semver)](https://github.com/webhookdb/webhookdb/releases/latest)
+[![Gem Version](https://badge.fury.io/rb/webhookdb.svg)](https://badge.fury.io/rb/webhookdb)
 [![Build](https://github.com/webhookdb/webhookdb/actions/workflows/deploy-dockerhub.yml/badge.svg)](https://hub.docker.com/r/webhookdb/webhookdb/tags)
 [![Tests](https://github.com/webhookdb/webhookdb/actions/workflows/backend-checks.yml/badge.svg)](https://github.com/webhookdb/webhookdb/actions/workflows/backend-checks.yml)
 [![Coverage](https://codecov.io/gh/webhookdb/webhookdb/graph/badge.svg?token=TQUCNZ8ESF)](https://codecov.io/gh/webhookdb/webhookdb)
