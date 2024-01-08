@@ -123,7 +123,7 @@ module Webhookdb::Postgres
     Sequel.extension :migration
     Webhookdb::Postgres.each_model_superclass do |cls|
       cls.install_all_extensions
-      Sequel::Migrator.run(cls.db, "db/migrations", target:)
+      Sequel::Migrator.run(cls.db, Pathname(__FILE__).dirname.parent.parent + "db/migrations", target:)
     end
   end
 
