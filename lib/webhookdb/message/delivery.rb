@@ -74,10 +74,9 @@ class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliver
   end
 
   def self.preview(template_class_name, transport: :email, rack_env: Webhookdb::RACK_ENV, commit: false)
-    raise "Can only preview in development" unless rack_env == "development"
+    raise "Can only preview in development or commit:false" unless rack_env == "development" || !commit
 
-    pattern = File.join(Pathname(__FILE__).dirname.parent, "messages", "*.rb")
-    Gem.find_files(pattern).each do |path|
+    Gem.find_files("webhookdb/messages/**/*.rb").each do |path|
       require path
     end
 
