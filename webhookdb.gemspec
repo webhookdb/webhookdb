@@ -28,6 +28,7 @@ Gem::Specification.new do |s|
   s.files = Dir["lib/**/*.rb"]
   s.files += Dir["data/**/*"]
   s.files += Dir["db/**/*.rb"]
+  s.files += Dir["integration/**/*.rb"]
 
   s.add_dependency("activesupport", "~> 7.1")
   s.add_dependency("appydays", ">= 0.8")
