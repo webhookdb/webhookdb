@@ -50,7 +50,7 @@ module Webhookdb
 
   APPLICATION_NAME = "Webhookdb"
   RACK_ENV = ENV.fetch("RACK_ENV", "development")
-  VERSION = ENV.fetch("HEROKU_SLUG_COMMIT", "unknown-version")
+  COMMIT = ENV.fetch("HEROKU_SLUG_COMMIT", "unknown-commit")
   RELEASE = ENV.fetch("HEROKU_RELEASE_VERSION", "unknown-release")
   RELEASE_CREATED_AT = ENV.fetch("HEROKU_RELEASE_CREATED_AT") { Time.at(0).utc.iso8601 }
   INTEGRATION_TESTS_ENABLED = ENV.fetch("INTEGRATION_TESTS", false)
