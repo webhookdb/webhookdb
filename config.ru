@@ -7,15 +7,4 @@ require "webhookdb"
 Webhookdb.load_app
 
 require "webhookdb/apps"
-Webhookdb::Async.setup_web
-
-map "/admin" do
-  run Webhookdb::Apps::AdminAPI.build_app
-end
-map "/sidekiq" do
-  run Webhookdb::Apps::SidekiqWeb.to_app
-end
-map "/terminal" do
-  run Webhookdb::Apps::Webterm.to_app
-end
-run Webhookdb::Apps::API.build_app
+Webhookdb::Apps.rack_up(self)
