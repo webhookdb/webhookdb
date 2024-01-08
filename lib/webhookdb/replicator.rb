@@ -11,8 +11,8 @@ class Webhookdb::Replicator
     setting :always_process_synchronously, false
   end
 
-  REPLICATORS_DIR = Pathname(__FILE__).dirname + "replicator"
-  PLUGIN_DIR = Pathname(__FILE__).dirname + "replicator_ext"
+  PLUGIN_DIRNAME = "replicator_ext"
+  PLUGIN_DIR = Pathname(__FILE__).dirname + PLUGIN_DIRNAME
 
   # Raised when there is no service registered for a name.
   class Invalid < StandardError; end
@@ -173,8 +173,12 @@ class Webhookdb::Replicator
 
     def load_replicators
       existing_descendants = Webhookdb::Replicator::Base.descendants
-      self._require_files(REPLICATORS_DIR)
-      self._require_files(PLUGIN_DIR)
+      ["replicator", PLUGIN_DIRNAME].each do |d|
+        Gem.find_files(File.join("webhookdb/#{d}/*.rb")).each do |path|
+          next if path.include?("/spec/")
+          require path
+        end
+      end
       new_descendants = Webhookdb::Replicator::Base.descendants
       newly_registered = new_descendants - existing_descendants
       newly_registered.each { |cls| self.register(cls) }
