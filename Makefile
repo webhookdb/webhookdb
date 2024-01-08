@@ -114,6 +114,18 @@ dockerhub-run-%: ## Download the webhookdb docker image from Dockerhub and run i
 		--env-file=.env.development.docker \
 		webhookdb/webhookdb:latest $(*)
 
+VERSION := `cat lib/webhookdb/version.rb | grep 'VERSION =' | cut -d '"' -f2`
+
+gem-build:
+ifeq ($(strip $(VERSION)),)
+	echo "Could not parse VERSION"
+else
+	git tag $(VERSION)
+	gem build webhookdb.gemspec
+	gem push webhookdb-$(VERSION).gem
+	git push origin $(VERSION)
+endif
+
 env-%:
 	@if [ -z '${${*}}' ]; then echo 'ERROR: variable $* not set' && exit 1; fi
 

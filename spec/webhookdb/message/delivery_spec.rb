@@ -133,10 +133,14 @@ RSpec.describe "Webhookdb::Message::Delivery", :db, :messaging do
   end
 
   describe "preview" do
-    it "errors if rack env is not development" do
+    it "errors if rack env is not development and commit is true" do
       expect do
-        described_class.preview("NewCustomer", rack_env: "test")
+        described_class.preview("NewCustomer", rack_env: "test", commit: true)
       end.to raise_error(/only preview in development/)
+
+      expect do
+        described_class.preview("NewCustomer", rack_env: "test", commit: false)
+      end.to_not raise_error
     end
 
     it "errors if the template does not exist" do

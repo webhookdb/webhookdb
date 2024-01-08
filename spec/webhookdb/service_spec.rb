@@ -645,7 +645,7 @@ RSpec.describe Webhookdb::Service, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response.body).to eq(
-        '{"field1":25,"field2":"abcd","x":"2020-04-23","etag":"db41e3e0da219ca43359a8581cdb74b1"}',
+        '{"field1":25,"field2":"abcd","x":"2020-04-23","etag":"940f5dd070fa3e5a720ecfc31f64ec88"}',
       )
     end
   end

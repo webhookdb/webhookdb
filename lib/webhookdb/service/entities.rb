@@ -90,7 +90,7 @@ module Webhookdb::Service::Entities
     def to_json(*)
       serialized = super
       raise TypeError, "EtaggedMixin can only be used for object entities" unless serialized[-1] == "}"
-      etag = Digest::MD5.hexdigest(Webhookdb::VERSION.to_s + serialized)
+      etag = Digest::MD5.hexdigest(Webhookdb::COMMIT.to_s + serialized)
       return serialized[...-1] + ",\"etag\":\"#{etag}\"}"
     end
   end

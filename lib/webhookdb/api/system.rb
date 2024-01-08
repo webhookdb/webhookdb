@@ -23,6 +23,7 @@ class Webhookdb::API::System < Webhookdb::Service
     {
       env: Webhookdb::RACK_ENV,
       version: Webhookdb::VERSION,
+      commit: Webhookdb::COMMIT,
       release: Webhookdb::RELEASE,
       log_level: Webhookdb.logger.level,
     }
