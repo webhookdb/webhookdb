@@ -4,6 +4,8 @@ RUN apt-get update && apt-get install -y build-essential shared-mime-info libpq-
 
 WORKDIR /app
 COPY Gemfile* .
+COPY webhookdb.gemspec .
+COPY lib/webhookdb/version.rb lib/webhookdb/version.rb
 RUN bundle install
 COPY ./config config
 COPY ./data data
