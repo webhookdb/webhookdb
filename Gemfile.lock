@@ -8,7 +8,7 @@ GIT
 PATH
   remote: .
   specs:
-    webhookdb (0.1.1)
+    webhookdb (1.0.0)
       activesupport (~> 7.1)
       appydays (>= 0.8)
       aws-sdk-pricing (~> 1.53)
@@ -316,10 +316,10 @@ GEM
     ruby2_keywords (0.0.5)
     semantic_logger (4.15.0)
       concurrent-ruby (~> 1.0)
-    sentry-ruby (5.15.2)
+    sentry-ruby (5.16.0)
       concurrent-ruby (~> 1.0, >= 1.0.2)
-    sentry-sidekiq (5.15.2)
-      sentry-ruby (~> 5.15.2)
+    sentry-sidekiq (5.16.0)
+      sentry-ruby (~> 5.16.0)
       sidekiq (>= 3.0)
     sequel (5.76.0)
       bigdecimal
