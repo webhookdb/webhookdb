@@ -36,7 +36,7 @@ module Webhookdb::Tasks
           require "webhookdb/heroku"
           Webhookdb::Heroku.client.dyno.create(
             Webhookdb::Heroku.app_name,
-            command: "bundle exec rake specs:integration_step3",
+            command: "bundle exec rake specs:heroku_integration_step3",
             env: {"INTEGRATION_TESTS" => "true"},
             attach: false,
             time_to_live: 10.minute.to_i,

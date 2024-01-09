@@ -26,12 +26,12 @@ module Webhookdb::IntegrationSpecHelpers
         example.metadata[:integration]
 
       @to_destroy = []
-      WebMock.allow_net_connect!
+      WebMock.allow_net_connect! if defined?(WebMock)
     end
 
     context.after(:each) do
       @to_destroy.each(&:destroy)
-      WebMock.disable_net_connect!
+      WebMock.disable_net_connect! if defined?(WebMock)
     end
     super
   end

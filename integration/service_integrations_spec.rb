@@ -47,7 +47,7 @@ RSpec.describe "service integrations", :integration do
     expect(resp).to party_status(202)
     expect(resp).to party_response(match(o: "k"))
     logged_whs = Webhookdb::LoggedWebhook.where(service_integration_opaque_id: sint.opaque_id).all
-    expect(logged_whs).to have_length(be_positive)
+    expect(logged_whs).to_not be_empty
   end
 
   it "can upsert data synchrononously through endpoint" do

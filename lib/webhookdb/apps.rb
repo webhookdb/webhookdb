@@ -34,6 +34,32 @@ require "webhookdb/admin_api/roles"
 require "webterm/apps"
 
 module Webhookdb::Apps
+  # Call this from your rackup file, like config.ru.
+  #
+  # @example
+  # lib = File.expand_path("lib", __dir__)
+  # $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+  # require "webhookdb"
+  # Webhookdb.load_app
+  # require "webhookdb/apps"
+  # Webhookdb::Apps.rack_up(self)
+  #
+  def self.rack_up(config_ru)
+    Webhookdb::Async.setup_web
+    config_ru.instance_exec do
+      map "/admin" do
+        run Webhookdb::Apps::AdminAPI.build_app
+      end
+      map "/sidekiq" do
+        run Webhookdb::Apps::SidekiqWeb.to_app
+      end
+      map "/terminal" do
+        run Webhookdb::Apps::Webterm.to_app
+      end
+      run Webhookdb::Apps::API.build_app
+    end
+  end
+
   class API < Webhookdb::Service
     mount Webhookdb::API::Auth
     mount Webhookdb::API::Db

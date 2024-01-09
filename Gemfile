@@ -10,7 +10,6 @@ gem "ice_cube", git: "https://github.com/nehresma/ice_cube.git", ref: "d7ea51efc
 
 # NOTE: When running integration tests, you will need to set BUNDLE_WITHOUT to something other than 'test'.
 group :test do
-  gem "clipboard", "~> 1.3"
   gem "faker", "~> 3.2"
   gem "fluent_fixtures", "~> 0.11"
   gem "rack-test", "~> 2.1"

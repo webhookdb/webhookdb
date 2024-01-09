@@ -54,6 +54,7 @@ module Webhookdb
   RELEASE = ENV.fetch("HEROKU_RELEASE_VERSION", "unknown-release")
   RELEASE_CREATED_AT = ENV.fetch("HEROKU_RELEASE_CREATED_AT") { Time.at(0).utc.iso8601 }
   INTEGRATION_TESTS_ENABLED = ENV.fetch("INTEGRATION_TESTS", false)
+  require "webhookdb/version"
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"
 

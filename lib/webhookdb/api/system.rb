@@ -13,7 +13,10 @@ class Webhookdb::API::System < Webhookdb::Service
   helpers Webhookdb::Service::Helpers
 
   get :healthz do
-    Webhookdb::Postgres::Model.db.execute("SELECT 1=1")
+    # Do not bother looking at dependencies like databases.
+    # If the primary is down, we can still accept webhooks
+    # if LoggedWebhook resiliency is configured,
+    # which is the primary thing about whether we're healthy or not.
     status 200
     {o: "k"}
   end
@@ -29,9 +32,11 @@ class Webhookdb::API::System < Webhookdb::Service
     }
   end
 
-  resource :debug do
-    get :echo do
-      pp params.to_h
+  if ["development", "test"].include?(Webhookdb::RACK_ENV)
+    resource :debug do
+      get :echo do
+        pp params.to_h
+      end
     end
   end
 end

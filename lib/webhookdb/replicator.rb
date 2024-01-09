@@ -79,6 +79,8 @@ class Webhookdb::Replicator
     # Is this an enterprise-only replicator?
     attr_reader :enterprise
 
+    def documentable? = @documentable
+
     def initialize(
       name:,
       ctor:,
@@ -91,7 +93,8 @@ class Webhookdb::Replicator
       api_docs_url: "",
       description: nil,
       enterprise: false,
-      documentation_url: nil
+      documentation_url: nil,
+      documentable: nil
     )
       raise ArgumentError, "must support one or both of webhooks and backfill" unless
         supports_webhooks || supports_backfill
@@ -109,7 +112,7 @@ class Webhookdb::Replicator
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor
       @resource_name_plural = resource_name_plural || "#{self.resource_name_singular}s"
       @description = description || "Replicate #{self.resource_name_plural} into your database."
-      self.feature_roles
+      @documentable = documentable.nil? ? !self.name.start_with?("webhookdb_", "fake_", "theranest_") : documentable
     end
 
     def inspect
