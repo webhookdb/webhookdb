@@ -22,6 +22,17 @@ Money.locale_backend = :i18n
 Money.default_currency = "USD"
 Money.rounding_mode = BigDecimal::ROUND_HALF_UP
 
+module Appydays::Configurable
+  def self.fetch_env(keys, default=:__keyerror, env: ENV)
+    keys = [keys] unless keys.respond_to?(:to_ary)
+    keys.to_ary.each do |k|
+      return env.fetch(k) if env.key?(k)
+    end
+    raise KeyError, "no key found in env: #{keys}" if default == :__keyerror
+    return default
+  end
+end
+
 module Webhookdb
   include Appydays::Loggable
   include Appydays::Configurable
@@ -49,10 +60,13 @@ module Webhookdb
   class RegressionModeSkip < StandardError; end
 
   APPLICATION_NAME = "Webhookdb"
-  RACK_ENV = ENV.fetch("RACK_ENV", "development")
-  COMMIT = ENV.fetch("HEROKU_SLUG_COMMIT", "unknown-commit")
-  RELEASE = ENV.fetch("HEROKU_RELEASE_VERSION", "unknown-release")
-  RELEASE_CREATED_AT = ENV.fetch("HEROKU_RELEASE_CREATED_AT") { Time.at(0).utc.iso8601 }
+  RACK_ENV = Appydays::Configurable.fetch_env(["RACK_ENV", "RUBY_ENV"], "development")
+  COMMIT = Appydays::Configurable.fetch_env(["COMMIT", "GIT_SHA", "HEROKU_SLUG_COMMIT"], "00000000")
+  RELEASE = Appydays::Configurable.fetch_env(["RELEASE", "GIT_REF", "HEROKU_RELEASE_VERSION"], "unknown-release")
+  RELEASE_CREATED_AT = Appydays::Configurable.fetch_env(
+    ["RELEASE_CREATED_AT", "BUILT_AT", "HEROKU_RELEASE_CREATED_AT"],
+    Time.at(0).utc.iso8601,
+  )
   INTEGRATION_TESTS_ENABLED = ENV.fetch("INTEGRATION_TESTS", false)
   require "webhookdb/version"
 
