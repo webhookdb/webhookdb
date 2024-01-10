@@ -37,6 +37,7 @@ services:
       CUSTOMER_SKIP_AUTHENTICATION: 'true'
       DATABASE_URL: 'postgres://webhookdb:webhookdb@host.docker.internal:18105/webhookdb'
       DEMO_MODE_CLIENT_ENABLED: 'true'
+      DEMO_MODE_EXAMPLE_DATASETS_ENABLED: 'true'
       EMAIL_MAILPIT_URL: 'http://localhost:18111'
       EMAIL_SMTP_PORT: '18112'
       PORT: '18101'
@@ -53,6 +54,8 @@ services:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: 'postgres://webhookdb:webhookdb@host.docker.internal:18105/webhookdb'
+      DEMO_MODE_CLIENT_ENABLED: 'true'
+      DEMO_MODE_EXAMPLE_DATASETS_ENABLED: 'true'
       EMAIL_MAILPIT_URL: 'http://localhost:18111'
       EMAIL_SMTP_PORT: '18112'
       REDIS_URL: 'redis://host.docker.internal:18107/0'
