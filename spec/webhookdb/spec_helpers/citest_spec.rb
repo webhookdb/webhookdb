@@ -2,7 +2,40 @@
 
 require "webhookdb/spec_helpers/citest"
 
-RSpec.describe Webhookdb::SpecHelpers::Citest do
+RSpec.describe Webhookdb::SpecHelpers::Citest, :db do
+  describe "run_tests", reset_configuration: Webhookdb::Slack do
+    before(:each) do
+      @slack_http = Webhookdb::Slack::NoOpHttpClient.new
+      Webhookdb::Slack.http_client = @slack_http
+      Webhookdb::Slack.suppress_all = false
+    end
+
+    after(:each) do
+      Webhookdb::Slack.http_client = nil
+    end
+
+    it "runs tests with RSpec" do
+      expect(RSpec::Core::Runner).to receive(:run).with(["testdir/", "--format", "html"], be_a(StringIO),
+                                                        be_a(StringIO),) do |_, _, out|
+        out << '<script type="text/javascript">document.getElementById("totals").innerHTML = ' \
+               '"4 examples, 1 failure, 2 pending";</script>'
+      end
+      described_class.run_tests("testdir")
+      expect(@slack_http.posts).to contain_exactly(
+        [be_a(URI), include(payload: include("4 examples, 1 failures"))],
+      )
+    end
+
+    it "posts an error if no results are parsed" do
+      expect(RSpec::Core::Runner).to receive(:run).with(["testdir/", "--format", "html"], be_a(StringIO),
+                                                        be_a(StringIO),)
+      described_class.run_tests("testdir")
+      expect(@slack_http.posts).to contain_exactly(
+        [be_a(URI), include(payload: include("Errored or unparseable output running testdir tests"))],
+      )
+    end
+  end
+
   describe "parse_rspec_output" do
     it "can parse HTML RSpec output" do
       s = <<~HEREDOC
@@ -338,7 +371,7 @@ RSpec.describe Webhookdb::SpecHelpers::Citest do
     end
 
     it "converts results and an upload URL to a Slack payload" do
-      expect(described_class.result_to_payload("fld", result, "http://results.html")).to eq(
+      expect(described_class.result_to_payload(result, "http://results.html")).to eq(
         attachments: [
           {
             color: "good",
@@ -346,14 +379,14 @@ RSpec.describe Webhookdb::SpecHelpers::Citest do
             fallback: "View results at http://results.html",
           },
         ],
-        text: "Tests for fld: 5 examples, 0 failures, 0 pending",
+        text: "Integration Tests: 5 examples, 0 failures, 0 pending",
       )
     end
 
     it "uses danger color if there are any failures" do
       result.pending = 1
       result.failures = 2
-      expect(described_class.result_to_payload("fld", result, "http://results.html")).to eq(
+      expect(described_class.result_to_payload(result, "http://results.html")).to eq(
         attachments: [
           {
             color: "danger",
@@ -361,13 +394,13 @@ RSpec.describe Webhookdb::SpecHelpers::Citest do
             fallback: "View results at http://results.html",
           },
         ],
-        text: "Tests for fld: 5 examples, 2 failures, 1 pending",
+        text: "Integration Tests: 5 examples, 2 failures, 1 pending",
       )
     end
 
     it "uses warning color if there are any pending" do
       result.pending = 1
-      expect(described_class.result_to_payload("fld", result, "http://results.html")).to eq(
+      expect(described_class.result_to_payload(result, "http://results.html")).to eq(
         attachments: [
           {
             color: "warning",
@@ -375,14 +408,14 @@ RSpec.describe Webhookdb::SpecHelpers::Citest do
             fallback: "View results at http://results.html",
           },
         ],
-        text: "Tests for fld: 5 examples, 0 failures, 1 pending",
+        text: "Integration Tests: 5 examples, 0 failures, 1 pending",
       )
     end
   end
 
   describe "put_results" do
     it "saves the results and returns a signed url" do
-      expect(described_class.put_results("fld", "<html />")).to match(
+      expect(described_class.put_results("<html />")).to match(
         %r{http://localhost:18001/admin/v1/database_documents/\d+/view\?expire_at=\d+&sig=.*},
       )
     end

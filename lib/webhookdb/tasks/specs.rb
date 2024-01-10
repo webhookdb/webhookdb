@@ -10,13 +10,15 @@ module Webhookdb::Tasks
     def initialize
       super()
       namespace :specs do
-        desc "Run API integration tests"
+        desc "Run API integration tests in the 'integration' folder of this gem. " \
+             "To run your own tests, create a task similar to this one, " \
+             "that calls Webhookdb::SpecHelpers::Citest.run_tests."
         task :integration do
           require "rspec/core"
           require "slack-notifier"
           require "webhookdb/spec_helpers/integration"
           require "webhookdb/spec_helpers/citest"
-          Webhookdb::SpecHelpers::Citest.run_tests("integration")
+          Webhookdb::SpecHelpers::Citest.run_tests(Webhookdb::SpecHelpers::Citest::INTEGRATION_TESTS_DIR)
         end
 
         desc "The release process needs to finish quickly, so start the integration tests in another dyno."
