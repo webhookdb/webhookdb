@@ -9,7 +9,7 @@ module Webhookdb::Async::Autoscaler
   include Appydays::Configurable
   include Appydays::Loggable
 
-  AVAILABLE_PROVIDERS = ["heroku"].freeze
+  AVAILABLE_PROVIDERS = ["heroku", "fake"].freeze
 
   def self._check_provider!
     return if AVAILABLE_PROVIDERS.include?(self.provider)
@@ -26,6 +26,8 @@ module Webhookdb::Async::Autoscaler
     setting :max_additional_workers, 2
     setting :latency_restored_threshold, 0
     setting :hostname_regex, /^web\.1$/, convert: ->(s) { Regexp.new(s) }
+    setting :heroku_app_id_or_app_name, "", key: "HEROKU_APP_NAME"
+    setting :heroku_formation_id_or_formation_type, "worker"
 
     after_configured do
       self._check_provider!
@@ -35,19 +37,25 @@ module Webhookdb::Async::Autoscaler
   class << self
     def enabled? = self.enabled
 
-    def start
-      raise "already started" unless @instance.nil?
+    def build_implementation
       case self.provider
         when "heroku"
           opts = {heroku: Webhookdb::Heroku.client, max_additional_workers: self.max_additional_workers}
           (opts[:app_id_or_app_name] = self.heroku_app_id_or_app_name) if
-            self.heroku_app_id_or_app_name
+            self.heroku_app_id_or_app_name.present?
           (opts[:formation_id_or_formation_type] = self.heroku_formation_id_or_formation_type) if
-            self.heroku_formation_id_or_formation_type
-          @impl = Amigo::Autoscaler::Heroku.new(**opts)
+            self.heroku_formation_id_or_formation_type.present?
+          return Amigo::Autoscaler::Heroku.new(**opts)
+        when "fake"
+          return FakeImplementation.new
         else
           self._check_provider!
       end
+    end
+
+    def start
+      raise "already started" unless @instance.nil?
+      @impl = self.build_implementation
       @instance = Amigo::Autoscaler.new(
         poll_interval: self.poll_interval,
         latency_threshold: self.latency_threshold,
@@ -79,6 +87,23 @@ module Webhookdb::Async::Autoscaler
     def scale_down(depth:, duration:, **)
       scale_action = @impl.scale_down(depth:, duration:, **)
       self.logger.warn("high_latency_queues_resolved", depth:, duration:, scale_action:)
+    end
+  end
+
+  class FakeImplementation
+    attr_reader :scale_ups, :scale_downs
+
+    def initialize
+      @scale_ups = []
+      @scale_downs = []
+    end
+
+    def scale_up(*args)
+      @scale_ups << args
+    end
+
+    def scale_down(*args)
+      @scale_downs << args
     end
   end
 end
