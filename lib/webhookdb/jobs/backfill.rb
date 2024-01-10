@@ -19,13 +19,32 @@ class Webhookdb::Jobs::Backfill
   end
 
   def _perform(event)
-    bfjob = self.lookup_model(Webhookdb::BackfillJob, event.payload)
+    begin
+      bfjob = self.lookup_model(Webhookdb::BackfillJob, event.payload)
+    rescue RuntimeError => e
+      self.logger.info "skipping_missing_backfill_job", error: e
+      return
+    end
     sint = bfjob.service_integration
     self.with_log_tags(sint.log_tags.merge(backfill_job_id: bfjob.opaque_id)) do
-      if bfjob.finished?
-        self.logger.info "skipping_finished_backfill_job"
-      else
-        sint.replicator.backfill(bfjob)
+      sint.db.transaction do
+        unless bfjob.lock?
+          self.logger.info "skipping_locked_backfill_job"
+          break
+        end
+        bfjob.refresh
+        if bfjob.finished?
+          self.logger.info "skipping_finished_backfill_job"
+          break
+        end
+        begin
+          sint.replicator.backfill(bfjob)
+        rescue Webhookdb::Replicator::CredentialsMissing
+          # The credentials could have been cleared out, so just finish this job.
+          self.logger.info "skipping_backfill_job_without_credentials"
+          bfjob.update(finished_at: Time.now)
+          break
+        end
       end
     end
   end

@@ -290,6 +290,25 @@ module Webhookdb::Postgres::ModelUtilities
       end
     end
 
+    # Run a SELECT FOR UPDATE SKIP LOCKED.
+    # If the model row is already locked, return false.
+    # Otherwise, acquire the lock and return true.
+    #
+    # If the lock is acquired, callers may want to refresh the receiver to make sure it has the newest values.
+    #
+    # @raise [Webhookdb::LockFailed] if the code is not currently in a transaction.
+    def lock?
+      raise Webhookdb::LockFailed, "must be in a transaction" unless self.db.in_transaction?
+      pk = self[self.class.primary_key]
+      got_lock = self.class.dataset.
+        select(1).
+        where(self.class.primary_key => pk).
+        for_update.
+        skip_locked.
+        first
+      return !got_lock.nil?
+    end
+
     # Round +Time+ t to remove nanoseconds, since Postgres can only store microseconds.
     protected def round_time(t)
       return nil if t.nil?
