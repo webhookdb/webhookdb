@@ -32,6 +32,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       Webhookdb::Replicator.create(sint).readonly_dataset do |ds|
         expect(ds.all).to have_length(2)
       end
+      expect(bfjob.refresh).to be_finished
     ensure
       sint.organization.remove_related_database
     end
@@ -40,9 +41,57 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create(finished_at: Time.now)
       expect do
-        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
+        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
+          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
+        end
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      # Would error if not no-oping
+      expect(@logs).to include(match(/skipping_finished_backfill_job/))
+    end
+
+    it "noops if the job does not exist" do
+      expect do
+        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
+          Amigo.publish("webhookdb.backfilljob.run", 0)
+        end
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      expect(@logs).to include(match(/skipping_missing_backfill_job/))
+    end
+
+    it "noops if credentials are missing" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
+      expect do
+        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
+          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
+        end
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      expect(@logs).to include(match(/skipping_backfill_job_without_credentials/))
+      expect(bfjob.refresh).to be_finished
+    end
+
+    it "noops if the row is locked", db: :no_transaction do
+      sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
+      bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
+      thread_took_lock_event = Concurrent::Event.new
+      thread_can_finish_event = Concurrent::Event.new
+      t = Thread.new do
+        Sequel.connect(Webhookdb::Postgres::Model.uri) do |conn|
+          conn.transaction do
+            conn << "SELECT * FROM backfill_jobs WHERE id = #{bfjob.id} FOR UPDATE"
+            thread_took_lock_event.set
+            thread_can_finish_event.wait
+          end
+        end
+      end
+      thread_took_lock_event.wait
+      expect do
+        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
+          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
+        end
+      end.to perform_async_job(Webhookdb::Jobs::Backfill)
+      thread_can_finish_event.set
+      t.join
+      expect(@logs).to include(match(/skipping_locked_backfill_job/))
     end
   end
 

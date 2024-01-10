@@ -342,6 +342,50 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     end
   end
 
+  describe "lock?", db: :no_transaction do
+    it "raises if the db is not in a transaction" do
+      o = Webhookdb::Fixtures.customer.instance
+      expect { o.lock? }.to raise_error(Webhookdb::LockFailed)
+    end
+
+    it "returns true if the lock is acquired" do
+      o = Webhookdb::Fixtures.customer.create
+      o.db.transaction do
+        expect(o.lock?).to be(true)
+        t = Thread.new do
+          Sequel.connect(Webhookdb::Postgres::Model.uri) do |conn|
+            got = conn.select(Sequel.lit("id FROM customers WHERE id = #{o.id} FOR UPDATE SKIP LOCKED")).all
+            expect(got).to be_empty
+          end
+        end
+        t.join
+      end
+    end
+
+    it "returns false if the lock is not acquired" do
+      o = Webhookdb::Fixtures.customer.create
+      other_thread_took_lock = Concurrent::Event.new
+      thread_can_finish_lock = Concurrent::Event.new
+      t = Thread.new do
+        Sequel.connect(Webhookdb::Postgres::Model.uri) do |conn|
+          conn.transaction do
+            conn << "SELECT * FROM customers WHERE id = #{o.id} FOR UPDATE NOWAIT"
+            other_thread_took_lock.set
+            thread_can_finish_lock.wait
+          end
+        end
+      end
+      other_thread_took_lock.wait
+      o.db.transaction do
+        expect(o.lock?).to be(false)
+      end
+      thread_can_finish_lock.set
+      t.join
+    ensure
+      o.destroy
+    end
+  end
+
   describe "slow query logging" do
     before(:each) { @duration = described_class.db.log_warn_duration }
 
