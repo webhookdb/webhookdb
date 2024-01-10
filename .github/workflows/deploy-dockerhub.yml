@@ -34,4 +34,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GIT_SHA=${{ github.sha }}
-            RELEASED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ"
+            GIT_REF=${{ github.ref }}
+            BUILT_AT=${date -u +"%Y-%m-%dT%H:%M:%SZ"}

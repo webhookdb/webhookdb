@@ -22,6 +22,12 @@ module Webhookdb::Tasks
           Rake::Task["specs:heroku_integration_step1"].invoke
         end
       end
+
+      desc "Print version info and exit"
+      task :version do
+        sha = Webhookdb::COMMIT[..8]
+        puts "#{sha} (#{Webhookdb::RELEASE}) - #{Webhookdb::RELEASE_CREATED_AT} - #{Webhookdb::RACK_ENV}"
+      end
     end
   end
 end

@@ -14,7 +14,7 @@ class Webhookdb::Heroku
   end
 
   def self.client
-    raise "No heroku:oauth_token configured" if self.oauth_token.blank?
+    raise "WEBHOOKDB_HEROKU_OAUTH_TOKEN not set" if self.oauth_token.blank?
     @client ||= PlatformAPI.connect_oauth(self.oauth_token)
     return @client
   end

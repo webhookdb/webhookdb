@@ -93,21 +93,25 @@ message-render-html: env-MESSAGE
 docker-build: ## Build the local docker image.
 	@docker build -f docker/Dockerfile -t webhookdb \
 		--build-arg GIT_SHA=`git rev-list --abbrev-commit -1 HEAD` \
-		--build-arg RELEASED_AT=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+		--build-arg GIT_REF=`git rev-parse --abbrev-ref HEAD` \
+		--build-arg BUILT_AT=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
 		.
 
-docker-run-%: ## Run the built local webhookdb image (docker-build target). Use -web, -worker, and -release.
+docker-run-command: env-COMMAND ## Run the build image, passing the value of the 'COMMAND' env var, like `COMMAND='bundle exec rake version' make docker-run-command`.
 	docker run \
-		--init \
+		-it \
 		-p 18001:18001 \
 		-e PORT=18001 \
 		--env-file=.env.development \
 		--env-file=.env.development.docker \
-		webhookdb $(*)
+		webhookdb ${COMMAND}
+
+docker-run-%: ## Run the built local webhookdb image (docker-build target). Use -web, -worker, and -release.
+	COMMAND="$(*)" make docker-run-command
 
 dockerhub-run-%: ## Download the webhookdb docker image from Dockerhub and run it.
 	docker run \
-		--init \
+		-it \
 		-p 18001:18001 \
 		-e PORT=18001 \
 		--env-file=.env.development \
