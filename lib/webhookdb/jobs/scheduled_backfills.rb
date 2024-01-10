@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+require "webhookdb/email_octopus"
+require "webhookdb/github"
+require "webhookdb/sponsy"
+require "webhookdb/transistor"
+
 module Webhookdb::Jobs
   # Create a single way to do the common task of automatic scheduled backfills.
   # Each integration that needs automated backfills can add a specification here.
