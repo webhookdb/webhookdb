@@ -8,12 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.0.2] - 2024-01-09
+
+- Bump the terminal version to 0.13.0 ([577574bc](https://github.com/webhookdb/webhookdb/commit/577574bce8e8c2b13633749541d3bc4a8165a8ed))
+
 ## [1.0.1] - 2024-01-09
 
 ### Fixes
 
-- Fix Heroku autoscaler configuration bugs, add tests (5509849e9a019a73eb703e66174d897764d8823b)
-- Fix varous issues in the Docker build, and improve where app-wide env vars (like the current git ref and sha) are pulled from in the environment, so it works when running via container or Heroku (ff5bbb9d80acede9a260196b6698742bc49eebb7)
+- Fix Heroku autoscaler configuration bugs, add tests ([5509849e](https://github.com/webhookdb/webhookdb/commit/5509849e9a019a73eb703e66174d897764d8823b))
+- Fix varous issues in the Docker build, and improve where app-wide env vars (like the current git ref and sha) are pulled from in the environment, so it works when running via container or Heroku ([ff5bbb9d](https://github.com/webhookdb/webhookdb/commit/ff5bbb9d80acede9a260196b6698742bc49eebb7))
 
 ## [1.0.0] - 2024-01-08
 
