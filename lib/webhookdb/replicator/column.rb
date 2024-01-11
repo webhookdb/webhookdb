@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "uuidx"
 require "webhookdb/db_adapter"
 
 class Webhookdb::Replicator::Column
@@ -248,6 +249,8 @@ class Webhookdb::Replicator::Column
 
   DEFAULTER_NOW = IsomorphicProc.new(ruby: ->(*) { Time.now }, sql: ->(*) { Sequel.function(:now) })
   DEFAULTER_FALSE = IsomorphicProc.new(ruby: ->(*) { false }, sql: ->(*) { false })
+  DEFAULTER_UUID4 = IsomorphicProc.new(ruby: ->(*) { Uuidx.v4 }, sql: ->(*) { Sequel.function(:gen_random_uuid) })
+  DEFAULTER_UUID7 = IsomorphicProc.new(ruby: ->(*) { Uuidx.v7 }, sql: NOT_IMPLEMENTED)
   DEFAULTER_FROM_INTEGRATION_SEQUENCE = IsomorphicProc.new(
     ruby: ->(service_integration:, **_) { service_integration.sequence_nextval },
     sql: ->(service_integration:) { Sequel.function(:nextval, service_integration.sequence_name) },
@@ -259,7 +262,12 @@ class Webhookdb::Replicator::Column
       sql: ->(*) { key.to_sym },
     )
   end
-  KNOWN_DEFAULTERS = {now: DEFAULTER_NOW, tofalse: DEFAULTER_FALSE}.freeze
+  KNOWN_DEFAULTERS = {
+    now: DEFAULTER_NOW,
+    tofalse: DEFAULTER_FALSE,
+    uuid4: DEFAULTER_UUID4,
+    uuid7: DEFAULTER_UUID7,
+  }.freeze
 
   # Use in data_key when a value is an array, and you want to map a value from the array.
   EACH_ITEM = :_each_item

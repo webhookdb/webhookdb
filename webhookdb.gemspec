@@ -81,5 +81,6 @@ Gem::Specification.new do |s|
   s.add_dependency("sidekiq-cron", "~> 1.12")
   s.add_dependency("slack-notifier", "~> 2.4")
   s.add_dependency("stripe", "~> 10.4")
+  s.add_dependency("uuidx", "~> 0.10")
   s.add_dependency("warden", "~> 1.2")
 end

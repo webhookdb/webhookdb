@@ -60,6 +60,7 @@ PATH
       sidekiq-cron (~> 1.12)
       slack-notifier (~> 2.4)
       stripe (~> 10.4)
+      uuidx (~> 0.10)
       warden (~> 1.2)
 
 GEM
@@ -226,6 +227,10 @@ GEM
     nokogiri (1.16.0)
       mini_portile2 (~> 2.8.2)
       racc (~> 1.4)
+    nokogiri (1.16.0-x86_64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.16.0-x86_64-linux)
+      racc (~> 1.4)
     oj (3.16.3)
       bigdecimal (>= 3.0)
     parallel (1.24.0)
@@ -366,6 +371,7 @@ GEM
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.5.0)
+    uuidx (0.10.0)
     warden (1.2.9)
       rack (>= 2.0.9)
     webmock (3.19.1)
