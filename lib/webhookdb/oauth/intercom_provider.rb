@@ -2,7 +2,7 @@
 
 require "webhookdb/intercom"
 
-class Webhookdb::Oauth::Intercom < Webhookdb::Oauth::Provider
+class Webhookdb::Oauth::IntercomProvider < Webhookdb::Oauth::Provider
   include Appydays::Loggable
 
   def key = "intercom"

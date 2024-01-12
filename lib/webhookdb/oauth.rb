@@ -56,9 +56,9 @@ module Webhookdb::Oauth
   # rubocop:enable Lint/UnusedMethodArgument
 
   class << self
-    # @return [String, Class]
-    def register(key, cls)
-      raise "#{key} already registered to #{cls}" if self.registry.include?(key)
+    def register(cls)
+      key = cls.new.key
+      raise KeyError, "#{key} already registered to #{cls}" if self.registry.include?(key)
       self.registry[key] = cls
     end
 
@@ -74,7 +74,7 @@ module Webhookdb::Oauth
   end
 end
 
-require "webhookdb/oauth/front"
-Webhookdb::Oauth.register(Webhookdb::Oauth::Front.new.key, Webhookdb::Oauth::Front)
-require "webhookdb/oauth/intercom"
-Webhookdb::Oauth.register(Webhookdb::Oauth::Intercom.new.key, Webhookdb::Oauth::Intercom)
+require "webhookdb/oauth/front_provider"
+Webhookdb::Oauth.register(Webhookdb::Oauth::FrontProvider)
+require "webhookdb/oauth/intercom_provider"
+Webhookdb::Oauth.register(Webhookdb::Oauth::IntercomProvider)
