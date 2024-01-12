@@ -34,8 +34,15 @@ class Webhookdb::API::System < Webhookdb::Service
 
   if ["development", "test"].include?(Webhookdb::RACK_ENV)
     resource :debug do
-      get :echo do
-        pp params.to_h
+      resource :echo do
+        [:get, :post, :patch, :put, :delete].each do |m|
+          self.send(m) do
+            pp params.to_h
+            pp request.headers
+            status 200
+            present({})
+          end
+        end
       end
     end
   end

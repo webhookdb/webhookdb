@@ -26,7 +26,7 @@ RSpec.describe Webhookdb::API::System do
     it "prints the request" do
       expect do
         get "/debug/echo", x: 1
-      end.to output("{\"x\"=>\"1\"}\n").to_stdout
+      end.to output(/example\.org/).to_stdout
       expect(last_response).to have_status(200)
     end
   end
