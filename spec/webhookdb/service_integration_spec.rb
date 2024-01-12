@@ -219,6 +219,23 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     end
   end
 
+  describe "api key" do
+    it "generates a secure, unique key" do
+      sint = Webhookdb::Fixtures.service_integration.create(opaque_id: "oid")
+      k = sint.new_api_key
+      expect(k).to start_with("sk/oid/")
+      expect(k).to have_length(be > 40)
+    end
+
+    it "can look up a service integration based on its api key" do
+      sint1 = Webhookdb::Fixtures.service_integration.with_api_key.create
+      sint2 = Webhookdb::Fixtures.service_integration.with_api_key.create
+
+      expect(described_class.for_api_key(sint1.webhookdb_api_key)).to be === sint1
+      expect(described_class.for_api_key("not a real key")).to be_nil
+    end
+  end
+
   describe "::create_disambiguated" do
     it "uses the service name with a unique tag as table name if no table name is provided" do
       organization = Webhookdb::Fixtures.organization.create
