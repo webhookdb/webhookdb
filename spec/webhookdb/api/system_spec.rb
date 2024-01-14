@@ -7,6 +7,14 @@ RSpec.describe Webhookdb::API::System do
 
   let(:app) { described_class.build_app }
 
+  describe "GET /" do
+    it "redirects to terminal" do
+      get "/"
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include("Location" => "/terminal/")
+    end
+  end
+
   describe "GET /health" do
     it "returns 200" do
       get "/healthz"

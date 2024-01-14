@@ -12,6 +12,10 @@ class Webhookdb::API::System < Webhookdb::Service
   require "webhookdb/service/helpers"
   helpers Webhookdb::Service::Helpers
 
+  get "/" do
+    redirect "/terminal/"
+  end
+
   get :healthz do
     # Do not bother looking at dependencies like databases.
     # If the primary is down, we can still accept webhooks
