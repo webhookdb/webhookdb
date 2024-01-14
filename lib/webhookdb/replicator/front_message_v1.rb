@@ -11,7 +11,7 @@ class Webhookdb::Replicator::FrontMessageV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "front_message_v1",
       ctor: self,
-      feature_roles: ["front"],
+      feature_roles: [],
       resource_name_singular: "Front Message",
       dependency_descriptor: Webhookdb::Replicator::FrontMarketplaceRootV1.descriptor,
       supports_webhooks: true,
@@ -41,5 +41,9 @@ class Webhookdb::Replicator::FrontMessageV1 < Webhookdb::Replicator::Base
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
+  end
+
+  def calculate_webhook_state_machine
+    return Webhookdb::Replicator::FrontV1Mixin.marketplace_only_state_machine
   end
 end

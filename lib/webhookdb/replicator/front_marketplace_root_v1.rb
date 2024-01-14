@@ -10,7 +10,7 @@ class Webhookdb::Replicator::FrontMarketplaceRootV1 < Webhookdb::Replicator::Bas
     return Webhookdb::Replicator::Descriptor.new(
       name: "front_marketplace_root_v1",
       ctor: self,
-      feature_roles: ["front"],
+      feature_roles: [],
       resource_name_singular: "Front Auth",
       resource_name_plural: "Front Auth",
       supports_webhooks: true,
@@ -47,9 +47,6 @@ class Webhookdb::Replicator::FrontMarketplaceRootV1 < Webhookdb::Replicator::Bas
   end
 
   def calculate_webhook_state_machine
-    step = Webhookdb::Replicator::StateMachineStep.new
-    step.output = "This integration cannot be modified through the command line."
-    step.completed
-    return step
+    return Webhookdb::Replicator::FrontV1Mixin.marketplace_only_state_machine
   end
 end

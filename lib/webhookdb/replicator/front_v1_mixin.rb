@@ -19,4 +19,12 @@ module Webhookdb::Replicator::FrontV1Mixin
   def on_dependency_webhook_upsert(_replicator, _payload, *)
     return
   end
+
+  def self.marketplace_only_state_machine
+    step = Webhookdb::Replicator::StateMachineStep.new
+    step.output = %(Front integrations can only be enabled through the Front App Store.
+Head over to https://app.frontapp.com/settings/apps/details/webhookdb/overview to set up WebhookDB replication.)
+    step.completed
+    return step
+  end
 end

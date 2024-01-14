@@ -25,12 +25,10 @@ RSpec.describe Webhookdb::Replicator::FrontMarketplaceRootV1, :db do
 
   describe "state machine calculation" do
     describe "calculate_webhook_state_machine" do
-      it "noops" do
+      it "tells the user to set up the integration through the app store" do
         sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
-          needs_input: false,
-          complete: true,
-          output: match("This integration cannot be modified through the command line"),
+          output: match("Front integrations can only be enabled through the Front App Store"),
         )
       end
     end
