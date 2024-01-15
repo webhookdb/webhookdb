@@ -187,20 +187,14 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
           desc "Returns information about the integration."
           params do
-            optional :field, type: String, values: Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS
+            optional :field, type: String, values: Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.keys + [""]
           end
           post :info do
             ensure_plan_supports!
             org = lookup_org!
             sint = lookup_service_integration!(org, params[:sint_identifier])
-            data = {
-              id: sint.opaque_id,
-              service: sint.service_name,
-              table: sint.table_name,
-              url: sint.replicator.webhook_endpoint,
-              webhook_secret: sint.webhook_secret,
-              webhookdb_api_key: sint.webhookdb_api_key,
-            }
+            data = Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.
+              to_h { |k, v| [k.to_sym, sint.send(v)] }
 
             field_name = params[:field]
             blocks = Webhookdb::Formatting.blocks
@@ -208,11 +202,21 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               blocks.line(data.fetch(field_name.to_sym))
             else
               rows = data.map do |k, v|
-                [k.to_s.capitalize, v]
+                [k.to_s.humanize, v]
               end
               blocks.table(["Field", "Value"], rows)
             end
             r = {blocks: blocks.as_json}
+            status 200
+            present r
+          end
+
+          post :roll_api_key do
+            ensure_plan_supports!
+            org = lookup_org!
+            sint = lookup_service_integration!(org, params[:sint_identifier])
+            sint.update(webhookdb_api_key: sint.new_api_key)
+            r = {webhookdb_api_key: sint.webhookdb_api_key}
             status 200
             present r
           end
@@ -371,9 +375,9 @@ The tables and all data for this integration and its dependents will also be rem
             if sint.dependents.empty?
               confirmation_msg = "Great! We've deleted all secrets for #{sint.service_name}. " \
                                  "The table #{sint.table_name} containing its data has been dropped."
-          else
-            confirmation_msg = "Great! We've deleted all secrets for #{sint.service_name} and its dependents. " \
-                               "The following tables have been dropped: \n\n #{sint.table_name} \n #{dependents_lines}"
+            else
+              confirmation_msg = "Great! We've deleted all secrets for #{sint.service_name} and its dependents. " \
+                                 "The following tables have been dropped:\n\n#{sint.table_name}\n#{dependents_lines}"
                                end
             present sint, with: Webhookdb::API::ServiceIntegrationEntity, message: confirmation_msg
           end

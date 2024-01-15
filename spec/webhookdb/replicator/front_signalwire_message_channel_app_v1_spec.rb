@@ -412,6 +412,14 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     end
   end
 
+  describe "clear_webhook_information" do
+    it "clears backfill info too" do
+      sint.api_url = "hi"
+      svc.clear_webhook_information
+      expect(sint).to have_attributes(api_url: "")
+    end
+  end
+
   describe "backfill", truncate: Webhookdb::Idempotency do
     support_phone = "2223334444"
     customer_phone = "5556667777"

@@ -618,6 +618,26 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
     end
   end
 
+  describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/roll_api_key" do
+    before(:each) do
+      login_as(customer)
+      _ = sint
+    end
+
+    it "replaces the existing api key" do
+      sint.update(webhookdb_api_key: "xyz")
+
+      post "/v1/organizations/#{org.key}/service_integrations/xyz/roll_api_key"
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        webhookdb_api_key: start_with("sk"),
+      )
+
+      expect(sint.refresh).to have_attributes(webhookdb_api_key: start_with("sk"))
+    end
+  end
+
   describe "POST /v1/organizations/:org_identifier/service_integrations/:opaque_id/setup" do
     before(:each) do
       login_as(customer)

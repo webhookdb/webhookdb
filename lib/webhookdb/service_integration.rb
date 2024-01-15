@@ -9,8 +9,15 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   class TableRenameError < Webhookdb::InvalidInput; end
 
   # We limit the information that a user can access through the CLI to these fields.
-  # Blank string returns all info.
-  INTEGRATION_INFO_FIELDS = ["id", "service", "table", "url", "webhook_secret", ""].freeze
+  INTEGRATION_INFO_FIELDS = {
+    "id" => :opaque_id,
+    "service" => :service_name,
+    "table" => :table_name,
+    "url" => :unauthed_webhook_endpoint,
+    "webhook_secret" => :webhook_secret,
+    "webhookdb_api_key" => :webhookdb_api_key,
+    "api_url" => :api_url,
+  }.freeze
 
   plugin :timestamps
   plugin :column_encryption do |enc|
