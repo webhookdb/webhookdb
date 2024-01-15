@@ -47,6 +47,7 @@ Gem::Specification.new do |s|
   s.add_dependency("grape-swagger", "~> 2.0.0")
   s.add_dependency("httparty", "~> 0.21")
   s.add_dependency("ice_cube")
+  s.add_dependency("jwt", "~> 2.7")
   s.add_dependency("liquid", "~> 5.4")
   s.add_dependency("mail", "~> 2.8")
   s.add_dependency("mimemagic", "~> 0.4")

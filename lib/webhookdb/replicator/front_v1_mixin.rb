@@ -13,7 +13,7 @@ module Webhookdb::Replicator::FrontV1Mixin
   end
 
   def _webhook_response(request)
-    return Webhookdb::Front.webhook_response(request)
+    return Webhookdb::Front.webhook_response(request, Webhookdb::Front.app_secret)
   end
 
   def on_dependency_webhook_upsert(_replicator, _payload, *)

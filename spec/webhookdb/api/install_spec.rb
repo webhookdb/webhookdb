@@ -9,24 +9,51 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
   let!(:org) { Webhookdb::Fixtures.organization.create }
   let!(:customer) { Webhookdb::Fixtures.customer.create(email: "ginger@example.com") }
 
+  def add_front_auth_headers(body, secret=Webhookdb::Front.app_secret)
+    tsval = Time.new(2023, 4, 7).to_i.to_s
+    base_string = "#{tsval}:#{body.to_json}"
+    signature = OpenSSL::HMAC.base64digest(OpenSSL::Digest.new("sha256"), secret, base_string)
+    header "X-Front-Request-Timestamp", tsval
+    header "X-Front-Signature", signature
+    return body
+  end
+
   describe "GET /v1/install/front" do
     it "200s" do
       get "/v1/install/front"
+
       expect(last_response).to have_status(200)
     end
   end
 
   describe "POST /v1/install/front" do
-    it "creates an oauth session" do
+    it "creates an oauth session and redirects" do
       post "/v1/install/front"
-      expect(Webhookdb::Oauth::Session.first).to_not be_nil
-    end
 
-    it "302s to the provider auth url" do
-      post "/v1/install/front"
       expect(last_response).to have_status(302)
+      expect(Webhookdb::Oauth::Session.all).to have_length(1)
       expect(last_response.headers).to include(
-        "Location" => start_with("https://app.frontapp.com/oauth/authorize?response_type"),
+        "Location" => match(%r{https://app\.frontapp\.com/oauth/authorize\?response_type=code&redirect_uri=http://localhost:18001/v1/install/front/callback&state=[a-z0-9]+&client_id=front_client_id}),
+      )
+    end
+  end
+
+  describe "GET /v1/install/front_signalwire" do
+    it "200s" do
+      get "/v1/install/front_signalwire"
+
+      expect(last_response).to have_status(200)
+    end
+  end
+
+  describe "POST /v1/install/front_signalwire" do
+    it "creates an oauth session and redirects" do
+      post "/v1/install/front_signalwire"
+
+      expect(last_response).to have_status(302)
+      expect(Webhookdb::Oauth::Session.all).to have_length(1)
+      expect(last_response.headers).to include(
+        "Location" => match(%r{https://app\.frontapp\.com/oauth/authorize\?response_type=code&redirect_uri=http://localhost:18001/v1/install/front_signalwire/callback&state=[a-z0-9]+&client_id=front_swchan_client_id}),
       )
     end
   end
@@ -202,7 +229,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       def stub_auth_token_request
         body = {
           "code" => "front_test_auth",
-          "redirect_uri" => Webhookdb::Front.oauth_callback_url,
+          "redirect_uri" => "http://localhost:18001/v1/install/front/callback",
           "grant_type" => "authorization_code",
         }.to_json
         return stub_request(:post, "https://app.frontapp.com/oauth/token").with(body:).
@@ -212,6 +239,22 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       def stub_token_info_request
         return stub_request(:get, "https://api2.frontapp.com/me").
             to_return(json_response(load_fixture_data("front/token_info_response")))
+      end
+
+      it "skips auth if customer auth should be skipped", reset_configuration: Webhookdb::Customer do
+        Webhookdb::Customer.skip_authentication = true
+
+        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
+        requests = [stub_auth_token_request, stub_token_info_request]
+
+        post("/v1/install/front/login", state:, email:, otp_token: "invalid token")
+
+        expect(last_response).to have_status(200)
+        expect(last_response.body).to include(
+          "We are now listening for updates to resources in your Front account.",
+        )
+        expect(last_response.body).to include(org.readonly_connection_url)
+        expect(requests).to all(have_been_made)
       end
 
       it "renders success message on success" do
@@ -326,39 +369,35 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     let(:body) { load_fixture_data("front/message_webhook") }
-    let(:front_timestamp_header) { Time.new(2023, 4, 7).to_i.to_s }
-
-    def valid_auth_header
-      base_string = "#{front_timestamp_header}:#{body.to_json}"
-      return OpenSSL::HMAC.base64digest(OpenSSL::Digest.new("sha256"), Webhookdb::Front.api_secret, base_string)
-    end
 
     describe "initial request verification" do
-      it "401s if webhook auth header is missing" do
-        header "X_Front_Request_Timestamp", front_timestamp_header
+      before(:each) do
         header "X-Front-Challenge", "initial_request"
+      end
 
+      it "401s if webhook auth header is missing" do
         post "/v1/install/front/webhook", body
         expect(last_response).to have_status(401)
+
         expect(Webhookdb::LoggedWebhook.all).to be_empty
       end
 
       it "401s if webhook auth header is invalid" do
-        header "X_Front_Request_Timestamp", front_timestamp_header
-        header "X_Front_Signature", "front_invalid_auth"
-        header "X-Front-Challenge", "initial_request"
+        add_front_auth_headers(body)
+        header "X-Front-Signature", "front_invalid_auth"
 
         post "/v1/install/front/webhook", body
+
         expect(last_response).to have_status(401)
         expect(Webhookdb::LoggedWebhook.all).to be_empty
       end
 
       it "200s and returns X-Front-Challenge string" do
-        header "X_Front_Request_Timestamp", front_timestamp_header
-        header "X_Front_Signature", valid_auth_header
+        add_front_auth_headers(body)
         header "X-Front-Challenge", "initial_request"
 
         post "/v1/install/front/webhook", body
+
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(
           challenge: "initial_request",
@@ -394,6 +433,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
     it "401s if webhook auth header is missing" do
       post "/v1/install/front/webhook", body
+
       expect(last_response).to have_status(401)
       expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
         include(service_integration_opaque_id: start_with("svi_")),
@@ -401,10 +441,11 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "401s if webhook auth header is invalid" do
-      header "X_Front_Request_Timestamp", front_timestamp_header
-      header "X_Front_Signature", "front_invalid_auth"
+      add_front_auth_headers(body)
+      header "X-Front-Signature", "front_invalid_auth"
 
       post "/v1/install/front/webhook", body
+
       expect(last_response).to have_status(401)
       expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
         include(service_integration_opaque_id: start_with("svi_")),
@@ -412,8 +453,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
-      header "X_Front_Request_Timestamp", front_timestamp_header
-      header "X_Front_Signature", valid_auth_header
+      add_front_auth_headers(body)
 
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
@@ -427,6 +467,132 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
         include(service_integration_opaque_id: start_with("svi_")),
       )
+    end
+  end
+
+  describe "POST /v1/install/front_signalwire/channel" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
+    let(:signalwire_sint) { fac.create(service_name: "signalwire_message_v1") }
+    let(:frontapp_sint) { fac.create(service_name: "front_marketplace_root_v1") }
+    let(:sint) do
+      fac.
+        depending_on(signalwire_sint).
+        with_api_key.
+        create(service_name: "front_signalwire_message_channel_app_v1")
+    end
+
+    def add_swfront_auth_headers(body)
+      return add_front_auth_headers(body, Webhookdb::Front.signalwire_channel_app_secret)
+    end
+
+    it "401s if the api key is missing" do
+      body = add_swfront_auth_headers({type: "authorization"})
+      post "/v1/install/front_signalwire/channel", body
+
+      expect(last_response).to have_status(401)
+    end
+
+    it "401s if the api key is invalid" do
+      body = add_swfront_auth_headers({type: "authorization"})
+      header "Authorization", "Bearer 123"
+
+      post "/v1/install/front_signalwire/channel", body
+
+      expect(last_response).to have_status(401)
+    end
+
+    describe "with the WebhookDB API key" do
+      before(:each) do
+        header "Authorization", "Bearer #{sint.webhookdb_api_key}"
+      end
+
+      it "401s if webhook auth header is missing/invalid" do
+        body = add_swfront_auth_headers({type: "authorization"})
+        header "X-Front-Signature", "invalid"
+
+        post "/v1/install/front_signalwire/channel", body
+
+        expect(last_response).to have_status(401)
+
+        expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+          include(service_integration_opaque_id: start_with("svi_")),
+        )
+      end
+
+      it "400s if the type is invalid" do
+        body = add_swfront_auth_headers({type: "invalid"})
+        post "/v1/install/front_signalwire/channel", body
+
+        expect(last_response).to have_status(400)
+      end
+
+      describe "with an authorization type" do
+        it "responds with success" do
+          body = add_swfront_auth_headers(type: "authorization", payload: {channel_id: "123"})
+          post "/v1/install/front_signalwire/channel", body
+
+          expect(last_response).to have_status(200)
+          expect(last_response).to have_json_body.that_includes(
+            type: "success",
+            webhook_url: "http://localhost:18001/v1/install/front_signalwire/channel",
+          )
+          expect(sint.refresh).to have_attributes(backfill_key: "123")
+        end
+      end
+
+      describe "with a delete type" do
+        it "deletes the integration (using DELETE http method)" do
+          body = add_swfront_auth_headers({type: "delete"})
+          delete "/v1/install/front_signalwire/channel", body
+
+          expect(last_response).to have_status(200)
+          expect(Webhookdb::ServiceIntegration[sint.id]).to be_nil
+        end
+      end
+
+      describe "with a message type" do
+        before(:each) do
+          sint.organization.prepare_database_connections
+          sint.replicator.create_table
+        end
+
+        after(:each) do
+          sint.organization.remove_related_database
+        end
+
+        it "responds with the message details" do
+          payload = {
+            _links: {
+              self: "https://api2.frontapp.com/messages/msg_55c8c149",
+              related: {
+                conversation: "https://api2.frontapp.com/conversations/cnv_55c8c149",
+                message_replied_to: "https://api2.frontapp.com/messages/msg_1ab23cd4",
+              },
+            },
+            id: "msg_55c8c149",
+            type: "email",
+            is_inbound: true,
+            created_at: 1_453_770_984.123,
+            blurb: "Anything less than immortality is a...",
+            author: {},
+            recipients: [{handle: "3334445555", role: "to"}],
+            body: "Anything less than immortality is a complete waste of time.",
+            text: "Anything less than immortality is a complete waste of time.",
+            attachments: [],
+            metadata: {},
+          }
+          body = add_swfront_auth_headers({type: "message", payload:})
+          post "/v1/install/front_signalwire/channel", body
+
+          expect(last_response).to have_status(200)
+          expect(last_response).to have_json_body.that_includes(
+            type: "success",
+            external_id: "msg_55c8c149",
+            external_conversation_id: "+13334445555",
+          )
+        end
+      end
     end
   end
 
@@ -460,7 +626,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "401s if webhook auth header is invalid" do
-      header "X_Hub_Signature", "intercom_invalid_auth"
+      header "X-Hub-Signature", "intercom_invalid_auth"
 
       post "/v1/install/intercom/webhook", body
       expect(last_response).to have_status(401)
@@ -470,7 +636,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "noops if there is no integration with given app id" do
-      header "X_Hub_Signature", valid_auth_header
+      header "X-Hub-Signature", valid_auth_header
 
       contact_sint.destroy
       root_sint.destroy
@@ -485,7 +651,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "noops if there is no integration with given topic id" do
-      header "X_Hub_Signature", valid_auth_header
+      header "X-Hub-Signature", valid_auth_header
 
       contact_sint.destroy
 
@@ -499,7 +665,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
-      header "X_Hub_Signature", valid_auth_header
+      header "X-Hub-Signature", valid_auth_header
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
           "args" => contain_exactly(include("name" => "webhookdb.serviceintegration.webhook")),

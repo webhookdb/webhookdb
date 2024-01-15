@@ -26,6 +26,7 @@ PATH
       grape_logging (~> 1.8.4)
       httparty (~> 0.21)
       ice_cube
+      jwt (~> 2.7)
       liquid (~> 5.4)
       mail (~> 2.8)
       mimemagic (~> 0.4)
@@ -187,6 +188,7 @@ GEM
     inflecto (0.0.2)
     jmespath (1.6.2)
     json (2.7.1)
+    jwt (2.7.1)
     language_server-protocol (3.17.0.3)
     liquid (5.4.0)
     loggability (0.18.2)

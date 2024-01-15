@@ -31,6 +31,7 @@ module Webhookdb::SpecHelpers::Postgres
     context.around(:each) do |example|
       Webhookdb::Postgres.unsafe_skip_transaction_check = true if example.metadata[:no_transaction_check]
 
+      _truncate(example)
       setting = example.metadata[:db]
       if setting && setting != :no_transaction
         Webhookdb::SpecHelpers::Postgres.wrap_example_in_transactions(example)
@@ -44,9 +45,17 @@ module Webhookdb::SpecHelpers::Postgres
       Webhookdb::Postgres.unsafe_skip_transaction_check = false if example.metadata[:no_transaction_check]
 
       truncate_all if example.metadata[:db] == :no_transaction
+      _truncate(example)
     end
 
     super
+  end
+
+  module_function def _truncate(example)
+    tr = example.metadata[:truncate]
+    return unless tr
+    tr = [tr] unless tr.respond_to?(:to_ary)
+    tr.each(&:truncate)
   end
 
   ### Run the specified +example+ in the context of a transaction for each loaded

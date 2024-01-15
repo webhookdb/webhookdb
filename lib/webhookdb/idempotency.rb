@@ -78,6 +78,11 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
     # Allows use of idempotency within an existing transaction block,
     # which is normally not allowed. Usually should be used with #stored,
     # since otherwise the result of the idempotency will be lost.
+    #
+    # NOTE: When calling code with using_seperate_connection,
+    # you may want to use the spec metadata `truncate: Webhookdb::Idempotency`
+    # since the row won't be covered by the spec's transaction.
+    #
     # @return [Builder]
     def using_seperate_connection
       self._sepconn = true

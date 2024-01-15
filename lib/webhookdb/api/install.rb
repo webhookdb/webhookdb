@@ -3,6 +3,7 @@
 require "webhookdb/api"
 require "webhookdb/oauth"
 require "webhookdb/service/view_api"
+require "webhookdb/front"
 
 class Webhookdb::API::Install < Webhookdb::API::V1
   include Webhookdb::Service::ViewApi
@@ -37,6 +38,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
 
       def find_and_verify_user(email:, otp_token:)
         (me = Webhookdb::Customer.with_email(email)) or forbidden!
+        return me if me.should_skip_authentication?
         begin
           Webhookdb::Customer::ResetCode.use_code_with_token(otp_token) do |code|
             raise Webhookdb::Customer::ResetCode::Unusable unless code.customer === me
@@ -189,7 +191,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       post :webhook do
         is_initial_request = request.headers["X-Front-Challenge"].present?
         if is_initial_request
-          whresp = Webhookdb::Front.initial_verification_request_response(request)
+          whresp = Webhookdb::Front.initial_verification_request_response(request, Webhookdb::Front.app_secret)
           s_status, s_headers, s_body = whresp.to_rack
           s_headers.each { |k, v| header k, v }
           if s_headers["Content-Type"] == "application/json"
@@ -232,6 +234,26 @@ class Webhookdb::API::Install < Webhookdb::API::V1
             next :pass
           end
           next handling_sint
+        end
+      end
+    end
+
+    resource :front_signalwire do
+      params do
+        requires :type, type: String, values: Webhookdb::Front::CHANNEL_EVENT_TYPES
+        optional :payload, type: JSON
+      end
+      route [:post, :delete], :channel do
+        handle_webhook_request("front-signalwire-channel") do
+          auth_header = request.headers["Authorization"]
+          merror!(401, "Missing Authorization header", code: "unauthenticated") if
+            auth_header.nil?
+          merror!(401, "Expected Bearer authorization", code: "unauthenticated") unless
+            auth_header.start_with?("Bearer ")
+          apikey = auth_header[7..]
+          sint = Webhookdb::ServiceIntegration.for_api_key(apikey)
+          merror!(401, "Invalid API key", code: "unauthenticated") if sint.nil?
+          sint
         end
       end
     end

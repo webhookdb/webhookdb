@@ -62,3 +62,10 @@ class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
     root_sint.replicator.build_dependents
   end
 end
+
+class Webhookdb::Oauth::FrontSignalwireChannelProvider < Webhookdb::Oauth::FrontProvider
+  def key = "front_signalwire"
+  def app_name = "Front Signalwire Channel"
+  def client_id = Webhookdb::Front.signalwire_channel_client_id
+  def client_secret = Webhookdb::Front.signalwire_channel_client_secret
+end
