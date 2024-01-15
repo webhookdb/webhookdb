@@ -68,4 +68,8 @@ class Webhookdb::Oauth::FrontSignalwireChannelProvider < Webhookdb::Oauth::Front
   def app_name = "Front Signalwire Channel"
   def client_id = Webhookdb::Front.signalwire_channel_client_id
   def client_secret = Webhookdb::Front.signalwire_channel_client_secret
+
+  def build_marketplace_integrations(*)
+    raise NotImplementedError, "this should not be called, Front channels have a different setup"
+  end
 end

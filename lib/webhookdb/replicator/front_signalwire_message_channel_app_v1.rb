@@ -134,10 +134,10 @@ Choose the phone number to connect to Front.)
     end
     self.service_integration.webhookdb_api_key ||= self.service_integration.new_api_key
     self.service_integration.save_changes
-    step.output = %(Almost there! You can now finish installing the WebhookDB - SignalWire Channel in Front.
+    step.output = %(Almost there! You can now finish installing the SignalWire Channel in Front.
 
 1. In Front, go to Settings -> Company -> Channels (in the left nav), Connect a Channel,
-   and choose the 'WebhookDB - SignalWire' channel.
+   and choose the 'WebhookDB/SignalWire' channel.
 2. In the 'Token' field, enter this API Key: #{self.service_integration.webhookdb_api_key}
 
 If you need to find this key, you can run `webhookdb integrations info front_signalwire_message_channel_app_v1`.
@@ -151,6 +151,12 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     # They are procedurally enqueued when we upsert data.
     # So just reuse the webhook state machine.
     return self.calculate_webhook_state_machine
+  end
+
+  def clear_webhook_information
+    # We say we support backfill, so this won't get cleared normally.
+    self._clear_backfill_information
+    super
   end
 
   def process_webhooks_synchronously? = true
