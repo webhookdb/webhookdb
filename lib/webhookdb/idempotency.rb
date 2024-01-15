@@ -26,51 +26,107 @@ require "webhookdb/postgres/model"
 # usually using the :no_transaction_check spec metadata.
 #
 class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
-  extend Webhookdb::MethodUtilities
-
   NOOP = :skipped
 
-  # Skip the transaction check. Useful in unit tests. See class docs for details.
-  singleton_predicate_accessor :skip_transaction_check
+  class << self
+    # Skip the transaction check. Useful in unit tests. See class docs for details.
+    attr_accessor :skip_transaction_check
 
-  def self.once_ever
-    idem = self.new
-    idem.__once_ever = true
-    return idem
+    def skip_transaction_check? = self.skip_transaction_check
+
+    # @return [Builder]
+    def once_ever
+      b = self::Builder.new
+      b._once_ever = true
+      return b
+    end
+
+    # @return [Builder]
+    def every(interval)
+      b = self::Builder.new
+      b._every = interval
+      return b
+    end
+
+    def separate_connection
+      @connection ||= Sequel.connect(
+        uri,
+        logger: self.logger,
+        extensions: [
+          :connection_validator,
+          :pg_json, # Must have this to mirror the main model DB
+        ],
+        **Webhookdb::Dbutil.configured_connection_options,
+      )
+      return @connection
+    end
   end
 
-  def self.every(interval)
-    idem = self.new
-    idem.__every = interval
-    return idem
-  end
+  class Builder
+    attr_accessor :_every, :_once_ever, :_stored, :_sepconn, :_key
 
-  attr_accessor :__every, :__once_ever
+    # If set, the result of block is stored as JSON,
+    # and returned when an idempotent call is made.
+    # The JSON value (as_json) is returned from the block in all cases.
+    # @return [Builder]
+    def stored
+      self._stored = true
+      return self
+    end
 
-  def under_key(key, &block)
-    self.key = key
-    return self.execute(&block) if block
-    return self
-  end
+    # Run the idempotency on a separate connection.
+    # Allows use of idempotency within an existing transaction block,
+    # which is normally not allowed. Usually should be used with #stored,
+    # since otherwise the result of the idempotency will be lost.
+    # @return [Builder]
+    def using_seperate_connection
+      self._sepconn = true
+      return self
+    end
 
-  def execute
-    Webhookdb::Postgres.check_transaction(
-      self.db,
-      "Cannot use idempotency while already in a transaction, since side effects may not be idempotent",
-    )
+    # @return [Builder]
+    def under_key(key, &block)
+      self._key = key
+      return self.execute(&block) if block
+      return self
+    end
 
-    self.class.dataset.insert_conflict.insert(key: self.key)
-    self.db.transaction do
-      idem = Webhookdb::Idempotency[key: self.key].lock!
-      if idem.last_run.nil?
+    def execute
+      if self._sepconn
+        db = Webhookdb::Idempotency.separate_connection
+      else
+        db = Webhookdb::Idempotency.db
+        Webhookdb::Postgres.check_transaction(
+          db,
+          "Cannot use idempotency while already in a transaction, since side effects may not be idempotent. " \
+          "You can chain withusing_seperate_connection to run the idempotency itself separately.",
+        )
+      end
+
+      db[:idempotencies].insert_conflict.insert(key: self._key)
+      db.transaction do
+        idem_row = db[:idempotencies].where(key: self._key).for_update.first
+        if idem_row.fetch(:last_run).nil?
+          result = yield()
+          result = self._update_row(db, result)
+          return result
+        end
+        noop_result = self._stored ? idem_row.fetch(:stored_result) : NOOP
+        return noop_result if self._once_ever
+        return noop_result if Time.now < (idem_row[:last_run] + self._every)
         result = yield()
-        idem.update(last_run: Time.now)
+        result = self._update_row(db, result)
         return result
       end
-      return NOOP if self.__once_ever
-      return NOOP if Time.now < (idem.last_run + self.__every)
-      result = yield()
-      idem.update(last_run: Time.now)
+    end
+
+    def _update_row(db, result)
+      updates = {last_run: Time.now}
+      if self._stored
+        result = result.as_json
+        updates[:stored_result] = Sequel.pg_jsonb_wrap(result)
+      end
+      db[:idempotencies].where(key: self._key).update(updates)
       return result
     end
   end
