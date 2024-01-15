@@ -39,4 +39,8 @@ module Webhookdb::Fixtures::ServiceIntegrations
     self.backfill_key = "fake_bfkey"
     self.backfill_secret = "fake_bfsecret"
   end
+
+  decorator :with_api_key do
+    self.webhookdb_api_key ||= self.new_api_key
+  end
 end

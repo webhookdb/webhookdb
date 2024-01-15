@@ -199,6 +199,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               table: sint.table_name,
               url: sint.replicator.webhook_endpoint,
               webhook_secret: sint.webhook_secret,
+              webhookdb_api_key: sint.webhookdb_api_key,
             }
 
             field_name = params[:field]

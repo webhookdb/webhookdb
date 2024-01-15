@@ -18,6 +18,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     enc.column :webhook_secret
     enc.column :backfill_key
     enc.column :backfill_secret
+    enc.column :webhookdb_api_key, searchable: true
   end
 
   many_to_one :organization, class: "Webhookdb::Organization"
@@ -64,9 +65,15 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   one_to_many :dependents, key: :depends_on_id, class: self
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
+  # @return [Webhookdb::ServiceIntegration]
   def self.create_disambiguated(service_name, **kwargs)
     kwargs[:table_name] ||= "#{service_name}_#{SecureRandom.hex(2)}"
     return self.create(service_name:, **kwargs)
+  end
+
+  # @return [Webhookdb::ServiceIntegration]
+  def self.for_api_key(key)
+    return self.with_encrypted_value(:webhookdb_api_key, key).first
   end
 
   def can_be_modified_by?(customer)
@@ -254,12 +261,24 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return self.db.select(Sequel.function(:nextval, self.sequence_name)).single_value
   end
 
+  def new_opaque_id = Webhookdb::Id.new_opaque_id("svi")
+
+  def ensure_opaque_id = self[:opaque_id] ||= self.new_opaque_id
+
+  def new_api_key
+    k = +"sk/"
+    k << self.ensure_opaque_id
+    k << "/"
+    k << Webhookdb::Id.rand_enc(24)
+    return k
+  end
+
   #
   # :Sequel Hooks:
   #
 
   def before_create
-    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("svi")
+    self.ensure_opaque_id
   end
 
   # @!attribute organization
@@ -285,6 +304,13 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   # @!attribute webhook_secret
   #   @return [String] Secret used to sign webhooks.
+
+  # @!attribute webhookdb_api_key
+  #   @return [String] API Key used in the Whdb-Api-Key header that can be used to identify
+  #     this service integration (where the opaque id cannot be used),
+  #     and is a secret so can be used for authentication.
+  #     Need for this should be rare- it's usually only used outside of the core webhookdb/backfill design
+  #     like for two-way sync (Front Channel/Signalwire integration, for example).
 
   # @!attribute depends_on
   #   @return [Webhookdb::ServiceIntegration]

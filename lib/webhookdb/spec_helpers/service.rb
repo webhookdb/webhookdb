@@ -423,6 +423,11 @@ module Webhookdb::SpecHelpers::Service
       super
     end
 
+    def delete(uri, params={}, env={}, &)
+      env, params = make_json_request(env, params)
+      super
+    end
+
     def make_json_request(env, params)
       env["CONTENT_TYPE"] ||= "application/json"
       params = Webhookdb::Json.encode(params) if env["CONTENT_TYPE"] == "application/json" && !params.is_a?(String)

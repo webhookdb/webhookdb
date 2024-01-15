@@ -434,7 +434,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
         include(
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
-          request_body: "",
+          request_body: "{}",
           request_headers: hash_including("Host" => "example.org"),
           request_path: "/v1/service_integrations/xyz/v2/listings",
           request_method: "DELETE",

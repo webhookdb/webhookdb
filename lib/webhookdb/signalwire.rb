@@ -16,7 +16,7 @@ module Webhookdb::Signalwire
     sms_allowed = self.sms_allowlist.any? { |pattern| File.fnmatch(pattern, to) }
     unless sms_allowed
       self.logger.warn("signalwire_sms_not_allowed", to:)
-      return {"message_uid" => "skipped"}
+      return {"sid" => "skipped"}
     end
     return self.http_request(
       :post,

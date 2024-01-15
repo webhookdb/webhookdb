@@ -45,4 +45,29 @@ RSpec.describe "Webhookdb::Idempotency", db: :no_transaction do
       end
     end
   end
+
+  describe "stored" do
+    it "restores the block result if set" do
+      expect(described_class.once_ever.under_key("unstored") { 5 }).to eq(5)
+      expect(described_class.once_ever.under_key("unstored") { 5 }).to eq(described_class::NOOP)
+      # return nil instead of noop if stored was asked for
+      expect(described_class.once_ever.stored.under_key("unstored") { 5 }).to be_nil
+
+      expect(described_class.once_ever.stored.under_key("stored-int") { 5 }).to eq(5)
+      expect(described_class.once_ever.stored.under_key("stored-int") { raise RuntimeError }).to eq(5)
+
+      expect(described_class.once_ever.stored.under_key("stored-hash") { {x: 1} }).to eq({"x" => 1})
+      expect(described_class.once_ever.stored.under_key("stored-hash") { raise RuntimeError }).to eq({"x" => 1})
+    end
+  end
+
+  describe "using_seperate_connection" do
+    it "runs the idempotency on a separate database connection so it can be executed inside a transaction" do
+      described_class.dataset.truncate
+      described_class.db.transaction do
+        expect(described_class.once_ever.using_seperate_connection.under_key("x") { 5 }).to eq(5)
+        expect(described_class.once_ever.using_seperate_connection.under_key("x") { 5 }).to eq(described_class::NOOP)
+      end
+    end
+  end
 end
