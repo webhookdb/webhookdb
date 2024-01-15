@@ -12,6 +12,10 @@ class Webhookdb::API::System < Webhookdb::Service
   require "webhookdb/service/helpers"
   helpers Webhookdb::Service::Helpers
 
+  get "/" do
+    redirect "/terminal/"
+  end
+
   get :healthz do
     # Do not bother looking at dependencies like databases.
     # If the primary is down, we can still accept webhooks
@@ -34,8 +38,15 @@ class Webhookdb::API::System < Webhookdb::Service
 
   if ["development", "test"].include?(Webhookdb::RACK_ENV)
     resource :debug do
-      get :echo do
-        pp params.to_h
+      resource :echo do
+        [:get, :post, :patch, :put, :delete].each do |m|
+          self.send(m) do
+            pp params.to_h
+            pp request.headers
+            status 200
+            present({})
+          end
+        end
       end
     end
   end

@@ -953,5 +953,17 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
         let(:expected_query) { /SELECT nextval\('replicator_seq_org_/ }
       end
     end
+
+    describe "DEFAULTER_UUID4" do
+      it_behaves_like "a service column defaulter", Webhookdb::Replicator::Column::DEFAULTER_UUID4 do
+        let(:expected) { be_a_uuid }
+      end
+    end
+
+    describe "DEFAULTER_UUID7" do
+      it_behaves_like "a service column defaulter", Webhookdb::Replicator::Column::DEFAULTER_UUID7, sql: false do
+        let(:expected) { be_a_uuid }
+      end
+    end
   end
 end

@@ -43,6 +43,16 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
     )
   end
 
+  def process_state_change(field, value, attr: nil)
+    if field == "api_url" && value.include?(".")
+      value = "https://" + value unless value.include?("://")
+      u = URI(value)
+      h = u.host.gsub(/\.signalwire\.com$/, "")
+      value = h
+    end
+    return super(field, value, attr:)
+  end
+
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.api_url.present?
@@ -67,8 +77,12 @@ Go to https://#{self.service_integration.api_url}.signalwire.com/credentials and
 
     unless self.service_integration.backfill_secret.present?
       step.needs_input = true
-      step.output = %(Let's create or reuse an API token. Press the 'New' button on your dashboard,
-name the token something like 'WebhookDB', and under Scopes, ensure the 'Messaging' checkbox is checked.
+      step.output = %(Let's create or reuse an API token.
+
+Go to https://#{self.service_integration.api_url}.signalwire.com/credentials
+and press the 'New' button.
+Name the token something like 'WebhookDB'.
+Under Scopes, ensure the 'Messaging' checkbox is checked.
 Then press 'Save'.
 
 Press 'Show' next to the newly-created API token, and copy it.)
@@ -139,22 +153,20 @@ Press 'Show' next to the newly-created API token, and copy it.)
   end
 
   def _fetch_backfill_page(pagination_token, last_backfilled:)
-    url = "https://#{self.service_integration.api_url}.signalwire.com"
+    urltail = pagination_token
     if pagination_token.blank?
       date_send_max = Date.tomorrow
-      url += "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
-             "?PageSize=100&DateSend%3C=#{date_send_max}"
-    else
-      url += pagination_token
+      urltail = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
+                "?PageSize=100&DateSend%3C=#{date_send_max}"
     end
-    response = Webhookdb::Http.get(
-      url,
-      basic_auth: {username: self.service_integration.backfill_key,
-                   password: self.service_integration.backfill_secret,},
+    data = Webhookdb::Signalwire.http_request(
+      :get,
+      urltail,
+      space_url: self.service_integration.api_url,
+      project_id: self.service_integration.backfill_key,
+      api_key: self.service_integration.backfill_secret,
       logger: self.logger,
-      timeout: Webhookdb::Signalwire.http_timeout,
     )
-    data = response.parsed_response
     messages = data["messages"]
 
     if last_backfilled.present?

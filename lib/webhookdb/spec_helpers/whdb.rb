@@ -136,4 +136,11 @@ module Webhookdb::SpecHelpers::Whdb
     raise "Must provide :replicator or have :svc available" if replicator.nil?
     return replicator.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(fields) }
   end
+
+  RSpec::Matchers.define(:be_a_uuid) do
+    match do |v|
+      uuid = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+      v =~ uuid
+    end
+  end
 end

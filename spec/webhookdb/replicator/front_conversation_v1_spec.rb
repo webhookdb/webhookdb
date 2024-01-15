@@ -244,27 +244,12 @@ RSpec.describe Webhookdb::Replicator::FrontConversationV1, :db do
     let(:expected_data) { body.dig("payload", "conversation") }
   end
 
-  it_behaves_like "a replicator dependent on another", "front_conversation_v1", "front_marketplace_root_v1" do
-    let(:no_dependencies_message) { "This integration requires Front Auth to sync" }
-  end
-
   describe "state machine calculation" do
     describe "calculate_webhook_state_machine" do
-      it "prompts for dependencies" do
-        sint.update(depends_on: nil)
-        root.destroy
+      it "tells the user to set up the integration through the app store" do
         sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
-          output: match("This integration requires Front Auth"),
-        )
-      end
-
-      it "succeeds and prints a success response if the dependency is set" do
-        sm = sint.replicator.calculate_webhook_state_machine
-        expect(sm).to have_attributes(
-          needs_input: false,
-          complete: true,
-          output: match("now listening for Front Conversation"),
+          output: match("Front integrations can only be enabled through the Front App Store"),
         )
       end
     end

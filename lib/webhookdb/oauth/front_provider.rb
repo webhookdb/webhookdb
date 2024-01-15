@@ -2,29 +2,35 @@
 
 require "webhookdb/front"
 
-class Webhookdb::Oauth::Front < Webhookdb::Oauth::Provider
+class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
   include Appydays::Loggable
 
+  # Override these for custom OAuth of different apps
   def key = "front"
   def app_name = "Front"
+  def client_id = Webhookdb::Front.client_id
+  def client_secret = Webhookdb::Front.client_secret
+
   def requires_webhookdb_auth? = true
   def supports_webhooks? = true
 
   def authorization_url(state:)
-    return "https://app.frontapp.com/oauth/authorize?response_type=code&redirect_uri=#{Webhookdb::Front.oauth_callback_url}&state=#{state}&client_id=#{Webhookdb::Front.client_id}"
+    return "https://app.frontapp.com/oauth/authorize?response_type=code&redirect_uri=#{self.callback_url}&state=#{state}&client_id=#{self.client_id}"
   end
+
+  def callback_url = Webhookdb.api_url + "/v1/install/#{self.key}/callback"
 
   def exchange_authorization_code(code:)
     token = Webhookdb::Http.post(
       "https://app.frontapp.com/oauth/token",
       {
         "code" => code,
-        "redirect_uri" => Webhookdb::Front.oauth_callback_url,
+        "redirect_uri" => self.callback_url,
         "grant_type" => "authorization_code",
       },
       logger: self.logger,
       timeout: Webhookdb::Front.http_timeout,
-      basic_auth: {username: Webhookdb::Front.client_id, password: Webhookdb::Front.client_secret},
+      basic_auth: {username: self.client_id, password: self.client_secret},
     )
     return Webhookdb::Oauth::Tokens.new(
       access_token: token.parsed_response["access_token"],
