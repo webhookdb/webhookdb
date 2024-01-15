@@ -539,6 +539,13 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
         )
       end
 
+      it "uses the first subdomain if .signalwire.com is included in the space url" do
+        sint.replicator.process_state_change("api_url", "https://whdb.signalwire.com")
+        expect(sint).to have_attributes(api_url: "whdb")
+        sint.replicator.process_state_change("api_url", "whdb.signalwire.com/foo/bar")
+        expect(sint).to have_attributes(api_url: "whdb")
+      end
+
       it "asks for backfill/project id" do
         sint.api_url = "fakespace"
         sm = sint.replicator.calculate_backfill_state_machine
