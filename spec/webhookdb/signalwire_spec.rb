@@ -31,16 +31,15 @@ RSpec.describe Webhookdb::Signalwire do
     end
 
     it "skips sending if the to number is not allowlisted" do
-      expect do
-        described_class.send_sms(
-          from: "+12223334444",
-          to: "+14445556666",
-          body: "hello",
-          project_id: "proj",
-          api_key: "swkey",
-          logger: nil,
-        )
-      end.to_not raise_error
+      got = described_class.send_sms(
+        from: "+12223334444",
+        to: "+14445556666",
+        body: "hello",
+        project_id: "proj",
+        api_key: "swkey",
+        logger: nil,
+      )
+      expect(got).to eq({"sid" => "skipped"})
     end
   end
 end
