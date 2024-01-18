@@ -2,13 +2,12 @@
 
 require "webhookdb/messages/specs"
 
-RSpec.describe "Webhookdb::Organization::Alerting", :db do
-  let(:described_class) { Webhookdb::Organization::Alerting }
+RSpec.describe Webhookdb::Organization::Alerting, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:alerting) { org.alerting }
   let(:membership_fac) { Webhookdb::Fixtures.organization_membership.org(org) }
 
-  describe "dispatch_alert", :no_transaction_check do
+  describe "dispatch_alert", :no_transaction_check, reset_configuration: described_class do
     it "sends the message to all verified admins" do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
@@ -30,7 +29,7 @@ RSpec.describe "Webhookdb::Organization::Alerting", :db do
       end.to raise_error(Webhookdb::InvalidPrecondition, /define a #signature/)
     end
 
-    it "will only alert every 30 minutes for a given signature" do
+    it "will only alert for the configured interval for a given signature" do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
 
@@ -56,6 +55,24 @@ RSpec.describe "Webhookdb::Organization::Alerting", :db do
       org.verified_memberships(reload: true)
       alerting.dispatch_alert(tmpl)
       expect(Webhookdb::Message::Delivery.all).to have_length(5)
+    end
+
+    it "does not send more than the configured emails to a given customer each day" do
+      admin1 = membership_fac.verified.admin.create
+      admin2 = membership_fac.verified.admin.create
+
+      tmpl = Webhookdb::Messages::Testers::Basic.new
+      tmpl.define_singleton_method(:signature) { "tester" }
+
+      # Messages initially sent
+      described_class.interval = 0
+      described_class.max_alerts_per_customer_per_day = 20
+      100.times do |i|
+        Timecop.travel(i.seconds.from_now) do
+          alerting.dispatch_alert(tmpl)
+        end
+      end
+      expect(Webhookdb::Message::Delivery.all).to have_length(40)
     end
   end
 end
