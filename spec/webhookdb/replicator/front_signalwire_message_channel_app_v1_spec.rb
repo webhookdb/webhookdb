@@ -7,7 +7,6 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:signalwire_sint) { fac.create(service_name: "signalwire_message_v1") }
-  let(:frontapp_sint) { fac.create(service_name: "front_marketplace_root_v1") }
   let(:sint) { fac.depending_on(signalwire_sint).create(service_name:) }
   let(:svc) { sint.replicator }
 
@@ -355,25 +354,12 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
 
   describe "state machine calculation" do
     describe "calculate_webhook_state_machine" do
-      before(:each) do
-        _ = frontapp_sint
-      end
-
       it "requires for the signalwire dependency" do
         sint.update(depends_on: nil)
         signalwire_sint.destroy
         sm = sint.replicator.calculate_webhook_state_machine
         expect(sm).to have_attributes(
           output: include("This integration requires SignalWire Messages to sync"),
-          complete: true,
-        )
-      end
-
-      it "requires the front marketplace dependency" do
-        frontapp_sint.destroy
-        sm = sint.replicator.calculate_webhook_state_machine
-        expect(sm).to have_attributes(
-          output: include("you must install the WebhookDB app"),
           complete: true,
         )
       end
@@ -406,7 +392,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       it "is the same as the webhook state machine" do
         sm = sint.replicator.calculate_backfill_state_machine
         expect(sm).to have_attributes(
-          output: include("To set up Front Channels with WebhookDB"),
+          output: include("You can now finish installing the SignalWire Channel in Front"),
         )
       end
     end

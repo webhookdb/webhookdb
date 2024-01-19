@@ -57,15 +57,6 @@ require "webhookdb/replicator/front_v1_mixin"
 #   - Find replication table rows without a Front message id, and create a Front message
 #     using https://dev.frontapp.com/reference/sync-inbound-message
 #
-# Note: This replicator depends on signalwire_message_v1, NOT front_marketplace_root_v1,
-# because 1) an org will only have one Front marketplace root, logically,
-# given how it is installed, so it can be reliably inferred,
-# 2) we can create the marketplace root replicator based on this one,
-# and especially 3) Front will ALWAYS hit this replicator webhook for messages;
-# SiWnWlWire may not, though, it depends on how the numebr is configured.
-# By being a dependency of signalwire_message_v1, the replicator is called whenever
-# a SignalWire row changes.
-#
 class Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1 < Webhookdb::Replicator::Base
   include Webhookdb::DBAdapter::ColumnTypes
 
@@ -116,17 +107,6 @@ class Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1 < Webhookdb::Rep
       return step
     end
     step = Webhookdb::Replicator::StateMachineStep.new
-    marketplace_root = self.service_integration.
-      organization.
-      service_integrations.
-      find { |si| si.service_name == "front_marketplace_root_v1" }
-    if marketplace_root.nil?
-      step.output = %(To set up Front Channels with WebhookDB,
-you must install the WebhookDB app from the Front App Store.
-Head over to https://front.com/integrations/webhookdb to set things up,
-and then try again.)
-      return step.completed
-    end
     if self.service_integration.api_url.blank?
       step.output = %(This Front Channel will be linked to a specific number in SignalWire.
 Choose the phone number to connect to Front.)
