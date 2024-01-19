@@ -10,7 +10,21 @@ require "phony"
 
 require "webhookdb/json"
 
+if ENV["DOCKER_DEV"]
+  # If DOCKER_DEV is set, replace 'localhost' urls with 'host.docker.internal'.
+  ENV.each do |k, v|
+    begin
+      localhost = URI(v).host == "localhost"
+    rescue StandardError
+      next
+    end
+    next unless localhost
+    ENV[k] = v.gsub("localhost", "host.docker.internal")
+  end
+end
+
 if (heroku_app = ENV.fetch("MERGE_HEROKU_ENV", nil))
+  # If MERGE_HEROKU_ENV, merge all of its environment vars into the current env
   text = `heroku config -j --app=#{heroku_app}`
   json = Oj.load(text)
   json.each do |k, v|

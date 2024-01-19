@@ -3,6 +3,7 @@
 # rubocop:disable Layout/LineLength
 RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
   let(:this_dbserver_url) { described_class.available_server_urls.first }
+  let(:dbhost) { URI(Webhookdb::Postgres::Model.uri).host } # do not hard-code localhost since we can be in a container
 
   describe "configuration", :whdbisolation do
     it "errors if there isolation mode is empty" do
@@ -41,8 +42,8 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       it "creates a randomly named database and connection strings and the public schema" do
         o.prepare_database_connections
         expect(o).to have_attributes(
-          admin_connection_url: %r(postgres://aad#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16}),
-          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16}),
+          admin_connection_url: %r(postgres://aad#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@#{dbhost}:18006/adb#{o.id}a[0-9a-f]{16}),
+          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@#{dbhost}:18006/adb#{o.id}a[0-9a-f]{16}),
           replication_schema: "public",
         )
       end
@@ -88,8 +89,8 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       it "creates a randomly named database and connection strings and the public schema" do
         o.prepare_database_connections
         expect(o).to have_attributes(
-          admin_connection_url: %r(postgres://aad#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16}),
-          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/adb#{o.id}a[0-9a-f]{16}),
+          admin_connection_url: %r(postgres://aad#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@#{dbhost}:18006/adb#{o.id}a[0-9a-f]{16}),
+          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@#{dbhost}:18006/adb#{o.id}a[0-9a-f]{16}),
           replication_schema: "whdb_unit_test",
         )
       end
@@ -184,7 +185,7 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
         o.prepare_database_connections
         expect(o).to have_attributes(
           admin_connection_url: this_dbserver_url,
-          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@localhost:18006/webhookdb_test),
+          readonly_connection_url: %r(postgres://aro#{o.id}a[0-9a-f]{16}:a#{o.id}a[0-9a-f]{16}@#{dbhost}:18006/webhookdb_test),
           replication_schema: "whdb_unit_test",
         )
       end
