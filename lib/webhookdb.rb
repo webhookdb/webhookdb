@@ -8,29 +8,12 @@ require "money"
 require "pathname"
 require "phony"
 
+require "webhookdb/envfixer"
 require "webhookdb/json"
+require "webhookdb/method_utilities"
 
-if ENV["DOCKER_DEV"]
-  # If DOCKER_DEV is set, replace 'localhost' urls with 'host.docker.internal'.
-  ENV.each do |k, v|
-    begin
-      localhost = URI(v).host == "localhost"
-    rescue StandardError
-      next
-    end
-    next unless localhost
-    ENV[k] = v.gsub("localhost", "host.docker.internal")
-  end
-end
-
-if (heroku_app = ENV.fetch("MERGE_HEROKU_ENV", nil))
-  # If MERGE_HEROKU_ENV, merge all of its environment vars into the current env
-  text = `heroku config -j --app=#{heroku_app}`
-  json = Oj.load(text)
-  json.each do |k, v|
-    ENV[k] = v
-  end
-end
+Webhookdb::Envfixer.replace_localhost_for_docker(ENV)
+Webhookdb::Envfixer.merge_heroku_env(ENV)
 
 Money.locale_backend = :i18n
 Money.default_currency = "USD"
@@ -50,6 +33,7 @@ end
 module Webhookdb
   include Appydays::Loggable
   include Appydays::Configurable
+  extend Webhookdb::MethodUtilities
 
   # Error raised when we cannot take an action
   # because some condition has not been set up right.
@@ -86,6 +70,9 @@ module Webhookdb
 
   DATA_DIR = Pathname(__FILE__).dirname.parent + "data"
 
+  singleton_attr_reader :globals_cache
+  @globals_cache = {}
+
   configurable(:webhookdb) do
     setting :log_level_override,
             nil,
@@ -100,6 +87,10 @@ module Webhookdb
     setting :support_email, "hello@webhookdb.com"
     setting :use_globals_cache, false
     setting :regression_mode, false
+
+    after_configured do
+      globals_cache.clear
+    end
   end
 
   # Regression mode is true when we re replaying webhooks locally,
@@ -109,9 +100,6 @@ module Webhookdb
   def self.regression_mode?
     return self.regression_mode
   end
-
-  require "webhookdb/method_utilities"
-  extend Webhookdb::MethodUtilities
 
   require "webhookdb/sentry"
 
@@ -129,9 +117,6 @@ module Webhookdb
   # :section: Globals cache
   #
 
-  singleton_attr_reader :globals_cache
-  @globals_cache = {}
-
   # If globals caching is enabled, see if there is a cached value under +key+
   # and return it if so. If there is not, evaluate the given block and store that value.
   # Generally used for looking up well-known database objects like certain roles.
@@ -141,7 +126,7 @@ module Webhookdb
       return result if result
     end
     result = yield()
-    self.globals_cache[key] = result
+    (self.globals_cache[key] = result) if self.use_globals_cache
     return result
   end
 
@@ -165,18 +150,6 @@ module Webhookdb
     key << "-" << parts.map(&:to_s).join("-") unless parts.empty?
 
     return key
-  end
-
-  #
-  # :section: Unambiguous/promo code chars
-  #
-
-  # Remove ambiguous characters (L, I, 1 or 0, O) and vowels from possible codes
-  # to avoid creating ambiguous codes or real words.
-  UNAMBIGUOUS_CHARS = "CDFGHJKMNPQRTVWXYZ23469".chars.freeze
-
-  def self.take_unambiguous_chars(n)
-    return Array.new(n) { UNAMBIGUOUS_CHARS.sample }.join
   end
 
   # Convert a string into something we consistently use for slugs:

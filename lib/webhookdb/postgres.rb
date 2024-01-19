@@ -120,11 +120,13 @@ module Webhookdb::Postgres
   end
 
   def self.run_all_migrations(target: nil)
+    # :nocov:
     Sequel.extension :migration
     Webhookdb::Postgres.each_model_superclass do |cls|
       cls.install_all_extensions
       Sequel::Migrator.run(cls.db, Pathname(__FILE__).dirname.parent.parent + "db/migrations", target:)
     end
+    # :nocov:
   end
 
   # We can always register the models right away, since it does not have a side effect.
