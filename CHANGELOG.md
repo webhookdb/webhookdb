@@ -8,20 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+(empty)
+
 ## [1.1.0] - 2024-01-19
 
-- Front Signalwire Channel integration added. See <https://docs.webhookdb.com/guides/front-channel-signalwire/> (2496442021b16a618576494174b5073de5da6128)
-- Add `ALERTING_MAX_ALERTS_PER_CUSTOMER_PER_DAY` to avoid sending many alerts to the same customer about the same replicator (e5226f4bd92cac3dc3f47438e9ee87fea4bd0818)
-- Integration tests can be run from a gem (98e606b126f3312574057aaba2cfb3893eb3fc48)
-- Backfilling race conditions are fixed by taking a lock on the job (f18d6f1f0546ae5f31c1c6218c6ca17098281fb0)
-- Support local development via docker (f5660f8da6fd340a8edaabdc8220f33e6f960f8d)
-- ServiceIntegration#webhookdb_api_key column added (5b98918)
-- Add 'roll api key' endpoint for new `webhookdb_api_key` column (fb1f96e)
-- Front integrations are no longer hidden (9ad8858)
-- Root url `/` redirects to `/terminal` (84e5e85)
-- Disable auth by default during local dev (1f39e5c)
-- Debug endpoint echos headers in addition to body (36f3e49)
-- Fix typo in OAuth customer install page, and use code tag (7449da8)
+- Front Signalwire Channel integration added. See <https://docs.webhookdb.com/guides/front-channel-signalwire/> ([24964420](https://github.com/webhookdb/webhookdb/commit/24964420))
+- Add `ALERTING_MAX_ALERTS_PER_CUSTOMER_PER_DAY` to avoid sending many alerts to the same customer about the same replicator ([e5226f4b](https://github.com/webhookdb/webhookdb/commit/e5226f4b))
+- Integration tests can be run from a gem ([98e606b1](https://github.com/webhookdb/webhookdb/commit/98e606b1))
+- Backfilling race conditions are fixed by taking a lock on the job ([f18d6f1f](https://github.com/webhookdb/webhookdb/commit/f18d6f1f))
+- Support local development via docker ([f5660f8d](https://github.com/webhookdb/webhookdb/commit/f5660f8d))
+- ServiceIntegration#webhookdb_api_key column added ([5b98918](https://github.com/webhookdb/webhookdb/commit/5b98918))
+- Add 'roll api key' endpoint for new `webhookdb_api_key` column ([fb1f96e](https://github.com/webhookdb/webhookdb/commit/fb1f96e))
+- Front integrations are no longer hidden ([9ad8858](https://github.com/webhookdb/webhookdb/commit/9ad8858))
+- Root url `/` redirects to `/terminal` ([84e5e85](https://github.com/webhookdb/webhookdb/commit/84e5e85))
+- Disable auth by default during local dev ([1f39e5c](https://github.com/webhookdb/webhookdb/commit/1f39e5c))
+- Debug endpoint echos headers in addition to body ([36f3e49](https://github.com/webhookdb/webhookdb/commit/36f3e49))
+- Fix typo in OAuth customer install page, and use code tag ([7449da8](https://github.com/webhookdb/webhookdb/commit/7449da8))
 
 ## [1.0.2] - 2024-01-09
 
