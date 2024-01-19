@@ -191,4 +191,35 @@ RSpec.describe Webhookdb do
       described_class.set_request_user_and_admin(nil, nil)
     end
   end
+
+  describe "cached_get", reset_configuration: described_class do
+    before(:each) do
+      @calls = 0
+    end
+
+    it "caches and returns the value if enabled" do
+      described_class.use_globals_cache = true
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(1)
+      expect(@calls).to eq(1)
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(1)
+      expect(@calls).to eq(1)
+      expect(described_class.cached_get("j") { @calls += 1 }).to eq(2)
+      expect(@calls).to eq(2)
+    end
+
+    it "does not cache if enabled" do
+      described_class.use_globals_cache = false
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(1)
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(2)
+      expect(@calls).to eq(2)
+      # Turn it on and make sure it picks up
+      described_class.use_globals_cache = true
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(3)
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(3)
+      # Turn it back off and make sure cache is ignored
+      described_class.use_globals_cache = false
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(4)
+      expect(described_class.cached_get("k") { @calls += 1 }).to eq(5)
+    end
+  end
 end
