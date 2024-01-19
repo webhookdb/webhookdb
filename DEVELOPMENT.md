@@ -8,18 +8,52 @@ Sometimes the docs are on classes, sometimes they're here.
 We use the Makefile for every important development command since
 Makefiles are a wonderful high-level task runner.
 
-Dependencies are listed in `docker-compose.yml`.
+- This is set up as a standard Ruby (**not Rails**) app, and should work out of the box on most machines.
+- You can run with a local Ruby install, or through a 'development' Docker container.
+  - You can install the right Ruby version through `rbenv` (`.ruby-version`)
+    or `asdf` (`.tool-versions`), or you can run through Docker.
+  - If you run into problems with `make install` (usually due to native extension building),
+    you can try with the Docker container. It should be more reliable,
+    though is never as nice as true local development.
+- Service dependencies are listed in `docker-compose.yml`.
+  - We take a 'services are on localhost' approach, even in Docker.
+    It makes it much easier to work with the services, like using web interfaces.
+- The process (Ruby or Docker) needs to be restarted when you make changes.
+  We do not use an auto-reloader. Most development should be done with unit tests,
+  so iterating a live server should be rare.
 
-Otherwise, this is a pretty standard Ruby (**not Rails**) app.
-You can install the right Ruby version through `rbenv` (`.ruby-version`)
-or `asdf` (`.tool-versions`).
+Running with a local Ruby install:
 
 ```
-$ make install
-$ make up
-$ make test
-$ make run
-$ make run-workers
+$ make install    # Install gems and dependencies
+$ make up         # Start docker-compose services
+
+$ make migrate-test   # Migrate the test database
+$ make test           # Run unit tests
+
+$ make release                # Migrate the database
+$ make run                    # Runs the web process
+$ make run-workers            # Runs worker processes, you should do this in another window
+$ open http://localhost:18001 # Opens a browser to the hosted temrinal
+```
+
+Running with Docker, all of the above commands can be called with
+`make dockerdev-%` or `make dockertest-%`.
+The make target strings after `dockerdev-` and `dockertest-`
+are passed through to the underlying container (ie, `make dockertest-test` runs `make test`
+in the container, which is running with the proper environment.
+
+```
+$ make up                   # Start docker-compose services
+$ make dockerdev-build      # Build a dev/test container with gems built into it
+
+$ make dockertest-migrate-test   # Migrate the test database
+$ make dockertest-test           # Run tests
+
+$ make dockerdev-release         # Migrate the database
+$ make dockerdev-run             # Runs the web process
+$ make dockerdev-run-workers     # Runs worker process, you should do this another window
+$ open http://localhost:18001    # Opens a browser to the hosted temrinal
 ```
 
 ## Configuration

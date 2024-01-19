@@ -90,6 +90,25 @@ message-render-html: env-MESSAGE
 	sleep 3
 	rm message.html
 
+dockerdev-build:
+	@docker build -f docker/dev.Dockerfile -t webhookdb-dev:latest --progress=plain .
+dockertest-%:
+	@docker run -it \
+		-v ${PWD}:/app \
+		-e RACK_ENV=test \
+		webhookdb-dev:latest make $(*)
+dockerdev-%:
+	@docker run -it \
+		-v ${PWD}:/app \
+		webhookdb-dev:latest make $(*)
+dockerdev-web:
+	@docker run -it \
+		-p 18001:18001 \
+		-e PORT=18001 \
+		-v ${PWD}:/app \
+		webhookdb-dev:latest make run
+dockerdev-run: dockerdev-web
+
 docker-build: ## Build the local docker image.
 	@docker build -f docker/Dockerfile -t webhookdb \
 		--build-arg GIT_SHA=`git rev-list --abbrev-commit -1 HEAD` \
@@ -102,8 +121,8 @@ docker-run-command: env-COMMAND ## Run the build image, passing the value of the
 		-it \
 		-p 18001:18001 \
 		-e PORT=18001 \
+		-e DOCKER_DEV=1 \
 		--env-file=.env.development \
-		--env-file=.env.development.docker \
 		webhookdb ${COMMAND}
 
 docker-run-%: ## Run the built local webhookdb image (docker-build target). Use -web, -worker, and -release.
@@ -114,8 +133,8 @@ dockerhub-run-%: ## Download the webhookdb docker image from Dockerhub and run i
 		-it \
 		-p 18001:18001 \
 		-e PORT=18001 \
+		-e DOCKER_DEV=1 \
 		--env-file=.env.development \
-		--env-file=.env.development.docker \
 		webhookdb/webhookdb:latest $(*)
 
 VERSION := `cat lib/webhookdb/version.rb | grep 'VERSION =' | cut -d '"' -f2`

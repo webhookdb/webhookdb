@@ -55,7 +55,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
     after_configured do
       if Webhookdb::RACK_ENV == "test"
-        safename = ENV["USER"].gsub(/[^A-Za-z]/, "")
+        safename = ENV.fetch("USER", "root").gsub(/[^A-Za-z]/, "")
         self.default_schema = "synctest_#{safename}"
       end
     end
