@@ -46,7 +46,7 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
   end
 
   def _resource_and_event(request)
-    # Webhook returns "message-id" so transforming to "messageId"
+    # Webhook returns "message-id"; replacing with "messageId"
     request.body[:messageId] = request.body.delete "message-id"
     return request.body, nil
   end
