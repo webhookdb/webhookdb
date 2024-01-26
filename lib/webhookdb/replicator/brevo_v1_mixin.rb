@@ -6,8 +6,7 @@ module Webhookdb::Replicator::BrevoV1Mixin
   BREVO_HEADER_PREFIX = 'BREVO'
 
   def _mixin_backfill_url
-    # API  Reference: https://developers.brevo.com/reference/getemaileventreport-1
-    return "#{self.service_integration.api_url}/smtp/statistics/events"
+    raise NotImplementedError
   end
 
   def _webhook_response(request)
@@ -86,6 +85,14 @@ Leave blank to use the default or paste the answer into this prompt.
     step.complete = true
 
     return step
+  end
+
+  def _verify_backfill_401_err_msg
+    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
+  end
+
+  def _verify_backfill_err_msg
+    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   # Fetches the last 90 days (maximum) worth of events, including today's.

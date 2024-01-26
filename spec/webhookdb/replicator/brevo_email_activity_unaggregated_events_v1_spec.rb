@@ -7,22 +7,18 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     let(:body) do
       JSON.parse(<<~J)
         {
-          "event": "created",
           "email": "example@example.com",
-          "id": 26224,
-          "date": "YYYY-MM-DD HH:mm:ss",
-          "ts": 1598634509,
-          "message-id": "<xxxxxxxxxxxx.xxxxxxxxx@domain.com>",
-          "ts_event": 1598034509,
-          "subject": "Subject Line",
-          "sending_ip": "185.41.28.109",
-          "ts_epoch": 1598634509223,
-          "tags": [
-            "myFirstTransactional"
-          ]
+          "date": "2024-01-23T09:36:46.364+08:00",
+          "subject": "Brevo Test Transactional Mail",
+          "messageId": "<202401230136.35720869946@smtp-relay.mailin.fr>",
+          "event": "requests",
+          "tag": "",
+          "ip": "77.32.148.20",
+          "from": "example@example.com"
         }
       J
     end
+    let(:expected_data) { body }
   end
 
   it_behaves_like "a replicator that verifies backfill secrets" do
@@ -44,30 +40,26 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     let(:success_body) do
       <<~R
         {
-          "event": "created",
-          "email": "example@example.com",
-          "id": 26224,
-          "date": "YYYY-MM-DD HH:mm:ss",
-          "ts": 1598634509,
-          "message-id": "<xxxxxxxxxxxx.xxxxxxxxx@domain.com>",
-          "ts_event": 1598034509,
-          "subject": "Subject Line",
-          "sending_ip": "185.41.28.109",
-          "ts_epoch": 1598634509223,
-          "tags": [
-            "myFirstTransactional"
-          ]
+          "events": []
         }
       R
     end
+
     def stub_service_request
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
         with(headers: {"api-key" => "bfkey"}).
         to_return(status: 200, body: success_body, headers: {})
     end
 
+    def stub_empty_requests
+      return [
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
+          to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+      ]
+    end
+
     def stub_service_request_error
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
         with(headers: {"api-key" => "bfkey_wrong"}).
         to_return(status: 401, body: "", headers: {})
     end
@@ -84,7 +76,7 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
       expect(status).to eq(202)
     end
 
-    it "returns 401 if neither ip is valid" do
+    it "returns 401 if the remote addr is invalid" do
       req = fake_request
       req.add_header("REMOTE_ADDR", "1.1.1.1")
       status, _headers, _body = svc.webhook_response(req).to_rack
@@ -92,24 +84,25 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     end
   end
 
+  # May be deleted
   describe "helper tests" do
     let(:allowed_ip_blocks) { %w[185.107.232.1/24 1.179.112.1/20] }
 
     it "ip is valid" do
       ip = "185.107.232.2"
-      allowed = allowed_ip_blocks.any?{|block| IPAddr.new(block) === IPAddr.new(ip) }
+      allowed = allowed_ip_blocks.any?{|block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
       # $stderr.puts ">>>>> allowed = #{allowed}"
       expect(allowed).to be true
     end
 
     it "ip is invalid" do
       ip = "1.1.1.1"
-      allowed = allowed_ip_blocks.any?{ |block| IPAddr.new(block) === IPAddr.new(ip) }
+      allowed = allowed_ip_blocks.any?{ |block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
       # $stderr.puts ">>>>> allowed = #{allowed}"
       expect(allowed).to be false
     end
 
-    it "correctly replaces a key in a hash" do
+    it "replaces a key in a hash" do
       body = {"message-id" => "first-id"}
       body[:messageId] = body.delete "message-id"
       # $stderr.puts ">>>>> body[:messageId] = #{body[:messageId]}"

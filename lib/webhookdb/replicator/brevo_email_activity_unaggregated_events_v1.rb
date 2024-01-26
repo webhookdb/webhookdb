@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
+require "webhookdb/brevo"
+require "webhookdb/replicator/brevo_v1_mixin"
+
 class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
+  include Webhookdb::Replicator::BrevoV1Mixin
 
   # API Reference: https://developers.brevo.com/reference/getemaileventreport-1
   # @return [Webhookdb::Replicator::Descriptor]
@@ -34,26 +38,27 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
         data_key: "date",
         defaulter: :now,
         index: true,
+        converter: Webhookdb::Replicator::Column::CONV_PARSE_TIME,
       ),
       Webhookdb::Replicator::Column.new(
         :message_id,
         TEXT,
         data_key: "messageId",
-        # event_key: "message-id",
         index: true,
       ),
     ]
-  end
-
-  def _resource_and_event(request)
-    # Webhook returns "message-id"; replacing with "messageId"
-    request.body[:messageId] = request.body.delete "message-id"
-    return request.body, nil
   end
 
   def _update_where_expr
     return self.qualified_table_sequel_identifier[:date] < Sequel[:excluded][:date]
   end
 
-  def _timestamp_column_name = :date
+  def _resource_and_event(request)
+    return request.body, nil
+  end
+
+  def _mixin_backfill_url
+    # API  Reference: https://developers.brevo.com/reference/getemaileventreport-1
+    return "#{self.service_integration.api_url}/smtp/statistics/events"
+  end
 end
