@@ -204,6 +204,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   # Build the org-specific users, database, and set our connection URLs to it.
+  # @param safe [*] If true, noop if connection urls are set.
   def prepare_database_connections(safe: false)
     self.db.transaction do
       self.lock!
@@ -220,13 +221,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   # Create a CNAME in Cloudflare for the currently configured connection urls.
-  def create_public_host_cname
+  # @param safe [*] If true, noop if the public host is set.
+  def create_public_host_cname(safe: false)
     self.db.transaction do
       self.lock!
       # We must have a host to create a CNAME to.
       raise Webhookdb::InvalidPrecondition, "connection urls must be set" if self.readonly_connection_url_raw.blank?
       # Should only be used once when creating the org DBs.
-      raise Webhookdb::InvalidPrecondition, "public_host must not be set" if self.public_host.present?
+      if self.public_host.present?
+        return if safe
+        raise Webhookdb::InvalidPrecondition, "public_host must not be set"
+      end
       # Use the raw URL, even though we know at this point
       # public_host is empty so raw and public host urls are the same.
       Webhookdb::Organization::DbBuilder.new(self).create_public_host_cname(self.readonly_connection_url_raw)

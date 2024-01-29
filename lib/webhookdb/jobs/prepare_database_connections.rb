@@ -15,8 +15,8 @@ class Webhookdb::Jobs::PrepareDatabaseConnections
     org.db.transaction do
       # If creating the public host fails, we end up with an orphaned database,
       # but that's not a big deal- we can eventually see it's empty/unlinked and drop it.
-      org.prepare_database_connections
-      org.create_public_host_cname
+      org.prepare_database_connections(safe: true)
+      org.create_public_host_cname(safe: true)
     end
   end
 end
