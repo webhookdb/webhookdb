@@ -1,0 +1,24 @@
+{% expose subject %}WebhookDB: GitHub Error{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    WebhookDB encountered an error calling GitHub. We have the following information about the failure:
+</p>
+<ul>
+    <li>Service Integration Name: {{ service_name }}, ID: <code>{{ opaque_id }}</code></li>
+    <li>Request: <code>{{ request_method }} {{ request_url }}</code></li>
+    <li>Response Status: <code>{{ response_status }}</code></li>
+    <li>Body: <code>{{  response_body }}</code></li>
+</ul>
+<p>
+    Usually errors like this indicate the access token stored in WebhookDB can no longer access GitHub.
+</p>
+<p>You should update the token by running:</p>
+<pre>webhookdb backfill reset {{ service_name }}</pre>
+<p>Or remove the integration and its data from WebhookDB entirely:</p>
+<pre>webhookdb integrations delete {{ service_name }}</pre>
+<p>We'll continue to send daily emails when this happens, so please do fix this up when you get a chance.</p>
+<p>Please file an issue at {{ oss_repo }} if you need any help.</p>
+
+{% partial 'signoff' %}

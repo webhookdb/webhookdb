@@ -695,6 +695,21 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
   end
 
+  it_behaves_like "a replicator that dispatches an alert on particular backfill errors",
+                  "github_issue_v1",
+                  template: "errors/github_repo" do
+    let(:api_url) { "my/code" }
+    def stub_fatal_error
+      return stub_request(:get, "https://api.github.com/repos/my/code/issues?per_page=100&state=all").
+          to_return(status: 400, body: "fuuu")
+    end
+
+    def stub_dispatchable_error
+      return stub_request(:get, "https://api.github.com/repos/my/code/issues?per_page=100&state=all").
+          to_return(status: 401, body: "fuuu")
+    end
+  end
+
   describe "state machine calculation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "github_issue_v1", api_url: "") }
     let(:svc) { Webhookdb::Replicator.create(sint) }

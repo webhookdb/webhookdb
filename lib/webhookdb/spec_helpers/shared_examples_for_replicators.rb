@@ -707,6 +707,50 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 end
 
+RSpec.shared_examples "a replicator that dispatches an alert on particular backfill errors" do |name, template|
+  let(:api_url) { "https://fake-url.com" }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url:,
+    )
+  end
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  def stub_fatal_error = raise NotImplementedError("raise the error that will not be caught")
+  def stub_dispatchable_error = raise NotImplementedError("raise the error that will be caught")
+
+  it "raises for most errors" do
+    req = stub_fatal_error
+    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).exactly(2).times
+    expect do
+      backfill(sint)
+    end.to raise_error(Webhookdb::Http::Error)
+    expect(req).to have_been_made.times(3)
+  end
+
+  it "sends an org alert for particular errors" do
+    admin = Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    req = stub_dispatchable_error
+    expect(Webhookdb::Backfiller).to receive(:do_retry_wait).exactly(2).times
+    backfill(sint)
+    expect(req).to have_been_made.times(3)
+    expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+      have_attributes(template:, recipient: admin),
+    )
+  end
+end
+
 RSpec.shared_examples "a replicator that verifies backfill secrets" do
   let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
   let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }
