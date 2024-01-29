@@ -277,9 +277,16 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       expect { o.create_public_host_cname }.to raise_error(Webhookdb::InvalidPrecondition, /must be set/)
     end
 
-    it "raises if public host is already set" do
-      assign_connection_urls(o, public_host: "already.set")
-      expect { o.create_public_host_cname }.to raise_error(Webhookdb::InvalidPrecondition, /must not be set/)
+    describe "when public host is already set" do
+      it "raises" do
+        assign_connection_urls(o, public_host: "already.set")
+        expect { o.create_public_host_cname }.to raise_error(Webhookdb::InvalidPrecondition, /must not be set/)
+      end
+
+      it "does not error if safe is used" do
+        assign_connection_urls(o, public_host: "already.set")
+        expect { o.create_public_host_cname(safe: true) }.to_not raise_error
+      end
     end
 
     it "creates the CNAME and sets the public host and cloudflare response" do
