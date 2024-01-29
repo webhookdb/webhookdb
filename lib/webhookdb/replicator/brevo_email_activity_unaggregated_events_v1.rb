@@ -22,8 +22,21 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
     )
   end
 
+  CONV_REMOTE_KEY = Webhookdb::Replicator::Column::IsomorphicProc.new(
+    ruby: ->(_, resource:, **_) { "#{resource.fetch('messageId')}-#{resource.fetch('email')}-#{resource.fetch('event')}-#{resource.fetch('ip')}" },
+    # Because this is a non-nullable key, we never need this in SQL
+    sql: ->(_) { Sequel.lit("'do not use'") },
+  )
+
   def _remote_key_column
-    return Webhookdb::Replicator::Column.new(:email_activity_event_id, TEXT, data_key: "messageId")
+    return Webhookdb::Replicator::Column.new(
+      :compound_identity,
+      TEXT,
+      data_key: "<compound key, see converter>",
+      index: true,
+      optional: true,
+      converter: CONV_REMOTE_KEY,
+    )
   end
 
   # This returns a union of all webhook schemas, defined in https://developers.brevo.com/docs/transactional-webhooks.
@@ -46,6 +59,7 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
         data_key: "messageId",
         index: true,
       ),
+      Webhookdb::Replicator::Column.new(:ip, TEXT, index: true),
     ]
   end
 
