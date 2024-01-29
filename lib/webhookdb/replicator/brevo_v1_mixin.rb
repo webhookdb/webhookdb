@@ -26,23 +26,24 @@ module Webhookdb::Replicator::BrevoV1Mixin
   def calculate_webhook_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     # If the service integration doesn't exist, create it with some standard values
-    unless self.service_integration.webhook_secret.present?
-      step.output = %(You are about to start replicating #{self.resource_name_plural} info into WebhookDB.
-We've made an endpoint available for #{self.resource_name_singular} webhooks:
+    if self.service_integration.webhook_secret.blank?
+      step.output = %(You are about to set up webhooks for #{self.resource_name_plural}.
 
-#{self._webhook_endpoint}
+Use this Webhook URL: #{self._webhook_endpoint}
 
 From your Brevo "My Account Dashboard", go to Transactional --> Email -> Settings --> Webhook.
 Click "Add a new webhook", and in the "URL to call" field you can enter the URL above.
-
-Click <Enter> to continue.
       )
+      step.set_prompt("Press Enter after Save Webhook succeeds:")
+      step.transition_field(self.service_integration, "noop_create")
+      self.service_integration.update(webhook_secret: "placeholder")
+      return step
     end
+    step.output = %(
+Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
 
-    step.needs_input = true
-
-    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
 #{self._query_help_output}
+
 In order to backfill existing #{self.resource_name_plural}, run this from a shell:
 
   #{self._backfill_command}
@@ -56,8 +57,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
     unless self.service_integration.backfill_key.present?
       step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
 If you don't have one, you can generate it by going to your Brevo "My Account Dashboard", click your profile name's dropdown,
-then go to SMTP & API -> Generate a new API key.
-      )
+then go to SMTP & API -> Generate a new API key.)
       return step.secret_prompt("API Key").backfill_key(self.service_integration)
     end
 
