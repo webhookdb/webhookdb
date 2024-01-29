@@ -128,7 +128,9 @@ Both of these values should be visible from the homepage of your Twilio admin Da
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     url = "https://api.twilio.com"
     if pagination_token.blank?
-      date_send_max = Date.tomorrow
+      # We need to handle positive and negative UTC offset running locally (non-UTC).
+      # Using UTC + 1 day would give 'today' in some cases, we always want 'tomorrow the day after'.
+      date_send_max = (Time.now.utc + 2.days).to_date
       url += "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
              "?PageSize=100&DateSend%3C=#{date_send_max}"
     else
