@@ -128,13 +128,13 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
       R
     end
     def stub_service_request
-      return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+      return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_error
-      stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey_wrong/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+      stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey_wrong/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
         with(headers: {"Authorization" => "Basic YmZrZXlfd3Jvbmc6YmZzZWs="}).
         to_return(status: 401, body: "", headers: {})
     end
@@ -279,7 +279,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
         stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/ACXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
@@ -291,13 +291,13 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
 
     def stub_empty_requests
       return [
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+      return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           to_return(status: 402, body: "woah")
     end
   end
@@ -439,7 +439,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
 
     def stub_service_requests(partial:)
       new_reqs = [
-        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+        stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
           to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
       ]
@@ -512,7 +512,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-23&PageSize=100").
+        return stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
             to_return(status: 200, body: success_body, headers: {})
       end

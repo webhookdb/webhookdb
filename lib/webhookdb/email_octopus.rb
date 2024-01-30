@@ -2,6 +2,8 @@
 
 require "appydays/configurable"
 
+require "webhookdb/crypto"
+
 module Webhookdb::EmailOctopus
   include Appydays::Configurable
 
