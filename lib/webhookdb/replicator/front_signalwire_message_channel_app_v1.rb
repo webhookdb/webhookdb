@@ -263,7 +263,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
           item[:front_message_id] = front_response_body.fetch("message_uid")
         end
       else
-        messaged_at = Time.at(item.fetch(:data).fetch("created_at"))
+        messaged_at = Time.at(item.fetch(:data).fetch("payload").fetch("created_at"))
         if messaged_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
           item[:signalwire_sid] = "skipped_due_to_age"
