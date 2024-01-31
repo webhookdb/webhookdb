@@ -432,7 +432,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           sender: support_phone,
           recipient: customer_phone,
           body: "hi",
-          data: {created_at: Time.parse("2023-01-10T12:00:00Z").to_i}.to_json,
+          data: {payload: {created_at: Time.parse("2023-01-10T12:00:00Z").to_i}}.to_json,
         )
         ds.insert(
           external_id: "OLD_front_id_only",
@@ -440,7 +440,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           sender: support_phone,
           recipient: customer_phone,
           body: "hi",
-          data: {created_at: Time.parse("2023-01-05T12:00:00Z").to_i}.to_json,
+          data: {payload: {created_at: Time.parse("2023-01-05T12:00:00Z").to_i}}.to_json,
         )
         ds.insert(external_id: "both_id", front_message_id: "fmid2", signalwire_sid: "swid", data: "{}")
       end
