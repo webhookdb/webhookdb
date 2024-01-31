@@ -9,6 +9,12 @@ module Webhookdb::GoogleCalendar
     # How many calendars/events should we fetch in a single page?
     # Higher uses slightly more memory but fewer API calls.
     # Max of 2500.
+    #
+    # **NOTE:** Changing this in production will
+    # INVALIDATE EXISTING RESOURCES CAUSING A FULL RESYNC.
+    # You should, in general, avoid modifying this number once there is
+    # much Google Calendar data stored. Instead, page sizes will be automatically reduced
+    # as requests time out.
     setting :list_page_size, 2000
     # How many rows should we upsert at a time?
     # Higher is fewer upserts, but can create very large SQL strings,
