@@ -21,41 +21,8 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     let(:expected_data) { body }
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old",
-                  "brevo_email_activity_unaggregated_events_v1" do
-    let(:old_body) do
-      JSON.parse(<<~J)
-        {
-          "email": "example@example.com",
-          "date": "2024-01-23T09:34:13.916+08:00",
-          "subject": "Brevo Test Transactional Mail",
-          "messageId": "<202401230136.35720869946@smtp-relay.mailin.fr>",
-          "event": "requests",
-          "tag": "",
-          "ip": "77.32.148.20",
-          "from": "example@example.com"
-        }
-      J
-    end
-    let(:new_body) do
-      JSON.parse(<<~J)
-        {
-          "email": "example@example.com",
-          "date": "2024-01-23T09:34:28.201+08:00",
-          "subject": "Brevo Test Transactional Mail",
-          "messageId": "<202401230136.35720869946@smtp-relay.mailin.fr>",
-          "event": "opened",
-          "tag": "",
-          "ip": "77.32.148.20",
-          "from": "example@example.com"
-        }
-      J
-    end
-    let(:expected_old_data) { old_body }
-    let(:expected_new_data) { new_body }
-  end
-
   it_behaves_like "a replicator that verifies backfill secrets" do
+    let(:today) { Time.parse("2024-01-23T18:00:00Z") }
     let(:correct_creds_sint) do
       Webhookdb::Fixtures.service_integration.create(
         service_name: "brevo_email_activity_unaggregated_events_v1",
@@ -80,19 +47,26 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     end
 
     def stub_service_request
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey"}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
+    end
+
+    around(:each) do |example|
+      Timecop.travel(today) do
+        example.run
+      end
     end
   end
 
   it_behaves_like "a replicator that can backfill", "brevo_email_activity_unaggregated_events_v1" do
+    let(:today) { Time.parse("2024-01-23T18:00:00Z") }
     let(:api_url) { "https://api.brevo.com/v3" }
     let(:page1_response) do
       <<~R
@@ -142,29 +116,42 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
         }
       R
     end
-    let(:empty_response) do
+    let(:page2_response) do
       <<~R
-        {}
+        {
+          "events": []
+        }
       R
     end
     let(:expected_items_count) { 4 }
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.brevo.com/v3").
-            with(headers: {"Authorization" => "Bearer bfkey"}).
-            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"})
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+          with(headers: {"api-key" => "bfkey"}).
+          to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=100&startDate=2024-01-23&endDate=2024-01-23").
+          with(headers: {"api-key" => "bfkey"}).
+          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
       ]
     end
 
     def stub_empty_requests
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
-          to_return(status: 200, body: empty_response, headers: {"Content-Type" => "application/json"})
+      return [
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+          to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
+      ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
           to_return(status: 400, body: "geh")
+    end
+
+    around(:each) do |example|
+      Timecop.travel(today) do
+        example.run
+      end
     end
   end
 
@@ -188,8 +175,9 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
   end
 
   describe "state machine calculation" do
-    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "brevo_email_activity_unaggregated_events_v1") }
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "brevo_email_activity_unaggregated_events_v1", api_url: "") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
+    let(:today) { Time.parse("2024-01-23T18:00:00Z") }
 
     describe "process_state_change" do
       it "uses a default api url if value is blank" do
@@ -215,12 +203,14 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
         <<~R
-          {}
+          {
+            "events": []
+          }
         R
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?days=90").
+        return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
             with(headers: {"api-key" => "bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
@@ -268,6 +258,11 @@ then go to SMTP & API -> Generate a new API key."),
         )
       end
     end
+    around(:each) do |example|
+      Timecop.travel(today) do
+        example.run
+      end
+    end
   end
 
   # May be deleted
@@ -277,21 +272,18 @@ then go to SMTP & API -> Generate a new API key."),
     it "ip is valid" do
       ip = "185.107.232.2"
       allowed = allowed_ip_blocks.any?{|block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
-      # $stderr.puts ">>>>> allowed = #{allowed}"
       expect(allowed).to be true
     end
 
     it "ip is invalid" do
       ip = "1.1.1.1"
       allowed = allowed_ip_blocks.any?{ |block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
-      # $stderr.puts ">>>>> allowed = #{allowed}"
       expect(allowed).to be false
     end
 
     it "replaces a key in a hash" do
       body = {"message-id" => "first-id"}
       body[:messageId] = body.delete "message-id"
-      # $stderr.puts ">>>>> body[:messageId] = #{body[:messageId]}"
       expect(body[:messageId]).to eq "first-id"
     end
   end

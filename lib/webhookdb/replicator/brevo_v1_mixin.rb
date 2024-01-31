@@ -95,11 +95,15 @@ Leave blank to use the default or paste the answer into this prompt.
     return "An error occurred. Please reenter the API Key you just created:"
   end
 
-  # Fetches the last 90 days (maximum) worth of events, including today's.
-  # e.g., https://api.brevo.com/v3/smtp/statistics/events?days=90
   # All types of events will be included.
-  def _fetch_backfill_page(*)
-    query = {days: 90}
+  def _fetch_backfill_page(pagination_token, **_kwargs)
+    today = Time.now.utc.to_date
+    query = {limit: 100, startDate: today, endDate: today}
+    query[:offset] = if pagination_token.present?
+      pagination_token
+    else
+      0
+    end
     response = Webhookdb::Http.get(
       self._mixin_backfill_url,
       query,
@@ -107,6 +111,10 @@ Leave blank to use the default or paste the answer into this prompt.
       logger: self.logger,
       timeout: Webhookdb::Increase.http_timeout,
     )
-    return response.parsed_response["events"]
+    data = response.parsed_response
+    events = data.fetch('events', [])
+    has_next_page = events.present?
+    next_page_offset = has_next_page ? query[:offset] + 100 : nil
+    return events, next_page_offset
   end
 end
