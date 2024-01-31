@@ -3,8 +3,6 @@
 require "webhookdb/brevo"
 
 module Webhookdb::Replicator::BrevoV1Mixin
-  BREVO_HEADER_PREFIX = 'BREVO'
-
   def _mixin_backfill_url
     raise NotImplementedError
   end
@@ -95,6 +93,7 @@ Leave blank to use the default or paste the answer into this prompt.
     return "An error occurred. Please reenter the API Key you just created:"
   end
 
+  # See https://developers.brevo.com/reference/getemaileventreport-1
   # All types of events will be included.
   def _fetch_backfill_page(pagination_token, **_kwargs)
     today = Time.now.utc.to_date

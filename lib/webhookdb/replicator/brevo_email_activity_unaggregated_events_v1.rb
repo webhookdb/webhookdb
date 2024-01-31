@@ -39,8 +39,6 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
     )
   end
 
-  # This returns a union of all webhook schemas, defined in https://developers.brevo.com/docs/transactional-webhooks.
-  # The backfill API endpoint (https://api.brevo.com/v3/smtp/statistics/events) only returns a subset of these.
   def _denormalized_columns
     return [
       Webhookdb::Replicator::Column.new(:event, TEXT, index: true),
