@@ -227,7 +227,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       org.remove_related_database
     end
 
-    it "enques a calendar sync for integration row needing a sync", sidekiq: :fake do
+    it "enqueues a splayed calendar sync for integration row needing a sync", sidekiq: :fake do
       sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
@@ -235,10 +235,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           row_updated_at: Time.now,
           external_id: "abc",
         )
+        ds.insert(
+          data: "{}",
+          row_created_at: Time.now,
+          row_updated_at: Time.now,
+          external_id: "xyz",
+        )
       end
       Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
       expect(Sidekiq).to have_queue.consisting_of(
-        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "abc"]),
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "abc"], at: be > Time.now.to_f),
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "xyz"], at: be > Time.now.to_f),
       )
     end
   end
