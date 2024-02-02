@@ -125,10 +125,9 @@ The secret to use for signing is:
   end
 
   CLEANUP_SERVICE_NAMES = ["icalendar_event_v1"].freeze
-  SYNC_PERIOD = 4.hours
 
   def rows_needing_sync(dataset, now: Time.now)
-    cutoff = now - SYNC_PERIOD
+    cutoff = now - Webhookdb::Icalendar.sync_period_hours.hours
     return dataset.where(Sequel[last_synced_at: nil] | Sequel.expr { last_synced_at < cutoff })
   end
 
