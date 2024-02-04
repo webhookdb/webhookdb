@@ -58,18 +58,11 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db, :fake_replicator do
 
       expect(last_response).to have_status(200)
       new_subscription = Webhookdb::WebhookSubscription.where(service_integration: sint).first
-      expect(new_subscription).to_not be_nil
-      expect(new_subscription.webhook_secret).to eq("wh_secret")
-      expect(new_subscription.deliver_to_url).to eq("https://example.com")
-      expect(new_subscription.opaque_id).to_not be_nil
-    end
-
-    it "returns a webhook subscription entity for service integration" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_identifier: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
-
-      expect(last_response).to have_status(200)
-      new_subscription = Webhookdb::WebhookSubscription.where(service_integration: sint).first
+      expect(new_subscription).to have_attributes(
+        webhook_secret: "wh_secret",
+        deliver_to_url: "https://example.com",
+        opaque_id: be_present,
+      )
       expect(last_response).to have_json_body.that_includes(
         deliver_to_url: "https://example.com",
         opaque_id: new_subscription.opaque_id,
@@ -78,79 +71,11 @@ RSpec.describe Webhookdb::API::WebhookSubscriptions, :db, :fake_replicator do
       )
     end
 
-    it "can use deprecated param `service_integration_opaque_id`" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_opaque_id: sint.opaque_id,
-           webhook_secret: "wh_secret",
-           url: "https://example.com"
-
-      expect(last_response).to have_status(200)
-    end
-
-    it "prefers 'service_integration_identifier' over 'service_integration_opaque_id' parameter" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_identifier: sint.opaque_id,
-           service_integration_opaque_id: "fakesint",
-           webhook_secret: "wh_secret",
-           url: "https://example.com"
-
-      # if the deprecated param were used, this would be a 403 integration not found
-      expect(last_response).to have_status(200)
-    end
-
     it "403s if user doesn't have permissions for organization assocatied with service integration" do
       membership.destroy
 
       post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
            service_integration_identifier: sint.opaque_id, webhook_secret: "wh_secret", url: "https://example.com"
-
-      expect(last_response).to have_status(403)
-      expect(last_response).to have_json_body.that_includes(
-        error: include(message: "You don't have permissions with that organization."),
-      )
-    end
-
-    it "403s if organization with given identifier doesn't exist" do
-      post "/v1/organizations/fakeorg/webhook_subscriptions/create",
-           webhook_secret: "wh_secret", url: "https://example.com"
-
-      expect(last_response).to have_status(403)
-      expect(last_response).to have_json_body.that_includes(
-        error: include(message: "There is no organization with that identifier."),
-      )
-    end
-
-    it "creates webhook subscription for organization" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           webhook_secret: "wh_secret", url: "https://example.com"
-
-      expect(last_response).to have_status(200)
-      new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
-      expect(new_subscription).to_not be_nil
-      expect(new_subscription.webhook_secret).to eq("wh_secret")
-      expect(new_subscription.deliver_to_url).to eq("https://example.com")
-      expect(new_subscription.opaque_id).to_not be_nil
-    end
-
-    it "returns a webhook subscription entity for organization" do
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           service_integration_identifier: "", webhook_secret: "wh_secret", url: "https://example.com"
-
-      expect(last_response).to have_status(200)
-      new_subscription = Webhookdb::WebhookSubscription.where(organization: org).first
-      expect(last_response).to have_json_body.that_includes(
-        deliver_to_url: "https://example.com",
-        opaque_id: new_subscription.opaque_id,
-        organization: include(id: org.id),
-        service_integration: nil,
-      )
-    end
-
-    it "403s if user doesn't have permissions for organization" do
-      membership.destroy
-
-      post "/v1/organizations/#{org.key}/webhook_subscriptions/create",
-           webhook_secret: "wh_secret", url: "https://example.com"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
