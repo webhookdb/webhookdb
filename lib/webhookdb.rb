@@ -179,6 +179,17 @@ module Webhookdb
     "9" => "nine",
   }.freeze
 
+  def self.parse_bool(s)
+    # rubocop:disable Style/NumericPredicate
+    return false if s == nil? || s.blank? || s == 0
+    # rubocop:enable Style/NumericPredicate
+    return true if s.is_a?(Integer)
+    sb = s.to_s.downcase
+    return true if ["true", "t", "yes", "y", "on", "1"].include?(sb)
+    return false if ["false", "f", "no", "n", "off", "0"].include?(sb)
+    raise ArgumentError, "unparseable bool: #{s.inspect}"
+  end
+
   # Return the request user and admin stored in TLS. See service.rb for implementation.
   #
   # Note that the second return value (the admin) will be nil if not authed as an admin,
