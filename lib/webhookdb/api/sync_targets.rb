@@ -112,18 +112,14 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             params do
               use :connection_url
               use :sync_target_params
-              optional :service_integration_opaque_id,
-                       type: String, allow_blank: false,
-                       desc: "This is a deprecated parameter. In the future, please use `service_integration_identifier`."
-              optional :service_integration_identifier, type: String, allow_blank: false
-              at_least_one_of :service_integration_opaque_id, :service_integration_identifier
+              requires :service_integration_identifier, type: String, allow_blank: false
             end
             route_setting :target_type, target_type_resource
             post :create do
               customer = current_customer
               org = lookup_org!(customer:)
               ensure_admin!(org, customer:)
-              identifier = params[:service_integration_identifier] || params[:service_integration_opaque_id]
+              identifier = params[:service_integration_identifier]
               sint = lookup_service_integration!(org, identifier)
 
               validate_period!(sint.organization, params[:period_seconds])
