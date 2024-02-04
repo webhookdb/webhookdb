@@ -99,37 +99,6 @@ RSpec.describe Webhookdb::API::SyncTargets, :db do
         )
       end
 
-      it "can use deprecated 'service_integration_opaque_id' parameter" do
-        post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             service_integration_opaque_id: sint.opaque_id,
-             connection_url: valid_pg_url,
-             period_seconds: 600
-
-        expect(last_response).to have_status(200)
-      end
-
-      it "prefers 'service_integration_identifier' over 'service_integration_opaque_id' parameter" do
-        post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             service_integration_identifier: sint.opaque_id,
-             service_integration_opaque_id: "fakesint",
-             connection_url: valid_pg_url,
-             period_seconds: 600
-
-        # if the deprecated param were used, this would be a 403 integration not found
-        expect(last_response).to have_status(200)
-      end
-
-      it "errors if no service integration id parameter has been submitted" do
-        post "/v1/organizations/#{org.key}/sync_targets/db/create",
-             connection_url: valid_pg_url,
-             period_seconds: 600
-
-        expect(last_response).to have_status(400)
-        expect(last_response).to have_json_body.that_includes(
-          error: include(message: match("at least one parameter must be provided")),
-        )
-      end
-
       it "403s if service integration with given identifier doesn't exist" do
         post "/v1/organizations/#{org.key}/sync_targets/db/create",
              service_integration_identifier: "fakesint", connection_url: "postgres://u:p@a.b", period_seconds: 600
