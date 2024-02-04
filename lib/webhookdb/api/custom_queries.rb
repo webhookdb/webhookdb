@@ -77,91 +77,83 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
           present cq, with: CustomQueryEntity, message:
         end
 
-        desc "Returns the query with the given identifier."
-        params do
-          optional :query_identifier, type: String, prompt: "What query would you like to see? "
-        end
-        get :lookup do
-          cq = lookup!
-          status 200
-          message = "See #{Webhookdb::CustomQuery::DOCS_URL} to see how to run or modify your query."
-          present cq, with: CustomQueryEntity, message:
-        end
-
-        desc "Runs the query with the given identifier."
-        params do
-          optional :query_identifier, type: String, prompt: "What query would you like to run? "
-        end
-        get :run do
-          _customer = current_customer
-          org = lookup_org!
-          cq = lookup!
-          r, msg = execute_readonly_query_with_suggestion(org, cq.sql)
-          merror!(400, msg) if r.nil?
-          status 200
-          present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
-        end
-
-        desc "Updates the field on a custom query."
-        params do
-          optional :query_identifier, type: String, prompt: "What query would you like to update? "
-          optional :field, type: String, prompt: "What field would you like to update (one of: " \
-                                                 "#{Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
-          optional :value, type: String, prompt: "What is the new value? "
-        end
-        post :update do
-          customer = current_customer
-          cq = lookup!
-          guard_editable!(customer, cq)
-          # Instead of specifying which values are valid for the optional `field` param in the param declaration,
-          # we do the validation here so that we can provide a more helpful error message
-          unless Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.include?(params[:field])
-            merror!(400, "That field is not editable.")
+        route_param :query_identifier, type: String do
+          desc "Returns the query with the given identifier."
+          get do
+            cq = lookup!
+            status 200
+            message = "See #{Webhookdb::CustomQuery::DOCS_URL} to see how to run or modify your query."
+            present cq, with: CustomQueryEntity, message:
           end
-          value = params[:value]
-          case params[:field]
-            when "public"
-              begin
-                value = Webhookdb.parse_bool(value)
-              rescue ArgumentError => e
-                Webhookdb::API::Helpers.prompt_for_required_param!(
-                  request,
-                  :value,
-                  e.message + "\nAny boolean-like string (true, false, yes, no, etc) will work:",
-                )
-              end
-              cq.public = value
-            when "sql"
-              r, msg = execute_readonly_query_with_suggestion(cq.organization, value)
-              if r.nil?
-                Webhookdb::API::Helpers.prompt_for_required_param!(
-                  request,
-                  :value,
-                  "Enter your query:",
-                  output: msg,
-                )
-              end
-              cq.sql = value
-            else
-              cq.send(:"#{params[:field]}=", value)
-          end
-          cq.save_changes
-          status 200
-          message = "You have updated saved query #{cq.opaque_id} with #{params[:field]} set to #{value}"
-          present cq, with: CustomQueryEntity, message:
-        end
 
-        params do
-          optional :query_identifier, type: String, prompt: "What query would you like to delete? "
-        end
-        post :delete do
-          customer = current_customer
-          cq = lookup!
-          guard_editable!(customer, cq)
-          cq.destroy
-          status 200
-          present cq, with: CustomQueryEntity,
-                      message: "You have successfully deleted the saved query '#{cq.description}'."
+          desc "Runs the query with the given identifier."
+          get :run do
+            _customer = current_customer
+            org = lookup_org!
+            cq = lookup!
+            r, msg = execute_readonly_query_with_suggestion(org, cq.sql)
+            merror!(400, msg) if r.nil?
+            status 200
+            present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
+          end
+
+          desc "Updates the field on a custom query."
+          params do
+            optional :field, type: String, prompt: "What field would you like to update (one of: " \
+                                                   "#{Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
+            optional :value, type: String, prompt: "What is the new value? "
+          end
+          post :update do
+            customer = current_customer
+            cq = lookup!
+            guard_editable!(customer, cq)
+            # Instead of specifying which values are valid for the optional `field` param in the param declaration,
+            # we do the validation here so that we can provide a more helpful error message
+            unless Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.include?(params[:field])
+              merror!(400, "That field is not editable.")
+            end
+            value = params[:value]
+            case params[:field]
+              when "public"
+                begin
+                  value = Webhookdb.parse_bool(value)
+                rescue ArgumentError => e
+                  Webhookdb::API::Helpers.prompt_for_required_param!(
+                    request,
+                    :value,
+                    e.message + "\nAny boolean-like string (true, false, yes, no, etc) will work:",
+                  )
+                end
+                cq.public = value
+              when "sql"
+                r, msg = execute_readonly_query_with_suggestion(cq.organization, value)
+                if r.nil?
+                  Webhookdb::API::Helpers.prompt_for_required_param!(
+                    request,
+                    :value,
+                    "Enter your query:",
+                    output: msg,
+                  )
+                end
+                cq.sql = value
+              else
+                cq.send(:"#{params[:field]}=", value)
+            end
+            cq.save_changes
+            status 200
+            message = "You have updated saved query #{cq.opaque_id} with #{params[:field]} set to #{value}"
+            present cq, with: CustomQueryEntity, message:
+          end
+
+          post :delete do
+            customer = current_customer
+            cq = lookup!
+            guard_editable!(customer, cq)
+            cq.destroy
+            status 200
+            present cq, with: CustomQueryEntity,
+                        message: "You have successfully deleted the saved query '#{cq.description}'."
+          end
         end
       end
     end
