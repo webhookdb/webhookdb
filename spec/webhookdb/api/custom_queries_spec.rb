@@ -137,7 +137,8 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "403s if the query with the given opaque id does not exist" do
-      get "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/run"
+      get "/v1/organizations/#{org.key}/custom_queries/abc/run"
+
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /There is no saved query with that/),
@@ -186,7 +187,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
            field: "description", value: "foobar"
 
       expect(last_response).to have_status(200)
-      expect(last_response).to have_json_body.that_includes(message: include("updated saved query"))
+      expect(last_response).to have_json_body.that_includes(message: include("on saved query"))
       expect(other_cq.refresh).to have_attributes(description: "foobar")
     end
 
@@ -205,7 +206,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        message: "You have updated saved query #{custom_query.opaque_id} with description set to foobar",
+        message: "You have updated 'description' on saved query '#{custom_query.opaque_id}'.",
         description: "foobar",
       )
       expect(custom_query.refresh).to have_attributes(description: "foobar")
@@ -278,6 +279,64 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: /There is no saved query with that id/),
+      )
+    end
+  end
+
+  describe "POST /v1/organizations/:key/custom_queries/:opaque_id/info" do
+    let(:cq) { Webhookdb::Fixtures.custom_query(organization: org).create }
+
+    before(:each) do
+      login_as(customer)
+    end
+
+    it "returns all fields if none are given" do
+      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        blocks: include(
+          include(
+            type: "table",
+            value: include(
+              headers: ["Field", "Value"],
+              rows: include(["Description", cq.description]),
+            ),
+          ),
+        ),
+      )
+    end
+
+    it "returns opaque_id if asked for `id`" do
+      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "id"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        blocks: [
+          {
+            type: "line",
+            value: cq.opaque_id,
+          },
+        ],
+      )
+    end
+
+    it "returns directly-mapped field names like sql and public" do
+      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "public"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        blocks: [
+          {
+            type: "line",
+            value: false,
+          },
+        ],
+      )
+    end
+
+    it "400s if asked about an unsupported field" do
+      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "organization_id"
+      expect(last_response).to have_status(400)
+      expect(last_response).to have_json_body.that_includes(
+        error: include(message: match("Field does not have a valid value")),
       )
     end
   end

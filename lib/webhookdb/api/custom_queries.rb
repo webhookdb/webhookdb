@@ -141,8 +141,32 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
             end
             cq.save_changes
             status 200
-            message = "You have updated saved query #{cq.opaque_id} with #{params[:field]} set to #{value}"
+            # Do not render the value here, it can be very long.
+            message = "You have updated '#{params[:field]}' on saved query '#{cq.opaque_id}'."
             present cq, with: CustomQueryEntity, message:
+          end
+
+          params do
+            optional :field, type: String, values: Webhookdb::CustomQuery::INFO_FIELDS.keys + [""]
+          end
+          post :info do
+            cq = lookup!
+            data = Webhookdb::CustomQuery::INFO_FIELDS.
+              to_h { |k, v| [k.to_sym, cq.send(v)] }
+
+            field_name = params[:field]
+            blocks = Webhookdb::Formatting.blocks
+            if field_name.present?
+              blocks.line(data.fetch(field_name.to_sym))
+            else
+              rows = data.map do |k, v|
+                [k.to_s.humanize, v]
+              end
+              blocks.table(["Field", "Value"], rows)
+            end
+            r = {blocks: blocks.as_json}
+            status 200
+            present r
           end
 
           post :delete do
@@ -164,9 +188,6 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
       get :run do
         # This endpoint can be used publicly, so should expose as little information as possible.
         # Do not expose permissions or query details.
-        # _customer = current_customer
-        # org = lookup_org!
-        # cq = lookup!
         cq = Webhookdb::CustomQuery[opaque_id: params[:query_identifier]]
         forbidden! if cq.nil?
         if cq.private?
@@ -189,9 +210,10 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
     expose :description
     expose :sql
     expose :public
+    expose :run_url
 
     def self.display_headers
-      return [[:opaque_id, "Id"], [:description, "Description"], [:sql, "Sql"], [:public, "Public"]]
+      return [[:id, "Id"], [:description, "Description"], [:public, "Public"], [:run_url, "Run URL"], [:sql, "Sql"]]
     end
   end
 end

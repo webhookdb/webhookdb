@@ -4,6 +4,13 @@ class Webhookdb::CustomQuery < Webhookdb::Postgres::Model(:custom_queries)
   plugin :timestamps
 
   CLI_EDITABLE_FIELDS = ["description", "sql", "public"].freeze
+  INFO_FIELDS = {
+    "description" => :description,
+    "sql" => :sql,
+    "public" => :public,
+    "id" => :opaque_id,
+    "run_url" => :run_url,
+  }.freeze
   DOCS_URL = "https://docs.webhookdb.com/docs/integrating/saved-queries.html"
 
   many_to_one :organization, class: "Webhookdb::Organization"
@@ -16,4 +23,6 @@ class Webhookdb::CustomQuery < Webhookdb::Postgres::Model(:custom_queries)
     self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("cq")
     super
   end
+
+  def run_url = "#{Webhookdb.api_url}/v1/custom_queries/#{self.opaque_id}/run"
 end
