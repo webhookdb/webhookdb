@@ -60,13 +60,22 @@ module Webhookdb::API
             return org
           end
 
-          def ensure_admin!(org=nil, customer: nil)
+          # rubocop:disable Naming/PredicateName
+          def has_admin?(org=nil, customer: nil)
+            # rubocop:enable Naming/PredicateName
             customer ||= current_customer
             org ||= lookup_org!
             has_no_admin = org.verified_memberships_dataset.
               where(customer:, membership_role: Webhookdb::Role.admin_role).
               empty?
-            permission_error!("You don't have admin privileges with #{org.name}.") if has_no_admin
+            return !has_no_admin
+          end
+
+          def ensure_admin!(org=nil, customer: nil)
+            org ||= lookup_org!
+            admin = has_admin?(org, customer:)
+            # noinspection RubyNilAnalysis
+            permission_error!("You don't have admin privileges with #{org.name}.") unless admin
           end
         end
 
