@@ -11,13 +11,13 @@ require "webhookdb/sentry"
 require "webhookdb/service"
 
 require "webhookdb/api/auth"
-require "webhookdb/api/custom_queries"
 require "webhookdb/api/db"
 require "webhookdb/api/demo"
 require "webhookdb/api/install"
 require "webhookdb/api/me"
 require "webhookdb/api/organizations"
 require "webhookdb/api/replay"
+require "webhookdb/api/saved_queries"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/services"
 require "webhookdb/api/stripe"
@@ -63,13 +63,13 @@ module Webhookdb::Apps
 
   class API < Webhookdb::Service
     mount Webhookdb::API::Auth
-    mount Webhookdb::API::CustomQueries
     mount Webhookdb::API::Db
     mount Webhookdb::API::Demo
     mount Webhookdb::API::Install
     mount Webhookdb::API::Me
     mount Webhookdb::API::Organizations
     mount Webhookdb::API::Replay
+    mount Webhookdb::API::SavedQueries
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Services
     mount Webhookdb::API::Stripe

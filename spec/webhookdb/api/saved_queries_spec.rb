@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "webhookdb/api/custom_queries"
+require "webhookdb/api/saved_queries"
 
-RSpec.describe Webhookdb::API::CustomQueries, :db do
+RSpec.describe Webhookdb::API::SavedQueries, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
@@ -13,28 +13,28 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     login_as(customer)
   end
 
-  describe "GET /v1/organizations/:key/custom_queries" do
+  describe "GET /v1/organizations/:key/saved_queries" do
     it "returns a list of custom queries for the organization" do
-      custom_query = Webhookdb::Fixtures.custom_query(organization: org).create
-      Webhookdb::Fixtures.custom_query.create
+      saved_query = Webhookdb::Fixtures.saved_query(organization: org).create
+      Webhookdb::Fixtures.saved_query.create
 
-      get "/v1/organizations/#{org.key}/custom_queries"
+      get "/v1/organizations/#{org.key}/saved_queries"
 
       expect(last_response.status).to eq(200)
       expect(last_response).to have_json_body.
-        that_includes(items: contain_exactly(include(id: custom_query.opaque_id)))
+        that_includes(items: contain_exactly(include(id: saved_query.opaque_id)))
     end
 
     it "returns a message if organization has no custom queries" do
       new_org = Webhookdb::Fixtures.organization.with_member(customer).create
-      get "/v1/organizations/#{new_org.key}/custom_queries"
+      get "/v1/organizations/#{new_org.key}/saved_queries"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(message: include("have any saved queries"))
     end
   end
 
-  describe "POST /v1/organizations/:key/custom_queries/create" do
+  describe "POST /v1/organizations/:key/saved_queries/create" do
     before(:each) do
       org.prepare_database_connections
     end
@@ -44,7 +44,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "creates a custom query" do
-      post "/v1/organizations/#{org.key}/custom_queries/create", description: "myq", sql: "SELECT 1"
+      post "/v1/organizations/#{org.key}/saved_queries/create", description: "myq", sql: "SELECT 1"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
@@ -52,13 +52,13 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
         sql: "SELECT 1",
         public: false,
       )
-      expect(org.custom_queries).to contain_exactly(
+      expect(org.saved_queries).to contain_exactly(
         have_attributes(created_by: customer, sql: "SELECT 1", public: false),
       )
     end
 
     it "fails if the SQL cannot be run" do
-      post "/v1/organizations/#{org.key}/custom_queries/create", description: "myq", sql: "SELECT invalid"
+      post "/v1/organizations/#{org.key}/saved_queries/create", description: "myq", sql: "SELECT invalid"
 
       expect(last_response).to have_status(422)
       expect(last_response).to have_json_body.that_includes(
@@ -67,32 +67,32 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "can create a public query" do
-      post "/v1/organizations/#{org.key}/custom_queries/create", description: "myq", sql: "SELECT 1", public: true
+      post "/v1/organizations/#{org.key}/saved_queries/create", description: "myq", sql: "SELECT 1", public: true
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(public: true)
-      expect(org.custom_queries).to contain_exactly(have_attributes(public: true))
+      expect(org.saved_queries).to contain_exactly(have_attributes(public: true))
     end
   end
 
-  describe "GET /v1/organizations/:key/custom_queries/:id" do
+  describe "GET /v1/organizations/:key/saved_queries/:id" do
     it "returns the custom query" do
-      cq = Webhookdb::Fixtures.custom_query(organization: org).create
+      sq = Webhookdb::Fixtures.saved_query(organization: org).create
 
-      get "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}"
+      get "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         sql: "SELECT * FROM mytable",
-        id: cq.opaque_id,
+        id: sq.opaque_id,
         message: include("to see how to"),
       )
     end
 
     it "403s if the query with the given opaque id does not exist" do
-      cq = Webhookdb::Fixtures.custom_query.create
+      sq = Webhookdb::Fixtures.saved_query.create
 
-      get "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}"
+      get "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -101,7 +101,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
   end
 
-  describe "GET /v1/organizations/:key/custom_queries/:id/run" do
+  describe "GET /v1/organizations/:key/saved_queries/:id/run" do
     it "runs the query with the given opaque id and returns results" do
       org.prepare_database_connections
 
@@ -111,9 +111,9 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
         ds.db << "INSERT INTO fake_v1 (my_id, data) VALUES ('abcxyz', '{}')"
       end
 
-      cq = Webhookdb::Fixtures.custom_query.create(organization: org, sql: "SELECT * FROM fake_v1")
+      sq = Webhookdb::Fixtures.saved_query.create(organization: org, sql: "SELECT * FROM fake_v1")
 
-      get "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/run"
+      get "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/run"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
@@ -126,9 +126,9 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
 
     it "400s if the query fails" do
       org.prepare_database_connections
-      cq = Webhookdb::Fixtures.custom_query.create(organization: org, sql: "SELECT invalid")
+      sq = Webhookdb::Fixtures.saved_query.create(organization: org, sql: "SELECT invalid")
 
-      get "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/run"
+      get "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/run"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(error: include(message: /Something went wrong/))
@@ -137,7 +137,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "403s if the query with the given opaque id does not exist" do
-      get "/v1/organizations/#{org.key}/custom_queries/abc/run"
+      get "/v1/organizations/#{org.key}/saved_queries/abc/run"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -146,11 +146,11 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
   end
 
-  describe "POST /v1/organizations/:key/custom_queries/:id/update" do
-    let(:custom_query) { Webhookdb::Fixtures.custom_query(organization: org, created_by: customer).create }
+  describe "POST /v1/organizations/:key/saved_queries/:id/update" do
+    let(:saved_query) { Webhookdb::Fixtures.saved_query(organization: org, created_by: customer).create }
 
     it "prompts for field" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update"
+      post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update"
 
       expect(last_response).to have_status(422)
       expect(last_response).to have_json_body.
@@ -160,7 +160,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "prompts for value" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update", field: "description"
+      post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update", field: "description"
 
       expect(last_response).to have_status(422)
       expect(last_response).to have_json_body.
@@ -168,9 +168,9 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "403s if request customer isn't the person who created the query or an admin" do
-      other_cq = Webhookdb::Fixtures.custom_query(organization: org).create
+      other_sq = Webhookdb::Fixtures.saved_query(organization: org).create
 
-      post "/v1/organizations/#{org.key}/custom_queries/#{other_cq.opaque_id}/update",
+      post "/v1/organizations/#{org.key}/saved_queries/#{other_sq.opaque_id}/update",
            field: "description", value: "foobar"
 
       expect(last_response).to have_status(403)
@@ -180,19 +180,19 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "succeeds if the request customer is an org admin" do
-      other_cq = Webhookdb::Fixtures.custom_query(organization: org).create
+      other_sq = Webhookdb::Fixtures.saved_query(organization: org).create
       customer.verified_memberships.first.update(membership_role: Webhookdb::Role.admin_role)
 
-      post "/v1/organizations/#{org.key}/custom_queries/#{other_cq.opaque_id}/update",
+      post "/v1/organizations/#{org.key}/saved_queries/#{other_sq.opaque_id}/update",
            field: "description", value: "foobar"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: include("on saved query"))
-      expect(other_cq.refresh).to have_attributes(description: "foobar")
+      expect(other_sq.refresh).to have_attributes(description: "foobar")
     end
 
     it "400s if field is not editable via the cli" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update", field: "id", value: "123"
+      post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update", field: "id", value: "123"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
@@ -201,39 +201,39 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "updates the saved query" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+      post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
            field: "description", value: "foobar"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
-        message: "You have updated 'description' on saved query '#{custom_query.opaque_id}'.",
+        message: "You have updated 'description' on saved query '#{saved_query.opaque_id}'.",
         description: "foobar",
       )
-      expect(custom_query.refresh).to have_attributes(description: "foobar")
+      expect(saved_query.refresh).to have_attributes(description: "foobar")
     end
 
     describe "setting the 'public' field" do
       it "can set it to true" do
-        post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+        post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
              field: "public", value: "on"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(public: true)
-        expect(custom_query.refresh).to have_attributes(public: true)
+        expect(saved_query.refresh).to have_attributes(public: true)
       end
 
       it "can set it to false" do
-        custom_query.update(public: true)
-        post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+        saved_query.update(public: true)
+        post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
              field: "public", value: "off"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(public: false)
-        expect(custom_query.refresh).to have_attributes(public: false)
+        expect(saved_query.refresh).to have_attributes(public: false)
       end
 
       it "errors with a clear message if the boolean string is invalid" do
-        post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+        post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
              field: "public", value: "-"
 
         expect(last_response).to have_status(422)
@@ -253,7 +253,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       end
 
       it "422s if the field is sql and the value is not a valid query" do
-        post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+        post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
              field: "sql", value: "SELECT invalid"
 
         expect(last_response).to have_status(422)
@@ -262,18 +262,18 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       end
 
       it "sets it if valid" do
-        post "/v1/organizations/#{org.key}/custom_queries/#{custom_query.opaque_id}/update",
+        post "/v1/organizations/#{org.key}/saved_queries/#{saved_query.opaque_id}/update",
              field: "sql", value: "SELECT 503"
 
         expect(last_response).to have_status(200)
-        expect(custom_query.refresh).to have_attributes(sql: "SELECT 503")
+        expect(saved_query.refresh).to have_attributes(sql: "SELECT 503")
       end
     end
 
     it "403s if the query does not belong to the org or does not exist" do
-      cq = Webhookdb::Fixtures.custom_query.create
+      sq = Webhookdb::Fixtures.saved_query.create
 
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/update",
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/update",
            field: "name", value: "foobar"
 
       expect(last_response).to have_status(403)
@@ -283,15 +283,15 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
   end
 
-  describe "POST /v1/organizations/:key/custom_queries/:opaque_id/info" do
-    let(:cq) { Webhookdb::Fixtures.custom_query(organization: org).create }
+  describe "POST /v1/organizations/:key/saved_queries/:opaque_id/info" do
+    let(:sq) { Webhookdb::Fixtures.saved_query(organization: org).create }
 
     before(:each) do
       login_as(customer)
     end
 
     it "returns all fields if none are given" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/info"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         blocks: include(
@@ -299,7 +299,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
             type: "table",
             value: include(
               headers: ["Field", "Value"],
-              rows: include(["Description", cq.description]),
+              rows: include(["Description", sq.description]),
             ),
           ),
         ),
@@ -307,20 +307,20 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "returns opaque_id if asked for `id`" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "id"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/info", field: "id"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         blocks: [
           {
             type: "line",
-            value: cq.opaque_id,
+            value: sq.opaque_id,
           },
         ],
       )
     end
 
     it "returns directly-mapped field names like sql and public" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "public"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/info", field: "public"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         blocks: [
@@ -333,7 +333,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "400s if asked about an unsupported field" do
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/info", field: "organization_id"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/info", field: "organization_id"
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.that_includes(
         error: include(message: match("Field does not have a valid value")),
@@ -341,10 +341,10 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
   end
 
-  describe "POST /v1/organizations/:key/custom_queries/:id/delete" do
+  describe "POST /v1/organizations/:key/saved_queries/:id/delete" do
     it "403s if request customer isn't the person who created the query or an admin" do
-      other_query = Webhookdb::Fixtures.custom_query(organization: org).create
-      post "/v1/organizations/#{org.key}/custom_queries/#{other_query.opaque_id}/delete"
+      other_query = Webhookdb::Fixtures.saved_query(organization: org).create
+      post "/v1/organizations/#{org.key}/saved_queries/#{other_query.opaque_id}/delete"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -353,21 +353,21 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "deletes the query and returns correct response" do
-      cq = Webhookdb::Fixtures.custom_query(organization: org, created_by: customer).create
+      sq = Webhookdb::Fixtures.saved_query(organization: org, created_by: customer).create
 
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/delete"
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         message: /You have successfully deleted the saved query /,
       )
-      expect(cq).to be_destroyed
+      expect(sq).to be_destroyed
     end
 
     it "403s if the query does not belong to the org or does not exist" do
-      cq = Webhookdb::Fixtures.custom_query.create
+      sq = Webhookdb::Fixtures.saved_query.create
 
-      post "/v1/organizations/#{org.key}/custom_queries/#{cq.opaque_id}/delete"
+      post "/v1/organizations/#{org.key}/saved_queries/#{sq.opaque_id}/delete"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(
@@ -376,8 +376,8 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
   end
 
-  describe "GET /v1/custom_queries/:opaque_id/run" do
-    let(:cq) { Webhookdb::Fixtures.custom_query(organization: org, sql: "SELECT 1 as c1, 2 as c2").create }
+  describe "GET /v1/saved_queries/:opaque_id/run" do
+    let(:sq) { Webhookdb::Fixtures.saved_query(organization: org, sql: "SELECT 1 as c1, 2 as c2").create }
 
     before(:each) do
       logout
@@ -389,7 +389,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
     end
 
     it "403s if no query with an id exists" do
-      get "/v1/custom_queries/123/run"
+      get "/v1/saved_queries/123/run"
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(error: include(message: "Forbidden"))
@@ -397,9 +397,9 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
 
     it "400s if the query is invalid (do not expose info to the public)" do
       header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
-      cq.update(sql: "SELECT invalid")
+      sq.update(sql: "SELECT invalid")
 
-      get "/v1/custom_queries/#{cq.opaque_id}/run"
+      get "/v1/saved_queries/#{sq.opaque_id}/run"
 
       expect(last_response).to have_status(400)
       expect(last_response).to have_json_body.
@@ -410,7 +410,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       it "succeeds when valid for the custom query org" do
         header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
 
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(
@@ -422,7 +422,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       it "403s if invalid for the custom query org" do
         header "Whdb-Sha256-Conn", "foo"
 
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(error: include(message: "Forbidden"))
@@ -435,7 +435,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       end
 
       it "succeeds when the current customer can access the query" do
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(
@@ -447,7 +447,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       it "403s if the current customer cannot access the query" do
         customer.verified_memberships.first.destroy
 
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(error: include(message: "Forbidden"))
@@ -456,9 +456,9 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
 
     describe "without auth" do
       it "succeeds if the query is public" do
-        cq.update(public: true)
+        sq.update(public: true)
 
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(200)
         expect(last_response).to have_json_body.that_includes(
@@ -468,7 +468,7 @@ RSpec.describe Webhookdb::API::CustomQueries, :db do
       end
 
       it "403s if the query is private" do
-        get "/v1/custom_queries/#{cq.opaque_id}/run"
+        get "/v1/saved_queries/#{sq.opaque_id}/run"
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(error: include(message: "Forbidden"))

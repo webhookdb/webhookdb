@@ -5,12 +5,12 @@ require "faker"
 require "webhookdb"
 require "webhookdb/fixtures"
 
-module Webhookdb::Fixtures::CustomQueries
+module Webhookdb::Fixtures::SavedQueries
   extend Webhookdb::Fixtures
 
-  fixtured_class Webhookdb::CustomQuery
+  fixtured_class Webhookdb::SavedQuery
 
-  base :custom_query do
+  base :saved_query do
     self.description ||= Faker::Lorem.sentence
     self.sql ||= "SELECT * FROM mytable"
   end

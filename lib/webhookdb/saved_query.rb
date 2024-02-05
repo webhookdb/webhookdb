@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Webhookdb::CustomQuery < Webhookdb::Postgres::Model(:custom_queries)
+class Webhookdb::SavedQuery < Webhookdb::Postgres::Model(:saved_queries)
   plugin :timestamps
 
   CLI_EDITABLE_FIELDS = ["description", "sql", "public"].freeze
@@ -24,5 +24,5 @@ class Webhookdb::CustomQuery < Webhookdb::Postgres::Model(:custom_queries)
     super
   end
 
-  def run_url = "#{Webhookdb.api_url}/v1/custom_queries/#{self.opaque_id}/run"
+  def run_url = "#{Webhookdb.api_url}/v1/saved_queries/#{self.opaque_id}/run"
 end

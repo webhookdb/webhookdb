@@ -1,17 +1,17 @@
 # frozen_string_literal: true
 
 require "webhookdb/api"
-require "webhookdb/custom_query"
+require "webhookdb/saved_query"
 
-class Webhookdb::API::CustomQueries < Webhookdb::API::V1
+class Webhookdb::API::SavedQueries < Webhookdb::API::V1
   resource :organizations do
     route_param :org_identifier do
-      resource :custom_queries do
+      resource :saved_queries do
         helpers do
           def lookup!
             org = lookup_org!
             # We can add other identifiers in the future
-            cq = org.custom_queries_dataset[opaque_id: params[:query_identifier]]
+            cq = org.saved_queries_dataset[opaque_id: params[:query_identifier]]
             merror!(403, "There is no saved query with that identifier.") if cq.nil?
             return cq
           end
@@ -26,7 +26,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
             r, message = execute_readonly_query(org, sql)
             return r, nil unless r.nil?
             msg = "Something went wrong running your query. Perhaps a table it depends on was deleted. " \
-                  "Check out #{Webhookdb::CustomQuery::DOCS_URL} for troubleshooting tips. " \
+                  "Check out #{Webhookdb::SavedQuery::DOCS_URL} for troubleshooting tips. " \
                   "Here's what went wrong: #{message}"
             return r, msg
           end
@@ -34,13 +34,13 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
 
         desc "Returns a list of all custom queries associated with the org."
         get do
-          queries = lookup_org!.custom_queries
+          queries = lookup_org!.saved_queries
           message = ""
           if queries.empty?
             message = "This organization doesn't have any saved queries yet.\n" \
                       "Use `webhookdb saved-query create` to set one up."
           end
-          present_collection queries, with: CustomQueryEntity, message:
+          present_collection queries, with: SavedQueryEntity, message:
         end
 
         desc "Creates a custom query."
@@ -63,7 +63,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
                       "Use `webhookdb db connection` to get your query string.",
             )
           end
-          cq = Webhookdb::CustomQuery.create(
+          cq = Webhookdb::SavedQuery.create(
             description: params[:description],
             sql: params[:sql],
             organization: org,
@@ -72,9 +72,9 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
           )
           message = "You have created a new saved query with an id of '#{cq.opaque_id}'. " \
                     "You can run it through the CLI, or through the API with or without authentication. " \
-                    "See #{Webhookdb::CustomQuery::DOCS_URL} for more information."
+                    "See #{Webhookdb::SavedQuery::DOCS_URL} for more information."
           status 200
-          present cq, with: CustomQueryEntity, message:
+          present cq, with: SavedQueryEntity, message:
         end
 
         route_param :query_identifier, type: String do
@@ -82,8 +82,8 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
           get do
             cq = lookup!
             status 200
-            message = "See #{Webhookdb::CustomQuery::DOCS_URL} to see how to run or modify your query."
-            present cq, with: CustomQueryEntity, message:
+            message = "See #{Webhookdb::SavedQuery::DOCS_URL} to see how to run or modify your query."
+            present cq, with: SavedQueryEntity, message:
           end
 
           desc "Runs the query with the given identifier."
@@ -100,7 +100,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
           desc "Updates the field on a custom query."
           params do
             optional :field, type: String, prompt: "What field would you like to update (one of: " \
-                                                   "#{Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
+                                                   "#{Webhookdb::SavedQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
             optional :value, type: String, prompt: "What is the new value? "
           end
           post :update do
@@ -109,7 +109,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
             guard_editable!(customer, cq)
             # Instead of specifying which values are valid for the optional `field` param in the param declaration,
             # we do the validation here so that we can provide a more helpful error message
-            unless Webhookdb::CustomQuery::CLI_EDITABLE_FIELDS.include?(params[:field])
+            unless Webhookdb::SavedQuery::CLI_EDITABLE_FIELDS.include?(params[:field])
               merror!(400, "That field is not editable.")
             end
             value = params[:value]
@@ -143,15 +143,15 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
             status 200
             # Do not render the value here, it can be very long.
             message = "You have updated '#{params[:field]}' on saved query '#{cq.opaque_id}'."
-            present cq, with: CustomQueryEntity, message:
+            present cq, with: SavedQueryEntity, message:
           end
 
           params do
-            optional :field, type: String, values: Webhookdb::CustomQuery::INFO_FIELDS.keys + [""]
+            optional :field, type: String, values: Webhookdb::SavedQuery::INFO_FIELDS.keys + [""]
           end
           post :info do
             cq = lookup!
-            data = Webhookdb::CustomQuery::INFO_FIELDS.
+            data = Webhookdb::SavedQuery::INFO_FIELDS.
               to_h { |k, v| [k.to_sym, cq.send(v)] }
 
             field_name = params[:field]
@@ -175,7 +175,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
             guard_editable!(customer, cq)
             cq.destroy
             status 200
-            present cq, with: CustomQueryEntity,
+            present cq, with: SavedQueryEntity,
                         message: "You have successfully deleted the saved query '#{cq.description}'."
           end
         end
@@ -183,12 +183,12 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
     end
   end
 
-  resource :custom_queries do
+  resource :saved_queries do
     route_param :query_identifier, type: String do
       get :run do
         # This endpoint can be used publicly, so should expose as little information as possible.
         # Do not expose permissions or query details.
-        cq = Webhookdb::CustomQuery[opaque_id: params[:query_identifier]]
+        cq = Webhookdb::SavedQuery[opaque_id: params[:query_identifier]]
         forbidden! if cq.nil?
         if cq.private?
           authed = Webhookdb::API::ConnstrAuth.find_authed([cq.organization], request)
@@ -205,7 +205,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
     end
   end
 
-  class CustomQueryEntity < Webhookdb::API::BaseEntity
+  class SavedQueryEntity < Webhookdb::API::BaseEntity
     expose :opaque_id, as: :id
     expose :description
     expose :sql

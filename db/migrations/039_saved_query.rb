@@ -2,7 +2,7 @@
 
 Sequel.migration do
   change do
-    create_table(:custom_queries) do
+    create_table(:saved_queries) do
       primary_key :id
       timestamptz :created_at, null: false, default: Sequel.function(:now)
       timestamptz :updated_at
