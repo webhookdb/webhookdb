@@ -95,9 +95,15 @@ Leave blank to use the default or paste the answer into this prompt.
 
   # See https://developers.brevo.com/reference/getemaileventreport-1
   # All types of events will be included.
-  def _fetch_backfill_page(pagination_token, **_kwargs)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     today = Time.now.utc.to_date
-    query = {limit: 100, startDate: today, endDate: today}
+    query = {limit: 100, endDate: today}
+    min_start_date = today - 90.days
+    query[:startDate] = if last_backfilled.nil?
+      min_start_date
+    else
+      [last_backfilled_at, min_start_date].max
+    end
     query[:offset] = if pagination_token.present?
       pagination_token
     else

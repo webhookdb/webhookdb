@@ -57,7 +57,6 @@ class Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1 < Webhookdb:
         data_key: "messageId",
         index: true,
       ),
-      Webhookdb::Replicator::Column.new(:ip, TEXT, index: true),
     ]
   end
 

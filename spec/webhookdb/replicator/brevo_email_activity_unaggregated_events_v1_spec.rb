@@ -47,13 +47,13 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     end
 
     def stub_service_request
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey"}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey_wrong"}).
           to_return(status: 401, body: "", headers: {})
     end
@@ -127,10 +127,10 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey"}).
           to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=100&startDate=2024-01-23&endDate=2024-01-23").
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=100&startDate=2023-10-25&endDate=2024-01-23").
           with(headers: {"api-key" => "bfkey"}).
           to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
       ]
@@ -138,13 +138,13 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
 
     def stub_empty_requests
       return [
-        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+        stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
           to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"})
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+      return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
           to_return(status: 400, body: "geh")
     end
 
@@ -201,16 +201,17 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     end
 
     describe "calculate_backfill_state_machine" do
+      let(:today) { Time.parse("2024-01-23T18:00:00Z") }
       let(:success_body) do
         <<~R
           {
-            "events": []
+            '{}'
           }
         R
       end
 
       def stub_service_request
-        return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2024-01-23&endDate=2024-01-23").
+        return stub_request(:get, "https://api.brevo.com/v3/smtp/statistics/events?limit=100&offset=0&startDate=2023-10-25&endDate=2024-01-23").
             with(headers: {"api-key" => "bfkey"}).
             to_return(status: 200, body: success_body, headers: {})
       end
@@ -257,34 +258,11 @@ then go to SMTP & API -> Generate a new API key."),
           output: start_with("Great! We are going to start backfilling your Transactional Email Activity (Unaggregated Events)."),
         )
       end
-    end
-    around(:each) do |example|
-      Timecop.travel(today) do
-        example.run
+      around(:each) do |example|
+        Timecop.travel(today) do
+          example.run
+        end
       end
-    end
-  end
-
-  # May be deleted
-  describe "helper tests" do
-    let(:allowed_ip_blocks) { %w[185.107.232.1/24 1.179.112.1/20] }
-
-    it "ip is valid" do
-      ip = "185.107.232.2"
-      allowed = allowed_ip_blocks.any?{|block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
-      expect(allowed).to be true
-    end
-
-    it "ip is invalid" do
-      ip = "1.1.1.1"
-      allowed = allowed_ip_blocks.any?{ |block| IPAddr.new(block, Socket::AF_INET) === IPAddr.new(ip, Socket::AF_INET) }
-      expect(allowed).to be false
-    end
-
-    it "replaces a key in a hash" do
-      body = {"message-id" => "first-id"}
-      body[:messageId] = body.delete "message-id"
-      expect(body[:messageId]).to eq "first-id"
     end
   end
 end
