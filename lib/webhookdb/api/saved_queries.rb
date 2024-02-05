@@ -188,6 +188,7 @@ class Webhookdb::API::SavedQueries < Webhookdb::API::V1
       get :run do
         # This endpoint can be used publicly, so should expose as little information as possible.
         # Do not expose permissions or query details.
+        use_http_expires_caching(5.minute)
         cq = Webhookdb::SavedQuery[opaque_id: params[:query_identifier]]
         forbidden! if cq.nil?
         if cq.private?

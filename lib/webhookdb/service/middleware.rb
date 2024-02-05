@@ -30,6 +30,14 @@ module Webhookdb::Service::Middleware
                  credentials: true,
                  expose: ["ETag", Webhookdb::Service::AUTH_TOKEN_HEADER]
       end
+      allow do
+        origins("*")
+        resource "/v1/saved_queries/*",
+                 headers: :any,
+                 methods: [:get],
+                 credentials: false,
+                 expose: "*"
+      end
     end
   end
 
