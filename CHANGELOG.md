@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (empty)
 
+## [1.2.1] - 2024-02-05
+
+- Bump Webterm CLI version to 0.14.0 (needed to pick up Saved Query support)
+
 ## [1.2.0] - 2024-02-05
 
 - Feature: Add support for Saved Queries. These can be used to expose specific queries over public or authed HTTP, for use in public dashboards and websites, where embedding a connection string for direct connection or using 'connection string auth' is unsuitable. ([#862](https://github.com/webhookdb/webhookdb/pull/862))

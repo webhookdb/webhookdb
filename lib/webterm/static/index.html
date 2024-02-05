@@ -51,7 +51,7 @@
     if (new URLSearchParams(window.location.search).get('wasmlocal')) {
       wasmPath = "http://localhost:18008/compile" // See webhookdb-cli/bin/wasm-server
     } else {
-      const VERSION = '0.13.0'
+      const VERSION = '0.14.0'
       wasmPath = `https://s3.us-west-2.amazonaws.com/static.webhookdb.com/webhookdb-cli/${VERSION}/webhookdb_${VERSION}_js_wasm.wasm`
     }
     const response = await fetch(wasmPath);
