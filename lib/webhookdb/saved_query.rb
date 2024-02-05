@@ -20,7 +20,7 @@ class Webhookdb::SavedQuery < Webhookdb::Postgres::Model(:saved_queries)
   def private? = !self.public?
 
   def before_create
-    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("cq")
+    self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("svq")
     super
   end
 

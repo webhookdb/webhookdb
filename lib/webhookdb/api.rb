@@ -72,6 +72,7 @@ module Webhookdb::API
           end
 
           def ensure_admin!(org=nil, customer: nil)
+            org ||= lookup_org!
             admin = has_admin?(org, customer:)
             # noinspection RubyNilAnalysis
             permission_error!("You don't have admin privileges with #{org.name}.") unless admin

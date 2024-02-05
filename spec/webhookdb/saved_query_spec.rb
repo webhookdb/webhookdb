@@ -15,6 +15,6 @@ RSpec.describe "Webhookdb::SavedQuery" do
 
   it "generates an opaque id on save" do
     cq = Webhookdb::Fixtures.saved_query.create
-    expect(cq).to have_attributes(opaque_id: match(/cq_\w+/))
+    expect(cq).to have_attributes(opaque_id: match(/svq_\w+/))
   end
 end
