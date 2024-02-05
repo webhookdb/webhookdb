@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (empty)
 
+## [1.2.0] - 2024-02-05
+
+- Feature: Add support for Saved Queries. These can be used to expose specific queries over public or authed HTTP, for use in public dashboards and websites, where embedding a connection string for direct connection or using 'connection string auth' is unsuitable. ([#862](https://github.com/webhookdb/webhookdb/pull/862))
+- Fix: PrepareDatabaseConnections job is idempotent by @rgalanakis in [#855](https://github.com/webhookdb/webhookdb/pull/855))
+- Fix: Add 'recursive' to scheduled backfill spec by @rgalanakis in [#858](https://github.com/webhookdb/webhookdb/pull/858))
+- Fix: Icalendar: Icalendar: Ignore 405 errors, nothing we can do ([6c591562](https://github.com/webhookdb/webhookdb/commit/6c591562e363b59819b3e57987c2e52c88271bb5))
+- Performance: Icalendar: Improve operations of ICalendar syncs by @rgalanakis in [#860](https://github.com/webhookdb/webhookdb/pull/860))
+- Chore: Positive UTC offsets on local machines by @rgalanakis in [#857](https://github.com/webhookdb/webhookdb/pull/857))
+- Chore: Missing tests added to slightly improve coverage by @rgalanakis in [#852](https://github.com/webhookdb/webhookdb/pull/852))
+
 ## [1.1.0] - 2024-01-19
 
 - Front Signalwire Channel integration added. See <https://docs.webhookdb.com/guides/front-channel-signalwire/> ([24964420](https://github.com/webhookdb/webhookdb/commit/24964420))
