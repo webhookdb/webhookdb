@@ -125,10 +125,9 @@ The secret to use for signing is:
   end
 
   CLEANUP_SERVICE_NAMES = ["icalendar_event_v1"].freeze
-  SYNC_PERIOD = 4.hours
 
   def rows_needing_sync(dataset, now: Time.now)
-    cutoff = now - SYNC_PERIOD
+    cutoff = now - Webhookdb::Icalendar.sync_period_hours.hours
     return dataset.where(Sequel[last_synced_at: nil] | Sequel.expr { last_synced_at < cutoff })
   end
 
@@ -215,7 +214,11 @@ The secret to use for signing is:
         expected_errors = [
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
         ]
-        is_problem_error = (response_status > 404 || response_status < 400) &&
+        # For most client errors, we can't do anything about it. For example,
+        # and 'unshared' URL could result in a 401, 403, 404, or even a 405.
+        # For now, other client errors, we can raise on,
+        # in case it's something we can fix/work around.
+        is_problem_error = (response_status > 405 || response_status < 400) &&
           !expected_errors.include?(response_status)
         raise e if is_problem_error
         response_body = e.response.body.to_s
