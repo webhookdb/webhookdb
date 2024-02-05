@@ -2,7 +2,7 @@
 
 require "webhookdb/saved_query"
 
-RSpec.describe "Webhookdb::SavedQuery" do
+RSpec.describe "Webhookdb::SavedQuery", :db do
   let(:described_class) { Webhookdb::SavedQuery }
   let(:org) { Webhookdb::Fixtures.organization.create }
 
