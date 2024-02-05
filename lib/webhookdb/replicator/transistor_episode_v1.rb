@@ -54,6 +54,9 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
         index: true,
         data_key: ["attributes", "updated_at"],
       ),
+
+      Webhookdb::Replicator::Column.new(:transcript_text, TEXT, optional: true),
+
       # Ideally these would have converters, but they'd be very confusing, and when this was built
       # we only had one transistor user, so we truncated the table instead.
       Webhookdb::Replicator::Column.new(:api_format, INTEGER, optional: true),
@@ -93,6 +96,7 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
       h[:logical_description] = description
       h[:api_format] = 1
     end
+    h.merge!(enrichment) if enrichment
     return h
   end
 
@@ -132,6 +136,19 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
   end
 
   BLOCK_ELEMENT_TAGS = ["p", "div"].freeze
+
+  def _fetch_enrichment(resource, *)
+    transcript_url = resource.fetch("attributes").fetch("transcript_url", nil)
+    return nil if transcript_url.blank?
+    (transcript_url += ".txt") unless transcript_url.end_with?(".txt")
+    resp = Webhookdb::Http.get(
+      transcript_url,
+      logger: self.logger,
+      timeout: Webhookdb::Transistor.http_timeout,
+    )
+    transcript_text = resp.body
+    return {transcript_text:}
+  end
 
   def upsert_has_deps?
     return true
