@@ -21,6 +21,40 @@ RSpec.describe Webhookdb::Replicator::BrevoEmailActivityUnaggregatedEventsV1, :d
     let(:expected_data) { body }
   end
 
+  it_behaves_like "a replicator that prevents overwriting new data with old",
+                  "brevo_email_activity_unaggregated_events_v1" do
+    let(:old_body) do
+      JSON.parse(<<~J)
+        {
+          "email": "example@example.com",
+          "date": "2024-01-23T09:34:13.916+08:00",
+          "subject": "Brevo Test Transactional Mail",
+          "messageId": "<202401230136.35720869946@smtp-relay.mailin.fr>",
+          "event": "requests",
+          "tag": "",
+          "ip": "77.32.148.20",
+          "from": "example@example.com"
+        }
+      J
+    end
+    let(:new_body) do
+      JSON.parse(<<~J)
+        {
+          "email": "example@example.com",
+          "date": "2024-02-02T00:00:00.00+08:00",
+          "subject": "Brevo Test Transactional Mail",
+          "messageId": "<202401230136.35720869946@smtp-relay.mailin.fr>",
+          "event": "requests",
+          "tag": "",
+          "ip": "77.32.148.20",
+          "from": "example@example.com"
+        }
+      J
+    end
+    let(:expected_old_data) { old_body }
+    let(:expected_new_data) { new_body }
+  end
+
   it_behaves_like "a replicator that verifies backfill secrets" do
     let(:today) { Time.parse("2024-01-23T18:00:00Z") }
     let(:correct_creds_sint) do
