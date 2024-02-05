@@ -8,7 +8,7 @@ GIT
 PATH
   remote: .
   specs:
-    webhookdb (1.2.1)
+    webhookdb (1.2.2)
       activesupport (~> 7.1)
       appydays (>= 0.8)
       aws-sdk-pricing (~> 1.53)
@@ -363,7 +363,7 @@ GEM
     simplecov_json_formatter (0.1.4)
     slack-notifier (2.4.0)
     statsd-ruby (1.5.0)
-    stripe (10.7.0)
+    stripe (10.7.1)
     timecop (0.9.8)
     timeout (0.4.1)
     tzinfo (2.0.6)

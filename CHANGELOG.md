@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (empty)
 
+## [1.2.2] - 2024-02-05
+
+- Fix: There was a bug with the saved query migration. This eliminates an unnecessary unique constraint. ([b311b79d66](https://github.com/webhookdb/webhookdb/commit/b311b79d66082c67de41c0892412fa1ce785f76a))
+- Performance: Saved queries use HTTP expires caching. ([738c3f0b](https://github.com/webhookdb/webhookdb/commit/738c3f0bf4a7b1da5c0d247b389dae22fde590d3))
+- Fix: Do not restrict CORS origins on /v1/saved_queries. It should be safe for public saved queries
+  to be called from anywhere, while private saved queries need auth anyway. ([738c3f0b](https://github.com/webhookdb/webhookdb/commit/738c3f0bf4a7b1da5c0d247b389dae22fde590d3))
+
 ## [1.2.1] - 2024-02-05
 
 - Bump Webterm CLI version to 0.14.0 (needed to pick up Saved Query support)
