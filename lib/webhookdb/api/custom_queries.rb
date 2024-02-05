@@ -160,7 +160,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
               blocks.line(data.fetch(field_name.to_sym))
             else
               rows = data.map do |k, v|
-                [k.to_s.humanize, v]
+                [k.to_s.humanize, v.to_s]
               end
               blocks.table(["Field", "Value"], rows)
             end
@@ -213,7 +213,7 @@ class Webhookdb::API::CustomQueries < Webhookdb::API::V1
     expose :run_url
 
     def self.display_headers
-      return [[:id, "Id"], [:description, "Description"], [:public, "Public"], [:run_url, "Run URL"], [:sql, "Sql"]]
+      return [[:id, "Id"], [:description, "Description"], [:public, "Public"], [:run_url, "Run URL"]]
     end
   end
 end

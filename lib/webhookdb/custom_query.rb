@@ -5,11 +5,11 @@ class Webhookdb::CustomQuery < Webhookdb::Postgres::Model(:custom_queries)
 
   CLI_EDITABLE_FIELDS = ["description", "sql", "public"].freeze
   INFO_FIELDS = {
-    "description" => :description,
-    "sql" => :sql,
-    "public" => :public,
     "id" => :opaque_id,
+    "description" => :description,
+    "public" => :public,
     "run_url" => :run_url,
+    "sql" => :sql,
   }.freeze
   DOCS_URL = "https://docs.webhookdb.com/docs/integrating/saved-queries.html"
 
