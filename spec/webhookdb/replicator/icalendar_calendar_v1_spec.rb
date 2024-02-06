@@ -505,6 +505,16 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         end
       end
 
+      it "noops on Down 304 responses" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 304)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to be_empty
+      end
+
       it "raises on unhandled Down http errors" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").
