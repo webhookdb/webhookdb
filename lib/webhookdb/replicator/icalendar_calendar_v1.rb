@@ -211,16 +211,22 @@ The secret to use for signing is:
       when Down::ClientError
         raise e if e.response.nil?
         response_status = e.response.code.to_i
+        # These are all the errors we've seen, we can't do anything about.
+        # In theory we should do this for ALL 4xx errors,
+        # but we'd rather error on the WebhookDB side until we're sure
+        # we want to ignore things.
         expected_errors = [
+          400, 401, 402, 403, # Common access problems we can't do anything about
+          404, 405, # Fundamental issues with the URL given
+          409, 410, # More access problems
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
         ]
         # For most client errors, we can't do anything about it. For example,
         # and 'unshared' URL could result in a 401, 403, 404, or even a 405.
         # For now, other client errors, we can raise on,
         # in case it's something we can fix/work around.
-        is_problem_error = (response_status > 405 || response_status < 400) &&
-          !expected_errors.include?(response_status)
-        raise e if is_problem_error
+        # For example, it's possible something like a 415 is a WebhookDB issue.
+        raise e unless expected_errors.include?(response_status)
         response_body = e.response.body.to_s
       when Down::ServerError
         response_status = e.response.code.to_i
