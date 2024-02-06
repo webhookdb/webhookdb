@@ -205,6 +205,10 @@ The secret to use for signing is:
       when Down::TooManyRedirects
         response_status = 301
         response_body = "<too many redirects>"
+      when Down::NotModified
+        # Do not alert on 304, but do log
+        self.logger.warn("icalendar_fetch_error", response_status: 304, request_url:, calendar_external_id:)
+        return
       when Down::TimeoutError, Down::SSLError, Down::ConnectionError, Down::InvalidUrl
         response_status = 0
         response_body = e.to_s
