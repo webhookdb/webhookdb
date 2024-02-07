@@ -1308,6 +1308,20 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
+    context "with busted, incorrect encoding" do
+      # This was generated with the following:
+      # iconv -f utf-8 -t iso-8859-1 < spec/data/icalendar/single_event.ics > spec/data/icalendar/single_event_wrong_encoding.ics
+      # See code for explanation.
+      let(:fn) { "single_event_wrong_encoding.ics" }
+
+      it "forces encoding to utf8" do
+        parsed = events
+        expect(parsed).to contain_exactly(
+          include("UID" => {"v" => "bsuidfortestabc123"}),
+        )
+      end
+    end
+
     context "event.ics" do
       let(:fn) { "event.ics" }
 
