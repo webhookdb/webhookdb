@@ -453,7 +453,23 @@ The secret to use for signing is:
       vevent_lines = []
       in_vevent = false
       while (line = @io.gets)
-        line.rstrip!
+        begin
+          line.rstrip!
+        rescue Encoding::CompatibilityError
+          # We occassionally get incorrectly encoded files.
+          # For example, the response may have a header:
+          #   Content-Type: text/calendar; charset=UTF-8
+          # but the actual encoding is not:
+          #   file -I <filename>
+          #   <filename>: text/calendar; charset=iso-8859-1
+          # In these cases, there's not much we can do.
+          # We can use chardet, but it's a big library and this issue
+          # isn't common enough. Instead, try to force the encoding to utf-8,
+          # which may break some things, but we'll see what happens.
+          line = line.force_encoding("utf-8")
+          line = line.scrub
+          line = line.rstrip
+        end
         if line == "BEGIN:VEVENT"
           in_vevent = true
           vevent_lines << line
