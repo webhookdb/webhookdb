@@ -18,6 +18,7 @@ require "webhookdb/api/me"
 require "webhookdb/api/organizations"
 require "webhookdb/api/replay"
 require "webhookdb/api/saved_queries"
+require "webhookdb/api/saved_views"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/services"
 require "webhookdb/api/stripe"
@@ -70,6 +71,7 @@ module Webhookdb::Apps
     mount Webhookdb::API::Organizations
     mount Webhookdb::API::Replay
     mount Webhookdb::API::SavedQueries
+    mount Webhookdb::API::SavedViews
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Services
     mount Webhookdb::API::Stripe

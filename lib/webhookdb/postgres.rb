@@ -61,6 +61,7 @@ module Webhookdb::Postgres
     "webhookdb/organization_membership",
     "webhookdb/role",
     "webhookdb/saved_query",
+    "webhookdb/saved_view",
     "webhookdb/service_integration",
     "webhookdb/subscription",
     "webhookdb/sync_target",
