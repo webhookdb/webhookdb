@@ -35,6 +35,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
               order: :id
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration", order: :id
   one_to_many :saved_queries, class: "Webhookdb::SavedQuery", order: :id
+  one_to_many :saved_views, class: "Webhookdb::SavedView", order: :id
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription", order: :id
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
   one_to_many :all_webhook_subscriptions,

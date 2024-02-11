@@ -142,6 +142,11 @@ module Webhookdb::Service::Helpers
     merror!(403, message, code: "permission_check")
   end
 
+  def check_feature_access!(org, role)
+    return if org.feature_roles.include?(role)
+    permission_error!("This feature is not enabled for your organization.")
+  end
+
   # Raise a 400 error for unstructured validation.
   # @param errors [Array<String>,String] Error messages, like 'password is invalid'.
   # @param message [String] If not given, build it from the errors list.
