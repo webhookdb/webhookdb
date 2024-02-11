@@ -310,6 +310,53 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
   end
 
+  describe "POST /v1/db/run_sql" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, table_name: "fake_v1") }
+    let(:insert_query) { "INSERT INTO fake_v1 (my_id, data) VALUES ('abcxyz', '{}')" }
+
+    before(:each) do
+      org.prepare_database_connections
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "returns results of sql query" do
+      post "/v1/db/run_sql", query: "select 1 as x", org_identifier: org.key
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        headers: ["x"],
+        rows: [[1]],
+      )
+    end
+
+    describe "using a SHA256 hash connection string instead of user auth" do
+      before(:each) do
+        logout
+      end
+
+      it "allows auth with a SHA256 hashed connection string" do
+        header "Whdb-Sha256-Conn", Digest::SHA256.hexdigest(org.readonly_connection_url)
+        post "/v1/db/run_sql", query: "select 1 as x", org_identifier: org.key
+
+        expect(last_response).to have_status(200)
+        expect(last_response).to have_json_body.that_includes(
+          headers: ["x"],
+          rows: [[1]],
+        )
+      end
+
+      it "401s if the hash connection string is invalid" do
+        header "Whdb-Sha256-Conn", "abc"
+        post "/v1/db/run_sql", query: "select 1 as x", org_identifier: org.key
+
+        expect(last_response).to have_status(401)
+      end
+    end
+  end
+
   describe "GET /v1/db/:organization_key/roll-credentials" do
     before(:each) do
       org.prepare_database_connections

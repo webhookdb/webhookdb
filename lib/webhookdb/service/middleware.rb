@@ -38,6 +38,14 @@ module Webhookdb::Service::Middleware
                  credentials: false,
                  expose: "*"
       end
+      allow do
+        origins("*")
+        resource "/v1/db/run_sql",
+                 headers: :any,
+                 methods: [:post],
+                 credentials: false,
+                 expose: "*"
+      end
     end
   end
 
