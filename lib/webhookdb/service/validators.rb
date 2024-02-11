@@ -20,8 +20,7 @@ module Webhookdb::Service::Validators
     def validate_param!(attr_name, params)
       val = params[attr_name]
       return if val.blank? && @allow_blank
-      re = Webhookdb::DBAdapter::VALID_IDENTIFIER
-      return if re.match?(val)
+      return if Webhookdb::DBAdapter.valid_identifier?(val)
       raise Grape::Exceptions::Validation.new(
         params: [@scope.full_name(attr_name)],
         message: "is not a valid database identifier for WebhookDB. " +

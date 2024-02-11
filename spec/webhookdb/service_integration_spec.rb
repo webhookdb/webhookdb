@@ -141,7 +141,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     it "errors for an invalid name" do
       expect do
         sint.rename_table(to: "foo-bar")
-      end.to raise_error(described_class::TableRenameError, /must start with a letter/)
+      end.to raise_error(Webhookdb::DBAdapter::InvalidIdentifier, /must start with a letter/)
     end
 
     it "errors if the target table already exists" do

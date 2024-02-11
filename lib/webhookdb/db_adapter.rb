@@ -6,10 +6,14 @@ class Webhookdb::DBAdapter
   class UnsupportedAdapter < StandardError; end
 
   VALID_IDENTIFIER = /^[a-zA-Z][a-zA-Z\d_ ]*$/
-  INVALID_IDENTIFIER_MESSAGE = "Identifiers must start with a letter and " \
-                               "contain only letters, numbers, spaces, and underscores. " \
-                               "See https://docs.webhookdb.com/concepts/valid-identifiers/ for rules " \
-                               "about identifiers like schema, table, and column names."
+  INVALID_IDENTIFIER_PROMPT =
+    "Identifiers must start with a letter and contain only letters, numbers, spaces, and underscores.\n" \
+    "See https://docs.webhookdb.com/concepts/valid-identifiers/ for rules\n" \
+    "about identifiers like schema, table, and column names."
+
+  INVALID_IDENTIFIER_MESSAGE = INVALID_IDENTIFIER_PROMPT.tr("\n", " ")
+
+  class InvalidIdentifier < Webhookdb::InvalidInput; end
 
   class Schema < Webhookdb::TypedStruct
     attr_reader :name
@@ -201,6 +205,18 @@ class Webhookdb::DBAdapter
 
   def self.supported_adapters_message
     return "Postgres (postgres://), SnowflakeDB (snowflake://)"
+  end
+
+  def self.valid_identifier?(s) = VALID_IDENTIFIER.match?(s)
+
+  # Raise if the identifier +s+ is invalid according to +VALID_IDENTIFIER+.
+  # +type+ is used in the error message, like 'Sorry, this is not a valid table name.'
+  # If the user tries SQL injection, let them know we noticed!
+  def self.validate_identifier!(s, type:)
+    return if self.valid_identifier?(s)
+    msg = "Sorry, this is not a valid #{type} name. #{INVALID_IDENTIFIER_MESSAGE}"
+    msg += " And we see you what you did there ;)" if s.include?(";") && s.downcase.include?("drop")
+    raise InvalidIdentifier, msg
   end
 end
 
