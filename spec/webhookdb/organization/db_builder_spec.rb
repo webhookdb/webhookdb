@@ -544,7 +544,7 @@ RSpec.describe Webhookdb::Organization::DbBuilder, :db, whdbisolation: :reset do
       it "errors for an invalid name" do
         expect do
           org.migrate_replication_schema("; drop table")
-        end.to raise_error(Webhookdb::Organization::SchemaMigrationError, /this is not a valid schema name/)
+        end.to raise_error(Webhookdb::DBAdapter::InvalidIdentifier, /this is not a valid schema name/)
       end
 
       it "errors if there is an ongoing migration" do

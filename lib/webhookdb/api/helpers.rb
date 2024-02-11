@@ -256,25 +256,5 @@ module Webhookdb::API::Helpers
   #   On query success, return <QueryResult, nil>.
   #   On DatabaseError, return <nil, message>.
   #   On other types of errors, raise.
-  def execute_readonly_query(org, sql)
-    result = org.execute_readonly_query(sql)
-    return result, nil
-  rescue Sequel::DatabaseError => e
-    self.logger.error("db_query_database_error", error: e)
-    # We want to handle InsufficientPrivileges and UndefinedTable explicitly
-    # since we can hint the user at what to do.
-    # Otherwise, we should just return the Postgres exception.
-    msg = ""
-    case e.wrapped_exception
-      when PG::UndefinedTable
-        missing_table = e.wrapped_exception.message.match(/relation (.+) does not/)&.captures&.first
-        msg = "The table #{missing_table} does not exist. Run `webhookdb db tables` to see available tables." if
-          missing_table
-      when PG::InsufficientPrivilege
-        msg = "You do not have permission to perform this query. Queries must be read-only."
-      else
-        msg = e.wrapped_exception.message
-    end
-    return [nil, msg]
-  end
+  def execute_readonly_query(org, sql) = org.execute_readonly_query_with_help(sql)
 end

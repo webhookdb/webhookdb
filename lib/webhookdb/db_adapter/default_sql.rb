@@ -28,7 +28,7 @@ module Webhookdb::DBAdapter::DefaultSql
   def escape_identifier(s)
     s = s.to_s
     raise ArgumentError, "#{s} is an invalid identifier and should have been validated previously" unless
-      Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(s)
+      Webhookdb::DBAdapter.valid_identifier?(s)
 
     quo = self.identifier_quote_char
     return "#{quo}#{s}#{quo}" if RESERVED_KEYWORDS.include?(s.upcase) ||

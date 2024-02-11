@@ -222,11 +222,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   def rename_table(to:)
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self.organization)
-    unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(to)
-      msg = "Sorry, this is not a valid table name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
-      msg += " And we see you what you did there ;)" if to.include?(";") && to.downcase.include?("drop")
-      raise TableRenameError, msg
-    end
+    Webhookdb::DBAdapter.validate_identifier!(to, type: "table")
     self.db.transaction do
       begin
         self.organization.admin_connection { |db| db << "ALTER TABLE #{self.table_name} RENAME TO #{to}" }

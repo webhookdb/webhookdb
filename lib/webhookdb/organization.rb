@@ -145,6 +145,33 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     end
   end
 
+  # Run the given SQL inside the org, and use special error handling if it fails.
+  # @return [Array<Webhookdb::Organization::QueryResult,String,nil>] Tuple of query result, and optional message.
+  #   On query success, return <QueryResult, nil>.
+  #   On DatabaseError, return <nil, message>.
+  #   On other types of errors, raise.
+  def execute_readonly_query_with_help(sql)
+    result = self.execute_readonly_query(sql)
+    return result, nil
+  rescue Sequel::DatabaseError => e
+    self.logger.error("db_query_database_error", error: e)
+    # We want to handle InsufficientPrivileges and UndefinedTable explicitly
+    # since we can hint the user at what to do.
+    # Otherwise, we should just return the Postgres exception.
+    msg = ""
+    case e.wrapped_exception
+      when PG::UndefinedTable
+        missing_table = e.wrapped_exception.message.match(/relation (.+) does not/)&.captures&.first
+        msg = "The table #{missing_table} does not exist. Run `webhookdb db tables` to see available tables." if
+          missing_table
+      when PG::InsufficientPrivilege
+        msg = "You do not have permission to perform this query. Queries must be read-only."
+      else
+        msg = e.wrapped_exception.message
+    end
+    return [nil, msg]
+  end
+
   class QueryResult
     attr_accessor :rows, :columns, :max_rows_reached
   end
@@ -355,10 +382,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def migrate_replication_schema(schema)
-    unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(schema)
-      msg = "Sorry, this is not a valid schema name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
-      raise SchemaMigrationError, msg
-    end
+    Webhookdb::DBAdapter.validate_identifier!(schema, type: "schema")
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
     builder = Webhookdb::Organization::DbBuilder.new(self)
