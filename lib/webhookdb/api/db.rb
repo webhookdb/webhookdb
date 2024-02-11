@@ -38,6 +38,21 @@ class Webhookdb::API::Db < Webhookdb::API::V1
   end
 
   resource :db do
+    desc "Execute an arbitrary query in a replication database. Same as /db/<org>/sql but safe for CORS usage." do
+      headers Webhookdb::API::ConnstrAuth.headers_desc
+    end
+    params do
+      requires :query, type: String
+      requires :org_identifier, type: String
+    end
+    post :run_sql do
+      org = lookup_org!(allow_connstr_auth: true)
+      r, msg = execute_readonly_query(org, params[:query])
+      merror!(403, msg, code: "invalid_query") if r.nil?
+      status 200
+      present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
+    end
+
     route_param :org_identifier, type: String do
       desc "Returns the connection string"
       get :connection do
