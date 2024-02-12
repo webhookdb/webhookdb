@@ -38,19 +38,27 @@ class Webhookdb::API::Db < Webhookdb::API::V1
   end
 
   resource :db do
-    desc "Execute an arbitrary query in a replication database. Same as /db/<org>/sql but safe for CORS usage." do
-      headers Webhookdb::API::ConnstrAuth.headers_desc
-    end
-    params do
-      requires :query, type: String
-      requires :org_identifier, type: String
-    end
-    post :run_sql do
-      org = lookup_org!(allow_connstr_auth: true)
-      r, msg = execute_readonly_query(org, params[:query])
-      merror!(403, msg, code: "invalid_query") if r.nil?
-      status 200
-      present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
+    [:get, :post].each do |httpmethod|
+      desc "Execute an arbitrary query in a replication database. Same as /db/<org>/sql but safe for CORS usage." do
+        headers Webhookdb::API::ConnstrAuth.headers_desc
+      end
+      params do
+        requires :org_identifier, type: String
+        optional :query, type: String, desc: "SQL to run."
+        optional :query_base64, type: String, desc: "Base64 encoded SQL. Mostly used for GET requests."
+        exactly_one_of :query, :query_base64
+      end
+      send(httpmethod, :run_sql) do
+        use_http_expires_caching(5.minutes)
+        org = lookup_org!(allow_connstr_auth: true)
+        unless (query = params[:query])
+          query = Base64.urlsafe_decode64(params[:query_base64])
+        end
+        r, msg = execute_readonly_query(org, query)
+        merror!(403, msg, code: "invalid_query") if r.nil?
+        status 200
+        present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
+      end
     end
 
     route_param :org_identifier, type: String do

@@ -42,7 +42,7 @@ module Webhookdb::Service::Middleware
         origins("*")
         resource "/v1/db/run_sql",
                  headers: :any,
-                 methods: [:post],
+                 methods: [:get, :post],
                  credentials: false,
                  expose: "*"
       end
