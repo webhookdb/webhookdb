@@ -310,7 +310,7 @@ RSpec.describe Webhookdb::API::Db, :db do
     end
   end
 
-  describe "POST /v1/db/run_sql" do
+  describe "GET and POST /v1/db/run_sql" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org, table_name: "fake_v1") }
     let(:insert_query) { "INSERT INTO fake_v1 (my_id, data) VALUES ('abcxyz', '{}')" }
 
@@ -322,8 +322,28 @@ RSpec.describe Webhookdb::API::Db, :db do
       org.remove_related_database
     end
 
-    it "returns results of sql query" do
+    it "returns results of sql query with POST" do
       post "/v1/db/run_sql", query: "select 1 as x", org_identifier: org.key
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        headers: ["x"],
+        rows: [[1]],
+      )
+    end
+
+    it "returns results of sql query with GET" do
+      get "/v1/db/run_sql", query: "select 1 as x", org_identifier: org.key
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(
+        headers: ["x"],
+        rows: [[1]],
+      )
+    end
+
+    it "can use a base64 encoded query string" do
+      get "/v1/db/run_sql", query_base64: Base64.urlsafe_encode64("select 1 as x"), org_identifier: org.key
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
