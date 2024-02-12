@@ -65,7 +65,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     ruby: lambda do |entry, **|
       self.entry_to_date(entry) if entry.is_a?(Hash) && self.entry_is_date_str?(entry)
     end,
-    sql: ->(_) { raise NotImplementedError },
+    sql: Webhookdb::Replicator::Column::NOT_IMPLEMENTED,
   )
   CONV_DATETIME = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
@@ -163,6 +163,41 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     data.delete("recurring_event_id")
     data.delete("recurring_event_sequence")
     return data
+  end
+
+  def _prepare_for_insert(resource, event, request, enrichment)
+    h = super
+    # Events can have a DTSTART, but no DTEND.
+    # https://icalendar.org/iCalendar-RFC-5545/3-6-1-event-component.html
+    # In these cases, we need to:
+    # - Use the duration, given.
+    # - Dates default to the next day.
+    # - Times default to start time.
+    if (_implicit_end_time = h[:start_at] && !h[:end_at])
+      self._set_implicit_end_at(resource, h)
+    elsif (_implicit_end_date = h[:start_date] && !h[:end_date])
+      self._set_implicit_end_date(resource, h)
+    end
+    return h
+  end
+
+  def _set_implicit_end_date(resource, h)
+    if (d = resource["DURATION"])
+      # See https://icalendar.org/iCalendar-RFC-5545/3-3-6-duration.html
+      dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      h[:end_date] = h[:start_date] + dur
+      return
+    end
+    h[:end_date] = h[:start_date] + 1.day
+  end
+
+  def _set_implicit_end_at(resource, h)
+    if (d = resource["DURATION"])
+      dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      h[:end_at] = h[:start_at] + dur
+      return
+    end
+    h[:end_at] = h[:start_at]
   end
 
   # @return [Array<Webhookdb::Replicator::IndexSpec>]
