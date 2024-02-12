@@ -34,7 +34,7 @@ Webhookdb::Fixtures.load_all
 RSpec.configure do |config|
   # config.full_backtrace = true
 
-  RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 600
+  RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 3000
 
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
