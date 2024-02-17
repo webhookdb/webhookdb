@@ -69,15 +69,17 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       expect(bfjob.refresh).to be_finished
     end
 
-    it "noops if the row is locked", db: :no_transaction do
+    it "finishes if the service integration is being backfilled", db: :no_transaction do
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
       thread_took_lock_event = Concurrent::Event.new
       thread_can_finish_event = Concurrent::Event.new
+      bfjob.ensure_service_integration_lock
       t = Thread.new do
         Sequel.connect(Webhookdb::Postgres::Model.uri) do |conn|
           conn.transaction do
-            conn << "SELECT * FROM backfill_jobs WHERE id = #{bfjob.id} FOR UPDATE"
+            conn << "SELECT * FROM backfill_job_service_integration_locks " \
+                    "WHERE service_integration_id = #{sint.id} FOR UPDATE"
             thread_took_lock_event.set
             thread_can_finish_event.wait
           end
@@ -92,6 +94,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       thread_can_finish_event.set
       t.join
       expect(@logs).to include(match(/skipping_locked_backfill_job/))
+      expect(bfjob.refresh).to be_finished
     end
   end
 
