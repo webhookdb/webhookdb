@@ -71,6 +71,12 @@ class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
     self.child_jobs.each(&:enqueue)
   end
 
+  def ensure_service_integration_lock
+    return Webhookdb::BackfillJob::ServiceIntegrationLock.find_or_create_or_find(
+      service_integration_id: self.service_integration_id,
+    )
+  end
+
   #
   # :section: Sequel Hooks
   #

@@ -26,10 +26,12 @@ class Webhookdb::Jobs::Backfill
       return
     end
     sint = bfjob.service_integration
+    bflock = bfjob.ensure_service_integration_lock
     self.with_log_tags(sint.log_tags.merge(backfill_job_id: bfjob.opaque_id)) do
       sint.db.transaction do
-        unless bfjob.lock?
+        unless bflock.lock?
           self.logger.info "skipping_locked_backfill_job"
+          bfjob.update(finished_at: Time.now)
           break
         end
         bfjob.refresh
