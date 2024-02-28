@@ -72,7 +72,8 @@ integration-test-task:
 annotate:
 	LOG_LEVEL=info bundle exec rake annotate
 docs-replicators:
-	LOG_LEVEL=warn bundle exec rake docs:replicators['../docs/_integrations']
+	@WEBHOOKDB_ENTERPRISE_BUNDLE=true make install
+	WEBHOOKDB_ENTERPRISE_BUNDLE=true LOG_LEVEL=warn bundle exec rake docs:replicators['../docs/_integrations']
 
 psql: cmd-exists-pgcli
 	pgcli postgres://webhookdb:webhookdb@localhost:18005/webhookdb

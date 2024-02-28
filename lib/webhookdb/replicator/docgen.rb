@@ -55,13 +55,21 @@ class Webhookdb::Replicator::Docgen
 
   def _intro
     lines << "# #{desc.resource_name_singular} (`#{desc.name}`)"
+    if desc.enterprise?
+      lines << ""
+      lines << "{% include enterprise_integration_list.md %}"
+      lines << ""
+    end
     if desc.description.present?
       lines << ""
       lines << desc.description
     end
+    lines << ""
+    lines << "To get set up, run this code from the [WebhookDB CLI](https://webhookdb.com/terminal):"
+    lines << "```\nwebhookdb integrations create #{desc.name}\n```"
     if desc.api_docs_url.present?
       lines << ""
-      lines << "Docs for this API: [#{desc.api_docs_url}](#{desc.api_docs_url})"
+      lines << "Source documentation for this API: [#{desc.api_docs_url}](#{desc.api_docs_url})"
     end
     lines << ""
   end

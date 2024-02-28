@@ -26,3 +26,8 @@ group :test do
   gem "timecop", "~> 0.9"
   gem "webmock", "~> 3.19"
 end
+
+group :enterprise do
+  ENV.fetch("WEBHOOKDB_ENTERPRISE_BUNDLE", nil) &&
+    gem("webhookdb-enterprise", git: "https://github.com/webhookdb/webhookdb-enterprise.git", ref: "main")
+end
