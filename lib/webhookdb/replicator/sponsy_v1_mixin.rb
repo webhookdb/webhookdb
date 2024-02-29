@@ -117,7 +117,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
       self.find_api_key.blank?
 
     publications_svc = self.service_integration.depends_on.replicator
-    backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|
+    backfillers = publications_svc.admin_dataset(timeout: :fast) do |pub_ds|
       pub_ds = Webhookdb::Dbutil.reduce_expr(
         pub_ds,
         :|,

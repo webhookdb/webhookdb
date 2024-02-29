@@ -327,7 +327,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # it wasn't in the last sync; however that is likely not a big problem
     # since clients need to handle updates in any case.
     def dataset_to_sync
-      @replicator.readonly_dataset do |ds|
+      # Use admin dataset, since the client could be using all their readonly conns.
+      @replicator.admin_dataset do |ds|
         # Find rows updated before we started
         tscond = (@timestamp_expr <= @now)
         # Find rows updated after the last sync was run
