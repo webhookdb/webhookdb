@@ -74,6 +74,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_integration, :created_by]
   plugin :column_encryption do |enc|
     enc.column :connection_url
   end

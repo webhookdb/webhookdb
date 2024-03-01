@@ -6,6 +6,7 @@ require "webhookdb/message"
 
 class Webhookdb::Message::Body < Webhookdb::Postgres::Model(:message_bodies)
   plugin :timestamps
+  plugin :text_searchable, terms: [:content]
 
   many_to_one :delivery, class: "Webhookdb::Message::Delivery"
 end

@@ -2,6 +2,7 @@
 
 class Webhookdb::SavedView < Webhookdb::Postgres::Model(:saved_views)
   plugin :timestamps
+  plugin :text_searchable, terms: [:organization, :created_by]
 
   DOCS_URL = "https://docs.webhookdb.com/docs/integrating/saved-views.html"
 

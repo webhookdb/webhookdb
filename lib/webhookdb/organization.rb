@@ -11,6 +11,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:name, :key, :billing_email]
   plugin :column_encryption do |enc|
     enc.column :readonly_connection_url_raw
     enc.column :admin_connection_url_raw

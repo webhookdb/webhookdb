@@ -7,6 +7,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   class MigrationAlreadyFinished < StandardError; end
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:organization, :started_by]
   plugin :column_encryption do |enc|
     enc.column :source_admin_connection_url
     enc.column :destination_admin_connection_url

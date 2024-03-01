@@ -2,6 +2,7 @@
 
 class Webhookdb::SavedQuery < Webhookdb::Postgres::Model(:saved_queries)
   plugin :timestamps
+  plugin :text_searchable, terms: [:organization, :created_by]
 
   CLI_EDITABLE_FIELDS = ["description", "sql", "public"].freeze
   INFO_FIELDS = {
