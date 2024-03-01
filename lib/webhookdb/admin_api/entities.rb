@@ -5,53 +5,52 @@ require "grape_entity"
 require "webhookdb/service/entities"
 require "webhookdb/admin_api" unless defined? Webhookdb::AdminAPI
 
-module Webhookdb::AdminAPI
-  CurrentCustomerEntity = Webhookdb::Service::Entities::CurrentCustomer
-  MoneyEntity = Webhookdb::Service::Entities::Money
-  TimeRangeEntity = Webhookdb::Service::Entities::TimeRange
+module Webhookdb::AdminAPI::Entities
+  CurrentCustomer = Webhookdb::Service::Entities::CurrentCustomer
+  Money = Webhookdb::Service::Entities::Money
+  TimeRange = Webhookdb::Service::Entities::TimeRange
 
-  class BaseEntity < Webhookdb::Service::Entities::Base; end
+  class Base < Webhookdb::Service::Entities::Base
+    expose :id, if: ->(o) { o.respond_to?(:id) }
+    expose :created_at, if: ->(o) { o.respond_to?(:created_at) }
+    expose :updated_at, if: ->(o) { o.respond_to?(:updated_at) }
+    expose :soft_deleted_at, if: ->(o) { o.respond_to?(:soft_deleted_at) }
+    expose :admin_link, if: ->(o, _) { o.respond_to?(:admin_link) }
+  end
 
-  class RoleEntity < BaseEntity
-    expose :id
+  class Role < Base
     expose :name
   end
 
-  class CustomerEntity < BaseEntity
-    expose :id
-    expose :created_at
+  class Customer < Base
     expose :email
     expose :name
     expose :note
   end
 
-  class CustomerResetCodes < BaseEntity
-    expose :id
-    expose :created_at
+  class CustomerResetCode < Base
     expose :transport
     expose :token
     expose :used
     expose :expire_at
+    expose :customer_id
   end
 
-  class DetailedCustomerEntity < CustomerEntity
-    expose :roles do |instance|
-      instance.roles.map(&:name)
-    end
-    expose :reset_codes, with: CustomerResetCodes
+  class Organization < Base
+    expose :name
+    expose :key
   end
 
-  class MessageBodyEntity < BaseEntity
-    expose :id
-    expose :content
-    expose :mediatype
+  class OrganizationMembership < Base
+    expose :organization_id
+    expose :customer_id
+    expose :membership_role_id
+    expose :verified
+    expose :invitation_code
+    expose :is_default
   end
 
-  class MessageDeliveryEntity < BaseEntity
-    expose :id
-    expose :created_at
-    expose :updated_at
-    expose :soft_deleted_at
+  class MessageDelivery < Base
     expose :template
     expose :transport_type
     expose :transport_service
@@ -60,7 +59,9 @@ module Webhookdb::AdminAPI
     expose :to
   end
 
-  class MessageDeliveryWithBodiesEntity < MessageDeliveryEntity
-    expose :bodies, with: MessageBodyEntity
+  class MessageBody < Base
+    expose :content
+    expose :mediatype
+    expose :delivery_id
   end
 end

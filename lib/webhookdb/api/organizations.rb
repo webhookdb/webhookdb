@@ -118,7 +118,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
           to_delete.delete
           roll_back_if_no_admins!(org)
           status 200
-          present({}, with: Webhookdb::AdminAPI::BaseEntity,
+          present({}, with: Webhookdb::API::BaseEntity,
                       message: "#{email} is no longer a part of #{org.name}.",)
         end
       end
