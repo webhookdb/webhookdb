@@ -6,8 +6,32 @@ RSpec.describe Webhookdb::AdminAPI::Auth, :db do
   include Rack::Test::Methods
 
   let(:app) { described_class.build_app }
-  let(:customer) { Webhookdb::Fixtures.customer.create }
-  let(:admin) { Webhookdb::Fixtures.customer.admin.create }
+  let(:password) { "Password1!" }
+  let(:customer) { Webhookdb::Fixtures.customer.password(password).create }
+  let(:admin) { Webhookdb::Fixtures.customer.admin.password(password).create }
+
+  describe "POST /v1/auth/login" do
+    it "logs in the user with the given username and password" do
+      post("/v1/auth/login", email: admin.email, password:)
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_session_cookie
+    end
+
+    it "errors for bad creds" do
+      post "/v1/auth/login", email: admin.email, password: "hello"
+      expect(last_response).to have_status(401)
+
+      post("/v1/auth/login", email: admin.email + "z", password:)
+      expect(last_response).to have_status(401)
+    end
+
+    it "errors if not admin" do
+      post("/v1/auth/login", email: customer.email, password:)
+
+      expect(last_response).to have_status(401)
+    end
+  end
 
   describe "GET /v1/auth" do
     it "200s if the customer is an admin and authed as an admin" do

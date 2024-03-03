@@ -32,6 +32,7 @@ class Webhookdb::API::System < Webhookdb::Service
       version: Webhookdb::VERSION,
       commit: Webhookdb::COMMIT,
       release: Webhookdb::RELEASE,
+      released_at: Webhookdb::RELEASE_CREATED_AT,
       log_level: Webhookdb.logger.level,
     }
   end

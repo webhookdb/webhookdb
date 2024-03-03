@@ -28,10 +28,8 @@ require "webhookdb/api/system"
 require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
-require "webhookdb/admin_api/customers"
 require "webhookdb/admin_api/database_documents"
-require "webhookdb/admin_api/message_deliveries"
-require "webhookdb/admin_api/roles"
+require "webhookdb/admin_api/data_provider"
 
 require "webterm/apps"
 
@@ -49,7 +47,7 @@ module Webhookdb::Apps
   def self.rack_up(config_ru)
     Webhookdb::Async.setup_web
     config_ru.instance_exec do
-      map "/admin" do
+      map "/admin_api" do
         run Webhookdb::Apps::AdminAPI.build_app
       end
       map "/sidekiq" do
@@ -85,9 +83,7 @@ module Webhookdb::Apps
   class AdminAPI < Webhookdb::Service
     mount Webhookdb::AdminAPI::Auth
     mount Webhookdb::AdminAPI::DatabaseDocuments
-    mount Webhookdb::AdminAPI::MessageDeliveries
-    mount Webhookdb::AdminAPI::Roles
-    mount Webhookdb::AdminAPI::Customers
+    mount Webhookdb::AdminAPI::DataProvider
     add_swagger_documentation if ENV["RACK_ENV"] == "development"
   end
 

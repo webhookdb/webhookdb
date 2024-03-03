@@ -35,6 +35,15 @@ RSpec.describe Webhookdb::AdminAPI::DataProvider, :db do
       post "/v1/data_provider/get_one", resource: "customers", id: 0
       expect(last_response).to have_status(401)
     end
+
+    it "does not include 'message' from the public api" do
+      c = Webhookdb::Fixtures.customer.create
+      post "/v1/data_provider/get_one", resource: "customers", id: c.id
+      expect(last_response).to have_status(200)
+      expect(last_response_json_body[:data].keys).to contain_exactly(
+        :created_at, :email, :id, :name, :note, :soft_deleted_at, :updated_at,
+      )
+    end
   end
 
   describe "POST /v1/data_provider/get_list" do
@@ -188,12 +197,23 @@ RSpec.describe Webhookdb::AdminAPI::DataProvider, :db do
 
   describe "round-tripping" do
     testcases = [
-      ["roles", Webhookdb::Fixtures.role],
+      ["backfill_jobs", Webhookdb::Fixtures.backfill_job],
       ["customers", Webhookdb::Fixtures.customer],
-      ["organizations", Webhookdb::Fixtures.organization],
-      ["organization_memberships", Webhookdb::Fixtures.organization_membership.invite],
-      ["message_deliveries", Webhookdb::Fixtures.message_delivery],
+      ["customer_reset_codes", Webhookdb::Fixtures.reset_code],
+      ["logged_webhooks", Webhookdb::Fixtures.logged_webhook],
       ["message_bodies", Webhookdb::Fixtures.message_body],
+      ["message_deliveries", Webhookdb::Fixtures.message_delivery],
+      ["organization_database_migrations", Webhookdb::Fixtures.organization_database_migration],
+      ["organization_memberships", Webhookdb::Fixtures.organization_membership.invite],
+      ["organizations", Webhookdb::Fixtures.organization],
+      ["roles", Webhookdb::Fixtures.role],
+      ["service_integrations", Webhookdb::Fixtures.service_integration],
+      ["saved_queries", Webhookdb::Fixtures.saved_query],
+      ["saved_views", Webhookdb::Fixtures.saved_view],
+      ["subscriptions", Webhookdb::Fixtures.subscription],
+      ["sync_targets", Webhookdb::Fixtures.sync_target],
+      ["webhook_subscriptions", Webhookdb::Fixtures.webhook_subscription],
+      ["webhook_subscription_deliveries", Webhookdb::Fixtures.webhook_subscription_delivery],
     ]
     testcases.each do |(rez, fac)|
       it "can be done for #{rez}" do

@@ -5,23 +5,28 @@ require "webhookdb/admin_api"
 class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
   include Webhookdb::AdminAPI::Entities
 
-  TYPES_FOR_RESOURCES = {
-    customers: Webhookdb::Customer,
-    organizations: Webhookdb::Organization,
-    organization_memberships: Webhookdb::OrganizationMembership,
-    roles: Webhookdb::Role,
-    message_deliveries: Webhookdb::Message::Delivery,
-    message_bodies: Webhookdb::Message::Body,
+  TYPEINFO = {
+    backfill_jobs: [Webhookdb::BackfillJob, BackfillJob],
+    customers: [Webhookdb::Customer, Customer],
+    customer_reset_codes: [Webhookdb::Customer::ResetCode, CustomerResetCode],
+    logged_webhooks: [Webhookdb::LoggedWebhook, LoggedWebhook],
+    message_bodies: [Webhookdb::Message::Body, MessageBody],
+    message_deliveries: [Webhookdb::Message::Delivery, MessageDelivery],
+    organization_database_migrations: [Webhookdb::Organization::DatabaseMigration, OrganizationDatabaseMigration],
+    organization_memberships: [Webhookdb::OrganizationMembership, OrganizationMembership],
+    organizations: [Webhookdb::Organization, Organization],
+    roles: [Webhookdb::Role, Role],
+    saved_queries: [Webhookdb::SavedQuery, SavedQuery],
+    saved_views: [Webhookdb::SavedView, SavedView],
+    service_integrations: [Webhookdb::ServiceIntegration, ServiceIntegration],
+    subscriptions: [Webhookdb::Subscription, Subscription],
+    sync_targets: [Webhookdb::SyncTarget, SyncTarget],
+    webhook_subscriptions: [Webhookdb::WebhookSubscription, WebhookSubscription],
+    webhook_subscription_deliveries: [Webhookdb::WebhookSubscription::Delivery, WebhookSubscriptionDelivery],
   }.freeze
 
-  ENTITIES_FOR_TYPES = {
-    Webhookdb::Customer => Customer,
-    Webhookdb::Organization => Organization,
-    Webhookdb::OrganizationMembership => OrganizationMembership,
-    Webhookdb::Role => Role,
-    Webhookdb::Message::Delivery => MessageDelivery,
-    Webhookdb::Message::Body => MessageBody,
-  }.freeze
+  TYPES_FOR_RESOURCES = TYPEINFO.transform_values { |v| v[0] }.freeze
+  ENTITIES_FOR_TYPES = TYPEINFO.values.to_h { |v| [v[0], v[1]] }.freeze
 
   resource :data_provider do
     helpers do
@@ -99,8 +104,10 @@ class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
         end
         if (sort = params[:sort])
           sort_col = sort[:field]
-          order = Sequel.send(sort[:order].to_s.downcase, sort_col)
-          ds = ds.order(order)
+          unless sort_col.to_s.include?(".")
+            order = Sequel.send(sort[:order].to_s.downcase, sort_col)
+            ds = ds.order(order)
+          end
         else
           ds = ds.order(Sequel.desc(:id))
         end

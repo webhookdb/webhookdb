@@ -416,7 +416,7 @@ RSpec.describe Webhookdb::SpecHelpers::Citest, :db do
   describe "put_results" do
     it "saves the results and returns a signed url" do
       expect(described_class.put_results("<html />")).to match(
-        %r{http://localhost:18001/admin/v1/database_documents/\d+/view\?expire_at=\d+&sig=.*},
+        %r{http://localhost:18001/admin_api/v1/database_documents/\d+/view\?expire_at=\d+&sig=.*},
       )
     end
   end

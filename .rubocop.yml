@@ -13,6 +13,7 @@ AllCops:
   Exclude:
     # Explicitly list all excludes: https://github.com/rubocop/rubocop/issues/9832
     - '*.bak/**/*'
+    - 'admin/**/*'
     - 'node_modules/**/*'
     - 'tmp/**/*'
     - 'vendor/**/*'

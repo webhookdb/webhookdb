@@ -454,15 +454,6 @@ RSpec.describe Webhookdb::Service, :db do
     end
   end
 
-  it "can represent a customer with a message" do
-    customer = Webhookdb::Fixtures.customer.create
-
-    get "/entity"
-
-    expect(last_response).to have_status(200)
-    expect(last_response_json_body).to eq(id: customer.id, note: customer.note, message: "hello")
-  end
-
   describe "collections" do
     it "can wrap an array of items" do
       get "/collection_array"
@@ -492,7 +483,6 @@ RSpec.describe Webhookdb::Service, :db do
         page_count: 1,
         total_count: 1,
         display_headers: [["id", "ID"]],
-        message: "hello",
       )
     end
 

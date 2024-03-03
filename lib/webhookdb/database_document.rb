@@ -52,7 +52,7 @@ class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documen
   end
 
   def presigned_view_url(expire_at:, **kw)
-    url = "#{Webhookdb.api_url}/admin/v1/database_documents/#{self.id}/view"
+    url = "#{Webhookdb.api_url}/admin_api/v1/database_documents/#{self.id}/view"
     return self.sign_url(url, expire_at:, **kw)
   end
 end

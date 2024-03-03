@@ -15,6 +15,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
 
   many_to_one :started_by, class: "Webhookdb::Customer"
   many_to_one :organization, class: "Webhookdb::Organization"
+  many_to_one :last_migrated_service_integration, class: "Webhookdb::ServiceIntegration"
 
   dataset_module do
     def ongoing
