@@ -217,6 +217,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     ensure
       org.remove_related_database
     end
+
+    it "works if the database is not set up" do
+      sint.destroy_self_and_all_dependents
+      expect(org.service_integrations_dataset.all).to be_empty
+    end
   end
 
   describe "api key" do

@@ -148,7 +148,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         self.service_integration.save_changes
         return {type: "success", webhook_url: "#{Webhookdb.api_url}/v1/install/front_signalwire/channel"}.to_json
       when "delete"
-        self.service_integration.destroy
+        self.service_integration.destroy_self_and_all_dependents
         return "{}"
       when "message", "message_autoreply"
         return {

@@ -259,10 +259,19 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       expect(got).to eq('{"type":"success","webhook_url":"http://localhost:18001/v1/install/front_signalwire/channel"}')
     end
 
-    it "destroys the service integration on delete" do
+    it "destroys the service integration and related table on delete" do
+      org.prepare_database_connections
+      sint.replicator.create_table
       got = doit({type: "delete", payload: {channel_id: "ch_abc"}})
       expect(got).to eq("{}")
-      expect(Webhookdb::ServiceIntegration.where(id: sint.id).all).to be_empty
+      expect(sint).to be_destroyed
+      expect do
+        org.admin_connection do |db|
+          db[sint.table_name.to_sym].all
+        end
+      end.to raise_error(Sequel::DatabaseError, /PG::UndefinedTable/)
+    ensure
+      org.remove_related_database
     end
 
     it "errors for other types" do
