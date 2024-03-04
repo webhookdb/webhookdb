@@ -10,7 +10,7 @@ export const ServiceIntegrationList = () => (
         "id",
         ["reference", "organization", { reference: "organizations" }],
         "opaqueId",
-        ["text", "serviceName"],
+        ["text", "serviceName", { sortable: false }],
         ["text", "tableName"],
       )}
     </CDatagrid>

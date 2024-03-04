@@ -23,9 +23,11 @@ export default function fieldList(...fields) {
       if (f === "id") {
         return <TextField key={i} source={"id"} />;
       } else if (f === "opaqueId") {
+        // Default sortable to true since this column will almost always have an index
         return <TextField key={i} source="opaqueId" label="Opaque ID" />;
       } else if (f.endsWith("At")) {
-        return <DateField key={f} showTime source={f} />;
+        // Default sortable to false, if this timestamp is not indexed perf can be terrible.
+        return <DateField key={f} showTime source={f} sortable={false} />;
       } else if (f === "createdBy") {
         return (
           <ReferenceField
@@ -46,6 +48,10 @@ export default function fieldList(...fields) {
     const p = { key: i, source, ...props };
     if (!p.label) {
       p.label = startCase(p.source);
+    }
+    if (typeof p.sortable === "undefined") {
+      // Default sortable to false since it can have horrible perf impacts if the column is not indexed.
+      p.sortable = false;
     }
     switch (type) {
       case "id":

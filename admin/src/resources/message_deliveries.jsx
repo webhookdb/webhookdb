@@ -8,7 +8,7 @@ export const MessageDeliveryList = () => (
     <CDatagrid>
       {fieldList(
         "id",
-        "sentAt",
+        ["datetime", "sentAt", { sortable: true }],
         ["text", "template"],
         ["email", "to"],
         ["reference", "recipient", { reference: "customers" }],
