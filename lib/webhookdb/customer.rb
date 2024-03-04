@@ -37,6 +37,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:name, :email]
 
   one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :invited_memberships,

@@ -3,6 +3,8 @@
 require "webhookdb/postgres/model"
 
 class Webhookdb::Role < Webhookdb::Postgres::Model(:roles)
+  plugin :text_searchable, terms: [:name]
+
   # n.b. Because of the uniqueness constraint on "name", there is only one "admin" role. Its meaning
   # depends on the context: if the customer has this role, they are an admin; if the org membership has
   # this role, the customer is an org admin.

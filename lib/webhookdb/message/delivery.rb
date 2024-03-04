@@ -7,6 +7,7 @@ require "webhookdb/message"
 class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliveries)
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:template, :to, :recipient]
 
   many_to_one :recipient, class: "Webhookdb::Customer"
   one_to_many :bodies, class: "Webhookdb::Message::Body"

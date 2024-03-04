@@ -8,6 +8,7 @@ require "webhookdb/webhook_subscription"
 # See WebhookSubscription for more details.
 class Webhookdb::WebhookSubscription::Delivery < Webhookdb::Postgres::Model(:webhook_subscription_deliveries)
   plugin :timestamps
+  plugin :text_searchable, terms: [:webhook_subscription]
 
   many_to_one :webhook_subscription, class: "Webhookdb::WebhookSubscription"
 

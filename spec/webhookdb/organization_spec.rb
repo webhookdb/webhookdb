@@ -4,6 +4,10 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
   let(:described_class) { Webhookdb::Organization }
   let!(:o) { Webhookdb::Fixtures.organization.create }
 
+  it "can fixture and full text search" do
+    expect { Webhookdb::Fixtures.organization.create.text_search_reindex }.to_not raise_error
+  end
+
   describe "associations" do
     it "knows about all sync targets" do
       sint = Webhookdb::Fixtures.service_integration(organization: o).create

@@ -63,6 +63,7 @@ Gem::Specification.new do |s|
   s.add_dependency("puma", "~> 6.4")
   s.add_dependency("rack-cors", "~> 2.0")
   s.add_dependency("rack-protection", "~> 3.2")
+  s.add_dependency("rack-spa", "~> 0.10")
   s.add_dependency("rack-ssl-enforcer", "~> 0.2")
   s.add_dependency("rake", "~> 13.1")
   s.add_dependency("redis", "~> 4.8")

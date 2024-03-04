@@ -2,6 +2,8 @@
 
 require "grape"
 require "grape-swagger"
+require "rack/dynamic_config_writer"
+require "rack/spa_app"
 require "sidekiq/web"
 require "sidekiq/cron/web"
 
@@ -28,10 +30,8 @@ require "webhookdb/api/system"
 require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
-require "webhookdb/admin_api/customers"
 require "webhookdb/admin_api/database_documents"
-require "webhookdb/admin_api/message_deliveries"
-require "webhookdb/admin_api/roles"
+require "webhookdb/admin_api/data_provider"
 
 require "webterm/apps"
 
@@ -49,8 +49,11 @@ module Webhookdb::Apps
   def self.rack_up(config_ru)
     Webhookdb::Async.setup_web
     config_ru.instance_exec do
-      map "/admin" do
+      map "/admin_api" do
         run Webhookdb::Apps::AdminAPI.build_app
+      end
+      map "/admin" do
+        run Webhookdb::Apps::Admin.to_app
       end
       map "/sidekiq" do
         run Webhookdb::Apps::SidekiqWeb.to_app
@@ -85,10 +88,22 @@ module Webhookdb::Apps
   class AdminAPI < Webhookdb::Service
     mount Webhookdb::AdminAPI::Auth
     mount Webhookdb::AdminAPI::DatabaseDocuments
-    mount Webhookdb::AdminAPI::MessageDeliveries
-    mount Webhookdb::AdminAPI::Roles
-    mount Webhookdb::AdminAPI::Customers
+    mount Webhookdb::AdminAPI::DataProvider
     add_swagger_documentation if ENV["RACK_ENV"] == "development"
+  end
+
+  Admin = Rack::Builder.new do
+    dw = Rack::DynamicConfigWriter.new(
+      "admin-dist/index.html",
+    )
+    env = {
+      "VITE_API_HOST" => "/",
+      "VITE_RELEASE" => "admin@1.0.0",
+      "NODE_ENV" => "production",
+    }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))
+    dw.emplace(env)
+    # self.use Rack::Csp, policy: "default-src 'self'; img-src 'self' data:"
+    Rack::SpaApp.run_spa_app(self, "admin-dist", enforce_ssl: Webhookdb::Service.enforce_ssl)
   end
 
   SidekiqWeb = Rack::Builder.new do

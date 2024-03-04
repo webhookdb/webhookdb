@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no"
+        />
+        <meta name="theme-color" content="#000000" />
+        <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAE4klEQVRYR61XCWwUVRj+phehFhFrFA0EsIVSrnCUUIWUgMhVhajBQtpEBbEgBhKQQzSEGO4oIAa25YhRK5eRQCAgQWuVWigFqYqiSFMIjchVgQLFXs/v7+yyM7uzMw/CSybtzvzX+4/vfc+A7lqrEhCNTBgYTJU0Ph34PORXv86/lfx2DAqFiMHXmGTU6Jg2PIU2qmTUYyaikEPZVp7yIqAgAW1DI1ZgmnHaTSdyAPkqnoYWUHk6d9ZSy3GokMJ/fLWS+ouQa9xysuEcQJ7qTKVtVOhzT47DlY5zM1mYYvwV+ik8gHzVk0L7+Tzu5jztYWB8EvBYPHDsEvAZTVfXu4Z7nl9HMBO/WqXsAZg7/97L+axuwLKngZiooKlzrPrwvcAfUv3I6zwzMdiaiWAAZs2LGYBr2vu2AUpfMp03KeA2d90yFjBoqZR7fGq39KDrKufXgYGeCAaQp5bQ+TteNf+gPzCLIdY1AiP3AIeZ/lXpQG4POqbn7uyck+5ZkAiXMwvzxJcZwFqOWjRO8FcLrwA+zwByugIVV4Hk7ab0sLbAgTHm/8/sAgoveFhRqCVW9MLrxmkzgDy1ns4nezmX7zNY/9WDzN2u+Ako+gdY2BcYwJatZTnafwFcqdOxBB/L8KaBTaoVgaaKATyoo9Y6BihnD3RsbZeWun/IgGYf1bHSLFODBjxhIF+N4w9/MvWUU4iH+0YDnSxBbDgBTDsE1Ht0oM1DEyYYWK98bIopeq5NqTgWrmI80M4PzDINSUz9GUesc7XskwwcoQh7W39NSgY2DDFHT9ZZdv2TWzmW+iYCkmUSAAcJj+jqdmWnlIwF2lhOhzU/szlLdS3Y5C5JAHJgxOmoJzHl32byHLa06w12fM8vmf6bpoVnOQ2NxIjCizoWUacdQAdiftHz9u6X2r/xHbDJcuAWPwcUczTn6U1DcwACG4+6xduCsHuQhvsTcAJLcGApnbx73K55IRtIYD77feV5LojiZa0mfIvI9zER0Lq2nAKyi8Jx/zJpSyKztbcSyDzgWYbmJlxHsaluomWE2TTL7qtrgc7s+tDjN5ZTUf2KmYFGjkQKZSpuuAaRbxCGs4iCFHVeMvP/0mi8pU03/8ndy6EdslLZnL9lBcdzYiHwiRsha0KWwYMogQfD37TlyPek/jWvAbHRQW/rSCkE9ULXYp4J84Wu+tfbJYRnIqTjEt4Yi3YmlPhYhijnMgjnqJpAemQJ71Q10HsHDx8L8qQTSb5hoz5gydQL+4Cd5yIE0ISNmGpMNgMQ5tuAXyKRzwIS8ewUu6FDzJnvd+A6cSCDs5/b3e78dgNPxgK2udPJKGQ1Bj2Cx7HYzlPLGMBcp3j7kAUdfpFoZSmDa2vx46cngVcPRkz/UhKS+fLVTsmAH/mut5PajFTya/KAKO+bBCpJVtJJTC4KxoYvQY5B4ZTMzIIrKc3uBHzEIBIj3BIEnErIC3OIjgFotvlXIEYiw5mUBiQ9aHkim2xiF2AsL2appOZxJChXiQtlQs0JTruriAFOnECcGxjuTssDQdz/i0k5OcfLeheTYCaEpr/HnzN1yKpjtYV8Amuo//7dXc2s1swRncNXgphavJGycjMuINNeKaPmNjEaPe1XF/Jah1EErKF8Q8wDW/JOQNf4/xk+R0mLfuCzh7di91PAb/Z/EtJ0nCBsdHkAAAAASUVORK5CYII=" />
+        <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACHklEQVQ4T22TTUhUcRTFf0+DnNGgWkiKobORICiSoo+ViVJRJi2K2hY2k61y0SaoIGgjSETqTLkICqKNZWQgkW2i6MMkR8igKIKiMgoCxxGzf+f6VN5744X3de//nnfvued6RK3bbaCIJB4NOBJ6mn3U9Ujf10h5b4Ipftis08Uoo1OHWvVVXABsDsc/3a+So512b8pcPoAllzKgt50LiVVxuLwDymNwYRgGv4YgHzPJXgPxAdKuR1Cp4JG+RqheAeO/YV81VNyE3GwIJEPSS3lK3ij3awEUBcNPmmHslxr/ArcEVnEDJqZDALPKqPPIuCtyn4z23FQJ/bshtgw6RuD0yyVYcXQbwFuF1kXDler9wxHjDVZfh7zRV2jjBpCXf3kwVqIZDOyChiq4/R4OD0GiVLOcjCA4po2DvPpfBDBW7zbB/gR8+gPb++GbBvaiBervFxApgEgLzWvh3h6YEeOb+2BUUzDQ3FE4Kx46soEqHO+sgi6daFtwn9sE57fAyATU3fG961dC9iA8+KyRDoba6PIw6RZrjPPqO1YLvfX64wwcegg/xdAlCWrbGugZg7an8wC+KjVGs4xL65601zKNbfgA1K4KEzb1F7aqoqxamjNHWntxYkkpl5fARbXRUgNxAT7/DmdewbMfi6ARKZvf9iGuZYLjUVUGajEx92oPToWXKVitSdvTRjoa9ayZU5KndXYMiasMrd5o8Ph/oDCo9HTUhIAAAAAASUVORK5CYII=" />
+        <title>WebhookDB Admin</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: sans-serif;
+            }
+
+            .loader-container {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background-color: #2ba9ff;
+            }
+
+            /* CSS Spinner from https://projects.lukehaas.me/css-loaders/ */
+
+            .loader {
+                color: #ffffff;
+                font-size: 90px;
+                text-indent: -9999em;
+                overflow: hidden;
+                width: 1em;
+                height: 1em;
+                border-radius: 50%;
+                margin: 72px auto;
+                position: relative;
+                -webkit-transform: translateZ(0);
+                -ms-transform: translateZ(0);
+                transform: translateZ(0);
+                -webkit-animation: load6 1.7s infinite ease, round 1.7s infinite ease;
+                animation: load6 1.7s infinite ease, round 1.7s infinite ease;
+            }
+            @-webkit-keyframes load6 {
+                0% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+                5%,
+                95% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+                10%,
+                59% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.087em -0.825em 0 -0.42em, -0.173em -0.812em 0 -0.44em, -0.256em -0.789em 0 -0.46em, -0.297em -0.775em 0 -0.477em;
+                }
+                20% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.338em -0.758em 0 -0.42em, -0.555em -0.617em 0 -0.44em, -0.671em -0.488em 0 -0.46em, -0.749em -0.34em 0 -0.477em;
+                }
+                38% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.377em -0.74em 0 -0.42em, -0.645em -0.522em 0 -0.44em, -0.775em -0.297em 0 -0.46em, -0.82em -0.09em 0 -0.477em;
+                }
+                100% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+            }
+            @keyframes load6 {
+                0% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+                5%,
+                95% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+                10%,
+                59% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.087em -0.825em 0 -0.42em, -0.173em -0.812em 0 -0.44em, -0.256em -0.789em 0 -0.46em, -0.297em -0.775em 0 -0.477em;
+                }
+                20% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.338em -0.758em 0 -0.42em, -0.555em -0.617em 0 -0.44em, -0.671em -0.488em 0 -0.46em, -0.749em -0.34em 0 -0.477em;
+                }
+                38% {
+                    box-shadow: 0 -0.83em 0 -0.4em, -0.377em -0.74em 0 -0.42em, -0.645em -0.522em 0 -0.44em, -0.775em -0.297em 0 -0.46em, -0.82em -0.09em 0 -0.477em;
+                }
+                100% {
+                    box-shadow: 0 -0.83em 0 -0.4em, 0 -0.83em 0 -0.42em, 0 -0.83em 0 -0.44em, 0 -0.83em 0 -0.46em, 0 -0.83em 0 -0.477em;
+                }
+            }
+            @-webkit-keyframes round {
+                0% {
+                    -webkit-transform: rotate(0deg);
+                    transform: rotate(0deg);
+                }
+                100% {
+                    -webkit-transform: rotate(360deg);
+                    transform: rotate(360deg);
+                }
+            }
+            @keyframes round {
+                0% {
+                    -webkit-transform: rotate(0deg);
+                    transform: rotate(0deg);
+                }
+                100% {
+                    -webkit-transform: rotate(360deg);
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;500;600;700&display=swap" rel="stylesheet">
+      <script type="module" crossorigin src="/admin/assets/index-49a43f51.js"></script>
+    </head>
+
+    <body>
+        <noscript> You need to enable JavaScript to run this app. </noscript>
+        <div id="root">
+            <div class="loader-container">
+                <div class="loader">Loading...</div>
+            </div>
+        </div>
+    </body>
+    
+</html>

@@ -23,6 +23,7 @@ class Webhookdb::Subscription < Webhookdb::Postgres::Model(:subscriptions)
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:organization]
 
   configurable(:subscription) do
     setting :billing_enabled, false

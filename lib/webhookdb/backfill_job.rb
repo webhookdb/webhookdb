@@ -15,6 +15,7 @@
 #
 class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_integration]
 
   many_to_one :service_integration, class: "Webhookdb::ServiceIntegration"
   many_to_one :parent_job, class: "Webhookdb::BackfillJob"

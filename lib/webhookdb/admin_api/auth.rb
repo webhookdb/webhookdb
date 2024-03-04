@@ -8,7 +8,28 @@ class Webhookdb::AdminAPI::Auth < Webhookdb::AdminAPI::V1
   resource :auth do
     desc "Return the current administrator customer."
     get do
-      present admin_customer, with: Webhookdb::AdminAPI::CurrentCustomerEntity, env:
+      present admin_customer, with: Webhookdb::AdminAPI::Entities::CurrentCustomer, env:
+    end
+
+    params do
+      requires :email, type: String
+      requires :password, type: String
+    end
+
+    resource :login do
+      auth(:skip)
+      params do
+        requires :email, type: String
+        requires :password, type: String
+      end
+      post do
+        (me = Webhookdb::Customer.with_email(params[:email])) or unauthenticated!
+        me.authenticate(params[:password]) or unauthenticated!
+        unauthenticated! unless me.admin?
+        set_customer(me)
+        status 200
+        present admin_customer, with: Webhookdb::AdminAPI::Entities::CurrentCustomer, env:
+      end
     end
 
     resource :impersonate do
@@ -17,7 +38,7 @@ class Webhookdb::AdminAPI::Auth < Webhookdb::AdminAPI::V1
         Webhookdb::Service::Auth::Impersonation.new(env["warden"]).off(admin_customer)
 
         status 200
-        present admin_customer, with: Webhookdb::AdminAPI::CurrentCustomerEntity, env:
+        present admin_customer, with: Webhookdb::AdminAPI::Entities::CurrentCustomer, env:
       end
 
       route_param :customer_id, type: Integer do
@@ -28,7 +49,7 @@ class Webhookdb::AdminAPI::Auth < Webhookdb::AdminAPI::V1
           Webhookdb::Service::Auth::Impersonation.new(env["warden"]).on(target)
 
           status 200
-          present target, with: Webhookdb::AdminAPI::CurrentCustomerEntity, env:
+          present target, with: Webhookdb::AdminAPI::Entities::CurrentCustomer, env:
         end
       end
     end

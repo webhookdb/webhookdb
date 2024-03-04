@@ -20,6 +20,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   }.freeze
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_name, :table_name, :organization]
   plugin :column_encryption do |enc|
     enc.column :data_encryption_secret
     enc.column :webhook_secret

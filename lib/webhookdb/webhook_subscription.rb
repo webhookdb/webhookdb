@@ -23,6 +23,7 @@ require "webhookdb/jobs/webhook_subscription_delivery_attempt"
 #
 class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subscriptions)
   plugin :timestamps
+  plugin :text_searchable, terms: [:organization, :service_integration, :deliver_to_url, :created_by]
   plugin :column_encryption do |enc|
     enc.column :webhook_secret
   end

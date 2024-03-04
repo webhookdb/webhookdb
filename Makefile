@@ -91,6 +91,9 @@ message-render-html: env-MESSAGE
 	sleep 3
 	rm message.html
 
+admin-build:
+	bin/build-admin
+
 dockerdev-build:
 	@docker build -f docker/dev.Dockerfile -t webhookdb-dev:latest --progress=plain .
 dockertest-%:

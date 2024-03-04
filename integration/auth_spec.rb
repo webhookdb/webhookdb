@@ -41,13 +41,13 @@ RSpec.describe "auth", :integration do
     customer = Webhookdb::Fixtures.customer.admin.instance
     auth_customer(customer)
 
-    resp = get("/admin/v1/auth")
+    resp = get("/admin_api/v1/auth")
     expect(resp).to party_status(200)
     expect(resp).to party_response(match(hash_including(name: customer.name)))
 
     customer.remove_role(Webhookdb::Role.admin_role)
 
-    resp = get("/admin/v1/auth")
+    resp = get("/admin_api/v1/auth")
     expect(resp).to party_status(401)
   end
 end

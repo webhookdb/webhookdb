@@ -9,7 +9,11 @@ module Webhookdb::API
   MoneyEntity = Webhookdb::Service::Entities::Money
   TimeRangeEntity = Webhookdb::Service::Entities::TimeRange
 
-  class BaseEntity < Webhookdb::Service::Entities::Base; end
+  class BaseEntity < Webhookdb::Service::Entities::Base
+    expose :message do |_instance, options|
+      options[:message] || ""
+    end
+  end
 
   class OrganizationEntity < BaseEntity
     expose :id
