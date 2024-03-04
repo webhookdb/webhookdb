@@ -1,0 +1,31 @@
+name: Admin Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'admin/**/*'
+jobs:
+  admin-checks:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.13
+      - uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: node-
+      - run: npm install
+      - run: npm run fmt-check
+      - run: npm run lint-check
+      - run: CI=true npm test

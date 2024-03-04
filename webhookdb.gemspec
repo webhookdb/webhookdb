@@ -29,6 +29,7 @@ Gem::Specification.new do |s|
   s.files += Dir["data/**/*"]
   s.files += Dir["db/**/*.rb"]
   s.files += Dir["integration/**/*.rb"]
+  s.files += Dir["admin-dist/**/*"]
 
   s.add_dependency("activesupport", "~> 7.1")
   s.add_dependency("appydays", ">= 0.8")
@@ -63,7 +64,7 @@ Gem::Specification.new do |s|
   s.add_dependency("puma", "~> 6.4")
   s.add_dependency("rack-cors", "~> 2.0")
   s.add_dependency("rack-protection", "~> 3.2")
-  s.add_dependency("rack-spa", "~> 0.10")
+  s.add_dependency("rack-spa", "~> 0.11")
   s.add_dependency("rack-ssl-enforcer", "~> 0.2")
   s.add_dependency("rake", "~> 13.1")
   s.add_dependency("redis", "~> 4.8")

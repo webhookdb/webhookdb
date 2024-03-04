@@ -93,17 +93,15 @@ module Webhookdb::Apps
   end
 
   Admin = Rack::Builder.new do
-    dw = Rack::DynamicConfigWriter.new(
-      "admin-dist/index.html",
-    )
+    build_dir = Pathname(__FILE__).dirname.parent.parent + "admin-dist"
+    dw = Rack::DynamicConfigWriter.new(build_dir + "index.html")
     env = {
       "VITE_API_HOST" => "/",
       "VITE_RELEASE" => "admin@1.0.0",
       "NODE_ENV" => "production",
     }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))
-    dw.emplace(env)
-    # self.use Rack::Csp, policy: "default-src 'self'; img-src 'self' data:"
-    Rack::SpaApp.run_spa_app(self, "admin-dist", enforce_ssl: Webhookdb::Service.enforce_ssl)
+    index_bytes = dw.as_string(env)
+    Rack::SpaApp.run_spa_app(self, build_dir, enforce_ssl: Webhookdb::Service.enforce_ssl, index_bytes:)
   end
 
   SidekiqWeb = Rack::Builder.new do

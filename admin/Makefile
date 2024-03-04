@@ -3,8 +3,8 @@ fmt:
 	npm run fmt-fix
 	npm run lint-fix
 check:
-	npm run fmt
-	npm run lint
+	npm run fmt-check
+	npm run lint-check
 test:
 	npm test
 
