@@ -9,7 +9,7 @@ export default function AdminLayout({ children, ...rest }) {
       {children}
       <CheckForApplicationUpdate
         interval={20 * minute}
-        url={config.apiHost + "/api/statusz"}
+        url={config.apiHost + "/statusz"}
       />
     </Layout>
   );
