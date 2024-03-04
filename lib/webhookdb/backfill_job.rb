@@ -100,6 +100,8 @@ end
 #  parent_job_id          | integer                  |
 #  created_by_id          | integer                  |
 #  incremental            | boolean                  | NOT NULL
+#  criteria               | jsonb                    | NOT NULL DEFAULT '{}'::jsonb
+#  text_search            | tsvector                 |
 # Indexes:
 #  backfill_jobs_pkey                         | PRIMARY KEY btree (id)
 #  backfill_jobs_opaque_id_key                | UNIQUE btree (opaque_id)

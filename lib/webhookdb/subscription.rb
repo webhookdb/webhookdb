@@ -197,6 +197,7 @@ end
 #  stripe_id          | text                     | NOT NULL
 #  stripe_customer_id | text                     | NOT NULL DEFAULT ''::text
 #  stripe_json        | jsonb                    | DEFAULT '{}'::jsonb
+#  text_search        | tsvector                 |
 # Indexes:
 #  subscriptions_pkey                     | PRIMARY KEY btree (id)
 #  subscriptions_stripe_id_key            | UNIQUE btree (stripe_id)

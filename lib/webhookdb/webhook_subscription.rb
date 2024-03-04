@@ -213,6 +213,7 @@ end
 #  updated_at             | timestamp with time zone |
 #  created_by_id          | integer                  |
 #  deactivated_at         | timestamp with time zone |
+#  text_search            | tsvector                 |
 # Indexes:
 #  webhook_subscriptions_pkey          | PRIMARY KEY btree (id)
 #  webhook_subscriptions_opaque_id_key | UNIQUE btree (opaque_id)

@@ -143,6 +143,7 @@ end
 #  organization_schema                  | text                     |
 #  last_migrated_service_integration_id | integer                  | NOT NULL DEFAULT 0
 #  last_migrated_timestamp              | timestamp with time zone |
+#  text_search                          | tsvector                 |
 # Indexes:
 #  organization_database_migrations_pkey                  | PRIMARY KEY btree (id)
 #  one_inprogress_migration_per_org                       | UNIQUE btree (organization_id) WHERE finished_at IS NULL

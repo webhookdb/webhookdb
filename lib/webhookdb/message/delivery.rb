@@ -116,6 +116,7 @@ end
 #  recipient_id         | integer                  |
 #  extra_fields         | jsonb                    | NOT NULL DEFAULT '{}'::jsonb
 #  soft_deleted_at      | timestamp with time zone |
+#  text_search          | tsvector                 |
 # Indexes:
 #  message_deliveries_pkey                     | PRIMARY KEY btree (id)
 #  message_deliveries_transport_message_id_key | UNIQUE btree (transport_message_id)
