@@ -104,6 +104,28 @@ RSpec.describe Webhookdb::AdminAPI::DataProvider, :db do
         that_includes(data: match([include(name: "org-X"), include(name: "org-Y"), include(name: "org-Z")]))
     end
 
+    it "always sorts nulls with explicit sorting" do
+      t0 = Webhookdb::Fixtures.message_delivery.create(sent_at: Time.now)
+      tminus1 = Webhookdb::Fixtures.message_delivery.create(sent_at: 1.day.ago)
+      tnull = Webhookdb::Fixtures.message_delivery.create(sent_at: nil)
+      tplus1 = Webhookdb::Fixtures.message_delivery.create(sent_at: 1.day.from_now)
+
+      post "/v1/data_provider/get_list", resource: "message_deliveries"
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(data: have_same_ids_as(tplus1, tnull, tminus1, t0).ordered)
+
+      post "/v1/data_provider/get_list", resource: "message_deliveries", sort: {field: "sent_at", order: "DESC"}
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(data: have_same_ids_as(tplus1, t0, tminus1, tnull).ordered)
+
+      post "/v1/data_provider/get_list", resource: "message_deliveries", sort: {field: "sent_at", order: "ASC"}
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(data: have_same_ids_as(tminus1, t0, tplus1, tnull).ordered)
+    end
+
     it "filters" do
       Webhookdb::Fixtures.organization.create(name: "org-X")
       Webhookdb::Fixtures.organization.create(name: "org-Y")
