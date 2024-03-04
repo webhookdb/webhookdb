@@ -5,7 +5,7 @@ import brjoin from "../modules/brjoin";
 import fieldList from "../modules/fieldList";
 
 export const LoggedWebhookList = () => (
-  <CList>
+  <CList noSearch>
     <CDatagrid>
       {fieldList(
         "id",

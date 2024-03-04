@@ -94,9 +94,9 @@ module Webhookdb::Apps
 
   Admin = Rack::Builder.new do
     build_dir = Pathname(__FILE__).dirname.parent.parent + "admin-dist"
-    dw = Rack::DynamicConfigWriter.new(build_dir + "index.html")
+    dw = Rack::DynamicConfigWriter.new(build_dir + "index.html", global_assign: "window.whdbDynamicEnv")
     env = {
-      "VITE_API_HOST" => "/",
+      "VITE_API_ROOT" => "/",
       "VITE_RELEASE" => "admin@1.0.0",
       "NODE_ENV" => "production",
     }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))

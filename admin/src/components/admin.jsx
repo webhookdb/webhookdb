@@ -14,7 +14,7 @@ export function CList({ noSearch, filters, ...props }) {
     <List
       sort={{ field: "id", order: "DESC" }}
       perPage={50}
-      filters={postFilters}
+      filters={postFilters.length === 0 ? null : postFilters}
       {...props}
     />
   );

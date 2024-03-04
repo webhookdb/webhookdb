@@ -9,8 +9,8 @@ export const SubscriptionList = () => (
       {fieldList(
         "id",
         ["reference", "organization", { reference: "organizations" }],
-        ["text", "stripeId"],
-        ["text", "stripeCustomerId"],
+        ["text", "stripeId", { sortable: true }],
+        ["text", "stripeCustomerId", { sortable: true }],
       )}
     </CDatagrid>
   </CList>

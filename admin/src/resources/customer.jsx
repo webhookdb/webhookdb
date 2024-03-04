@@ -5,7 +5,9 @@ import fieldList from "../modules/fieldList";
 
 export const CustomerList = () => (
   <CList>
-    <CDatagrid>{fieldList("id", ["email", "email"], ["text", "name"])}</CDatagrid>
+    <CDatagrid>
+      {fieldList("id", ["email", "email", { sortable: true }], ["text", "name"])}
+    </CDatagrid>
   </CList>
 );
 

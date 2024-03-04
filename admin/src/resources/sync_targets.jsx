@@ -11,7 +11,7 @@ export const SyncTargetList = () => (
         ["reference", "organization", { reference: "organizations" }],
         ["reference", "serviceIntegration", { reference: "service_integrations" }],
         ["text", "opaqueId"],
-        "lastSyncedAt",
+        ["datetime", "lastSyncedAt", { sortable: true }],
       )}
     </CDatagrid>
   </CList>

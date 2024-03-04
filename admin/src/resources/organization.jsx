@@ -14,8 +14,8 @@ export const OrganizationShow = () => (
     <SimpleShowLayout>
       {fieldList(
         "id",
-        ["text", "key"],
-        ["text", "name"],
+        ["text", "key", { sortable: true }],
+        ["text", "name", { sortable: true }],
         "createdAt",
         "updatedAt",
         "softDeletedAt",

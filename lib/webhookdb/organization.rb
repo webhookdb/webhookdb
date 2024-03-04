@@ -524,6 +524,8 @@ require "webhookdb/organization/db_builder"
 #  minimum_sync_seconds        | integer                  | NOT NULL
 #  sync_target_timeout         | integer                  | NOT NULL DEFAULT 30
 #  max_query_rows              | integer                  |
+#  priority_backfill           | boolean                  | NOT NULL DEFAULT false
+#  text_search                 | tsvector                 |
 # Indexes:
 #  organizations_pkey     | PRIMARY KEY btree (id)
 #  organizations_key_key  | UNIQUE btree (key)
@@ -531,8 +533,11 @@ require "webhookdb/organization/db_builder"
 # Referenced By:
 #  feature_roles_organizations      | feature_roles_organizations_organization_id_fkey      | (organization_id) REFERENCES organizations(id)
 #  logged_webhooks                  | logged_webhooks_organization_id_fkey                  | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+#  oauth_sessions                   | oauth_sessions_organization_id_fkey                   | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  organization_database_migrations | organization_database_migrations_organization_id_fkey | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  organization_memberships         | organization_memberships_organization_id_fkey         | (organization_id) REFERENCES organizations(id)
+#  saved_queries                    | saved_queries_organization_id_fkey                    | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+#  saved_views                      | saved_views_organization_id_fkey                      | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  service_integrations             | service_integrations_organization_id_fkey             | (organization_id) REFERENCES organizations(id)
 #  webhook_subscriptions            | webhook_subscriptions_organization_id_fkey            | (organization_id) REFERENCES organizations(id)
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------

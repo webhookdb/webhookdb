@@ -113,7 +113,12 @@ class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
         if (sort = params[:sort])
           sort_col = sort[:field]
           unless sort_col.to_s.include?(".")
-            order = Sequel.send(sort[:order].to_s.downcase, sort_col)
+            # If the sort column includes a '.', we have to special case it.
+            # Right now we don't have any allowed sort cols.
+            # It is possible to make an unsupported column sortable in react-admin, causing the backend to error,
+            # but it's not easy to clear out your filters/sort settings once this happens.
+            # So instead, just avoid causing the error, and just no-op if an invalid column is passed in.
+            order = Sequel.send(sort[:order].to_s.downcase, sort_col, nulls: :last)
             ds = ds.order(order)
           end
         else

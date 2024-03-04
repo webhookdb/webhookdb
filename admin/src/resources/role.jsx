@@ -5,7 +5,7 @@ import fieldList from "../modules/fieldList";
 
 export const RoleList = () => (
   <CList>
-    <CDatagrid>{fieldList("id", ["text", "name"])}</CDatagrid>
+    <CDatagrid>{fieldList("id", ["text", "name", { sortable: true }])}</CDatagrid>
   </CList>
 );
 

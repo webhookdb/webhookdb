@@ -330,6 +330,7 @@ end
 #  name            | text                     | NOT NULL DEFAULT ''::text
 #  note            | text                     | NOT NULL DEFAULT ''::text
 #  opaque_id       | text                     | NOT NULL
+#  text_search     | tsvector                 |
 # Indexes:
 #  customers_pkey          | PRIMARY KEY btree (id)
 #  customers_email_key     | UNIQUE btree (email)
@@ -340,9 +341,12 @@ end
 #  backfill_jobs                    | backfill_jobs_created_by_id_fkey                    | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  customer_reset_codes             | customer_reset_codes_customer_id_fkey               | (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 #  message_deliveries               | message_deliveries_recipient_id_fkey                | (recipient_id) REFERENCES customers(id) ON DELETE SET NULL
+#  oauth_sessions                   | oauth_sessions_customer_id_fkey                     | (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 #  organization_database_migrations | organization_database_migrations_started_by_id_fkey | (started_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  organization_memberships         | organization_memberships_customer_id_fkey           | (customer_id) REFERENCES customers(id)
 #  roles_customers                  | roles_customers_customer_id_fkey                    | (customer_id) REFERENCES customers(id)
+#  saved_queries                    | saved_queries_created_by_id_fkey                    | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
+#  saved_views                      | saved_views_created_by_id_fkey                      | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  sync_targets                     | sync_targets_created_by_id_fkey                     | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  webhook_subscriptions            | webhook_subscriptions_created_by_id_fkey            | (created_by_id) REFERENCES customers(id)
 # -----------------------------------------------------------------------------------------------------------------------------------------------------

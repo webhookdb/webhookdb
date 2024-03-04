@@ -73,6 +73,7 @@ end
 #  attempt_http_response_statuses | smallint[]                 | NOT NULL DEFAULT ARRAY[]::smallint[]
 #  payload                        | jsonb                      | NOT NULL
 #  webhook_subscription_id        | integer                    | NOT NULL
+#  text_search                    | tsvector                   |
 # Indexes:
 #  webhook_subscription_deliveries_pkey                          | PRIMARY KEY btree (id)
 #  webhook_subscription_deliveries_webhook_subscription_id_index | btree (webhook_subscription_id)
