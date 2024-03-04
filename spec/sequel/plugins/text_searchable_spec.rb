@@ -138,6 +138,17 @@ RSpec.describe "sequel-text-searchable" do
       expect(c.refresh).to have_attributes(text_search: "'child':1A 'grandpar':3 'parent':2")
       expect(gc.refresh).to have_attributes(text_search: "'child':2 'grandchild':1A 'grandpar':4 'parent':3")
     end
+
+    it "handles hashes instead of strings and tuples" do
+      c1 = model.create(name: "Ciri")
+      c1.define_singleton_method(:text_search_terms) { [{"ciri" => "B"}, {"geralt" => "C"}] }
+      c1.text_search_reindex
+      expect(getvector).to eq("'ciri':1B 'geralt':2C")
+
+      c1.define_singleton_method(:text_search_terms) { {"ciri" => "A", "geralt" => "C"} }
+      c1.text_search_reindex
+      expect(getvector).to eq("'ciri':1A 'geralt':2C")
+    end
   end
 
   describe "reindexing" do

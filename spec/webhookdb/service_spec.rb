@@ -129,10 +129,6 @@ class Webhookdb::API::TestService < Webhookdb::Service
     present_collection coll
   end
 
-  get :entity do
-    present Webhookdb::Customer.first, with: CustomerEntity, message: "hello"
-  end
-
   get :caching do
     use_http_expires_caching(5.minutes)
     present [1, 2, 3]
