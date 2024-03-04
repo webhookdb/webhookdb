@@ -94,7 +94,7 @@ module Webhookdb::Apps
 
   Admin = Rack::Builder.new do
     dw = Rack::DynamicConfigWriter.new(
-      "admin-dist/index.html",
+      Pathname(__FILE__).dirname.parent.parent + "admin-dist/index.html",
     )
     env = {
       "VITE_API_HOST" => "/",
