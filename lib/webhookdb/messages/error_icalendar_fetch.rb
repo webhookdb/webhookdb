@@ -21,8 +21,7 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
   end
 
   def signature
-    ehash = Digest::MD5.hexdigest(@kw.to_s)
-    return "msg-#{self.full_template_name}-sint:#{@service_integration.id}-eid:#{@external_calendar_id}-err:#{ehash}"
+    return "msg-#{self.full_template_name}-sint:#{@service_integration.id}-eid:#{@external_calendar_id}"
   end
 
   def template_folder = "errors"

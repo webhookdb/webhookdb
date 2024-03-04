@@ -117,4 +117,11 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
       )
     end
   end
+
+  it "can fixture all message templates" do
+    recipient = Webhookdb::Fixtures.customer.create
+    Webhookdb::Message::Template.subclasses.each do |cls|
+      expect { cls.fixtured(recipient) }.to_not raise_error
+    end
+  end
 end

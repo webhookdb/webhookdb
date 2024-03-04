@@ -415,7 +415,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     end
   end
 
-  describe "backfill", truncate: Webhookdb::Idempotency do
+  describe "backfill", reset_configuration: Webhookdb::Signalwire, truncate: Webhookdb::Idempotency do
     support_phone = "2223334444"
     customer_phone = "5556667777"
     before(:each) do
@@ -424,16 +424,14 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       sint.update(api_url: support_phone)
       sint.organization.prepare_database_connections
       svc.create_table
+      Webhookdb::Signalwire.sms_allowlist = ["*"]
     end
 
     after(:each) do
       sint.organization.remove_related_database
     end
 
-    it "sends a Signalwire SMS for rows without a Signalwire id",
-       :no_transaction_check,
-       reset_configuration: Webhookdb::Signalwire do
-      Webhookdb::Signalwire.sms_allowlist = ["*"]
+    it "sends a Signalwire SMS for rows without a Signalwire id", :no_transaction_check do
       svc.admin_dataset do |ds|
         ds.insert(
           external_id: "front_id_only",
@@ -472,6 +470,70 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         include(external_id: "both_id", front_message_id: "fmid2", signalwire_sid: "swid"),
         include(external_id: "OLD_front_id_only", front_message_id: "OLD_fmid1", signalwire_sid: "skipped_due_to_age"),
       )
+    end
+
+    it "dispatches an alert if the Signalwire SMS send fails", :no_transaction_check do
+      Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "front_id_only",
+          front_message_id: "fmid1",
+          sender: support_phone,
+          recipient: customer_phone,
+          body: "hi",
+          data: {payload: {created_at: Time.now.to_i}}.to_json,
+        )
+      end
+      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+        with(
+          body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
+        ).to_return(json_response(load_fixture_data("signalwire/error_inactive_campaign"), status: 422))
+      backfill(sint)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(external_id: "front_id_only", front_message_id: "fmid1", signalwire_sid: nil),
+      )
+      expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+        have_attributes(template: "errors/signalwire_send_sms"),
+      )
+    end
+
+    it "raises for unhandled sms send errors", :no_transaction_check do
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "front_id_only",
+          front_message_id: "fmid1",
+          sender: support_phone,
+          recipient: customer_phone,
+          body: "hi",
+          data: {payload: {created_at: Time.now.to_i}}.to_json,
+        )
+      end
+      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+        with(
+          body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
+        ).to_return(json_response({message: "uh oh"}, status: 422))
+      expect { backfill(sint) }.to raise_error(Webhookdb::Http::Error)
+      expect(req).to have_been_made
+    end
+
+    it "raises for non-json sms errors", :no_transaction_check do
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "front_id_only",
+          front_message_id: "fmid1",
+          sender: support_phone,
+          recipient: customer_phone,
+          body: "hi",
+          data: {payload: {created_at: Time.now.to_i}}.to_json,
+        )
+      end
+      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+        with(
+          body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
+        ).to_return(status: 500, body: "uh oh")
+      expect { backfill(sint) }.to raise_error(Webhookdb::Http::Error)
+      expect(req).to have_been_made
     end
 
     it "syncs a Front message for rows without a Front id", :no_transaction_check do
