@@ -5,9 +5,9 @@
     "dev": "vite",
     "start": "vite",
     "build": "vite build --base=/admin/",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint-check": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "lint-fix": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "fmt": "prettier --no-error-on-unmatched-pattern --check '*.{js,jsx}' './tools/*.{js,jsx}' './src/**/*.{js,jsx}'",
+    "fmt-check": "prettier --no-error-on-unmatched-pattern --check '*.{js,jsx}' './tools/*.{js,jsx}' './src/**/*.{js,jsx}'",
     "fmt-fix": "prettier --no-error-on-unmatched-pattern --write '*.{js,jsx}' './tools/*.{js,jsx}' './src/**/*.{js,jsx}'",
     "test": "vitest --passWithNoTests --globals",
     "preview": "vite preview"
