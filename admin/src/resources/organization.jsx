@@ -50,6 +50,19 @@ export const OrganizationShow = () => (
           )}
         </CDatagrid>
       </ReferenceManyField>
+      <ReferenceManyField
+        label="Database Tables"
+        reference="replicated_databases"
+        target="organization_id"
+      >
+        <CDatagrid>
+          {fieldList(
+            ["text", "tableName", { label: "Table" }],
+            ["text", "sizePretty"],
+            ["number", "size"],
+          )}
+        </CDatagrid>
+      </ReferenceManyField>
     </SimpleShowLayout>
   </CShow>
 );

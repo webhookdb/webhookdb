@@ -193,6 +193,46 @@ RSpec.describe Webhookdb::AdminAPI::DataProvider, :db do
       expect(last_response).to have_json_body.
         that_includes(data: have_same_ids_as(admin3))
     end
+
+    it "can work for join tables" do
+      c = Webhookdb::Fixtures.customer.create
+      r = Webhookdb::Fixtures.role.create
+      c.add_role r
+
+      post "/v1/data_provider/get_many_reference",
+           resource: "customer_roles",
+           target: "customer_id",
+           id: c.id
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(data: contain_exactly(include(customer: include(id: c.id), role: include(id: r.id))))
+    end
+
+    it "can show organization database sizes" do
+      o = Webhookdb::Fixtures.organization.create
+      o.prepare_database_connections
+      sint = Webhookdb::Fixtures.service_integration.create(organization: o)
+      sint.replicator.create_table
+
+      post "/v1/data_provider/get_many_reference",
+           resource: "replicated_databases",
+           target: "organization_id",
+           id: o.id
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.
+        that_includes(data: [
+                        {
+                          id: sint.table_name,
+                          table_name: sint.table_name,
+                          size_pretty: "32 kB",
+                          size: 0,
+                        },
+                      ])
+    ensure
+      o.remove_related_database
+    end
   end
 
   describe "round-tripping" do

@@ -5,16 +5,24 @@ require "webhookdb/admin_api"
 class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
   include Webhookdb::AdminAPI::Entities
 
+  class CustomerRoleModel < Sequel::Model
+    many_to_one :customer, class: "Webhookdb::Customer"
+    many_to_one :role, class: "Webhookdb::Role"
+  end
+  CustomerRoleModel.set_dataset(Webhookdb::Postgres::Model.db[:roles_customers])
+
   TYPEINFO = {
     backfill_jobs: [Webhookdb::BackfillJob, BackfillJob],
     customers: [Webhookdb::Customer, Customer],
     customer_reset_codes: [Webhookdb::Customer::ResetCode, CustomerResetCode],
+    customer_roles: [CustomerRoleModel, CustomerRole],
     logged_webhooks: [Webhookdb::LoggedWebhook, LoggedWebhook],
     message_bodies: [Webhookdb::Message::Body, MessageBody],
     message_deliveries: [Webhookdb::Message::Delivery, MessageDelivery],
     organization_database_migrations: [Webhookdb::Organization::DatabaseMigration, OrganizationDatabaseMigration],
     organization_memberships: [Webhookdb::OrganizationMembership, OrganizationMembership],
     organizations: [Webhookdb::Organization, Organization],
+    replicated_databases: [nil, nil],
     roles: [Webhookdb::Role, Role],
     saved_queries: [Webhookdb::SavedQuery, SavedQuery],
     saved_views: [Webhookdb::SavedView, SavedView],
@@ -109,7 +117,7 @@ class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
             ds = ds.order(order)
           end
         else
-          ds = ds.order(Sequel.desc(:id))
+          ds = ds.order(Sequel.desc(ds.model.primary_key))
         end
         if (pagination = params[:pagination])
           ds = ds.paginate(pagination[:page], pagination[:per_page])
@@ -155,12 +163,29 @@ class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
       requires :id, type: Integer
     end
     post :get_many_reference do
-      model_cls = lookup_model_type
-      ds = model_cls.dataset
-      ds = ds.where(params[:target] => params[:id])
-      ds = apply_list_params(ds)
-      status 200
-      present_dataset ds, lookup_entity(model_cls)
+      if params[:resource] == :replicated_databases
+        (org = Webhookdb::Organization[params[:id]]) or forbidden!
+        rows = org.admin_connection do |db|
+          rows = db[Sequel[:information_schema][:tables]].
+            where(table_schema: org.replication_schema).
+            select(
+              Sequel[:table_name].as(:id),
+              :table_name,
+              Sequel.expr { pg_size_pretty(pg_total_relation_size(quote_ident(table_name))) }.as(:size_pretty),
+              Sequel.expr { pg_relation_size(quote_ident(table_name)) }.as(:size),
+            ).all
+          rows
+        end
+        status 200
+        present({data: rows, total: rows.length})
+      else
+        model_cls = lookup_model_type
+        ds = model_cls.dataset
+        ds = ds.where(params[:target] => params[:id])
+        ds = apply_list_params(ds)
+        status 200
+        present_dataset ds, lookup_entity(model_cls)
+      end
     end
   end
 end

@@ -1,4 +1,4 @@
-import { ReferenceArrayField, ReferenceManyField, SimpleShowLayout } from "react-admin";
+import { ReferenceManyField, SimpleShowLayout } from "react-admin";
 
 import { CDatagrid, CList, CShow } from "../components/admin";
 import fieldList from "../modules/fieldList";
@@ -40,8 +40,17 @@ export const CustomerShow = () => (
           )}
         </CDatagrid>
       </ReferenceManyField>
-      <p>TODO FIX ME</p>
-      <ReferenceArrayField label="Roles" reference="roles" source="rolesIds" />
+      <ReferenceManyField
+        label="Roles"
+        reference="customer_roles"
+        target="customer_id"
+        sortable={false}
+        sort={{ field: "role_id", order: "ASC" }}
+      >
+        <CDatagrid>
+          {fieldList(["reference", "role.id", { label: "Role", reference: "roles" }])}
+        </CDatagrid>
+      </ReferenceManyField>
     </SimpleShowLayout>
   </CShow>
 );

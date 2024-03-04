@@ -124,6 +124,13 @@ const componentsOverrides = (theme) => ({
       },
     },
   },
+  RaDatagrid: {
+    styleOverrides: {
+      root: {
+        marginTop: theme.spacing(1.5),
+      },
+    },
+  },
   RaMenuItemLink: {
     styleOverrides: {
       root: {

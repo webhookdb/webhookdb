@@ -47,6 +47,17 @@ module Webhookdb::AdminAPI::Entities
     expose :customer, with: Related
   end
 
+  class CustomerRole < Base
+    expose :customer do
+      expose :id, &self.delegate_to(:customer_id)
+      expose :email, &self.delegate_to(:customer, :email)
+    end
+    expose :role do
+      expose :id, &self.delegate_to(:role_id)
+      expose :name, &self.delegate_to(:role, :name)
+    end
+  end
+
   class LoggedWebhook < Base
     expose :inserted_at
     expose :truncated_at
