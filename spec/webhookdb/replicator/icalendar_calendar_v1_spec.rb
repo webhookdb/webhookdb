@@ -1270,6 +1270,31 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made # .times(2)
       expect(event_svc.admin_dataset(&:all)).to have_length(1)
     end
+
+    it "does not get caught in an endless loop for impossible rrules" do
+      body = <<~ICAL
+        BEGIN:VCALENDAR
+        BEGIN:VEVENT
+        CREATED:20220106T215154Z
+        DTEND;TZID=America/Los_Angeles:20220112T210000
+        DTSTAMP:20220113T033503Z
+        DTSTART;TZID=America/Los_Angeles:20220112T200000
+        RRULE:FREQ=MONTHLY;BYDAY=2WE;BYSETPOS=2
+        SEQUENCE:0
+        SUMMARY:High Council Meeting
+        UID:82F63A35-0D63-46DB-B06A-B2F95D9BE8E0
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      # BYSETPOS=2 means 'second occurrence' and BYDAY=2WE means 'second wednesday'.
+      # Since there is no month with multiple second wednesdays, this cannot occur.
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to be_empty
+    end
   end
 
   # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
