@@ -394,7 +394,15 @@ The secret to use for signing is:
       h["recurring_event_id"] = uid
       final_sequence = -1
       begin
-        schedule.send(:enumerate_occurrences, schedule.start_time).each_with_index do |occ, idx|
+        # Pass in a 'closing time' to avoid a denial of service for an impossible rrule.
+        # It is further into the future than the "don't project after"
+        # since using something too short causes the calculation to be short-circuited before it should
+        # (I'm unclear what the ideal value is, but tests will fail with much less than the number here).
+        # This still results in a slow calculation, but there's not much we can do for now.
+        # In the future perhaps we should try to pre-validate common problems.
+        # See spec for examples.
+        dos_cutoff = dont_project_after + 210.days
+        schedule.send(:enumerate_occurrences, schedule.start_time, dos_cutoff).each_with_index do |occ, idx|
           next if occ.start_time < dont_project_before
           # Given the original hash, we will modify some fields.
           e = h.dup
