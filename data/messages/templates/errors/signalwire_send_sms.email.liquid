@@ -1,0 +1,31 @@
+{% expose subject %}WebhookDB: Signalwire SMS Error{% endexpose %}
+
+{% partial 'greeting' %}
+
+<p>
+    WebhookDB encountered an error trying to send an SMS via Signalwire using your credentials. We have the following information about the failure:
+</p>
+<ul>
+    <li>Service Integration Name: {{ service_name }}, ID: <code>{{ opaque_id }}</code></li>
+    <li>Request: <code>{{ request_method }} {{ request_url }}</code></li>
+    <li>Response Status: <code>{{ response_status }}</code></li>
+    <li>Body: <code>{{  response_body }}</code></li>
+</ul>
+<p>
+    Usually this indicates an API key has been revoked, or the parameters to your integration (like the 'from' number)
+    are incorrect, rather than being an error in WebhookDB itself.
+</p>
+<p>To fix this integration, head over to <a href="{{ app_url }}">{{ app_url }}</a>, log in, and run:</p>
+<pre>
+    webhookdb integrations reset {{ opaque_id }}
+</pre>
+<p>
+    If you no longer wish to use this integration, it can be deleted using:
+</p>
+<pre>
+    webhookdb integrations delete {{ opaque_id }}
+</pre>
+<p>We'll continue to send daily emails when this happens, so please do fix this up when you get a chance.</p>
+<p>Please file an issue at {{ oss_repo }} if you need any help.</p>
+
+{% partial 'signoff' %}

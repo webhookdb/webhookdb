@@ -28,7 +28,9 @@ module Webhookdb::Tasks
           SemanticLogger.add_appender(io: feedback_io)
 
           commit = Webhookdb::RACK_ENV != "test"
-          delivery = Webhookdb::Message::Delivery.preview(template_class_name.classify, commit:)
+          clsname = template_class_name.classify
+          (clsname += "s") if template_class_name.end_with?("s") && !clsname.end_with?("s")
+          delivery = Webhookdb::Message::Delivery.preview(clsname, commit:)
           feedback_io << "*** Created MessageDelivery: #{delivery.values}\n\n"
           feedback_io << delivery.body_with_mediatype!("text/plain")&.content
           feedback_io << "\n\n"

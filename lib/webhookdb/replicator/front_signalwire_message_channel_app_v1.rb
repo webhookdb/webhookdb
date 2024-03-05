@@ -2,6 +2,7 @@
 
 require "jwt"
 
+require "webhookdb/messages/error_signalwire_send_sms"
 require "webhookdb/replicator/front_v1_mixin"
 
 # Front has a system of 'channels' but it is a challenge to use.
@@ -148,7 +149,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         self.service_integration.save_changes
         return {type: "success", webhook_url: "#{Webhookdb.api_url}/v1/install/front_signalwire/channel"}.to_json
       when "delete"
-        self.service_integration.destroy
+        self.service_integration.destroy_self_and_all_dependents
         return "{}"
       when "message", "message_autoreply"
         return {
@@ -269,21 +270,55 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
           item[:signalwire_sid] = "skipped_due_to_age"
         else
           # send the SMS via signalwire
-          signalwire_resp = idempotency.execute do
-            Webhookdb::Signalwire.send_sms(
-              from: sender,
-              to: recipient,
-              body:,
-              space_url: @signalwire_sint.api_url,
-              project_id: @signalwire_sint.backfill_key,
-              api_key: @signalwire_sint.backfill_secret,
-              logger: @replicator.logger,
-            )
-          end
-          item[:signalwire_sid] = signalwire_resp.fetch("sid")
+          signalwire_resp = _send_sms(
+            idempotency,
+            from: sender,
+            to: recipient,
+            body:,
+          )
+          item[:signalwire_sid] = signalwire_resp.fetch("sid") if signalwire_resp
         end
       end
       @replicator.upsert_webhook_body(item.deep_stringify_keys)
+    end
+
+    def _send_sms(idempotency, from:, to:, body:)
+      return idempotency.execute do
+        Webhookdb::Signalwire.send_sms(
+          from:,
+          to:,
+          body:,
+          space_url: @signalwire_sint.api_url,
+          project_id: @signalwire_sint.backfill_key,
+          api_key: @signalwire_sint.backfill_secret,
+          logger: @replicator.logger,
+        )
+      end
+    rescue Webhookdb::Http::Error => e
+      response_body = e.body
+      response_status = e.status
+      request_url = e.uri.to_s
+      @replicator.logger.warn("signalwire_send_sms_error",
+                              response_body:, response_status:, request_url:, sms_from: from, sms_to: to,)
+      code = begin
+        # If this fails for whatever reason, or there is no 'code', re-raise the original error
+        e.response.parsed_response["code"]
+      rescue StandardError
+        nil
+      end
+      # All known codes are for the integrator, not on the webhookdb code side.
+      # https://developer.signalwire.com/guides/how-to-troubleshoot-common-messaging-issues
+      raise e if code.nil?
+
+      message = Webhookdb::Messages::ErrorSignalwireSendSms.new(
+        @replicator.service_integration,
+        response_status:,
+        response_body:,
+        request_url:,
+        request_method: "POST",
+      )
+      @replicator.service_integration.organization.alerting.dispatch_alert(message)
+      return nil
     end
 
     def _sync_front_inbound(sender:, texted_at:, item:, body:)

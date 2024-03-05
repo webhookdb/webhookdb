@@ -146,10 +146,12 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   def destroy_self_and_all_dependents
     self.dependents.each(&:destroy_self_and_all_dependents)
 
-    begin
-      self.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{self.table_name}" }
-    rescue Sequel::DatabaseError => e
-      raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+    if self.organization.admin_connection_url.present?
+      begin
+        self.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{self.table_name}" }
+      rescue Sequel::DatabaseError => e
+        raise e unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+      end
     end
     self.destroy
   end
