@@ -11,10 +11,10 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_limit_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::IncreaseLimitV1.new(sint) },
+      ctor: self,
       feature_roles: [],
       resource_name_singular: "Increase Limit",
-      supports_webhooks: true,
+      dependency_descriptor: Webhookdb::Replicator::IncreaseMarketplaceRootV1.descriptor,
       supports_backfill: true,
       api_docs_url: "https://increase.com/documentation/api",
     )

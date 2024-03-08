@@ -11,10 +11,10 @@ class Webhookdb::Replicator::IncreaseWireTransferV1 < Webhookdb::Replicator::Bas
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_wire_transfer_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::IncreaseWireTransferV1.new(sint) },
+      ctor: self,
       feature_roles: [],
       resource_name_singular: "Increase Wire Transfer",
-      supports_webhooks: true,
+      dependency_descriptor: Webhookdb::Replicator::IncreaseMarketplaceRootV1.descriptor,
       supports_backfill: true,
       api_docs_url: "https://increase.com/documentation/api",
     )

@@ -11,12 +11,12 @@ class Webhookdb::Replicator::IncreaseAccountNumberV1 < Webhookdb::Replicator::Ba
   def self.descriptor
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_account_number_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::IncreaseAccountNumberV1.new(sint) },
+      ctor: self,
       feature_roles: [],
       resource_name_singular: "Increase Account Number",
-      supports_webhooks: true,
+      dependency_descriptor: Webhookdb::Replicator::IncreaseMarketplaceRootV1.descriptor,
       supports_backfill: true,
-      api_docs_url: "https://icalendar.org/",
+      api_docs_url: "https://increase.com/documentation/api",
     )
   end
 

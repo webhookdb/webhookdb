@@ -6,6 +6,9 @@ class Webhookdb::Increase
   include Appydays::Loggable
 
   configurable(:increase) do
+    setting :oauth_client_id, "increase_oauth_fake_client"
+    setting :oauth_client_secret, "increase_oauth_fake_secret"
+    setting :oauth_app_webhook_secret, "increase_webhook_secret"
     setting :http_timeout, 30
   end
 

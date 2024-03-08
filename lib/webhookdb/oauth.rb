@@ -80,5 +80,7 @@ Webhookdb::Oauth.register(Webhookdb::Oauth::FakeProvider)
 require "webhookdb/oauth/front_provider"
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontProvider)
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontSignalwireChannelProvider)
+require "webhookdb/oauth/increase_provider"
+Webhookdb::Oauth.register(Webhookdb::Oauth::IncreaseProvider)
 require "webhookdb/oauth/intercom_provider"
 Webhookdb::Oauth.register(Webhookdb::Oauth::IntercomProvider)
