@@ -14,7 +14,7 @@ class Webhookdb::Replicator::IncreaseAccountNumberV1 < Webhookdb::Replicator::Ba
       ctor: self,
       feature_roles: [],
       resource_name_singular: "Increase Account Number",
-      dependency_descriptor: Webhookdb::Replicator::IncreaseMarketplaceRootV1.descriptor,
+      dependency_descriptor: Webhookdb::Replicator::IncreaseAppV1.descriptor,
       supports_backfill: true,
       api_docs_url: "https://increase.com/documentation/api",
     )

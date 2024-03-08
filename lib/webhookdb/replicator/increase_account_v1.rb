@@ -14,7 +14,7 @@ class Webhookdb::Replicator::IncreaseAccountV1 < Webhookdb::Replicator::Base
       ctor: self,
       feature_roles: [],
       resource_name_singular: "Increase Account",
-      dependency_descriptor: Webhookdb::Replicator::IncreaseMarketplaceRootV1.descriptor,
+      dependency_descriptor: Webhookdb::Replicator::IncreaseAppV1.descriptor,
       supports_backfill: true,
       api_docs_url: "https://increase.com/documentation/api",
     )
@@ -27,37 +27,14 @@ class Webhookdb::Replicator::IncreaseAccountV1 < Webhookdb::Replicator::Base
   def _denormalized_columns
     return [
       Webhookdb::Replicator::Column.new(:balance, INTEGER, index: true),
-      Webhookdb::Replicator::Column.new(
-        :created_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        defaulter: :now,
-        index: true,
-      ),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
       Webhookdb::Replicator::Column.new(:entity_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:interest_accrued, DECIMAL),
       Webhookdb::Replicator::Column.new(:name, TEXT),
       Webhookdb::Replicator::Column.new(:status, TEXT),
-      Webhookdb::Replicator::Column.new(
-        :updated_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        event_key: "created_at",
-        defaulter: :now,
-        index: true,
-      ),
+      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, index: true),
     ]
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _resource_and_event(request)
-    return self._find_resource_and_event(request.body, "account")
-  end
-
-  def _mixin_backfill_url
-    return "#{self.service_integration.api_url}/accounts"
-  end
+  def _mixin_object_type = "account"
 end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Webhookdb::Replicator::IncreaseMarketplaceRootV1 < Webhookdb::Replicator::Base
+class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
   # @return [Webhookdb::Replicator::Descriptor]
