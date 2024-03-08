@@ -12,7 +12,10 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
     return Webhookdb::Replicator::Descriptor.new(
       name: "increase_limit_v1",
       ctor: self,
-      feature_roles: [],
+      # This is a legacy resource. Instead, users should set the 'allow/deny ACH debits' flag on account numbers,
+      # or use the Inbound ACH Transfer object, which can send a webhook to accept or reject it.
+      # This flag is here for WebhookDB users who still need access to Limit resources.
+      feature_roles: ["increase_limits"],
       resource_name_singular: "Increase Limit",
       dependency_descriptor: Webhookdb::Replicator::IncreaseAppV1.descriptor,
       supports_backfill: true,
@@ -34,45 +37,17 @@ class Webhookdb::Replicator::IncreaseLimitV1 < Webhookdb::Replicator::Base
         :row_created_at,
         TIMESTAMP,
         data_key: "created_at",
-        event_key: "created_at",
         defaulter: :now,
         optional: true,
         index: true,
       ),
-      Webhookdb::Replicator::Column.new(
-        :row_updated_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        event_key: "created_at",
-        defaulter: :now,
-        optional: true,
-        index: true,
-      ),
+      Webhookdb::Replicator::Column.new(:row_updated_at, TIMESTAMP, data_key: "updated_at", index: true),
       Webhookdb::Replicator::Column.new(:status, TEXT),
       Webhookdb::Replicator::Column.new(:value, INTEGER),
     ]
   end
 
-  def _timestamp_column_name
-    return :row_updated_at
-  end
+  def _timestamp_column_name = :row_updated_at
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:row_updated_at] < Sequel[:excluded][:row_updated_at]
-  end
-
-  def _resource_and_event(request)
-    return self._find_resource_and_event(request.body, "limit")
-  end
-
-  def _upsert_update_expr(inserting, **_kwargs)
-    update = super
-    # Only set created_at if it's not set so the initial insert isn't modified.
-    self._coalesce_excluded_on_update(update, [:row_created_at])
-    return update
-  end
-
-  def _mixin_backfill_url
-    return "#{self.service_integration.api_url}/limits"
-  end
+  def _mixin_object_type = "limit"
 end

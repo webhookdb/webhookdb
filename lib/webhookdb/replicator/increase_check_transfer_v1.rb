@@ -26,39 +26,33 @@ class Webhookdb::Replicator::IncreaseCheckTransferV1 < Webhookdb::Replicator::Ba
 
   def _denormalized_columns
     return [
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, index: true),
       Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
-      Webhookdb::Replicator::Column.new(:address_line1, TEXT),
-      Webhookdb::Replicator::Column.new(:address_city, TEXT),
-      Webhookdb::Replicator::Column.new(:address_state, TEXT),
-      Webhookdb::Replicator::Column.new(:address_zip, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, data_key: "created_at", index: true),
-      Webhookdb::Replicator::Column.new(:mailed_at, TIMESTAMP),
-      Webhookdb::Replicator::Column.new(:recipient_name, TEXT),
-      Webhookdb::Replicator::Column.new(:status, TEXT),
-      Webhookdb::Replicator::Column.new(:submitted_at, TIMESTAMP, index: true),
-      Webhookdb::Replicator::Column.new(:template_id, TEXT),
-      Webhookdb::Replicator::Column.new(:transaction_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:account_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:routing_number, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:check_number, TEXT, index: true),
       Webhookdb::Replicator::Column.new(
-        :updated_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        event_key: "created_at",
-        defaulter: :now,
-        index: true,
+        :recipient_name,
+        TEXT,
+        data_key: ["physical_check", "recipient_name"], optional: true,
+      ),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(
+        :canceled_at, TIMESTAMP, data_key: ["cancellation", "canceled_at"], optional: true, index: true,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :deposited_at, TIMESTAMP, data_key: ["deposit", "deposited_at"], optional: true, index: true,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :mailed_at, TIMESTAMP, data_key: ["mailing", "mailed_at"], optional: true, index: true,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :submitted_at, TIMESTAMP, data_key: ["submission", "submitted_at"], optional: true, index: true,
       ),
     ]
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _resource_and_event(request)
-    return self._find_resource_and_event(request.body, "check_transfer")
-  end
-
-  def _mixin_backfill_url
-    return "#{self.service_integration.api_url}/check_transfers"
-  end
+  def _mixin_object_type = "check_transfer"
 end

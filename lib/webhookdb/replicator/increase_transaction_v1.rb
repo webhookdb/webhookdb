@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "webhookdb/increase"
 require "webhookdb/replicator/increase_v1_mixin"
 
 class Webhookdb::Replicator::IncreaseTransactionV1 < Webhookdb::Replicator::Base
@@ -28,13 +27,8 @@ class Webhookdb::Replicator::IncreaseTransactionV1 < Webhookdb::Replicator::Base
     return [
       Webhookdb::Replicator::Column.new(:account_id, TEXT, index: true),
       Webhookdb::Replicator::Column.new(:amount, INTEGER, index: true),
-      Webhookdb::Replicator::Column.new(
-        :created_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        optional: true,
-        index: true,
-      ),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
+      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, index: true),
       # date is a legacy field that is not documented in the API,
       # but is still sent with transactions as of April 2022.
       # We need to support the v1 schema, but do not want to depend
@@ -48,27 +42,8 @@ class Webhookdb::Replicator::IncreaseTransactionV1 < Webhookdb::Replicator::Base
         converter: Webhookdb::Replicator::Column::CONV_TO_UTC_DATE,
       ),
       Webhookdb::Replicator::Column.new(:route_id, TEXT, index: true),
-      Webhookdb::Replicator::Column.new(
-        :updated_at,
-        TIMESTAMP,
-        data_key: "created_at",
-        event_key: "created_at",
-        defaulter: :now,
-        optional: true,
-        index: true,
-      ),
     ]
   end
 
-  def _update_where_expr
-    return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
-  end
-
-  def _resource_and_event(request)
-    return self._find_resource_and_event(request.body, "transaction")
-  end
-
-  def _mixin_backfill_url
-    return "#{self.service_integration.api_url}/transactions"
-  end
+  def _mixin_object_type = "transaction"
 end

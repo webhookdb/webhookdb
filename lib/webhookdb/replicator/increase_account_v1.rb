@@ -26,13 +26,12 @@ class Webhookdb::Replicator::IncreaseAccountV1 < Webhookdb::Replicator::Base
 
   def _denormalized_columns
     return [
-      Webhookdb::Replicator::Column.new(:balance, INTEGER, index: true),
       Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, index: true),
-      Webhookdb::Replicator::Column.new(:entity_id, TEXT, index: true),
-      Webhookdb::Replicator::Column.new(:interest_accrued, DECIMAL),
-      Webhookdb::Replicator::Column.new(:name, TEXT),
-      Webhookdb::Replicator::Column.new(:status, TEXT),
       Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, index: true),
+      Webhookdb::Replicator::Column.new(:name, TEXT),
+      Webhookdb::Replicator::Column.new(:entity_id, TEXT, index: true),
+      Webhookdb::Replicator::Column.new(:status, TEXT),
+      Webhookdb::Replicator::Column.new(:interest_accrued, DECIMAL),
     ]
   end
 
