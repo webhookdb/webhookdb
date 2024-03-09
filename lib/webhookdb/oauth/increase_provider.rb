@@ -32,9 +32,16 @@ class Webhookdb::Oauth::IncreaseProvider < Webhookdb::Oauth::Provider
   end
 
   def build_marketplace_integrations(organization:, tokens:, **)
+    group_resp = Webhookdb::Http.get(
+      "https://api.increase.com/groups/current",
+      headers: {"Authorization" => "Bearer #{tokens.access_token}"},
+      logger: self.logger,
+      timeout: Webhookdb::Increase.http_timeout,
+    )
     root_sint = Webhookdb::ServiceIntegration.create_disambiguated(
       "increase_app_v1",
       organization:,
+      api_url: group_resp.parsed_response.fetch("id"),
       backfill_key: tokens.access_token,
     )
     root_sint.replicator.build_dependents

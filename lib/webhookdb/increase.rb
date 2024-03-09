@@ -12,34 +12,68 @@ class Webhookdb::Increase
     setting :http_timeout, 30
   end
 
-  def self.webhook_response(request, webhook_secret)
-    http_signature = request.env["HTTP_X_BANK_WEBHOOK_SIGNATURE"]
+  class WebhookSignature < Webhookdb::TypedStruct
+    attr_accessor :t, :v1
 
-    return Webhookdb::WebhookResponse.error("missing hmac") if http_signature.nil?
+    def _defaults = {t: nil, v1: []}
+
+    def format
+      parts = []
+      parts << "t=#{self.t.utc.iso8601}" if self.t
+      self.v1&.each { |v1| parts << "v1=#{v1}" }
+      return parts.join(",")
+    end
+  end
+
+  # @param s [String,nil]
+  # @return [WebhookSignature]
+  def self.parse_signature(s)
+    sig = WebhookSignature.new
+    s&.split(",")&.each do |part|
+      key, val = part.split("=")
+      if key == "t"
+        begin
+          sig.t = Time.rfc3339(val)
+        rescue ArgumentError
+          nil
+        end
+      elsif key == "v1"
+        sig.v1 << val
+      end
+    end
+    return sig
+  end
+
+  # @param secret [String]
+  # @param data [String]
+  # @param t [Time]
+  # @return [WebhookSignature]
+  def self.compute_signature(secret:, data:, t:)
+    signed_payload = "#{t.utc.iso8601}.#{data}"
+    sig = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), secret, signed_payload)
+    return WebhookSignature.new(v1: [sig], t:)
+  end
+
+  OLD_CUTOFF = 35.days
+  NEW_CUTOFF = 4.days
+
+  def self.webhook_response(request, webhook_secret, now: Time.now)
+    http_signature = request.env["HTTP_INCREASE_WEBHOOK_SIGNATURE"]
+    return Webhookdb::WebhookResponse.error("missing header") if http_signature.nil?
 
     request.body.rewind
     request_data = request.body.read
 
-    computed_signature = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), webhook_secret, request_data)
+    parsed_signature = self.parse_signature(http_signature)
+    return Webhookdb::WebhookResponse.error("missing timestamp") if parsed_signature.t.nil?
+    return Webhookdb::WebhookResponse.error("missing signatures") if parsed_signature.v1.empty?
+    return Webhookdb::WebhookResponse.error("too old") if parsed_signature.t < (now - OLD_CUTOFF)
+    return Webhookdb::WebhookResponse.error("too new") if parsed_signature.t > (now + NEW_CUTOFF)
 
-    if http_signature != "sha256=" + computed_signature
-      # Invalid signature
-      self.logger.warn "increase signature verification error"
-      return Webhookdb::WebhookResponse.error("invalid hmac")
-    end
+    computed_signature = self.compute_signature(secret: webhook_secret, data: request_data, t: parsed_signature.t)
+    return Webhookdb::WebhookResponse.error("invalid signature") unless
+      parsed_signature.v1.include?(computed_signature.v1.first)
 
     return Webhookdb::WebhookResponse.ok
-  end
-
-  # this helper function finds the relevant object data and helps us avoid repeated code
-  def self.find_desired_object_data(body)
-    return body.fetch("data", body)
-  end
-
-  # this function interprets webhook contents to assist with filtering webhooks by object type in our increase services
-  def self.contains_desired_object(webhook_body, desired_object_name)
-    object_of_interest = self.find_desired_object_data(webhook_body)
-    object_id = object_of_interest["id"]
-    return object_id.include?(desired_object_name)
   end
 end

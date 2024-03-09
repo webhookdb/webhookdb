@@ -45,13 +45,26 @@ RSpec.describe Webhookdb::Oauth::IncreaseProvider, :db do
       org.remove_related_database
     end
 
-    it "builds the root and all child integrations" do
+    it "builds the root and all child integrations and sets the group id on the service integration" do
+      resp_body = {
+        activation_status: "activated",
+        ach_debit_status: "disabled",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "group_1g4mhziu6kvrs3vz35um",
+        type: "group",
+      }
+      req = stub_request(:get, "https://api.increase.com/groups/current").
+        with(headers: {"Authorization" => "Bearer atok"}).
+        to_return(json_response(resp_body))
+
       root_sint = provider.build_marketplace_integrations(organization: org, tokens:, scope: nil)
       expect(root_sint).to have_attributes(organization: be === org, service_name: "increase_app_v1")
+      expect(req).to have_been_made
       expect(org.refresh.service_integrations).to include(
         have_attributes(
           service_name: "increase_app_v1",
           backfill_key: not_be_nil,
+          api_url: "group_1g4mhziu6kvrs3vz35um",
         ),
         have_attributes(service_name: "increase_account_v1"),
         have_attributes(service_name: "increase_wire_transfer_v1"),

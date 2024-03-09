@@ -509,6 +509,81 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
   end
 
+  describe "POST /v1/install/increase/webhook" do
+    let(:event_body) do
+      {
+        associated_object_id: "account_in71c4amph0vgo2qllky",
+        associated_object_type: "account",
+        category: "account.created",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }
+    end
+    let(:sig_header) do
+      Webhookdb::Increase.compute_signature(
+        data: event_body.to_json,
+        secret: Webhookdb::Increase.oauth_app_webhook_secret,
+        t: Time.now,
+      ).format
+    end
+
+    it "noops if there is no Increase-Group-Id header" do
+      header "Increase-Webhook-Signature", sig_header
+
+      post "/v1/install/increase/webhook", event_body
+
+      expect(last_response).to have_status(202)
+      expect(last_response).to have_json_body.that_includes(message: "ok")
+    end
+
+    it "logs and returns if the group is not found" do
+      header "Increase-Webhook-Signature", sig_header
+      header "Increase-Group-Id", "xyz"
+
+      post "/v1/install/increase/webhook", event_body
+
+      expect(last_response).to have_status(202)
+      expect(last_response).to have_json_body.that_includes(message: "unregistered group")
+    end
+
+    it "performs webhook verification" do
+      Webhookdb::Fixtures.service_integration.create(service_name: "increase_app_v1", api_url: "mygroup")
+      header "Increase-Group-Id", "mygroup"
+
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(401)
+
+      header "Increase-Webhook-Signature", "abc"
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(401)
+
+      header "Increase-Webhook-Signature", sig_header
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(202)
+    end
+
+    it "handles the event" do
+      org = Webhookdb::Fixtures.organization.create
+      fac = Webhookdb::Fixtures.service_integration(organization: org)
+      root = fac.create(service_name: "increase_app_v1", api_url: "mygroup")
+      event = fac.create(service_name: "increase_event_v1", depends_on: root)
+
+      org.prepare_database_connections
+      event.replicator.create_table
+
+      header "Increase-Group-Id", "mygroup"
+      header "Increase-Webhook-Signature", sig_header
+
+      post "/v1/install/increase/webhook", event_body
+
+      expect(last_response).to have_status(202)
+      expect(event.replicator.admin_dataset(&:all)).to have_length(1)
+    ensure
+      org.remove_related_database
+    end
+  end
+
   describe "POST /v1/install/intercom/webhook" do
     let(:root_sint) do
       Webhookdb::Fixtures.service_integration.create(

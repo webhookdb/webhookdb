@@ -31,16 +31,20 @@ RSpec.describe Webhookdb::Replicator::IncreaseEventV1, :db do
       {
         "id": "transfer_event_123",
         "created_at": "2020-02-20T23:59:59Z",
-        "category": "transaction.created",
+        "category": "transaction.created2",
         "associated_object_type": "transaction",
         "associated_object_id": "transaction_abc123",
-        "type": "event2"
+        "type": "event"
       }
     JSON
   end
 
   it_behaves_like "a replicator that can backfill", "increase_event_v1" do
-    let(:api_url) { "https://api.increase.com" }
+    def create_all_dependencies(sint)
+      r = super
+      sint.depends_on&.update(backfill_key: "bfkey", api_url: "https://api.increase.com")
+      return r
+    end
     let(:page1_response) { <<~JSON }
       {
         "data": [

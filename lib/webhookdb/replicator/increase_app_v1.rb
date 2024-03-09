@@ -26,16 +26,27 @@ class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
     return []
   end
 
-  def _upsert_webhook(**_kwargs)
-    raise NotImplementedError("This is a stub integration only for auth purposes.")
+  def _upsert_webhook(request, **kw)
+    raise Webhookdb::InvalidPrecondition, "can only handle event payloads" unless request.body.fetch("type") == "event"
+    if request.body.fetch("category") == "oauth_connection.deactivated"
+      self.service_integration.destroy_self_and_all_dependents
+      return nil
+    end
+    dispatchable = self.service_integration.dependents.select do |d|
+      d.service_name == "increase_event_v1" || d.replicator.handle_event?(request.body)
+    end
+    dispatchable.each do |sint|
+      sint.replicator.upsert_webhook(request, **kw)
+    end
+    return nil
   end
 
   def _fetch_backfill_page(*)
     return [], nil
   end
 
-  def webhook_response(_request)
-    raise NotImplementedError("This is a stub integration only for auth purposes.")
+  def webhook_response(request)
+    return Webhookdb::Increase.webhook_response(request, Webhookdb::Increase.oauth_app_webhook_secret)
   end
 
   def calculate_webhook_state_machine
@@ -60,7 +71,7 @@ Head over to #{self.descriptor.documentation_url} to learn more.)
   def build_dependents
     org = self.service_integration.organization
     parent_descr = self.descriptor
-    sints = Webhookdb::Replicator.registry.values.
+    sints = self.service_integration.organization.available_replicators.
       select { |dd| dd.dependency_descriptor == parent_descr }.
       map do |dd|
       Webhookdb::ServiceIntegration.create_disambiguated(

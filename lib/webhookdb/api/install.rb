@@ -264,6 +264,37 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       end
     end
 
+    resource :increase do
+      params do
+        requires :id, type: String
+        requires :created_at, type: Time
+        requires :category, type: String
+        requires :associated_object_type, type: String
+        requires :associated_object_id, type: String
+        requires :type, type: String
+      end
+      post :webhook do
+        group_id = env["HTTP_INCREASE_GROUP_ID"]
+        handle_webhook_request("increase-group-#{group_id || '?'}") do
+          if group_id.nil?
+            # No group ID is one of our own events.
+            # We aren't using Increase internally so there's nothing for us to do with it.
+            status 202
+            present({message: "ok"})
+            next :pass
+          end
+          root_sint = Webhookdb::ServiceIntegration[service_name: "increase_app_v1", api_url: group_id]
+          if root_sint.nil?
+            logger.error "increase_unregistered_group", increase_group_id: group_id
+            status 202
+            present({message: "unregistered group"})
+            next :pass
+          end
+          next root_sint
+        end
+      end
+    end
+
     resource :intercom do
       post :webhook do
         # Because the `_webhook_response` function is always the same here, I'm wondering if it's even
