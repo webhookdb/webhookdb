@@ -278,7 +278,8 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         handle_webhook_request("increase-group-#{group_id || '?'}") do
           if group_id.nil?
             # No group ID is one of our own events.
-            # We aren't using Increase internally so there's nothing for us to do with it.
+            # Run the job to handle it as a platform event (usually this is the oauth disconnect)
+            Amigo.publish("increase.#{params[:category]}", declared(params).as_json)
             status 202
             present({message: "ok"})
             next :pass

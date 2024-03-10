@@ -284,6 +284,38 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "IncreaseEventHandler" do
+    it "handles the oauth disconnect event" do
+      event = {
+        associated_object_id: "connection_wxzktzxykrixfr0twahd",
+        associated_object_type: "oauth_connection",
+        category: "oauth_connection.deactivated",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }.as_json
+      expect(Webhookdb::Increase).to receive(:disconnect_oauth).with("connection_wxzktzxykrixfr0twahd")
+      expect do
+        Amigo.publish("increase.oauth_connection.deactivated", event)
+      end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)
+    end
+
+    it "noops other events" do
+      event = {
+        associated_object_id: "account_in71c4amph0vgo2qllky",
+        associated_object_type: "account",
+        category: "account.created",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }.as_json
+      expect(Webhookdb::Increase).to_not receive(:disconnect_oauth)
+      expect do
+        Amigo.publish("increase.account.create", event)
+      end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)
+    end
+  end
+
   describe "LoggedWebhookReplay" do
     it "replays the logged webhook" do
       lwh = Webhookdb::Fixtures.logged_webhook.create(request_path: "/foo")

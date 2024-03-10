@@ -523,18 +523,21 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     let(:sig_header) do
       Webhookdb::Increase.compute_signature(
         data: event_body.to_json,
-        secret: Webhookdb::Increase.oauth_app_webhook_secret,
+        secret: Webhookdb::Increase.webhook_secret,
         t: Time.now,
       ).format
     end
 
-    it "noops if there is no Increase-Group-Id header" do
+    it "handles as a platform event if there is no Increase-Group-Id header", :async do
       header "Increase-Webhook-Signature", sig_header
 
-      post "/v1/install/increase/webhook", event_body
+      expect do
+        post "/v1/install/increase/webhook", event_body
 
-      expect(last_response).to have_status(202)
-      expect(last_response).to have_json_body.that_includes(message: "ok")
+        expect(last_response).to have_status(202)
+        expect(last_response).to have_json_body.that_includes(message: "ok")
+      end.to publish("increase.account.created").
+        with_payload([event_body.merge({"created_at" => "2020-01-31T23:59:59.000Z"}).as_json])
     end
 
     it "logs and returns if the group is not found" do

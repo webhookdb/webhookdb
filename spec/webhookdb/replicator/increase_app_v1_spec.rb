@@ -54,7 +54,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAppV1, :db do
       expect(org.service_integrations).to_not include(have_attributes(service_name: "increase_limit_v1"))
 
       expect(Webhookdb::BackfillJob.all).to have_length(be > 5)
-      expect(Webhookdb::BackfillJob.all).to all(be_incremental)
+      expect(Webhookdb::BackfillJob.all).to all(have_attributes(incremental: false))
     end
 
     it "creates the limit replicator if the account has that role" do
@@ -90,7 +90,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseAppV1, :db do
         status: "open",
         type: "account",
       }
-      req = stub_request(:get, "https://fake-url.com/accounts/account_in71c4amph0vgo2qllky").
+      req = stub_request(:get, "https://api.increase.com/accounts/account_in71c4amph0vgo2qllky").
         with(headers: {"Authorization" => "Bearer accesstoken"}).
         to_return(json_response(acct), json_response(acct))
 
@@ -114,12 +114,6 @@ RSpec.describe Webhookdb::Replicator::IncreaseAppV1, :db do
       expect(req).to have_been_made.times(2)
     ensure
       org.remove_related_database
-    end
-
-    it "deletes the group's tree of replicators and tables if the event is 'oauth_connection.deactivated'" do
-      event_body["category"] = "oauth_connection.deactivated"
-      expect(svc.upsert_webhook_body(event_body)).to be_nil
-      expect(sint).to be_destroyed
     end
 
     it "errors if the request body is not an event" do

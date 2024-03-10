@@ -6,18 +6,20 @@ class Webhookdb::Increase
   include Appydays::Loggable
 
   configurable(:increase) do
-    # Id and secret for the WebhookDB Oauth app.
-    # https://dashboard.increase.com/developers/oauths
-    setting :oauth_client_id, "increase_oauth_fake_client"
-    setting :oauth_client_secret, "increase_oauth_fake_secret"
     # This is created in your 'platform' account, and is needed to call the OAuth endpoints.
     # https://dashboard.increase.com/developers/api_keys
-    setting :oauth_app_api_key, "increase_api_key"
+    setting :api_key, "increase_api_key"
     # This is created in your Platform account, and is used to sign webhooks,
     # which we get for both platform events (which are ignored) and associated oauth app events
     # (with an Increase-Group-Id header).
     # https://dashboard.increase.com/developers/webhooks
-    setting :oauth_app_webhook_secret, "increase_webhook_secret"
+    setting :webhook_secret, "increase_webhook_secret"
+
+    # Id and secret for the WebhookDB Oauth app.
+    # https://dashboard.increase.com/developers/oauths
+    setting :oauth_client_id, "increase_oauth_fake_client"
+    setting :oauth_client_secret, "increase_oauth_fake_secret"
+
     setting :http_timeout, 30
   end
 
@@ -84,5 +86,24 @@ class Webhookdb::Increase
       parsed_signature.v1.include?(computed_signature.v1.first)
 
     return Webhookdb::WebhookResponse.ok
+  end
+
+  def self.disconnect_oauth(connection_id)
+    resp = Webhookdb::Http.get(
+      "https://api.increase.com/oauth_connections/#{connection_id}",
+      headers: {"Authorization" => "Bearer #{self.api_key}"},
+      logger: self.logger,
+      timeout: self.http_timeout,
+    )
+    if resp.parsed_response.fetch("status") != "inactive"
+      # This should never happen, but we should assert (and test) it for good measure.
+      raise Webhookdb::InvariantViolation,
+            "Got an Increase OAuth disconnect but it reports as active: #{resp.parsed_response}"
+    end
+    group = resp.parsed_response.fetch("group_id")
+    # It may have already been deleted, make this idempotent
+    Webhookdb::ServiceIntegration.where(service_name: "increase_app_v1", api_url: group).
+      all.
+      each(&:destroy_self_and_all_dependents)
   end
 end

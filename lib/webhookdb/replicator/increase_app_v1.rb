@@ -48,7 +48,7 @@ class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
   end
 
   def webhook_response(request)
-    return Webhookdb::Increase.webhook_response(request, Webhookdb::Increase.oauth_app_webhook_secret)
+    return Webhookdb::Increase.webhook_response(request, Webhookdb::Increase.webhook_secret)
   end
 
   def calculate_webhook_state_machine
