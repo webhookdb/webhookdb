@@ -25,7 +25,8 @@ module Webhookdb::Replicator::IncreaseV1Mixin
 
   def _mixin_object_type = raise NotImplementedError
   def _mixin_backfill_path = "/#{self._mixin_object_type}s"
-  def _mixin_backfill_url = "#{self._app_sint.api_url}#{self._mixin_backfill_path}"
+  def _mixin_backfill_url = "#{self._api_url}#{self._mixin_backfill_path}"
+  def _api_url = "https://api.increase.com"
 
   def handle_event?(event) = event.fetch("associated_object_type") == self._mixin_object_type
 

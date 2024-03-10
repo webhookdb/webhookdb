@@ -20,7 +20,7 @@ RSpec.describe Webhookdb::Oauth::IncreaseProvider, :db do
         token_type: "bearer",
       }
       stub_request(:post, "https://api.increase.com/oauth/tokens").
-        with(body:).
+        with(body:, headers: {"Authorization" => "Bearer increase_api_key"}).
         to_return(json_response(resp))
     end
 

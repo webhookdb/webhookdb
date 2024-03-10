@@ -84,6 +84,6 @@ Head over to #{self.descriptor.install_url} to learn more.)
     end
     sints.
       select { |sint| sint.replicator.descriptor.supports_backfill? }.
-      each { |sint| sint.replicator._enqueue_backfill_jobs(incremental: true) }
+      each { |sint| sint.replicator._enqueue_backfill_jobs(incremental: false) }
   end
 end

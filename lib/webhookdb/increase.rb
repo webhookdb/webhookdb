@@ -6,8 +6,17 @@ class Webhookdb::Increase
   include Appydays::Loggable
 
   configurable(:increase) do
+    # Id and secret for the WebhookDB Oauth app.
+    # https://dashboard.increase.com/developers/oauths
     setting :oauth_client_id, "increase_oauth_fake_client"
     setting :oauth_client_secret, "increase_oauth_fake_secret"
+    # This is created in your 'platform' account, and is needed to call the OAuth endpoints.
+    # https://dashboard.increase.com/developers/api_keys
+    setting :oauth_app_api_key, "increase_api_key"
+    # This is created in your Platform account, and is used to sign webhooks,
+    # which we get for both platform events (which are ignored) and associated oauth app events
+    # (with an Increase-Group-Id header).
+    # https://dashboard.increase.com/developers/webhooks
     setting :oauth_app_webhook_secret, "increase_webhook_secret"
     setting :http_timeout, 30
   end

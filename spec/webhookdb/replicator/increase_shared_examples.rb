@@ -37,7 +37,7 @@ RSpec.shared_examples "an Increase replicator dependent on events and increase_a
 
   it_behaves_like "a replicator that uses enrichments", name, stores_enrichment_column: false do
     before(:each) do
-      create_all_dependencies(sint).first.update(backfill_key: "access-tok", api_url: "https://api.increase.com")
+      create_all_dependencies(sint).first.update(backfill_key: "access-tok")
     end
 
     let(:body) { event_body.merge("created_at" => "2012-01-31T23:59:59Z") }
@@ -69,7 +69,7 @@ RSpec.shared_examples "an Increase replicator dependent on events and increase_a
   it_behaves_like "a replicator that can backfill", name do
     def create_all_dependencies(sint)
       r = super
-      sint.depends_on&.update(backfill_key: "access-tok", api_url: "https://api.increase.com")
+      sint.depends_on.update(backfill_key: "access-tok")
       return r
     end
 

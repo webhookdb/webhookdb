@@ -25,6 +25,7 @@ class Webhookdb::Oauth::IncreaseProvider < Webhookdb::Oauth::Provider
         "code" => code,
         grant_type: "authorization_code",
       },
+      headers: {"Authorization" => "Bearer #{Webhookdb::Increase.oauth_app_api_key}"},
       logger: self.logger,
       timeout: Webhookdb::Increase.http_timeout,
     )
