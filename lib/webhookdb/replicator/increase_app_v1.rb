@@ -13,6 +13,8 @@ class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
       resource_name_plural: "Increase App",
       supports_webhooks: true,
       supports_backfill: true,
+      install_url: "#{Webhookdb.api_url}/increase",
+      documentation_url: "https://docs.webhookdb.com/guides/increase/",
       description: "Replicate your Increase data to WebhookDB Cloud in one click using " \
                    "our [WebhookDB-Increase integration](https://docs.webhookdb.com/guides/increase).",
     )
@@ -56,7 +58,7 @@ class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = %(This replicator is managed automatically using OAuth through Increase.
-Head over to #{self.descriptor.documentation_url} to learn more.)
+Head over to #{self.descriptor.install_url} to learn more.)
     step.completed
     return step
   end

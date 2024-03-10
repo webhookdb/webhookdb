@@ -36,6 +36,10 @@ require "webhookdb/admin_api/data_provider"
 require "webterm/apps"
 
 module Webhookdb::Apps
+  REDIRECTS = {
+    "/increase" => "/v1/install/increase",
+  }.freeze
+
   # Call this from your rackup file, like config.ru.
   #
   # @example
@@ -61,6 +65,7 @@ module Webhookdb::Apps
       map "/terminal" do
         run Webhookdb::Apps::Webterm.to_app
       end
+      use Rack::SimpleRedirect, routes: REDIRECTS
       run Webhookdb::Apps::API.build_app
     end
   end
