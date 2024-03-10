@@ -64,6 +64,8 @@ module Webhookdb::Replicator::IncreaseV1Mixin
 
   def calculate_backfill_state_machine
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
+      step.output = %(This replicator is managed automatically using OAuth through Increase.
+Head over to #{Webhookdb::Replicator::IncreaseAppV1.descriptor.install_url} to learn more.)
       return step
     end
     step = Webhookdb::Replicator::StateMachineStep.new
@@ -73,14 +75,6 @@ module Webhookdb::Replicator::IncreaseV1Mixin
     step.complete = true
     return step
   end
-  #
-  #   def _verify_backfill_401_err_msg
-  #     return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
-  #   end
-  #
-  #   def _verify_backfill_err_msg
-  #     return "An error occurred. Please reenter the API Key you just created:"
-  #   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
     query = {}

@@ -126,4 +126,20 @@ RSpec.shared_examples "an Increase replicator dependent on events and increase_a
           to_return(status: 400, body: "gah")
     end
   end
+
+  describe "calculate_backfill_state_machine" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: name) }
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    it "prompts for a parent if not set up" do
+      step = svc.calculate_backfill_state_machine
+      expect(step).to have_attributes(output: /managed automatically using/)
+    end
+
+    it "backfills if a parent is set" do
+      create_all_dependencies(sint)
+      step = svc.calculate_backfill_state_machine
+      expect(step).to have_attributes(output: /We are going to start backfilling/)
+    end
+  end
 end
