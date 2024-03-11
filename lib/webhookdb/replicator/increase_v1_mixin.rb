@@ -3,119 +3,99 @@
 require "webhookdb/increase"
 
 module Webhookdb::Replicator::IncreaseV1Mixin
-  def _mixin_backfill_url
-    raise NotImplementedError
-  end
-
   def _webhook_response(request)
     return Webhookdb::Increase.webhook_response(request, self.service_integration.webhook_secret)
   end
 
+  def _resource_and_event(request) = request.body
+
   def _timestamp_column_name
+    # We derive updated_at from the event, or use 'now'
     return :updated_at
   end
 
-  def _find_resource_and_event(body, desired_object_name)
-    return nil unless Webhookdb::Increase.contains_desired_object(body, desired_object_name)
-    return body.fetch("data"), body if body.key?("event") && body.key?("event_id")
-    return body, nil
+  def _update_where_expr
+    ts = self._timestamp_column_name
+    return self.qualified_table_sequel_identifier[ts] < Sequel[:excluded][ts]
   end
 
-  def process_state_change(field, value)
-    # special handling for having a default value for api url
-    value = "https://api.increase.com" if field == "api_url" && value == ""
-    return super(field, value)
+  def on_dependency_webhook_upsert(_replicator, payload, **)
+    self.upsert_webhook_body(payload)
   end
 
-  def calculate_webhook_state_machine
-    step = Webhookdb::Replicator::StateMachineStep.new
-    # if the service integration doesn't exist, create it with some standard values
-    unless self.service_integration.webhook_secret.present?
-      step.output = %(You are about to start replicating #{self.resource_name_plural} info into WebhookDB.
-We've made an endpoint available for #{self.resource_name_singular} webhooks:
+  def _mixin_object_type = raise NotImplementedError
+  def _mixin_backfill_path = "/#{self._mixin_object_type}s"
+  def _mixin_backfill_url = "#{self._api_url}#{self._mixin_backfill_path}"
+  def _api_url = "https://api.increase.com"
 
-#{self._webhook_endpoint}
+  def handle_event?(event) = event.fetch("associated_object_type") == self._mixin_object_type
 
-From your Increase admin dashboard, go to Applications -> Create Webhook.
-In the "Webhook endpoint URL" field you can enter the URL above.
-For the shared secret, you'll have to generate a strong password
-(you can use '#{Webhookdb::Id.rand_enc(16)}')
-and then enter it into the textbox.
-
-Copy that shared secret value.
-      )
-      return step.secret_prompt("secret").webhook_secret(self.service_integration)
-    end
-
-    step.output = %(Great! WebhookDB is now listening for #{self.resource_name_singular} webhooks.
-#{self._query_help_output}
-In order to backfill existing #{self.resource_name_plural}, run this from a shell:
-
-  #{self._backfill_command}
+  def _fetch_enrichment(resource, _event, _request)
+    # If the resource type isn't what we expect, it must be an event.
+    # In that case, we need to fetch the resource from the API,
+    # and replace the event body in prepare_for_insert.
+    # The updated_at becomes the event's created_at,
+    # which should be fine- it's better than setting updated_at to 'now'
+    # since that will be confusing as it looks like a resource was recently updated.
+    rtype = resource.fetch("type")
+    return nil if rtype == self._mixin_object_type
+    raise Webhookdb::InvalidPrecondition, "unexpected resource: #{resource}" unless
+      rtype == "event" && resource.fetch("associated_object_type") == self._mixin_object_type
+    response = Webhookdb::Http.get(
+      self._mixin_backfill_url + "/#{resource.fetch('associated_object_id')}",
+      {},
+      headers: self._auth_headers,
+      logger: self.logger,
+      timeout: Webhookdb::Increase.http_timeout,
     )
-    return step.completed
+    return response.parsed_response.merge("updated_at" => resource.fetch("created_at"))
+  end
+
+  def _prepare_for_insert(resource, event, request, enrichment)
+    resource = enrichment if enrichment
+    return super(resource, event, request, nil)
+  end
+
+  def _app_sint = Webhookdb::Replicator.find_at_root!(self.service_integration, service_name: "increase_app_v1")
+
+  def _auth_headers
+    return {"Authorization" => ("Bearer " + self._app_sint.backfill_key)}
   end
 
   def calculate_backfill_state_machine
+    if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))
+      step.output = %(This replicator is managed automatically using OAuth through Increase.
+Head over to #{Webhookdb::Replicator::IncreaseAppV1.descriptor.install_url} to learn more.)
+      return step
+    end
     step = Webhookdb::Replicator::StateMachineStep.new
-    unless self.service_integration.backfill_key.present?
-      step.output = %(In order to backfill #{self.resource_name_plural}, we need an API key.
-From your Increase admin dashboard, go to Settings -> Development -> API Keys.
-We'll need the Production key--copy that value to your clipboard.
-      )
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-
-    unless self.service_integration.api_url.present?
-      step.output = %(Great. Now we want to make sure we're sending API requests to the right place.
-For Increase, the API url is different when you are in Sandbox mode and when you are in Production mode.
-For Sandbox mode, the API root url is:
-
-https://sandbox.increase.com
-
-For Production mode, which is our default, it is:
-
-https://api.increase.com
-
-Leave blank to use the default or paste the answer into this prompt.
-      )
-      return step.prompting("API url").api_url(self.service_integration)
-    end
-
-    unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
-    end
-
     step.needs_input = false
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
-#{self._query_help_output}
-      )
+#{self._query_help_output})
     step.complete = true
     return step
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
     query = {}
     (query[:cursor] = pagination_token) if pagination_token.present?
+    fetched_at = Time.now
     response = Webhookdb::Http.get(
       self._mixin_backfill_url,
       query,
-      headers: {"Authorization" => ("Bearer " + self.service_integration.backfill_key)},
+      headers: self._auth_headers,
       logger: self.logger,
       timeout: Webhookdb::Increase.http_timeout,
     )
     data = response.parsed_response
     next_page_param = data.dig("response_metadata", "next_cursor")
-    return data["data"], next_page_param
+    rows = data["data"]
+    # In general, we want to use webhooks/events to keep rows updated.
+    # But if we are backfilling, touch the 'updated at' timestamp to make sure
+    # these rows get inserted.
+    # It does mess up history, but we can't get that history to be accurate
+    # in the case of a backfill anyway.
+    rows.each { |r| r["updated_at"] = fetched_at }
+    return rows, next_page_param
   end
 end

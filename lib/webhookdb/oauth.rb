@@ -43,7 +43,7 @@ module Webhookdb::Oauth
     # @param scope [Hash] Used to store data needed in later calls, like when building integrations.
     # @return [Array{TrueClass, FalseClass, Webhookdb::Customer}]
     def find_or_create_customer(tokens:, scope:)
-      raise RuntimeError("should not be called") if self.requires_webhookdb_auth?
+      raise "should not be called" if self.requires_webhookdb_auth?
       raise NotImplementedError
     end
 
@@ -80,5 +80,7 @@ Webhookdb::Oauth.register(Webhookdb::Oauth::FakeProvider)
 require "webhookdb/oauth/front_provider"
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontProvider)
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontSignalwireChannelProvider)
+require "webhookdb/oauth/increase_provider"
+Webhookdb::Oauth.register(Webhookdb::Oauth::IncreaseProvider)
 require "webhookdb/oauth/intercom_provider"
 Webhookdb::Oauth.register(Webhookdb::Oauth::IntercomProvider)

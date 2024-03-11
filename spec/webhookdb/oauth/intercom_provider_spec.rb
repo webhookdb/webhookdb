@@ -7,6 +7,14 @@ RSpec.describe Webhookdb::Oauth::IntercomProvider, :db do
   let(:org) { Webhookdb::Fixtures.organization.with_member(customer).create }
   let(:provider) { Webhookdb::Oauth.provider("intercom") }
 
+  describe "authorization_url" do
+    it "is valid" do
+      expect(provider.authorization_url(state: "xyz")).to eq(
+        "https://app.intercom.com/oauth?client_id=whdb_intercom_client_id&state=xyz",
+      )
+    end
+  end
+
   describe "exchange_authorization_code" do
     def stub_auth_token_request
       return stub_request(:post, "https://api.intercom.io/auth/eagle/token").

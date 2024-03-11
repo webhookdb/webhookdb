@@ -70,6 +70,12 @@ class Webhookdb::Replicator
     # for example in case 'backfill' is called but not supported.
     attr_reader :documentation_url
 
+    # If this integration uses /v1/install to set up,
+    # or some other link like a marketplace URL,
+    # provide it here. Note that you can add a redirect to Webhookdb::Apps::REDIRECTS
+    # to provide a pretty, arbitrary URL.
+    attr_reader :install_url
+
     # Markdown description of this replicator.
     attr_reader :description
 
@@ -94,6 +100,7 @@ class Webhookdb::Replicator
       description: nil,
       enterprise: false,
       documentation_url: nil,
+      install_url: nil,
       documentable: nil
     )
       raise ArgumentError, "must support one or both of webhooks and backfill" unless
@@ -107,6 +114,7 @@ class Webhookdb::Replicator
         dependency_descriptor:,
         documentation_url:,
         api_docs_url:,
+        install_url:,
         enterprise:
       )
       @ctor = ctor.is_a?(Class) ? ctor.method(:new) : ctor

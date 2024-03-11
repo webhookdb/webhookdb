@@ -8,6 +8,10 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
   let(:app) { described_class.build_app }
   let!(:org) { Webhookdb::Fixtures.organization.create }
 
+  before(:each) do
+    Webhookdb::Oauth::FakeProvider.reset
+  end
+
   def add_front_auth_headers(body, secret=Webhookdb::Front.app_secret)
     tsval = Time.new(2023, 4, 7).to_i.to_s
     base_string = "#{tsval}:#{body.to_json}"
@@ -57,9 +61,21 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
     end
 
+    it "shows an error message if the token exchange fails" do
+      req = stub_request(:get, "http://fake/").to_return(status: 500)
+      Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = -> { false }
+      Webhookdb::Oauth::FakeProvider.exchange_authorization_code = lambda {
+        Webhookdb::Http.get("http://fake", timeout: nil, logger: nil)
+      }
+      get("/v1/install/fake/callback", state:, code:)
+      expect(last_response).to have_status(400)
+      expect(req).to have_been_made
+      expect(last_response.body).to include("Something went wrong getting your access token from Fake")
+    end
+
     describe "when the OAuth provider requires WebhookDB login" do
       before(:each) do
-        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = true
+        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = proc { true }
       end
 
       it "302s to the login page" do
@@ -76,7 +92,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
     describe "when the OAuth provider can create a user using the token" do
       before(:each) do
-        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = false
+        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = proc { false }
       end
 
       it "renders success page and updates the session" do
@@ -87,6 +103,15 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
         )
         expect(session.refresh).to have_attributes(
           authorization_code: code, customer: be_present, used_at: match_time(:now),
+        )
+      end
+
+      it "modifies the success page if webhooks are not supported" do
+        Webhookdb::Oauth::FakeProvider.supports_webhooks = proc { false }
+        get("/v1/install/fake/callback", state:, code:)
+        expect(last_response).to have_status(200)
+        expect(last_response.body).to include(
+          "We are now checking for updates to resources in your Fake account",
         )
       end
 
@@ -115,6 +140,19 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
         expect(last_response).to have_status(200)
         expect(org.refresh.service_integrations).to contain_exactly(have_attributes(service_name: "fake_v1"))
       end
+    end
+  end
+
+  describe "GET /v1/install/:provider/login" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:session) { Webhookdb::Fixtures.oauth_session.create(authorization_code: "testauth", customer:) }
+    let(:state) { session.oauth_state }
+
+    it "renders a form" do
+      get("/v1/install/fake/login", state:)
+
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to include("In order to complete this integration")
     end
   end
 
@@ -365,6 +403,18 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       )
     end
 
+    it "noops if there is no resource url" do
+      body.delete("payload")
+
+      post "/v1/install/front/webhook", body
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(message: "unregistered/empty app")
+      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
+        include(service_integration_opaque_id: start_with("front_marketplace_host-?")),
+      )
+    end
+
     it "runs the ProcessWebhook job with the data for the webhook", :async do
       add_front_auth_headers(body)
 
@@ -506,6 +556,84 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
           )
         end
       end
+    end
+  end
+
+  describe "POST /v1/install/increase/webhook" do
+    let(:event_body) do
+      {
+        associated_object_id: "account_in71c4amph0vgo2qllky",
+        associated_object_type: "account",
+        category: "account.created",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }
+    end
+    let(:sig_header) do
+      Webhookdb::Increase.compute_signature(
+        data: event_body.to_json,
+        secret: Webhookdb::Increase.webhook_secret,
+        t: Time.now,
+      ).format
+    end
+
+    it "handles as a platform event if there is no Increase-Group-Id header", :async do
+      header "Increase-Webhook-Signature", sig_header
+
+      expect do
+        post "/v1/install/increase/webhook", event_body
+
+        expect(last_response).to have_status(202)
+        expect(last_response).to have_json_body.that_includes(message: "ok")
+      end.to publish("increase.account.created").
+        with_payload([event_body.merge({"created_at" => "2020-01-31T23:59:59.000Z"}).as_json])
+    end
+
+    it "logs and returns if the group is not found" do
+      header "Increase-Webhook-Signature", sig_header
+      header "Increase-Group-Id", "xyz"
+
+      post "/v1/install/increase/webhook", event_body
+
+      expect(last_response).to have_status(202)
+      expect(last_response).to have_json_body.that_includes(message: "unregistered group")
+    end
+
+    it "performs webhook verification" do
+      Webhookdb::Fixtures.service_integration.create(service_name: "increase_app_v1", api_url: "mygroup")
+      header "Increase-Group-Id", "mygroup"
+
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(401)
+
+      header "Increase-Webhook-Signature", "abc"
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(401)
+
+      header "Increase-Webhook-Signature", sig_header
+      post "/v1/install/increase/webhook", event_body
+      expect(last_response).to have_status(202)
+    end
+
+    it "handles the event" do
+      org = Webhookdb::Fixtures.organization.create
+      fac = Webhookdb::Fixtures.service_integration(organization: org)
+      root = fac.create(service_name: "increase_app_v1", api_url: "mygroup")
+      event = fac.create(service_name: "increase_event_v1", depends_on: root)
+
+      org.prepare_database_connections
+      event.replicator.create_table
+
+      header "Increase-Group-Id", "mygroup"
+      header "Increase-Webhook-Signature", sig_header
+
+      post "/v1/install/increase/webhook", event_body
+
+      expect(last_response).to have_status(202)
+      expect(event.replicator.admin_dataset(&:all)).to have_length(1)
+    ensure
+      org.remove_related_database
     end
   end
 

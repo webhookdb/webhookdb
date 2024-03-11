@@ -44,13 +44,6 @@ class Webhookdb::Replicator::IntercomMarketplaceRootV1 < Webhookdb::Replicator::
     return step
   end
 
-  def get_auth_headers
-    return {
-      "Authorization" => "Bearer #{self.service_integration.backfill_key}",
-      "Accept" => "application/json",
-    }
-  end
-
   def build_dependents
     org = self.service_integration.organization
     contact_sint = Webhookdb::ServiceIntegration.create_disambiguated(

@@ -200,12 +200,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           whresp = Webhookdb::Front.initial_verification_request_response(request, Webhookdb::Front.app_secret)
           s_status, s_headers, s_body = whresp.to_rack
           s_headers.each { |k, v| header k, v }
-          if s_headers["Content-Type"] == "application/json"
-            body Oj.load(s_body)
-          else
-            env["api.format"] = :binary
-            body s_body
-          end
+          body Oj.load(s_body)
           status s_status
           break
         end
@@ -260,6 +255,38 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           sint = Webhookdb::ServiceIntegration.for_api_key(apikey)
           merror!(401, "Invalid API key", code: "unauthenticated") if sint.nil?
           sint
+        end
+      end
+    end
+
+    resource :increase do
+      params do
+        requires :id, type: String
+        requires :created_at, type: Time
+        requires :category, type: String
+        requires :associated_object_type, type: String
+        requires :associated_object_id, type: String
+        requires :type, type: String
+      end
+      post :webhook do
+        group_id = env["HTTP_INCREASE_GROUP_ID"]
+        handle_webhook_request("increase-group-#{group_id || '?'}") do
+          if group_id.nil?
+            # No group ID is one of our own events.
+            # Run the job to handle it as a platform event (usually this is the oauth disconnect)
+            Amigo.publish("increase.#{params[:category]}", declared(params).as_json)
+            status 202
+            present({message: "ok"})
+            next :pass
+          end
+          root_sint = Webhookdb::ServiceIntegration[service_name: "increase_app_v1", api_url: group_id]
+          if root_sint.nil?
+            logger.error "increase_unregistered_group", increase_group_id: group_id
+            status 202
+            present({message: "unregistered group"})
+            next :pass
+          end
+          next root_sint
         end
       end
     end

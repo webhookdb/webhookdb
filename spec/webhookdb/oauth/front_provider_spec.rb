@@ -8,6 +8,17 @@ RSpec.describe Webhookdb::Oauth::FrontProvider, :db do
   let(:front_instance_api_url) { "webhookdb_test.api.frontapp.com" }
   let(:provider) { Webhookdb::Oauth.provider("front") }
 
+  describe "authorization_url" do
+    it "is valid" do
+      # It's possible the redirect URI should be coded, but we didn't do it,
+      # and it seems to work fine, so leave it for now.
+      expect(provider.authorization_url(state: "xyz")).to eq(
+        "https://app.frontapp.com/oauth/authorize?response_type=code&" \
+        "redirect_uri=http://localhost:18001/v1/install/front/callback&state=xyz&client_id=front_client_id",
+      )
+    end
+  end
+
   describe "exchange_authorization_code" do
     def stub_auth_token_request
       body = {
