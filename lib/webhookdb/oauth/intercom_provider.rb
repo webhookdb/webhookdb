@@ -54,5 +54,6 @@ class Webhookdb::Oauth::IntercomProvider < Webhookdb::Oauth::Provider
       backfill_key: tokens.access_token,
     )
     root_sint.replicator.build_dependents
+    return root_sint
   end
 end

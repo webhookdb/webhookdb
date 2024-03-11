@@ -1,5 +1,5 @@
 {
   "token_type": "Bearer",
   "token": "intercom_auth_token",
-  "access_token": "intercom_auth_token"
+  "access_token": "intercom_access_token"
 }

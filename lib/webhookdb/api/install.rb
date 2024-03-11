@@ -54,6 +54,8 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       helpers do
         def oauth_provider
           return @oauth_provider ||= Webhookdb::Oauth.provider(params[:oauth_provider])
+        rescue KeyError
+          forbidden!
         end
 
         def finish_org_setup(organization:, tokens:, scope:)
@@ -76,8 +78,10 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           return oauth_provider.exchange_authorization_code(code:)
         rescue Webhookdb::Http::Error => e
           logger.warn "oauth_exchange_error", exception: e
+          url = "#{Webhookdb.api_url}/v1/install/#{oauth_provider.key}"
           raise FormError.new(
-            "Something went wrong getting your access token from #{oauth_provider.app_name}. Please start over",
+            "Something went wrong getting your access token from #{oauth_provider.app_name}. " \
+            "Please start over by going to <a href=\"#{url}\">#{url}</a>.",
             400,
           )
         end
@@ -174,12 +178,14 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           # - Make sure we can find a valid admin membership
           # - Only then do we exchange the token.
           # - Setup replicators.
-          customer = find_and_verify_user(email:, otp_token:)
-          membership = find_admin_membership(customer)
-          tokens = exchange_authorization_code(session.authorization_code)
           session.db.transaction do
-            finish_org_setup(organization: membership.organization, tokens:, scope: {})
-            session.update(used_at: Time.now)
+            customer = find_and_verify_user(email:, otp_token:)
+            membership = find_admin_membership(customer)
+            tokens = exchange_authorization_code(session.authorization_code)
+            session.db.transaction do
+              finish_org_setup(organization: membership.organization, tokens:, scope: {})
+              session.update(used_at: Time.now)
+            end
           end
         else
           handle_login(email:, session:, action_url: "/v1/install/#{oauth_provider.key}/login")

@@ -50,7 +50,8 @@ module Webhookdb::Oauth
     # Create the actual service integrations for the given org.
     # @param organization [Webhookdb::Organization]
     # @param tokens [Webhookdb::Oauth::Tokens]
-    # # @param scope [Hash]
+    # @param scope [Hash]
+    # @return [Webhookdb::ServiceIntegration]
     def build_marketplace_integrations(organization:, tokens:, scope:) = raise NotImplementedError
   end
   # rubocop:enable Lint/UnusedMethodArgument
@@ -74,6 +75,8 @@ module Webhookdb::Oauth
   end
 end
 
+require "webhookdb/oauth/fake_provider"
+Webhookdb::Oauth.register(Webhookdb::Oauth::FakeProvider)
 require "webhookdb/oauth/front_provider"
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontProvider)
 Webhookdb::Oauth.register(Webhookdb::Oauth::FrontSignalwireChannelProvider)
