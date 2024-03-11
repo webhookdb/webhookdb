@@ -30,10 +30,6 @@ class Webhookdb::Replicator::IncreaseAppV1 < Webhookdb::Replicator::Base
 
   def _upsert_webhook(request, **kw)
     raise Webhookdb::InvalidPrecondition, "can only handle event payloads" unless request.body.fetch("type") == "event"
-    if request.body.fetch("category") == "oauth_connection.deactivated"
-      self.service_integration.destroy_self_and_all_dependents
-      return nil
-    end
     dispatchable = self.service_integration.dependents.select do |d|
       d.service_name == "increase_event_v1" || d.replicator.handle_event?(request.body)
     end

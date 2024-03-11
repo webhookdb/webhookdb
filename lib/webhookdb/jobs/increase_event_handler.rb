@@ -12,7 +12,7 @@ class Webhookdb::Jobs::IncreaseEventHandler
       when "increase.oauth_connection.deactivated"
         conn_id = event.payload[0].fetch("associated_object_id")
         self.logger.info("increase_oauth_disconnect", oauth_connection_id: conn_id)
-        Webhookdb::Increase.disconnect_oauth(conn_id)
+        Webhookdb::Oauth::IncreaseProvider.disconnect_oauth(conn_id)
       else
         self.logger.info("increase_event_noop")
     end

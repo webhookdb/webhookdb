@@ -294,7 +294,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         id: "event_001dzz0r20rzr4zrhrr1364hy80",
         type: "event",
       }.as_json
-      expect(Webhookdb::Increase).to receive(:disconnect_oauth).with("connection_wxzktzxykrixfr0twahd")
+      expect(Webhookdb::Oauth::IncreaseProvider).to receive(:disconnect_oauth).with("connection_wxzktzxykrixfr0twahd")
       expect do
         Amigo.publish("increase.oauth_connection.deactivated", event)
       end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)
@@ -309,7 +309,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         id: "event_001dzz0r20rzr4zrhrr1364hy80",
         type: "event",
       }.as_json
-      expect(Webhookdb::Increase).to_not receive(:disconnect_oauth)
+      expect(Webhookdb::Oauth::IncreaseProvider).to_not receive(:disconnect_oauth)
       expect do
         Amigo.publish("increase.account.create", event)
       end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)

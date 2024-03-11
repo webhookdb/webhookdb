@@ -87,23 +87,4 @@ class Webhookdb::Increase
 
     return Webhookdb::WebhookResponse.ok
   end
-
-  def self.disconnect_oauth(connection_id)
-    resp = Webhookdb::Http.get(
-      "https://api.increase.com/oauth_connections/#{connection_id}",
-      headers: {"Authorization" => "Bearer #{self.api_key}"},
-      logger: self.logger,
-      timeout: self.http_timeout,
-    )
-    if resp.parsed_response.fetch("status") != "inactive"
-      # This should never happen, but we should assert (and test) it for good measure.
-      raise Webhookdb::InvariantViolation,
-            "Got an Increase OAuth disconnect but it reports as active: #{resp.parsed_response}"
-    end
-    group = resp.parsed_response.fetch("group_id")
-    # It may have already been deleted, make this idempotent
-    Webhookdb::ServiceIntegration.where(service_name: "increase_app_v1", api_url: group).
-      all.
-      each(&:destroy_self_and_all_dependents)
-  end
 end
