@@ -415,13 +415,13 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
     it "filters out replicators that the org should not have access to" do
       # by default the org does not have the "internal" feature role assigned to it,
       # so our "fake" integrations should not show up in this list
-      expect(o.available_replicator_names).to_not include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicators.map(&:name)).to_not include("fake_v1", "fake_with_enrichments_v1")
     end
 
     it "includes replicators that the org should have access to" do
       internal_role = Webhookdb::Role.create(name: "internal")
       o.add_feature_role(internal_role)
-      expect(o.available_replicator_names).to include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicators.map(&:name)).to include("fake_v1", "fake_with_enrichments_v1")
     end
   end
 end
