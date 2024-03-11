@@ -472,7 +472,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
   end
 
-  def available_replicator_names
+  def available_replicators
     available = Webhookdb::Replicator.registry.values.filter do |desc|
       # The org must have any of the flags required for the service. In other words,
       # the intersection of desc[:feature_roles] & org.feature_roles must
@@ -482,7 +482,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       org_has_access = (self.feature_roles.map(&:name) & desc.feature_roles).present?
       org_has_access
     end
-    return available.map(&:name)
+    return available
   end
 
   #

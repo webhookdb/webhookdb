@@ -54,7 +54,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
         get do
           _customer = current_customer
           org = lookup_org!
-          fake_entities = org.available_replicator_names.sort.map { |name| {name:} }
+          fake_entities = org.available_replicators.map(&:name).sort.map { |name| {name:} }
           message = "Run `webhookdb integrations create [service name]` to start replicating data to your database."
           present_collection fake_entities, with: Webhookdb::API::ServiceEntity, message:
         end

@@ -41,7 +41,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         resource :create do
           helpers do
             def create_integration(org, name)
-              available_services_list = org.available_replicator_names.sort.join("\n\t")
+              available_services_list = org.available_replicators.map(&:name).sort.join("\n\t")
 
               service_name_invalid = Webhookdb::Replicator.registered(name).nil?
               if service_name_invalid
@@ -55,7 +55,7 @@ Run `webhookdb services list` to see available services, and try again with the 
               end
 
               # If org does not have access to the given service
-              unless org.available_replicator_names.include?(name)
+              unless org.available_replicators.map(&:name).include?(name)
                 step = Webhookdb::Replicator::StateMachineStep.new
                 step.needs_input = false
                 step.output =
