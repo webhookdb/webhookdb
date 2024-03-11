@@ -7,6 +7,14 @@ RSpec.describe Webhookdb::Oauth::IncreaseProvider, :db do
   let(:org) { Webhookdb::Fixtures.organization.with_member(customer).create }
   let(:provider) { Webhookdb::Oauth.provider("increase") }
 
+  describe "authorization_url" do
+    it "is valid" do
+      expect(provider.authorization_url(state: "xyz")).to eq(
+        "https://increase.com/oauth/authorization?client_id=increase_oauth_fake_client&state=xyz&scope=read_only",
+      )
+    end
+  end
+
   describe "exchange_authorization_code" do
     def stub_auth_token_request
       body = {

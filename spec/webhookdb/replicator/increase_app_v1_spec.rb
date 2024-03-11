@@ -30,6 +30,17 @@ RSpec.describe Webhookdb::Replicator::IncreaseAppV1, :db do
   end
 
   describe "state machine calculation" do
+    describe "calculate_webhook_state_machine" do
+      it "noops" do
+        sm = sint.replicator.calculate_webhook_state_machine
+        expect(sm).to have_attributes(
+          needs_input: false,
+          complete: true,
+          output: match("to learn more"),
+        )
+      end
+    end
+
     describe "calculate_backfill_state_machine" do
       it "noops" do
         sm = sint.replicator.calculate_backfill_state_machine

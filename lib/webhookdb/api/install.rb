@@ -200,12 +200,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           whresp = Webhookdb::Front.initial_verification_request_response(request, Webhookdb::Front.app_secret)
           s_status, s_headers, s_body = whresp.to_rack
           s_headers.each { |k, v| header k, v }
-          if s_headers["Content-Type"] == "application/json"
-            body Oj.load(s_body)
-          else
-            env["api.format"] = :binary
-            body s_body
-          end
+          body Oj.load(s_body)
           status s_status
           break
         end

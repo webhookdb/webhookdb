@@ -63,13 +63,6 @@ Head over to #{self.descriptor.install_url} to learn more.)
     return step
   end
 
-  def get_auth_headers
-    return {
-      "Authorization" => "Bearer #{self.service_integration.backfill_key}",
-      "Accept" => "application/json",
-    }
-  end
-
   def build_dependents
     org = self.service_integration.organization
     parent_descr = self.descriptor

@@ -43,7 +43,7 @@ module Webhookdb::Oauth
     # @param scope [Hash] Used to store data needed in later calls, like when building integrations.
     # @return [Array{TrueClass, FalseClass, Webhookdb::Customer}]
     def find_or_create_customer(tokens:, scope:)
-      raise RuntimeError("should not be called") if self.requires_webhookdb_auth?
+      raise "should not be called" if self.requires_webhookdb_auth?
       raise NotImplementedError
     end
 

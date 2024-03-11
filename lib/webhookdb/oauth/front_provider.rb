@@ -5,7 +5,6 @@ require "webhookdb/front"
 class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
   include Appydays::Loggable
 
-  # Override these for custom OAuth of different apps
   def key = "front"
   def app_name = "Front"
   def client_id = Webhookdb::Front.client_id
