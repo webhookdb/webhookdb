@@ -65,7 +65,10 @@ module Webhookdb::Apps
       map "/terminal" do
         run Webhookdb::Apps::Webterm.to_app
       end
-      use Rack::SimpleRedirect, routes: REDIRECTS
+      use Rack::SimpleRedirect, routes: (REDIRECTS.each_with_object({}) do |(k, v), memo|
+        memo[k] = v
+        memo["#{k}/"] = v
+      end)
       run Webhookdb::Apps::API.build_app
     end
   end
