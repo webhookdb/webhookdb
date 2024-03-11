@@ -60,6 +60,7 @@ class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
       backfill_key: tokens.refresh_token,
     )
     root_sint.replicator.build_dependents
+    return root_sint
   end
 end
 

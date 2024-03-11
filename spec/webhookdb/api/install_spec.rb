@@ -7,7 +7,6 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
   let(:app) { described_class.build_app }
   let!(:org) { Webhookdb::Fixtures.organization.create }
-  let!(:customer) { Webhookdb::Fixtures.customer.create(email: "ginger@example.com") }
 
   def add_front_auth_headers(body, secret=Webhookdb::Front.app_secret)
     tsval = Time.new(2023, 4, 7).to_i.to_s
@@ -18,47 +17,33 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     return body
   end
 
-  describe "GET /v1/install/front" do
+  describe "GET /v1/install/:provider" do
     it "200s" do
-      get "/v1/install/front"
+      get "/v1/install/fake"
 
       expect(last_response).to have_status(200)
     end
+
+    it "403s for an invalid provider" do
+      get "/v1/install/invalid"
+
+      expect(last_response).to have_status(403)
+    end
   end
 
-  describe "POST /v1/install/front" do
+  describe "POST /v1/install/:provider" do
     it "creates an oauth session and redirects" do
-      post "/v1/install/front"
+      post "/v1/install/fake"
 
       expect(last_response).to have_status(302)
       expect(Webhookdb::Oauth::Session.all).to have_length(1)
       expect(last_response.headers).to include(
-        "Location" => match(%r{https://app\.frontapp\.com/oauth/authorize\?response_type=code&redirect_uri=http://localhost:18001/v1/install/front/callback&state=[a-z0-9]+&client_id=front_client_id}),
+        "Location" => match(%r{http://localhost:18001/v1/install/fake_oauth_authorization\?client_id=fakeclient&state=[a-z0-9]+}),
       )
     end
   end
 
-  describe "GET /v1/install/front_signalwire" do
-    it "200s" do
-      get "/v1/install/front_signalwire"
-
-      expect(last_response).to have_status(200)
-    end
-  end
-
-  describe "POST /v1/install/front_signalwire" do
-    it "creates an oauth session and redirects" do
-      post "/v1/install/front_signalwire"
-
-      expect(last_response).to have_status(302)
-      expect(Webhookdb::Oauth::Session.all).to have_length(1)
-      expect(last_response.headers).to include(
-        "Location" => match(%r{https://app\.frontapp\.com/oauth/authorize\?response_type=code&redirect_uri=http://localhost:18001/v1/install/front_signalwire/callback&state=[a-z0-9]+&client_id=front_swchan_client_id}),
-      )
-    end
-  end
-
-  describe "GET /v1/install/<provider>/callback" do
+  describe "GET /v1/install/:provider/callback" do
     let(:session) { Webhookdb::Fixtures.oauth_session.create }
     let(:state) { session.oauth_state }
     let(:code) { SecureRandom.hex(4) }
@@ -66,106 +51,74 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     it "403s if there is no valid session with the given id" do
       session.update(used_at: Time.now)
 
-      get("/v1/install/intercom/callback", state:, code:)
+      get("/v1/install/fake/callback", state:, code:)
 
       expect(last_response).to have_status(403)
       expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
     end
 
     describe "when the OAuth provider requires WebhookDB login" do
+      before(:each) do
+        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = true
+      end
+
       it "302s to the login page" do
-        get("/v1/install/front/callback", code:, state:)
+        get("/v1/install/fake/callback", code:, state:)
         expect(last_response).to have_status(302)
-        expect(last_response.headers).to include("Location" => "/v1/install/front/login?state=#{state}")
+        expect(last_response.headers).to include("Location" => "/v1/install/fake/login?state=#{state}")
       end
 
       it "updates oauth session with authorization code" do
-        get("/v1/install/front/callback", code:, state:)
+        get("/v1/install/fake/callback", code:, state:)
         expect(session.refresh).to have_attributes(authorization_code: code, used_at: nil)
       end
     end
 
     describe "when the OAuth provider can create a user using the token" do
-      def stub_token_request
-        return stub_request(:post, "https://api.intercom.io/auth/eagle/token").
-            to_return(json_response(load_fixture_data("intercom/token_response")))
-      end
-
-      def stub_intercom_user_request
-        return stub_request(:get, "https://api.intercom.io/me").
-            to_return(json_response(load_fixture_data("intercom/get_user")))
+      before(:each) do
+        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = false
       end
 
       it "renders success page and updates the session" do
-        requests = [stub_token_request, stub_intercom_user_request]
-
-        get("/v1/install/intercom/callback", state:, code:)
+        get("/v1/install/fake/callback", state:, code:)
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
-          "We are now checking for updates to resources in your Intercom account.",
+          "We are now listening for updates to resources in your Fake account.",
         )
-        expect(requests).to all(have_been_made)
         expect(session.refresh).to have_attributes(
           authorization_code: code, customer: be_present, used_at: match_time(:now),
         )
       end
 
       it "creates a customer if needed" do
-        customer.destroy
-        requests = [stub_token_request, stub_intercom_user_request]
+        get("/v1/install/fake/callback", state:, code:)
 
-        get("/v1/install/intercom/callback", state:, code:)
         expect(last_response).to have_status(200)
-
-        expect(requests).to all(have_been_made)
-        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "ginger@example.com"))
+        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "access-#{code}@webhookdb.com"))
       end
 
       it "uses an existing customer if one matches the email" do
-        requests = [stub_token_request, stub_intercom_user_request]
+        customer = Webhookdb::Fixtures.customer.create(email: "access-#{code}@webhookdb.com")
 
-        get("/v1/install/intercom/callback", state:, code:)
+        get("/v1/install/fake/callback", state:, code:)
+
         expect(last_response).to have_status(200)
-
-        expect(requests).to all(have_been_made)
-        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "ginger@example.com"))
+        expect(Webhookdb::Customer.all).to contain_exactly(be === customer)
       end
 
       it "creates integrations on default organization" do
+        customer = Webhookdb::Fixtures.customer.create(email: "access-#{code}@webhookdb.com")
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-        requests = [stub_token_request, stub_intercom_user_request]
 
-        get("/v1/install/intercom/callback", state:, code:)
+        get("/v1/install/fake/callback", state:, code:)
+
         expect(last_response).to have_status(200)
-        expect(requests).to all(have_been_made)
-
-        expect(org.refresh.service_integrations).to contain_exactly(
-          # We can't match on an encrypted field, but the backfill_key of the root should be the
-          # Intercom auth token. We can just test that the field isn't nil
-          have_attributes(
-            service_name: "intercom_marketplace_root_v1",
-            # backfill_key: not_be_nil,
-            api_url: "lithic_tech_intercom_abc",
-          ),
-          have_attributes(service_name: "intercom_conversation_v1"),
-          have_attributes(service_name: "intercom_contact_v1"),
-        )
-
-        expect(Webhookdb::BackfillJob.all).to contain_exactly(
-          have_attributes(
-            service_integration: have_attributes(service_name: "intercom_contact_v1"),
-            incremental: true,
-          ),
-          have_attributes(
-            service_integration: have_attributes(service_name: "intercom_conversation_v1"),
-            incremental: true,
-          ),
-        )
+        expect(org.refresh.service_integrations).to contain_exactly(have_attributes(service_name: "fake_v1"))
       end
     end
   end
 
-  describe "POST /v1/install/front/login" do
+  describe "POST /v1/install/:provider/login" do
     let(:customer) { Webhookdb::Fixtures.customer.create }
     let(:session) { Webhookdb::Fixtures.oauth_session.create(authorization_code: "front_test_auth", customer:) }
     let(:state) { session.oauth_state }
@@ -173,7 +126,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
     describe "OTP token param is not present" do
       it "renders login form for existing customer" do
-        post("/v1/install/front/login", state:, email:)
+        post("/v1/install/fake/login", state:, email:)
 
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
@@ -182,7 +135,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       end
 
       it "creates new customer and renders login form" do
-        post("/v1/install/front/login", state:, email: "new@customer.com")
+        post("/v1/install/fake/login", state:, email: "new@customer.com")
 
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
@@ -195,7 +148,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       it "expires existing reset codes for an existing customer and adds a new one" do
         code = Webhookdb::Fixtures.reset_code(customer:).create
 
-        post("/v1/install/front/login", state:, email:)
+        post("/v1/install/fake/login", state:, email:)
 
         expect(last_response).to have_status(200)
         expect(code.refresh).to be_expired
@@ -205,7 +158,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       end
 
       it "updates the session with customer" do
-        post("/v1/install/front/login", state:, email:)
+        post("/v1/install/fake/login", state:, email:)
 
         expect(last_response).to have_status(200)
         oauth_session = Webhookdb::Oauth::Session.where(oauth_state: state, customer:).first
@@ -214,7 +167,6 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
 
     describe "OTP token param is present" do
-      let(:front_instance_api_url) { "webhookdb_test.api.frontapp.com" }
       let(:reset_code) { Webhookdb::Fixtures.reset_code(customer:).create }
       let(:otp_token) { reset_code.token }
 
@@ -226,61 +178,42 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
         org.remove_related_database
       end
 
-      def stub_auth_token_request
-        body = {
-          "code" => "front_test_auth",
-          "redirect_uri" => "http://localhost:18001/v1/install/front/callback",
-          "grant_type" => "authorization_code",
-        }.to_json
-        return stub_request(:post, "https://app.frontapp.com/oauth/token").with(body:).
-            to_return(json_response(load_fixture_data("front/auth_token_response")))
-      end
-
-      def stub_token_info_request
-        return stub_request(:get, "https://api2.frontapp.com/me").
-            to_return(json_response(load_fixture_data("front/token_info_response")))
-      end
-
       it "skips auth if customer auth should be skipped", reset_configuration: Webhookdb::Customer do
         Webhookdb::Customer.skip_authentication = true
 
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-        requests = [stub_auth_token_request, stub_token_info_request]
 
-        post("/v1/install/front/login", state:, email:, otp_token: "invalid token")
+        post("/v1/install/fake/login", state:, email:, otp_token: "invalid token")
 
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
-          "We are now listening for updates to resources in your Front account.",
+          "We are now listening for updates to resources in your Fake account.",
         )
         expect(last_response.body).to include(org.readonly_connection_url)
-        expect(requests).to all(have_been_made)
       end
 
       it "renders success message on success" do
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-        requests = [stub_auth_token_request, stub_token_info_request]
 
-        post("/v1/install/front/login", state:, email:, otp_token:)
+        post("/v1/install/fake/login", state:, email:, otp_token:)
 
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
-          "We are now listening for updates to resources in your Front account.",
+          "We are now listening for updates to resources in your Fake account.",
         )
         expect(last_response.body).to include(org.readonly_connection_url)
-        expect(requests).to all(have_been_made)
       end
 
       it "403s if there is no session with the given id" do
         session.destroy
-        post("/v1/install/front/login", state:, email:, otp_token:)
+        post("/v1/install/fake/login", state:, email:, otp_token:)
 
         expect(last_response).to have_status(403)
         expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
       end
 
       it "403s if the otp token is invalid" do
-        post "/v1/install/front/login", state:, email:, otp_token: reset_code.token + "1"
+        post "/v1/install/fake/login", state:, email:, otp_token: reset_code.token + "1"
 
         expect(last_response).to have_status(403)
         expect(last_response.body).to include(
@@ -290,60 +223,40 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       it "creates integrations on default organization when specified for customer" do
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-        requests = [stub_auth_token_request, stub_token_info_request]
 
-        post("/v1/install/front/login", state:, email:, otp_token:)
+        post("/v1/install/fake/login", state:, email:, otp_token:)
         expect(last_response).to have_status(200)
-        expect(requests).to all(have_been_made)
-
         expect(org.refresh.service_integrations).to contain_exactly(
-          # We can't match on an encrypted field, but the backfill_key of the root should be the
-          # Front refresh token. We can just test that the field isn't nil
-          have_attributes(
-            service_name: "front_marketplace_root_v1",
-            backfill_key: not_be_nil,
-            api_url: front_instance_api_url,
-          ),
-          have_attributes(service_name: "front_message_v1"),
-          have_attributes(service_name: "front_conversation_v1"),
+          have_attributes(service_name: "fake_v1"),
         )
       end
 
       it "creates integrations on verified organization when no default specified for customer" do
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.create
-        requests = [stub_auth_token_request, stub_token_info_request]
 
-        post("/v1/install/front/login", state:, email:, otp_token:)
+        post("/v1/install/fake/login", state:, email:, otp_token:)
+
         expect(last_response).to have_status(200)
-        expect(requests).to all(have_been_made)
-
         expect(org.refresh.service_integrations).to contain_exactly(
-          have_attributes(service_name: "front_marketplace_root_v1"),
-          have_attributes(service_name: "front_message_v1"),
-          have_attributes(service_name: "front_conversation_v1"),
+          have_attributes(service_name: "fake_v1"),
         )
       end
 
       it "creates integrations on new organization when customer has no verified memberships" do
-        requests = [stub_auth_token_request, stub_token_info_request]
+        post("/v1/install/fake/login", state:, email:, otp_token:)
 
-        post("/v1/install/front/login", state:, email:, otp_token:)
         expect(last_response).to have_status(200)
-        expect(requests).to all(have_been_made)
-
         new_org = Webhookdb::Organization[name: "#{customer.email} Org"]
         expect(new_org).to_not be_nil
         expect(new_org.refresh.service_integrations).to contain_exactly(
-          have_attributes(service_name: "front_marketplace_root_v1"),
-          have_attributes(service_name: "front_message_v1"),
-          have_attributes(service_name: "front_conversation_v1"),
+          have_attributes(service_name: "fake_v1"),
         )
       end
 
       it "403s when customer is not an admin for any organizations" do
         Webhookdb::Fixtures.organization_membership.org(org).customer(customer).verified.create
 
-        post("/v1/install/front/login", state:, email:, otp_token:)
+        post("/v1/install/fake/login", state:, email:, otp_token:)
 
         expect(last_response).to have_status(403)
         expect(last_response.body).to include(
@@ -682,7 +595,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
   end
 
-  describe "post /v1/install/intercom/uninstall" do
+  describe "POST /v1/install/intercom/uninstall" do
     it "deletes integrations associated with given app id" do
       body = {app_id: "ghi567"}
 
@@ -703,7 +616,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     end
   end
 
-  describe "post /v1/install/intercom/health" do
+  describe "POST /v1/install/intercom/health" do
     it "returns 'OK' status" do
       body = {workspace_id: "apple_banana"}
       post "/v1/install/intercom/health", body
