@@ -23,7 +23,7 @@ module Webhookdb::Service::ViewApi
       |
         tmpl_file = File.open(Webhookdb::DATA_DIR + data_rel_path)
         liquid_tmpl = Liquid::Template.parse(tmpl_file.read)
-        rendered = liquid_tmpl.render!(vars.stringify_keys, registers: {})
+        rendered = liquid_tmpl.render!(vars.deep_stringify_keys, registers: {})
         _endpoint.content_type content_type
         if serialize_view_params
           _endpoint.cookies[:whdbviewparams] = {path: data_rel_path, vars:, content_type:}.to_json

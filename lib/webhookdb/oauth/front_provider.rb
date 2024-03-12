@@ -10,7 +10,6 @@ class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
   def client_id = Webhookdb::Front.client_id
   def client_secret = Webhookdb::Front.client_secret
 
-  def requires_webhookdb_auth? = true
   def supports_webhooks? = true
 
   def authorization_url(state:)

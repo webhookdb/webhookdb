@@ -13,26 +13,4 @@ RSpec.describe Webhookdb::Oauth, :db do
       expect(described_class.usable.all).to contain_exactly(be === usable)
     end
   end
-
-  describe "Provider" do
-    describe "#find_or_create_customer" do
-      it "errors if provider requires auth" do
-        cls = Class.new(described_class::Provider) do
-          def requires_webhookdb_auth? = true
-        end
-        expect do
-          cls.new.find_or_create_customer(tokens: nil, scope: nil)
-        end.to raise_error(RuntimeError, /not be called/)
-      end
-
-      it "raises NIE if provider does not require auth" do
-        cls = Class.new(described_class::Provider) do
-          def requires_webhookdb_auth? = false
-        end
-        expect do
-          cls.new.find_or_create_customer(tokens: nil, scope: nil)
-        end.to raise_error(NotImplementedError)
-      end
-    end
-  end
 end

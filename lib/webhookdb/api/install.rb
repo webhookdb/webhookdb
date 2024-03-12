@@ -12,12 +12,16 @@ class Webhookdb::API::Install < Webhookdb::API::V1
     helpers do
       def lookup_session!
         session = Webhookdb::Oauth::Session.usable.where(oauth_state: params[:state]).first
-        forbidden! unless session
+        error!("Forbidden", 302, {"Location" => "/v1/install/#{oauth_provider.key}/forbidden"}) if session.nil?
         return session
       end
 
       def handle_login(email:, session:, action_url:)
-        new_customer, me = Webhookdb::Customer.find_or_create_for_email(email)
+        begin
+          new_customer, me = Webhookdb::Customer.find_or_create_for_email(email)
+        rescue Sequel::ValidationFailed => e
+          raise FormError.new(e.message.capitalize, 400)
+        end
         me.reset_codes_dataset.usable.each(&:expire!)
         me.add_reset_code(transport: "email")
         session.update(customer: me)
@@ -25,6 +29,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           "messages/web/install-customer-login.liquid",
           serialize_view_params: true,
           vars: {
+            app_name: oauth_provider.app_name,
             view: "otp",
             action_url:,
             oauth_state: session.oauth_state,
@@ -50,28 +55,19 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       end
     end
 
+    params do
+      requires :state, type: String
+    end
+    get :fake_oauth_authorization do
+      redirect "/v1/install/fake/callback?code=fakecode&state=#{params[:state]}"
+    end
+
     route_param :oauth_provider, type: String, values: Webhookdb::Oauth.registry.keys do
       helpers do
         def oauth_provider
-          return @oauth_provider ||= Webhookdb::Oauth.provider(params[:oauth_provider])
+          @oauth_provider ||= Webhookdb::Oauth.provider(params[:oauth_provider])
         rescue KeyError
           forbidden!
-        end
-
-        def finish_org_setup(organization:, tokens:, scope:)
-          organization.prepare_database_connections?
-          oauth_provider.build_marketplace_integrations(organization:, tokens:, scope:)
-          rendered = render_liquid(
-            "messages/web/install-success.liquid",
-            serialize_view_params: true,
-            vars: {
-              app_name: oauth_provider.app_name,
-              database_url: organization.readonly_connection_url,
-              supports_webhooks: oauth_provider.supports_webhooks?,
-            },
-          )
-          status 200
-          body rendered
         end
 
         def exchange_authorization_code(code)
@@ -83,16 +79,6 @@ class Webhookdb::API::Install < Webhookdb::API::V1
             "Something went wrong getting your access token from #{oauth_provider.app_name}. " \
             "Please start over by going to <a href=\"#{url}\">#{url}</a>.",
             400,
-          )
-        end
-
-        def find_admin_membership(customer)
-          _created, membership = Webhookdb::Customer.find_or_create_default_organization(customer)
-          membership = customer.verified_memberships.find(&:admin?) unless membership.admin?
-          return membership if membership
-          raise FormError.new(
-            "You must be an administrator of your WebhookDB organization to set up this app.",
-            403,
           )
         end
       end
@@ -124,24 +110,18 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       get :callback do
         session = lookup_session!
         code = params[:code]
-        if oauth_provider.requires_webhookdb_auth?
-          session.update(authorization_code: code)
-          redirect "/v1/install/#{oauth_provider.key}/login?state=#{session.oauth_state}"
-        else
-          scope = {}
-          # Order of operations here is:
-          # - Exchange token. We need the token to create the customer so it comes first.
-          # - Create the customer, find the membership, and create replicators.
-          # - If this last step fails, the code becomes invalid, which is annoying,
-          #   but should be rare and not a big deal to start over.
-          tokens = exchange_authorization_code(code)
-          session.db.transaction do
-            _created, customer = oauth_provider.find_or_create_customer(tokens:, scope:)
-            membership = find_admin_membership(customer)
-            finish_org_setup(organization: membership.organization, tokens:, scope:)
-            session.update(customer:, used_at: Time.now, authorization_code: code)
-          end
-        end
+        # Exchange the token now, in case it's invalid we don't want to find out at the end.
+        tokens = exchange_authorization_code(code)
+        session.update(token_json: tokens.as_json)
+        # Send the user to auth. We could (and did) use a "/me" endpoint here
+        # to get an email, but that pushes the trust someone is who they say they are
+        # to the oauth provider. We don't feel comfortable doing that in all cases,
+        # so we ask them to auth with WebhookDB.
+        #
+        # On top of that, many setups don't have a way to know who did the connection,
+        # nor can we be sure what org to install the replicators into,
+        # so may as well put everyone on the same path.
+        redirect "/v1/install/#{oauth_provider.key}/login?state=#{session.oauth_state}"
       end
 
       params do
@@ -153,6 +133,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           "messages/web/install-customer-login.liquid",
           serialize_view_params: true,
           vars: {
+            app_name: oauth_provider.app_name,
             view: "email",
             action_url: "/v1/install/#{oauth_provider.key}/login",
             oauth_state: session.oauth_state,
@@ -171,8 +152,12 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         session = lookup_session!
         email = params[:email]
         raise FormError.new("Email is required", 400) unless email.present?
-        otp_token = params[:otp_token]
-        if otp_token
+        if (otp_token = params[:otp_token]).nil?
+          # This is the first submit, asking for email. Prompt them for an OTP.
+          handle_login(email:, session:, action_url: "/v1/install/#{oauth_provider.key}/login")
+        else
+          # This is the 'second' submit, asking for OTP.
+          # Verify it, ensure the customer has a default org, and then send them to the 'org chooser'.
           # Order of operations here is:
           # - Verify the OTP
           # - Make sure we can find a valid admin membership
@@ -180,16 +165,104 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           # - Setup replicators.
           session.db.transaction do
             customer = find_and_verify_user(email:, otp_token:)
-            membership = find_admin_membership(customer)
-            tokens = exchange_authorization_code(session.authorization_code)
-            session.db.transaction do
-              finish_org_setup(organization: membership.organization, tokens:, scope: {})
-              session.update(used_at: Time.now)
-            end
+            Webhookdb::Customer.find_or_create_default_organization(customer)
+            session.update(customer:)
           end
-        else
-          handle_login(email:, session:, action_url: "/v1/install/#{oauth_provider.key}/login")
+          redirect "/v1/install/#{oauth_provider.key}/org?state=#{session.oauth_state}"
         end
+      end
+
+      params do
+        requires :state, type: String
+      end
+      get :org do
+        session = lookup_session!
+        organizations = session.customer.verified_memberships.select(&:admin?).map do |m|
+          {name: m.organization.name, key: m.organization.key, checked: m.default? ? "true" : ""}
+        end
+        rendered = render_liquid(
+          "messages/web/install-org-chooser.liquid",
+          serialize_view_params: true,
+          vars: {
+            app_name: oauth_provider.app_name,
+            action_url: "/v1/install/#{oauth_provider.key}/org",
+            oauth_state: session.oauth_state,
+            organizations:,
+          },
+        )
+        status 200
+        body rendered
+      end
+
+      params do
+        requires :state, type: String, desc: "the user session info string that we provided to Front"
+        optional :existing_org_key, type: String
+        optional :new_org_name, type: String
+      end
+      post :org do
+        session = lookup_session!
+        if (key = params[:existing_org_key]).present?
+          membership = session.customer.verified_memberships_dataset.
+            admin.
+            where(organization: Webhookdb::Organization.where(key:)).
+            first
+          raise FormError.new("You are not an administrator of that org or it does not exist.", 400) if
+            membership.nil?
+        elsif (name = params[:new_org_name])
+          org = Webhookdb::Organization.create_if_unique(name:)
+          raise FormError.new("Sorry, an organization with that name already exists.", 400) if
+            org.nil?
+          membership = session.customer.add_membership(
+            organization: org,
+            membership_role: Webhookdb::Role.admin_role,
+            verified: true,
+          )
+        else
+          raise FormError.new("Existing organization key or a new organization name are required", 400)
+        end
+
+        tokens = Webhookdb::Oauth::Tokens.new(**session.token_json)
+        session.db.transaction do
+          session.customer.replace_default_membership(membership)
+          membership.organization.prepare_database_connections?
+          oauth_provider.build_marketplace_integrations(organization: membership.organization, tokens:)
+          session.update(organization: membership.organization, token_json: nil)
+          redirect "/v1/install/#{oauth_provider.key}/success?state=#{params[:state]}"
+        end
+      end
+
+      params do
+        requires :state, type: String
+      end
+      get :success do
+        session = lookup_session!
+        # Mark the session used on GET, since we use the state to look up the session.
+        # It does mean that refreshing the page will error, though.
+        session.update(used_at: Time.now)
+        rendered = render_liquid(
+          "messages/web/install-success.liquid",
+          serialize_view_params: true,
+          vars: {
+            app_name: oauth_provider.app_name,
+            database_url: session.organization.readonly_connection_url,
+            supports_webhooks: oauth_provider.supports_webhooks?,
+          },
+        )
+        status 200
+        body rendered
+      end
+
+      get :forbidden do
+        rendered = render_liquid(
+          "messages/web/install-forbidden.liquid",
+          vars: {
+            app_name: oauth_provider.app_name,
+            terminal_url: "#{Webhookdb.api_url}/terminal",
+            install_url: "#{Webhookdb.api_url}/v1/install/#{oauth_provider.key}",
+          },
+        )
+        status 403
+        body rendered
       end
     end
 

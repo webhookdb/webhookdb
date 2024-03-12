@@ -97,6 +97,12 @@
         font-size: 16px;
         padding-left: var(--spacing);
         border-radius: var(--border-radius);
+        outline: none;
+    }
+
+    input[type=text]:focus {
+        border: solid 1px var(--color-primary);
+        outline: solid 2px var(--color-primary) !important;
     }
 
     .input-inline {
@@ -120,6 +126,20 @@
     .input-inline-button {
         width: 120px;
         border-radius: 0 var(--border-radius) var(--border-radius) 0 !important;
+    }
+
+    .input-radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .input-radio-control {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
     }
 
     .form-error {
