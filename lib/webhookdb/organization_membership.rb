@@ -11,6 +11,10 @@ class Webhookdb::OrganizationMembership < Webhookdb::Postgres::Model(:organizati
   many_to_one :customer, class: "Webhookdb::Customer"
   many_to_one :membership_role, class: "Webhookdb::Role"
 
+  dataset_module do
+    def admin = self.where(membership_role: Webhookdb::Role.admin_role)
+  end
+
   def verified?
     return self.verified
   end

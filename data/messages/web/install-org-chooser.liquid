@@ -1,0 +1,40 @@
+<html lang="en-US">
+<head>
+    <title>WebhookDB | Sync {{ app_name }} | Choose Organization</title>
+    {% include 'web/partials/head' %}
+</head>
+<body>
+<div class="layout">
+    <div class="flex column align-items-center content">
+        {% partial 'web/partials/header' %}
+
+        <div class="mt-2">
+            <form method="POST" action="{{ action_url }}">
+                <p>
+                    Choose which WebhookDB organization your {{ app_name }} data will be replicated to.
+                    You can also create a new organization (and database) to hold this data.
+                </p>
+                <div class="input-radio-group">
+                    {% for org in organizations %}
+                    <div class="input-radio-control">
+                        <input type="radio" id="org-{{ org.key }}" name="existing_org_key" value="{{ org.key }}" checked="{{ org.checked }}" />
+                        <label for="org-{{ org.key }}">{{ org.name }}</label>
+                    </div>
+                    {% endfor %}
+                    <div class="input-radio-control">
+                        <input type="radio" id="new_org" name="existing_org_key" value=""/>
+                        <label for="new_org">Create an Organization:</label>
+                        <input id="new_org_name" type="text" name="new_org_name" aria-labelledby="new_org" onfocus="document.querySelector('#new_org').checked = true">
+                    </div>
+                </div>
+                <input class="button w-100" type="submit" value="Submit"/>
+                {% partial 'web/partials/form_error' %}
+                <input type="hidden" id="state" name="state" value="{{ oauth_state }}">
+            </form>
+
+        </div>
+        {% partial 'web/partials/footer' %}
+    </div>
+</div>
+</body>
+</html>

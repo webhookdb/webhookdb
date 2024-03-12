@@ -52,18 +52,17 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
     let(:state) { session.oauth_state }
     let(:code) { SecureRandom.hex(4) }
 
-    it "403s if there is no valid session with the given id" do
+    it "302s to forbidden if there is no valid session with the given id" do
       session.update(used_at: Time.now)
 
       get("/v1/install/fake/callback", state:, code:)
 
-      expect(last_response).to have_status(403)
-      expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include("Location" => "/v1/install/fake/forbidden")
     end
 
     it "shows an error message if the token exchange fails" do
       req = stub_request(:get, "http://fake/").to_return(status: 500)
-      Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = -> { false }
       Webhookdb::Oauth::FakeProvider.exchange_authorization_code = lambda {
         Webhookdb::Http.get("http://fake", timeout: nil, logger: nil)
       }
@@ -73,98 +72,49 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       expect(last_response.body).to include("Something went wrong getting your access token from Fake")
     end
 
-    describe "when the OAuth provider requires WebhookDB login" do
-      before(:each) do
-        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = proc { true }
-      end
-
-      it "302s to the login page" do
-        get("/v1/install/fake/callback", code:, state:)
-        expect(last_response).to have_status(302)
-        expect(last_response.headers).to include("Location" => "/v1/install/fake/login?state=#{state}")
-      end
-
-      it "updates oauth session with authorization code" do
-        get("/v1/install/fake/callback", code:, state:)
-        expect(session.refresh).to have_attributes(authorization_code: code, used_at: nil)
-      end
+    it "updates the session with the exchanged access token and 302s to the login page" do
+      Webhookdb::Oauth::FakeProvider.exchange_authorization_code = lambda {
+        Webhookdb::Oauth::Tokens.new(access_token: "atok")
+      }
+      get("/v1/install/fake/callback", code:, state:)
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include("Location" => "/v1/install/fake/login?state=#{state}")
+      expect(session.refresh).to have_attributes(token_json: {"access_token" => "atok"}, used_at: nil)
     end
+  end
 
-    describe "when the OAuth provider can create a user using the token" do
-      before(:each) do
-        Webhookdb::Oauth::FakeProvider.requires_webhookdb_auth = proc { false }
-      end
+  describe "GET /v1/install/fake_oauth_authorization" do
+    it "redirects back to the callback route" do
+      get "/v1/install/fake_oauth_authorization", state: "abcd"
 
-      it "renders success page and updates the session" do
-        get("/v1/install/fake/callback", state:, code:)
-        expect(last_response).to have_status(200)
-        expect(last_response.body).to include(
-          "We are now listening for updates to resources in your Fake account.",
-        )
-        expect(session.refresh).to have_attributes(
-          authorization_code: code, customer: be_present, used_at: match_time(:now),
-        )
-      end
-
-      it "modifies the success page if webhooks are not supported" do
-        Webhookdb::Oauth::FakeProvider.supports_webhooks = proc { false }
-        get("/v1/install/fake/callback", state:, code:)
-        expect(last_response).to have_status(200)
-        expect(last_response.body).to include(
-          "We are now checking for updates to resources in your Fake account",
-        )
-      end
-
-      it "creates a customer if needed" do
-        get("/v1/install/fake/callback", state:, code:)
-
-        expect(last_response).to have_status(200)
-        expect(Webhookdb::Customer.all).to contain_exactly(have_attributes(email: "access-#{code}@webhookdb.com"))
-      end
-
-      it "uses an existing customer if one matches the email" do
-        customer = Webhookdb::Fixtures.customer.create(email: "access-#{code}@webhookdb.com")
-
-        get("/v1/install/fake/callback", state:, code:)
-
-        expect(last_response).to have_status(200)
-        expect(Webhookdb::Customer.all).to contain_exactly(be === customer)
-      end
-
-      it "creates integrations on default organization" do
-        customer = Webhookdb::Fixtures.customer.create(email: "access-#{code}@webhookdb.com")
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-
-        get("/v1/install/fake/callback", state:, code:)
-
-        expect(last_response).to have_status(200)
-        expect(org.refresh.service_integrations).to contain_exactly(have_attributes(service_name: "fake_v1"))
-      end
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include(
+        "Location" => "/v1/install/fake/callback?code=fakecode&state=abcd",
+      )
     end
   end
 
   describe "GET /v1/install/:provider/login" do
-    let(:customer) { Webhookdb::Fixtures.customer.create }
-    let(:session) { Webhookdb::Fixtures.oauth_session.create(authorization_code: "testauth", customer:) }
+    let(:session) { Webhookdb::Fixtures.oauth_session.create }
     let(:state) { session.oauth_state }
 
     it "renders a form" do
       get("/v1/install/fake/login", state:)
 
       expect(last_response).to have_status(200)
-      expect(last_response.body).to include("In order to complete this integration")
+      expect(last_response.body).to include("finish your sync with")
     end
   end
 
   describe "POST /v1/install/:provider/login" do
-    let(:customer) { Webhookdb::Fixtures.customer.create }
-    let(:session) { Webhookdb::Fixtures.oauth_session.create(authorization_code: "front_test_auth", customer:) }
-    let(:state) { session.oauth_state }
-    let(:email) { customer.email }
-
     describe "OTP token param is not present" do
+      let(:session) { Webhookdb::Fixtures.oauth_session.create }
+      let(:state) { session.oauth_state }
+
       it "renders login form for existing customer" do
-        post("/v1/install/fake/login", state:, email:)
+        customer = Webhookdb::Fixtures.customer.create
+
+        post("/v1/install/fake/login", state:, email: customer.email)
 
         expect(last_response).to have_status(200)
         expect(last_response.body).to include(
@@ -184,9 +134,10 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       end
 
       it "expires existing reset codes for an existing customer and adds a new one" do
+        customer = Webhookdb::Fixtures.customer.create
         code = Webhookdb::Fixtures.reset_code(customer:).create
 
-        post("/v1/install/fake/login", state:, email:)
+        post("/v1/install/fake/login", state:, email: customer.email)
 
         expect(last_response).to have_status(200)
         expect(code.refresh).to be_expired
@@ -196,58 +147,44 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       end
 
       it "updates the session with customer" do
-        post("/v1/install/fake/login", state:, email:)
+        customer = Webhookdb::Fixtures.customer.create
+
+        post("/v1/install/fake/login", state:, email: customer.email)
 
         expect(last_response).to have_status(200)
-        oauth_session = Webhookdb::Oauth::Session.where(oauth_state: state, customer:).first
-        expect(oauth_session).to_not be_nil
+        expect(session.refresh).to have_attributes(customer: be === customer, used_at: nil)
+      end
+
+      it "handles validation failures" do
+        post("/v1/install/fake/login", state:, email: "invalid")
+
+        expect(last_response).to have_status(400)
+        expect(last_response.body).to include("Email is invalid")
       end
     end
 
     describe "OTP token param is present" do
+      let(:customer) { Webhookdb::Fixtures.customer.create }
       let(:reset_code) { Webhookdb::Fixtures.reset_code(customer:).create }
       let(:otp_token) { reset_code.token }
+      let(:email) { customer.email }
+      let(:session) { Webhookdb::Fixtures.oauth_session.create(customer:) }
+      let(:state) { session.oauth_state }
 
-      before(:each) do
-        org.prepare_database_connections
-      end
+      it "assigns the customer to the session and redirects to the org chooser" do
+        post("/v1/install/fake/login", state:, email:, otp_token:)
 
-      after(:each) do
-        org.remove_related_database
+        expect(last_response).to have_status(302)
+        expect(last_response.headers).to include("Location" => "/v1/install/fake/org?state=#{state}")
+        expect(session.refresh).to have_attributes(customer: have_attributes(email:), used_at: nil)
+        # Assert default org is created
+        expect(Webhookdb::Customer[email:]).to have_attributes(verified_memberships: have_length(1))
       end
 
       it "skips auth if customer auth should be skipped", reset_configuration: Webhookdb::Customer do
         Webhookdb::Customer.skip_authentication = true
-
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-
         post("/v1/install/fake/login", state:, email:, otp_token: "invalid token")
-
-        expect(last_response).to have_status(200)
-        expect(last_response.body).to include(
-          "We are now listening for updates to resources in your Fake account.",
-        )
-        expect(last_response.body).to include(org.readonly_connection_url)
-      end
-
-      it "renders success message on success" do
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
-
-        post("/v1/install/fake/login", state:, email:, otp_token:)
-
-        expect(last_response).to have_status(200)
-        expect(last_response.body).to include(
-          "We are now listening for updates to resources in your Fake account.",
-        )
-        expect(last_response.body).to include(org.readonly_connection_url)
-      end
-
-      it "403s if there is no session with the given id" do
-        session.destroy
-        post("/v1/install/fake/login", state:, email:, otp_token:)
-
-        expect(last_response).to have_status(403)
-        expect(last_response).to have_json_body.that_includes(error: include(code: "forbidden"))
+        expect(last_response).to have_status(302)
       end
 
       it "403s if the otp token is invalid" do
@@ -258,49 +195,155 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
           "Sorry, that token is invalid. Please try again.",
         )
       end
+    end
+  end
 
-      it "creates integrations on default organization when specified for customer" do
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.default.create
+  describe "GET /v1/install/:provider/org" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:session) { Webhookdb::Fixtures.oauth_session.create(customer:) }
+    let(:state) { session.oauth_state }
 
-        post("/v1/install/fake/login", state:, email:, otp_token:)
-        expect(last_response).to have_status(200)
-        expect(org.refresh.service_integrations).to contain_exactly(
-          have_attributes(service_name: "fake_v1"),
+    it "renders a form showing admin memberships" do
+      fac = Webhookdb::Fixtures.organization_membership(customer:)
+      fac.verified.admin.org(name: "Admin Org").create
+      fac.invite.org(name: "Invited Org").create
+      fac.verified.org(name: "Member Org").create
+
+      get("/v1/install/fake/org", state:)
+
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to include("Admin Org")
+      expect(last_response.body).to_not include("Invited Org")
+      expect(last_response.body).to_not include("Member Org")
+    end
+  end
+
+  describe "POST /v1/install/:provider/org" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:session) { Webhookdb::Fixtures.oauth_session.create(customer:, token_json: {"access_token" => "atok"}) }
+    let(:state) { session.oauth_state }
+
+    it "errors if org key and name are not present" do
+      post("/v1/install/fake/org", state:)
+
+      expect(last_response).to have_status(400)
+      expect(last_response.body).to include("or a new organization name are required")
+    end
+
+    describe "with a new org name" do
+      it "creates the org, sets it as the user default, creates the database, and creates replicators" do
+        old_default = Webhookdb::Fixtures.organization_membership.verified.default.create(customer:)
+
+        post("/v1/install/fake/org", state:, new_org_name: "Hello", existing_org_key: "")
+
+        expect(last_response).to have_status(302)
+        expect(last_response.headers).to include("Location" => "/v1/install/fake/success?state=#{state}")
+        new_org = Webhookdb::Organization[name: "Hello"]
+        expect(new_org.service_integrations).to contain_exactly(have_attributes(service_name: "fake_v1"))
+        expect(customer.verified_memberships_dataset[organization: new_org]).to be_default
+        expect(new_org.admin_connection { |db| db.select(1).first }).to eq({"?column?": 1})
+        expect(old_default.refresh).to_not be_default
+        expect(session.refresh).to have_attributes(
+          used_at: nil,
+          customer: be === customer,
+          organization: be === new_org,
+          token_json: nil,
         )
       end
 
-      it "creates integrations on verified organization when no default specified for customer" do
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).admin.verified.create
+      it "errors if an org with that name exists" do
+        Webhookdb::Fixtures.organization.create(name: "Hi")
 
-        post("/v1/install/fake/login", state:, email:, otp_token:)
+        post("/v1/install/fake/org", state:, new_org_name: "Hi")
 
-        expect(last_response).to have_status(200)
-        expect(org.refresh.service_integrations).to contain_exactly(
-          have_attributes(service_name: "fake_v1"),
+        expect(last_response).to have_status(400)
+        expect(last_response.body).to include("with that name already exists")
+      end
+    end
+
+    describe "with an existing org key" do
+      it "creates the replicators in the given org and sets it as a default" do
+        old_default = Webhookdb::Fixtures.organization_membership.verified.default.create(customer:)
+        other_membership = Webhookdb::Fixtures.organization_membership.verified.admin.create(customer:)
+        other_org = other_membership.organization.refresh
+
+        post("/v1/install/fake/org", state:, existing_org_key: other_org.key)
+
+        expect(last_response).to have_status(302)
+        expect(last_response.headers).to include("Location" => "/v1/install/fake/success?state=#{state}")
+        other_org.refresh
+        expect(other_org.service_integrations).to contain_exactly(have_attributes(service_name: "fake_v1"))
+        expect(other_org.admin_connection { |db| db.select(1).first }).to eq({"?column?": 1})
+        expect(other_membership.refresh).to be_default
+        expect(old_default.refresh).to_not be_default
+        expect(session.refresh).to have_attributes(
+          used_at: nil,
+          customer: be === customer,
+          organization: be === other_org,
+          token_json: nil,
         )
       end
 
-      it "creates integrations on new organization when customer has no verified memberships" do
-        post("/v1/install/fake/login", state:, email:, otp_token:)
+      it "errors if the customer is not a verified member of the org" do
+        org = Webhookdb::Fixtures.organization_membership.verified.admin.create.organization
 
-        expect(last_response).to have_status(200)
-        new_org = Webhookdb::Organization[name: "#{customer.email} Org"]
-        expect(new_org).to_not be_nil
-        expect(new_org.refresh.service_integrations).to contain_exactly(
-          have_attributes(service_name: "fake_v1"),
-        )
+        post("/v1/install/fake/org", state:, existing_org_key: org.key)
+
+        expect(last_response).to have_status(400)
+        expect(last_response.body).to include("or it does not exist")
       end
 
-      it "403s when customer is not an admin for any organizations" do
-        Webhookdb::Fixtures.organization_membership.org(org).customer(customer).verified.create
+      it "errors if the customer is not an admin of the org" do
+        org = Webhookdb::Fixtures.organization_membership.verified.create(customer:).organization
 
-        post("/v1/install/fake/login", state:, email:, otp_token:)
+        post("/v1/install/fake/org", state:, existing_org_key: org.key)
 
-        expect(last_response).to have_status(403)
-        expect(last_response.body).to include(
-          "You must be an administrator of your WebhookDB organization",
-        )
+        expect(last_response).to have_status(400)
+        expect(last_response.body).to include("or it does not exist")
       end
+    end
+  end
+
+  describe "GET /v1/install/:provider/success" do
+    let(:customer) { Webhookdb::Fixtures.customer.create }
+    let(:organization) { Webhookdb::Fixtures.organization.with_urls.create }
+    let(:session) { Webhookdb::Fixtures.oauth_session.create(customer:, organization:) }
+    let(:state) { session.oauth_state }
+
+    it "renders a success form and marks the session used" do
+      get("/v1/install/fake/success", state:)
+
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to include(
+        "We are now listening for updates to resources in your Fake account.",
+      )
+      expect(last_response.body).to include(organization.readonly_connection_url)
+      expect(session.refresh).to have_attributes(used_at: match_time(:now))
+    end
+
+    it "modifies the success page if webhooks are not supported" do
+      Webhookdb::Oauth::FakeProvider.supports_webhooks = proc { false }
+      get("/v1/install/fake/success", state:)
+      expect(last_response).to have_status(200)
+      expect(last_response.body).to include(
+        "We are now checking for updates to resources in your Fake account",
+      )
+    end
+
+    it "redirects to /forbidden if the session is invalid/used" do
+      session.update(used_at: Time.now)
+      get("/v1/install/fake/success", state:)
+      expect(last_response).to have_status(302)
+      expect(last_response.headers).to include("Location" => "/v1/install/fake/forbidden")
+    end
+  end
+
+  describe "GET /v1/install/:provider/forbidden" do
+    it "renders a page" do
+      get("/v1/install/fake/forbidden")
+
+      expect(last_response).to have_status(403)
     end
   end
 

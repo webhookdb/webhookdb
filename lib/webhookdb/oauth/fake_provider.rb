@@ -5,10 +5,9 @@ require "webhookdb/increase"
 class Webhookdb::Oauth::FakeProvider < Webhookdb::Oauth::Provider
   class << self
     # If any of these are non-nil, they're called instead of the instance method.
-    attr_accessor :requires_webhookdb_auth, :supports_webhooks, :exchange_authorization_code
+    attr_accessor :supports_webhooks, :exchange_authorization_code
 
     def reset
-      self.requires_webhookdb_auth = nil
       self.supports_webhooks = nil
       self.exchange_authorization_code = nil
     end
@@ -16,7 +15,6 @@ class Webhookdb::Oauth::FakeProvider < Webhookdb::Oauth::Provider
 
   def key = "fake"
   def app_name = "Fake"
-  def requires_webhookdb_auth? = _call_or_do(:requires_webhookdb_auth) { true }
   def supports_webhooks? = _call_or_do(:supports_webhooks) { true }
 
   def authorization_url(state:)
@@ -27,10 +25,6 @@ class Webhookdb::Oauth::FakeProvider < Webhookdb::Oauth::Provider
     return _call_or_do(:exchange_authorization_code) do
       Webhookdb::Oauth::Tokens.new(access_token: "access-#{code}", refresh_token: "refresh-#{code}")
     end
-  end
-
-  def find_or_create_customer(tokens:, **)
-    return Webhookdb::Customer.find_or_create_for_email("#{tokens.access_token}@webhookdb.com")
   end
 
   def build_marketplace_integrations(organization:, tokens:, **)

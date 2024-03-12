@@ -11,20 +11,12 @@ module Webhookdb::Oauth
     end
   end
 
-  # rubocop:disable Lint/UnusedMethodArgument
   class Provider
     # @return [String] Unique key to identify the provider.
     def key = raise NotImplementedError
 
     # @return [String] Name of the app to present to users.
     def app_name = raise NotImplementedError
-
-    # True if auth with this provider requires the user auth in WebhookDB,
-    # false if we can get their email from the Oauth process.
-    # If the access token can be used to get the 'me' user,
-    # we can usually use their email for the customer,
-    # but this may not be possible for some integrations.
-    def requires_webhookdb_auth? = raise NotImplementedError
 
     # This is similar to `supports_webhooks` in the Replicator descriptors,
     # except that this is used to make the success page dynamic.
@@ -39,23 +31,12 @@ module Webhookdb::Oauth
     # @return [Webhookdb::Oauth::Tokens]
     def exchange_authorization_code(code:) = raise NotImplementedError
 
-    # @param tokens [Webhookdb::Oauth::Tokens]
-    # @param scope [Hash] Used to store data needed in later calls, like when building integrations.
-    # @return [Array{TrueClass, FalseClass, Webhookdb::Customer}]
-    def find_or_create_customer(tokens:, scope:)
-      raise "should not be called" if self.requires_webhookdb_auth?
-      raise NotImplementedError
-    end
-
     # Create the actual service integrations for the given org.
     # @param organization [Webhookdb::Organization]
     # @param tokens [Webhookdb::Oauth::Tokens]
-    # @param scope [Hash]
     # @return [Webhookdb::ServiceIntegration]
-    def build_marketplace_integrations(organization:, tokens:, scope:) = raise NotImplementedError
-  end
-  # rubocop:enable Lint/UnusedMethodArgument
-
+    def build_marketplace_integrations(organization:, tokens:) = raise NotImplementedError
+end
   class << self
     def register(cls)
       key = cls.new.key

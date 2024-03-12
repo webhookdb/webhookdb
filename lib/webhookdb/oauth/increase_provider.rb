@@ -7,8 +7,6 @@ class Webhookdb::Oauth::IncreaseProvider < Webhookdb::Oauth::Provider
 
   def key = "increase"
   def app_name = "Increase"
-  # We cannot get the authed user from the Increase OAuth token
-  def requires_webhookdb_auth? = true
   # Increase POSTs all Oauth app webhooks to the same place
   def supports_webhooks? = true
 
