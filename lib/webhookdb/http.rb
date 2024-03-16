@@ -1,10 +1,15 @@
 # frozen_string_literal: true
 
+require "appydays/configurable"
+require "appydays/loggable/httparty_formatter"
 require "httparty"
 
-require "appydays/loggable/httparty_formatter"
-
 module Webhookdb::Http
+  include Appydays::Configurable
+  configurable(:http) do
+    setting :log_level, :debug
+  end
+
   # Error raised when some API has rate limited us.
   class BaseError < StandardError; end
 
@@ -88,6 +93,7 @@ module Webhookdb::Http
 
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
     options[:log_format] = :appydays
+    options[:log_level] = self.log_level
   end
 
   # Convenience wrapper around Down that handles gzip.
