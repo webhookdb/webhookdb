@@ -70,4 +70,35 @@ RSpec.describe "Webhookdb::Idempotency", db: :no_transaction do
       end
     end
   end
+
+  describe "in_memory" do
+    it "runs the idempotency in memory" do
+      count = 0
+      start = Time.now
+      expect do
+        Timecop.freeze(start) do
+          3.times do
+            described_class.every(12.hours).in_memory.under_key("some-key") { count += 1 }
+            Timecop.travel(1.hours)
+            described_class.every(12.hours).in_memory.under_key("some-key") { count += 1 }
+            Timecop.travel(13.hours)
+          end
+        end
+      end.to change { count }.by(3)
+      expect(described_class.all).to be_empty
+    end
+
+    it "can use storage" do
+      expect(described_class.once_ever.in_memory.under_key("unstored") { 5 }).to eq(5)
+      expect(described_class.once_ever.in_memory.under_key("unstored") { 5 }).to eq(described_class::NOOP)
+      # return nil instead of noop if stored was asked for
+      expect(described_class.once_ever.in_memory.stored.under_key("unstored") { 5 }).to be_nil
+
+      expect(described_class.once_ever.in_memory.stored.under_key("stored-int") { 5 }).to eq(5)
+      expect(described_class.once_ever.in_memory.stored.under_key("stored-int") { raise "not hit" }).to eq(5)
+
+      expect(described_class.once_ever.in_memory.stored.under_key("stored-hash") { {x: 1} }).to eq({"x" => 1})
+      expect(described_class.once_ever.in_memory.stored.under_key("stored-hash") { raise "not hit" }).to eq({"x" => 1})
+    end
+  end
 end

@@ -34,6 +34,10 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
 
     def skip_transaction_check? = self.skip_transaction_check
 
+    # @return [Hash]
+    def memory_cache = @memory_cache ||= {}
+    def _memory_cache_results = @_memory_cache_results ||= {}
+
     # @return [Builder]
     def once_ever
       b = self::Builder.new
@@ -63,7 +67,7 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
   end
 
   class Builder
-    attr_accessor :_every, :_once_ever, :_stored, :_sepconn, :_key
+    attr_accessor :_every, :_once_ever, :_stored, :_sepconn, :_key, :_in_memory
 
     # If set, the result of block is stored as JSON,
     # and returned when an idempotent call is made.
@@ -71,6 +75,16 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
     # @return [Builder]
     def stored
       self._stored = true
+      return self
+    end
+
+    # If set, run a server-side idempotency (just for this process, across all threads)
+    # rather than in the database (for all processes).
+    # This is useful as a backoff mechanism for certain actions, like log sampling.
+    # Note, this uses an unbounded cache size for the sake of simplicity and performance,
+    # so be careful to use this with keys that will not grow infinitely.
+    def in_memory
+      self._in_memory = true
       return self
     end
 
@@ -96,21 +110,24 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
       return self
     end
 
-    def execute
-      if self._sepconn
-        db = Webhookdb::Idempotency.separate_connection
+    def execute(&)
+      if self._in_memory
+        db = InMemory.new(Webhookdb::Idempotency.memory_cache, Webhookdb::Idempotency._memory_cache_results)
+      elsif self._sepconn
+        db = InDatabase.new(Webhookdb::Idempotency.separate_connection)
       else
-        db = Webhookdb::Idempotency.db
+        conn = Webhookdb::Idempotency.db
         Webhookdb::Postgres.check_transaction(
-          db,
+          conn,
           "Cannot use idempotency while already in a transaction, since side effects may not be idempotent. " \
           "You can chain withusing_seperate_connection to run the idempotency itself separately.",
         )
+        db = InDatabase.new(conn)
       end
 
-      db[:idempotencies].insert_conflict.insert(key: self._key)
+      db.ensure(self._key)
       db.transaction do
-        idem_row = db[:idempotencies].where(key: self._key).for_update.first
+        idem_row = db.lock(self._key)
         if idem_row.fetch(:last_run).nil?
           result = yield()
           result = self._update_row(db, result)
@@ -126,13 +143,42 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
     end
 
     def _update_row(db, result)
-      updates = {last_run: Time.now}
-      if self._stored
-        result = result.as_json
-        updates[:stored_result] = Sequel.pg_jsonb_wrap(result)
-      end
-      db[:idempotencies].where(key: self._key).update(updates)
-      return result
+      jresult = self._stored ? result.as_json : result
+      db.finish(self._key, last_run: Time.now, stored: self._stored, result: jresult)
+      return jresult
+    end
+  end
+
+  class InMemory
+    def initialize(cache, store)
+      @cache = cache
+      @store = store
+    end
+
+    def ensure(_key) = nil
+    def lock(key) = {last_run: @cache[key], stored_result: @store[key]}
+    def transaction(&) = yield
+
+    def finish(key, last_run:, stored:, result:)
+      @cache[key] = last_run
+      @store[key] = result if stored
+    end
+  end
+
+  class InDatabase
+    def initialize(conn)
+      @conn = conn
+    end
+
+    def db = @conn
+    def transaction(&) = db.transaction(&)
+    def ensure(key) = db[:idempotencies].insert_conflict.insert(key:)
+    def lock(key) = db[:idempotencies].where(key:).for_update.first
+
+    def finish(key, last_run:, stored:, result:)
+      updates = {last_run:}
+      updates[:stored_result] = Sequel.pg_jsonb_wrap(result) if stored
+      db[:idempotencies].where(key:).update(updates)
     end
   end
 end
