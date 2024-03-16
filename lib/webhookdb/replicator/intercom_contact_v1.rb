@@ -27,8 +27,8 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
     return [
       Webhookdb::Replicator::Column.new(:external_id, TEXT),
       Webhookdb::Replicator::Column.new(:email, TEXT),
-      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, converter: :tsat),
-      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
+      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
     ]
   end
 

@@ -743,9 +743,6 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(message: "invalid topic")
-      expect(Webhookdb::LoggedWebhook.all).to contain_exactly(
-        include(service_integration_opaque_id: start_with("intercom_marketplace_appid-lithic")),
-      )
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
@@ -768,31 +765,45 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
   describe "POST /v1/install/intercom/uninstall" do
     it "deletes integrations associated with given app id" do
-      body = {app_id: "ghi567"}
-
       org.prepare_database_connections
       root = Webhookdb::Fixtures.service_integration.create(
         service_name: "intercom_marketplace_root_v1",
         api_url: "ghi567",
         organization: org,
       )
-      Webhookdb::Fixtures.service_integration.depending_on(root).create(service_name: "intercom_contact_v1",
-                                                                        organization: org,)
-      Webhookdb::Fixtures.service_integration.depending_on(root).create(service_name: "intercom_conversation_v1",
-                                                                        organization: org,)
+      fac = Webhookdb::Fixtures.service_integration(organization: org).depending_on(root)
+      fac.create(service_name: "intercom_contact_v1")
+      fac.create(service_name: "intercom_conversation_v1")
 
-      post "/v1/install/intercom/uninstall", body
+      post "/v1/install/intercom/uninstall", {app_id: "ghi567"}
       expect(last_response).to have_status(200)
-      expect(Webhookdb::ServiceIntegration.where(organization: org).all).to be_empty
+      expect(org.refresh.service_integrations).to be_empty
+    ensure
+      org.remove_related_database
+    end
+
+    it "noops if the integration does not exist" do
+      post "/v1/install/intercom/uninstall", {app_id: "ghi567"}
+
+      expect(last_response).to have_status(200)
     end
   end
 
   describe "POST /v1/install/intercom/health" do
-    it "returns 'OK' status" do
-      body = {workspace_id: "apple_banana"}
-      post "/v1/install/intercom/health", body
+    it "returns 'OK' status if the integration exists" do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "intercom_marketplace_root_v1", api_url: "apple_banana",
+      )
+
+      post "/v1/install/intercom/health", {workspace_id: "apple_banana"}
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(state: "OK")
+    end
+
+    it "returns UNHEALTHY if the integration does not exist" do
+      post "/v1/install/intercom/health", {workspace_id: "apple_banana"}
+      expect(last_response).to have_status(200)
+      expect(last_response).to have_json_body.that_includes(state: "UNHEALTHY", cta_type: "REINSTALL_CTA")
     end
   end
 end

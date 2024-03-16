@@ -365,14 +365,19 @@ class Webhookdb::API::Install < Webhookdb::API::V1
     end
 
     resource :intercom do
+      helpers do
+        def find_root(app_id)
+          return Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1", api_url: app_id]
+        end
+      end
       post :webhook do
         # Because the `_webhook_response` function is always the same here, I'm wondering if it's even
         # advisable to do the integration lookup before performing a webhook verification when we don't
         # need that info. Something to consider upon refactor
-
-        handle_webhook_request("intercom_marketplace_appid-#{params[:app_id] || '?'}") do
-          app_id = params[:app_id]
-          root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1", api_url: app_id]
+        app_id = params[:app_id]
+        root_sint = find_root(app_id)
+        opaque_id = root_sint&.opaque_id || "intercom_marketplace_appid-#{app_id}"
+        handle_webhook_request(opaque_id) do
           if root_sint.nil?
             logger.warn "intercom_webhook_unregistered_app", intercom_app_id: app_id
             status 200
@@ -381,6 +386,8 @@ class Webhookdb::API::Install < Webhookdb::API::V1
           end
           # Notification topics are formatted like "{model}.{thing that happened}" (e.g. "contact.created")
           # to get the model type of the notification, for our purposes we can just grab that first chunk
+          # This should probably move to the marketplace replicator itself,
+          # rather than being done in the endpoint (see /v1/install/increase/webhook).
           type = params[:topic].split(".")[0]
           handling_type = "intercom_#{type}_v1"
           unless (handling_sint = root_sint.recursive_dependents.find { |d| d.service_name == handling_type })
@@ -397,27 +404,38 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         requires :app_id
       end
       post :uninstall do
-        # TODO: Verify the headers are valid
-        # We want to delete all the integrations associated with the app_id.
-        root_sint = Webhookdb::ServiceIntegration[service_name: "intercom_marketplace_root_v1",
-                                                  api_url: params["app_id"]]
-        root_sint.destroy_self_and_all_dependents
-        status 200
-        present({o: "k"})
+        app_id = params[:app_id]
+        root_sint = find_root(app_id)
+        # Apparently intercom's uninstall request does not come with any headers,
+        # unlike the normal /webhook request. This is... terrible,
+        # since there's no way to avoid the ability for someone to uninstall an app totally unauthenticated.
+        opaque_id = root_sint&.opaque_id || "intercom_marketplace_appid-#{app_id}"
+        handle_webhook_request(opaque_id) do
+          root_sint&.destroy_self_and_all_dependents
+          status 200
+          present({o: "k"})
+          next :pass
+        end
       end
 
       params do
+        # This endpoint recieves a value called "workspace_id" but it is
+        # identical to the "app_id" value we get from the `/me` endpoint.
+        # It just has a different name here for some reason.
         requires :workspace_id
       end
       post :health do
-        # TODO: Verify the headers are valid
-        # For now we are just returning "OK" per the specification:
         # https://developers.intercom.com/docs/build-an-integration/learn-more/installation-health-check
-        # An interesting point is that this endpoint recieves a value called "workspace_id" but it is
-        # identical to the "app_id" value we get from the `/me` endpoint. It just has a different name here, for
-        # some reason.
+        result = {}
+        if find_root(params[:workspace_id]).nil?
+          result[:state] = "UNHEALTHY"
+          result[:cta_type] = "REINSTALL_CTA"
+          result[:message] = "You need to reinstall this app to sync your data to WebhookDB."
+        else
+          result[:state] = "OK"
+        end
         status 200
-        present({state: "OK"})
+        present result
       end
     end
   end
