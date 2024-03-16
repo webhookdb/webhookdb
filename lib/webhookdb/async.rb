@@ -27,6 +27,11 @@ module Webhookdb::Async
     # at `warn` level.
     setting :slow_job_seconds, 1.0
 
+    # The log level that Webhookdb::Async::AuditLogger logs at.
+    # By default, use :info, but :debug may be appropriate for higher-activity servers
+    # to reduce logging costs (the messages can be big).
+    setting :audit_log_level, :info
+
     setting :sidekiq_redis_url, "redis://localhost:6379/0", key: "REDIS_URL"
     setting :sidekiq_redis_provider, ""
     # For sidekiq web UI. Randomize a default so they will only be useful if set.
