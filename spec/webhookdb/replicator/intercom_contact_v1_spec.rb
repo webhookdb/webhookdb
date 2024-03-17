@@ -271,6 +271,32 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
         "self": null
       }
     JSON
+
+    let(:archived_body) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "ol9hno6x",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "id": "65f72703f2f977e25ba4330d",
+            "external_id": null,
+            "type": "contact",
+            "archived": true
+          }
+        },
+        "links": {},
+        "id": "notif_633c931a-9a1c-4844-a733-aaa637df0f84",
+        "topic": "contact.archived",
+        "delivery_status": "pending",
+        "delivery_attempts": 1,
+        "delivered_at": 0,
+        "first_sent_at": 1710696301,
+        "created_at": 1710696300,
+        "self": null
+      }
+    JSON
+    let(:other_bodies) { [archived_body] }
   end
 
   it_behaves_like "a replicator dependent on another", "intercom_contact_v1", "intercom_marketplace_root_v1" do
@@ -670,18 +696,18 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
   end
 
   describe "upserting" do
-    describe "handling a delete event" do
-      let(:full_body) { JSON.parse(<<~JSON) }
-        {
-          "type": "contact",
-          "id": "64d14669156d93e1e18f6a17",
-          "external_id": "abc",
-          "email": "alivia@example.com",
-          "created_at": 1691436649,
-          "updated_at": 1691436650
-        }
-      JSON
+    let(:full_body) { JSON.parse(<<~JSON) }
+      {
+        "type": "contact",
+        "id": "64d14669156d93e1e18f6a17",
+        "external_id": "abc",
+        "email": "alivia@example.com",
+        "created_at": 1691436649,
+        "updated_at": 1691436650
+      }
+    JSON
 
+    describe "handling a delete event" do
       let(:delete_event_body) { JSON.parse(<<~JSON) }
         {
           "type": "notification_event",
@@ -717,10 +743,10 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
           created_at: match_time("2023-08-07 19:30:49Z"),
           updated_at: match_time("2023-08-07 19:30:50Z"),
           deleted_at: nil,
+          archived_at: nil,
           data: hash_including("email" => "alivia@example.com"),
         )
         svc.upsert_webhook_body(delete_event_body)
-        puts svc.admin_dataset(&:first)
         expect(svc.admin_dataset(&:first)).to include(
           intercom_id: "64d14669156d93e1e18f6a17",
           external_id: "abc",
@@ -728,7 +754,64 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
           created_at: match_time("2023-08-07 19:30:49Z"),
           updated_at: match_time(:now),
           deleted_at: match_time(:now),
+          archived_at: nil,
           data: hash_including("email" => "alivia@example.com", "deleted" => true),
+        )
+      ensure
+        org.remove_related_database
+      end
+    end
+
+    describe "handling an archive event" do
+      let(:archive_event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "ol9hno6x",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "id": "64d14669156d93e1e18f6a17",
+              "external_id": null,
+              "type": "contact",
+              "archived": true
+            }
+          },
+          "links": {},
+          "id": "notif_633c931a-9a1c-4844-a733-aaa637df0f84",
+          "topic": "contact.archived",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1710696301,
+          "created_at": 1710696300,
+          "self": null
+        }
+      JSON
+
+      it "will merge the archived info into an existing row" do
+        org.prepare_database_connections
+        svc.create_table
+        svc.upsert_webhook_body(full_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+          email: "alivia@example.com",
+          created_at: match_time("2023-08-07 19:30:49Z"),
+          updated_at: match_time("2023-08-07 19:30:50Z"),
+          deleted_at: nil,
+          archived_at: nil,
+          data: hash_including("email" => "alivia@example.com"),
+        )
+        svc.upsert_webhook_body(archive_event_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+          email: "alivia@example.com",
+          created_at: match_time("2023-08-07 19:30:49Z"),
+          updated_at: match_time(:now),
+          deleted_at: nil,
+          archived_at: match_time(:now),
+          data: hash_including("email" => "alivia@example.com", "archived" => true),
         )
       ensure
         org.remove_related_database

@@ -37,6 +37,8 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
       ),
       # This is set in the contact.deleted webhook
       Webhookdb::Replicator::Column.new(:deleted_at, TIMESTAMP, optional: true),
+      # This is set in the contact.archived webhook
+      Webhookdb::Replicator::Column.new(:archived_at, TIMESTAMP, optional: true),
     ]
   end
 
@@ -45,24 +47,35 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
   def _resource_and_event(request)
     resource, event = super
     return resource, nil if event.nil?
-    if event.fetch("topic") == "contact.deleted"
-      resource["updated_at"] = Time.now
-      resource["deleted_at"] = Time.now
-    end
+    # noinspection RubyCaseWithoutElseBlockInspection
+    case event.fetch("topic")
+        when "contact.deleted"
+          resource["updated_at"] = Time.now
+          resource["deleted_at"] = Time.now
+        when "contact.archived"
+          resource["updated_at"] = Time.now
+          resource["archived_at"] = Time.now
+      end
     return resource, event
   end
 
   def _upsert_update_expr(inserting, enrichment: nil)
-    result = super
-    is_deleting = inserting[:deleted_at] && !inserting[:created_at]
-    if is_deleting
-      data_col = Sequel[self.service_integration.table_name.to_sym][:data]
-      result = {
-        deleted_at: result.fetch(:deleted_at),
-        updated_at: result.fetch(:updated_at),
-        data: Sequel.join([data_col, Sequel.lit('\'{"deleted":true}\'::jsonb')]),
-      }
+    full_update = super
+    # In the case of a delete or archive, update the deleted_at/archived_at field,
+    # and merge 'deleted' or 'archived' into the :data field.
+    if inserting[:deleted_at]
+      status_key = :deleted_at
+      status_field = "deleted"
+    elsif inserting[:archived_at]
+      status_key = :archived_at
+      status_field = "archived"
+    else
+      return full_update
     end
+    result = {updated_at: full_update.fetch(:updated_at)}
+    result[status_key] = full_update.fetch(status_key)
+    data_col = Sequel[self.service_integration.table_name.to_sym][:data]
+    result[:data] = Sequel.join([data_col, Sequel.lit("'{\"#{status_field}\":true}'::jsonb")])
     return result
   end
 end
