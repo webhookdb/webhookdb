@@ -30,7 +30,9 @@ class Webhookdb::Jobs::SyncTargetRunSync
     ) do
       stgt.run_sync(now: Time.now)
     rescue Webhookdb::SyncTarget::SyncInProgress
-      self.logger.info("sync_target_already_in_progress")
+      Webhookdb::Idempotency.every(30.seconds).in_memory.under_key("sync_target_in_progress-#{stgt.id}") do
+        self.logger.info("sync_target_already_in_progress")
+      end
     rescue Webhookdb::SyncTarget::Deleted
       self.logger.info("sync_target_deleted")
     end
