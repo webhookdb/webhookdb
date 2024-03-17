@@ -247,6 +247,32 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
     JSON
   end
 
+  it_behaves_like "a replicator that may have a minimal body", "intercom_contact_v1" do
+    let(:body) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "ol9hno6x",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "id": "65f642bf674b9af4e9e46dd1",
+            "type": "contact",
+            "deleted": true
+          }
+        },
+        "links": {},
+        "id": "notif_19964a4b-1fc6-4770-967c-20374963a052",
+        "topic": "contact.deleted",
+        "delivery_status": "pending",
+        "delivery_attempts": 1,
+        "delivered_at": 0,
+        "first_sent_at": 1710639325,
+        "created_at": 1710639325,
+        "self": null
+      }
+    JSON
+  end
+
   it_behaves_like "a replicator dependent on another", "intercom_contact_v1", "intercom_marketplace_root_v1" do
     let(:no_dependencies_message) { "This integration requires Intercom Auth to sync" }
   end
@@ -640,6 +666,73 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
     let(:error_message) { /that the Intercom Auth integration has a valid Auth Token/ }
     def strip_auth(sint)
       sint.replicator.find_auth_integration.update(backfill_secret: "")
+    end
+  end
+
+  describe "upserting" do
+    describe "handling a delete event" do
+      let(:full_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "contact",
+          "id": "64d14669156d93e1e18f6a17",
+          "external_id": "abc",
+          "email": "alivia@example.com",
+          "created_at": 1691436649,
+          "updated_at": 1691436650
+        }
+      JSON
+
+      let(:delete_event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "ol9hno6x",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "id": "64d14669156d93e1e18f6a17",
+              "type": "contact",
+              "deleted": true
+            }
+          },
+          "links": {},
+          "id": "notif_19964a4b-1fc6-4770-967c-20374963a052",
+          "topic": "contact.deleted",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1710639325,
+          "created_at": 1710639325,
+          "self": null
+        }
+      JSON
+
+      it "will merge the delete info into an existing row" do
+        org.prepare_database_connections
+        svc.create_table
+        svc.upsert_webhook_body(full_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+          email: "alivia@example.com",
+          created_at: match_time("2023-08-07 19:30:49Z"),
+          updated_at: match_time("2023-08-07 19:30:50Z"),
+          deleted_at: nil,
+          data: hash_including("email" => "alivia@example.com"),
+        )
+        svc.upsert_webhook_body(delete_event_body)
+        puts svc.admin_dataset(&:first)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+          email: "alivia@example.com",
+          created_at: match_time("2023-08-07 19:30:49Z"),
+          updated_at: match_time(:now),
+          deleted_at: match_time(:now),
+          data: hash_including("email" => "alivia@example.com", "deleted" => true),
+        )
+      ensure
+        org.remove_related_database
+      end
     end
   end
 

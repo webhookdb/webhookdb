@@ -6,6 +6,7 @@ module Webhookdb::Replicator::IntercomV1Mixin
   # Handle both.
   QUESTIONABLE_TIMESTAMP = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |i, **_|
+      return nil if i.nil?
       return Time.at(i)
     rescue TypeError
       return Time.parse(i)
