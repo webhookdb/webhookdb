@@ -29,8 +29,8 @@ class Webhookdb::Replicator::IntercomConversationV1 < Webhookdb::Replicator::Bas
       Webhookdb::Replicator::Column.new(:state, TEXT),
       Webhookdb::Replicator::Column.new(:open, BOOLEAN),
       Webhookdb::Replicator::Column.new(:read, BOOLEAN),
-      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, converter: :tsat),
-      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, converter: :tsat),
+      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
+      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
     ]
   end
 

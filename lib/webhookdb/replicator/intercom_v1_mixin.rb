@@ -1,7 +1,20 @@
 # frozen_string_literal: true
 
 module Webhookdb::Replicator::IntercomV1Mixin
-  # @return [Webhookdb::ServiceIntegration]
+  # Timestamps can be unix timestamps when listing a resource,
+  # or strings in other cases, like webhooks. This may have to do with API versions.
+  # Handle both.
+  QUESTIONABLE_TIMESTAMP = Webhookdb::Replicator::Column::IsomorphicProc.new(
+    ruby: lambda do |i, **_|
+      return Time.at(i)
+    rescue TypeError
+      return Time.parse(i)
+    end,
+    sql: lambda do |*|
+      # We would have to check the type of the data, which is a pain, so don't worry about this for now.
+      raise NotImplementedError
+    end,
+  )
 
   # Quick note on these Intercom integrations: although we will technically be bringing in information from webhooks,
   # all webhooks for the WebhookDB app will use a single endpoint and we use the WebhookDB app's Client Secret for
@@ -34,20 +47,12 @@ module Webhookdb::Replicator::IntercomV1Mixin
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _timestamp_column_name
-    return :updated_at
-  end
+  def _timestamp_column_name = :updated_at
 
   def _webhook_response(request)
-    # info for debugging
-    intercom_auth = request.env["HTTP_X_HUB_SIGNATURE"]
-
-    return Webhookdb::WebhookResponse.error("missing hmac") if intercom_auth.nil?
-    request.body.rewind
-    request_data = request.body.read
-    verified = Webhookdb::Intercom.verify_webhook(request_data, intercom_auth)
-    return Webhookdb::WebhookResponse.ok if verified
-    return Webhookdb::WebhookResponse.error("invalid hmac")
+    # Intercom webhooks are done through a centralized oauth replicator,
+    # so the secret is for the app, not the individual replicator.
+    return Webhookdb::Intercom.webhook_response(request, Webhookdb::Intercom.client_secret)
   end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
@@ -67,9 +72,7 @@ module Webhookdb::Replicator::IntercomV1Mixin
     return
   end
 
-  def _mixin_backfill_url
-    raise NotImplementedError
-  end
+  def _mixin_backfill_url = raise NotImplementedError
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
     unless self.auth_credentials?

@@ -80,7 +80,7 @@ Gem::Specification.new do |s|
   s.add_dependency("sequel-soft-deletes", "~> 0.1")
   s.add_dependency("sequel-tstzrange-fields", "~> 0.2")
   s.add_dependency("sidekiq", "~> 6")
-  s.add_dependency("sidekiq-amigo", "~> 1.6")
+  s.add_dependency("sidekiq-amigo", "~> 1.6", ">= 1.6.2")
   s.add_dependency("sidekiq-cron", "~> 1.12")
   s.add_dependency("slack-notifier", "~> 2.4")
   s.add_dependency("stripe", "~> 10.4")

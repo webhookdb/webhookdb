@@ -29,6 +29,7 @@ RSpec.describe "sequel-text-searchable" do
 
   let(:model) do
     m = Class.new(Sequel::Model(:sts_tester)) do
+      plugin :dirty
       plugin :text_searchable
       many_to_one :parent, class: self
       def text_search_terms = [[self.name, "A"], self.desc, self.parent]
@@ -38,6 +39,14 @@ RSpec.describe "sequel-text-searchable" do
   end
 
   describe "configuration" do
+    it "errors if the dirty plugin is not loaded" do
+      expect do
+        Class.new(Sequel::Model(:sts_tester)) do
+          plugin :text_searchable
+        end
+      end.to raise_error(/:dirty plugin must be loaded first/)
+    end
+
     it "errors for an invalid index model" do
       expect do
         SequelTextSearchable.index_mode = :x
@@ -46,6 +55,7 @@ RSpec.describe "sequel-text-searchable" do
 
     it "can define custom options" do
       m = Class.new(Sequel::Model(:sts_tester)) do
+        plugin :dirty
         plugin :text_searchable, column: :mycol, search_options: {x: 1}
       end
       expect(m.text_search_column).to eq(:mycol)
@@ -54,6 +64,7 @@ RSpec.describe "sequel-text-searchable" do
 
     it "can use a shortcut for terms" do
       m = Class.new(Sequel::Model(:sts_tester)) do
+        plugin :dirty
         plugin :text_searchable, terms: [:name, [:desc, "B"]]
       end
       m.dataset = @db[:sts_tester]
@@ -63,6 +74,7 @@ RSpec.describe "sequel-text-searchable" do
 
     it "errors if text_search_terms is not defined or passed" do
       m = Class.new(Sequel::Model(:sts_tester)) do
+        plugin :dirty
         plugin :text_searchable
       end
       o = m.new
@@ -70,7 +82,7 @@ RSpec.describe "sequel-text-searchable" do
     end
   end
 
-  it "index after save and can search" do
+  it "indexes after save and can search" do
     geralt = model.create(name: "Geralt", desc: "Rivia")
     ciri = model.create(name: "Rivia", desc: "Ciri")
     model.text_search_reindex_all
@@ -80,6 +92,61 @@ RSpec.describe "sequel-text-searchable" do
     ciri.update(name: "Ciri")
     model.text_search_reindex_model(ciri.pk)
     expect(model.dataset.text_search("rivia").all).to have_same_ids_as(geralt)
+  end
+
+  describe "indexing" do
+    before(:each) do
+      SequelTextSearchable.index_mode = :sync
+    end
+
+    it "happens after create" do
+      geralt = model.create(name: "Geralt", desc: "Rivia")
+      expect(model.dataset.text_search("geralt").all).to have_same_ids_as(geralt)
+    end
+
+    it "happens after update" do
+      geralt = model.create(name: "Geralt", desc: "Rivia")
+      expect(geralt).to receive(:text_search_reindex).and_call_original
+      geralt.update(name: "Ciri")
+      expect(model.dataset.text_search("ciri").all).to have_same_ids_as(geralt)
+    end
+
+    describe "using :terms in configuration" do
+      it "does not index if term columns are unchanged" do
+        model = Class.new(Sequel::Model(:sts_tester)) do
+          plugin :dirty
+          plugin :text_searchable, terms: [:name]
+        end
+        model.dataset = @db[:sts_tester]
+
+        geralt = model.create(name: "Geralt", desc: "Rivia")
+        geralt.update(name: "Ciri")
+        expect(model.dataset.text_search("ciri").all).to have_same_ids_as(geralt)
+
+        expect(geralt).to_not receive(:text_search_reindex)
+        geralt.update(name: "Ciri") # No change
+        geralt.update(desc: "Cintra") # Not a term
+      end
+    end
+
+    describe "with a custom text_search_terms method" do
+      it "always indexes" do
+        m = Class.new(Sequel::Model(:sts_tester)) do
+          plugin :dirty
+          plugin :text_searchable
+          def text_search_terms = [[self.name, "A"]]
+        end
+        m.dataset = @db[:sts_tester]
+
+        geralt = model.create(name: "Geralt", desc: "Rivia")
+        expect(geralt).to receive(:text_search_reindex).twice.and_call_original
+        geralt.update(name: "Ciri")
+        # rubocop:disable Sequel/SaveChanges
+        geralt.save
+        # rubocop:enable Sequel/SaveChanges
+        expect(model.dataset.text_search("ciri").all).to have_same_ids_as(geralt)
+      end
+    end
   end
 
   def getvector
@@ -155,10 +222,12 @@ RSpec.describe "sequel-text-searchable" do
     it "can reindex all subclasses" do
       SequelTextSearchable.index_mode = :sync
       m1 = Class.new(Sequel::Model(:sts_tester)) do
+        plugin :dirty
         plugin :text_searchable, terms: [:name]
       end
       m1.dataset = @db[:sts_tester]
       m2 = Class.new(Sequel::Model(:sts_tester)) do
+        plugin :dirty
         plugin :text_searchable, terms: [:name]
       end
       m2.dataset = @db[:sts_tester]

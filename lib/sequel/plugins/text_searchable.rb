@@ -13,6 +13,12 @@ module Sequel::Plugins::TextSearchable
     terms: nil,
   }.freeze
 
+  def self.apply(model, *)
+    raise "The :dirty plugin must be loaded first. Use `plugin :dirty`." if
+      !model.plugins.include?(Sequel::Plugins::Dirty) ||
+        model.plugins.index(Sequel::Plugins::Dirty) > model.plugins.index(self)
+  end
+
   def self.configure(model, opts=DEFAULT_OPTIONS)
     opts = DEFAULT_OPTIONS.merge(opts)
     model.text_search_column = opts[:column]
@@ -47,11 +53,43 @@ module Sequel::Plugins::TextSearchable
       m.text_search_reindex
       return m
     end
+
+    def text_search_columns_and_ranks
+      raise NotImplementedError, "#{self.name} must implement text_search_terms" if
+        self.text_search_terms.nil?
+      return self.text_search_terms.map do |t|
+        if t.is_a?(Array)
+          col, rank = t
+        elsif t.is_a?(Hash)
+          col, rank = t.to_a.first
+        else
+          col = t
+          rank = nil
+        end
+        [col, rank]
+      end
+    end
   end
 
   module InstanceMethods
-    def after_save
+    def after_create
       super
+      self._run_after_model_hook
+    end
+
+    def after_update
+      super
+      if self.class.text_search_terms.nil?
+        # If the instance implements a custom text_search_terms, we have to always call it,
+        # since we can't otherwise know if relevant values have changed.
+        self._run_after_model_hook
+        return
+      end
+      has_changes = self.class.text_search_columns_and_ranks.any? { |col, _rank| self.previous_changes.include?(col) }
+      self._run_after_model_hook if has_changes
+    end
+
+    def _run_after_model_hook
       if SequelTextSearchable.index_mode == :async
         # We must refetch the model to index since it happens on another thread.
         SequelTextSearchable.threadpool.post do
@@ -80,15 +118,7 @@ module Sequel::Plugins::TextSearchable
     def text_search_terms
       raise NotImplementedError, "#{self.class.name} must implement text_search_terms" if
         self.model.text_search_terms.nil?
-      return self.model.text_search_terms.map do |t|
-        if t.is_a?(Array)
-          col, rank = t
-        elsif t.is_a?(Hash)
-          col, rank = t.to_a.first
-        else
-          col = t
-          rank = nil
-        end
+      return self.model.text_search_columns_and_ranks.map do |col, rank|
         val = self.send(col)
         rank ? [val, rank] : val
       end

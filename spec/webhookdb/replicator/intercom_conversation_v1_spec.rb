@@ -11,293 +11,302 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
   let(:svc) { sint.replicator }
 
   it_behaves_like "a replicator", "intercom_conversation_v1" do
-    let(:body) do
-      JSON.parse(<<~J)
-        {
+    let(:body) { JSON.parse(<<~JSON) }
+      {
+        "type": "conversation",
+        "id": "123",
+        "created_at": 1539897198,
+        "updated_at": 1540393270,
+        "source": {
+          "attachments": [],
+          "author": {
+            "id": "5bc8f7421ae2d96695c18a",
+            "type": "lead"
+          },
+          "body": "<p>Hi</p>",
+          "delivered_as": "customer_initiated",
+          "id": "269650473",
+          "subject": "",
           "type": "conversation",
-          "id": "123",
-          "created_at": 1539897198,
-          "updated_at": 1540393270,
-          "source": {
-            "attachments": [],
-            "author": {
-              "id": "5bc8f7421ae2d96695c18a",
-              "type": "lead"
-            },
-            "body": "<p>Hi</p>",
-            "delivered_as": "customer_initiated",
-            "id": "269650473",
-            "subject": "",
-            "type": "conversation",
-            "url": "https://intercom-survey-app.glitch.me/",
-            "redacted": false
-          },
-          "contacts": [
-            {
-              "id": "5bc8f7ae2d96695c18a",
-              "type": "lead"
-            }
-          ],
-          "teammates": [
-            {
-              "id": "814860",
-              "type": "admin"
-            }
-          ],
-          "title": "Conversation Title",
-          "admin_assignee_id": 814860,
-          "team_assignee_id": null,
-          "custom_attributes": {
-            "issue_type": "Billing",
-            "priority": "High"
-          },
-          "topics": {
-            "type": "topic.list",
-            "topics": [
-              {
-                "type": "topic",
-                "name": "Example Topic 1",
-                "id": 839
-              }
-            ],
-            "total_count": 1
-          },
-          "open": true,
-          "state": "open",
-          "read": true,
-          "waiting_since": 64654125776,
-          "snoozed_until": null,
-          "tags": {
-            "tags": [],
-            "type": "tag.list"
-          },
-          "first_contact_reply": {
-            "created_at": 1539897198,
-            "type": "conversation",
-            "url": "https://intercom-survey-app.glitch.me/"
-          },
-          "priority": "not_priority",
-          "sla_applied": {
-            "sla_name": "VIP customer <5m",
-            "sla_status": "missed"
-          },
-          "conversation_rating": {
-            "created_at": null,
-            "contact": {
-              "id": null,
-              "type": null
-            },
-            "rating": null,
-            "remark": null,
-            "teammate": {
-              "id": null,
-              "type": null
-            }
-          },
-          "statistics": {
-            "time_to_assignment": 2310,
-            "time_to_admin_reply": 2408,
-            "time_to_first_close": 4915 ,
-            "time_to_last_close": 5125,
-            "median_time_to_reply": 321,
-            "first_contact_reply_at": 1539897200,
-            "first_assignment_at": 1539897200,
-            "first_admin_reply_at": 1539897200,
-            "first_close_at": 1539897200,
-            "last_assignment_at": 1539897200,
-            "last_assignment_admin_reply_at": 1539897200,
-            "last_contact_reply_at": 1539897200,
-            "last_admin_reply_at": 1539897200,
-            "last_close_at": 1539897200,
-            "last_closed_by": {
-              "type": "admin",
-              "id": "325432652",
-              "name": "Tom Smith",
-              "email": "tom@example.com"
-            },
-            "count_reopens": 3,
-            "count_assignments": 2,
-            "count_conversation_parts": 67
-          },
-          "conversation_parts": {
-            "conversation_parts": [
-              {
-                "assigned_to": null,
-                "attachments": [],
-                "author": {
-                  "id": "815309",
-                  "type": "bot"
-                },
-                "body": "<p>Test_App typically replies in a few hours.</p>",
-                "created_at": 1539897200,
-                "external_id": null,
-                "id": "2202737122",
-                "notified_at": 1539897200,
-                "part_type": "comment",
-                "type": "conversation_part",
-                "updated_at": 1539897200,
-                "redacted": false
-              }
-            ],
-            "total_count": 67,
-            "type": "conversation_part.list"
+          "url": "https://intercom-survey-app.glitch.me/",
+          "redacted": false
+        },
+        "contacts": [
+          {
+            "id": "5bc8f7ae2d96695c18a",
+            "type": "lead"
           }
+        ],
+        "teammates": [
+          {
+            "id": "814860",
+            "type": "admin"
+          }
+        ],
+        "title": "Conversation Title",
+        "admin_assignee_id": 814860,
+        "team_assignee_id": null,
+        "custom_attributes": {
+          "issue_type": "Billing",
+          "priority": "High"
+        },
+        "topics": {
+          "type": "topic.list",
+          "topics": [
+            {
+              "type": "topic",
+              "name": "Example Topic 1",
+              "id": 839
+            }
+          ],
+          "total_count": 1
+        },
+        "open": true,
+        "state": "open",
+        "read": true,
+        "waiting_since": 64654125776,
+        "snoozed_until": null,
+        "tags": {
+          "tags": [],
+          "type": "tag.list"
+        },
+        "first_contact_reply": {
+          "created_at": 1539897198,
+          "type": "conversation",
+          "url": "https://intercom-survey-app.glitch.me/"
+        },
+        "priority": "not_priority",
+        "sla_applied": {
+          "sla_name": "VIP customer <5m",
+          "sla_status": "missed"
+        },
+        "conversation_rating": {
+          "created_at": null,
+          "contact": {
+            "id": null,
+            "type": null
+          },
+          "rating": null,
+          "remark": null,
+          "teammate": {
+            "id": null,
+            "type": null
+          }
+        },
+        "statistics": {
+          "time_to_assignment": 2310,
+          "time_to_admin_reply": 2408,
+          "time_to_first_close": 4915 ,
+          "time_to_last_close": 5125,
+          "median_time_to_reply": 321,
+          "first_contact_reply_at": 1539897200,
+          "first_assignment_at": 1539897200,
+          "first_admin_reply_at": 1539897200,
+          "first_close_at": 1539897200,
+          "last_assignment_at": 1539897200,
+          "last_assignment_admin_reply_at": 1539897200,
+          "last_contact_reply_at": 1539897200,
+          "last_admin_reply_at": 1539897200,
+          "last_close_at": 1539897200,
+          "last_closed_by": {
+            "type": "admin",
+            "id": "325432652",
+            "name": "Tom Smith",
+            "email": "tom@example.com"
+          },
+          "count_reopens": 3,
+          "count_assignments": 2,
+          "count_conversation_parts": 67
+        },
+        "conversation_parts": {
+          "conversation_parts": [
+            {
+              "assigned_to": null,
+              "attachments": [],
+              "author": {
+                "id": "815309",
+                "type": "bot"
+              },
+              "body": "<p>Test_App typically replies in a few hours.</p>",
+              "created_at": 1539897200,
+              "external_id": null,
+              "id": "2202737122",
+              "notified_at": 1539897200,
+              "part_type": "comment",
+              "type": "conversation_part",
+              "updated_at": 1539897200,
+              "redacted": false
+            }
+          ],
+          "total_count": 67,
+          "type": "conversation_part.list"
         }
-      J
+      }
+    JSON
+
+    it "can handle string timestamps" do
+      svc.create_table
+      body["created_at"] = "2024-03-16T20:16:07.820+00:00"
+      body["updated_at"] = "2024-03-17T20:55:59.208+00:00"
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          created_at: Time.parse("2024-03-16T20:16:07.820+00:00"),
+          updated_at: Time.parse("2024-03-17T20:55:59.208+00:00"),
+        )
+      end
     end
   end
 
   it_behaves_like "a replicator that deals with resources and wrapped events", "intercom_conversation_v1" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "item") }
-    let(:resource_in_envelope_json) do
-      JSON.parse(<<~J)
-        {
-          "type": "notification_event",
-          "app_id": "vne310wv",
-          "data": {
-            "type": "notification_event_data",
-            "item": {
+    let(:resource_in_envelope_json) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "vne310wv",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "type": "conversation",
+            "id": "123",
+            "created_at": 1539897198,
+            "updated_at": 1540393270,
+            "source": {
+              "attachments": [],
+              "author": {
+                "id": "5bc8f7421ae2d96695c18a",
+                "type": "lead"
+              },
+              "body": "<p>Hi</p>",
+              "delivered_as": "customer_initiated",
+              "id": "269650473",
+              "subject": "",
               "type": "conversation",
-              "id": "123",
-              "created_at": 1539897198,
-              "updated_at": 1540393270,
-              "source": {
-                "attachments": [],
-                "author": {
-                  "id": "5bc8f7421ae2d96695c18a",
-                  "type": "lead"
-                },
-                "body": "<p>Hi</p>",
-                "delivered_as": "customer_initiated",
-                "id": "269650473",
-                "subject": "",
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/",
-                "redacted": false
-              },
-              "contacts": [
-                {
-                  "id": "5bc8f7ae2d96695c18a",
-                  "type": "lead"
-                }
-              ],
-              "teammates": [
-                {
-                  "id": "814860",
-                  "type": "admin"
-                }
-              ],
-              "title": "Conversation Title",
-              "admin_assignee_id": 814860,
-              "team_assignee_id": null,
-              "custom_attributes": {
-                "issue_type": "Billing",
-                "priority": "High"
-              },
-              "topics": {
-                "type": "topic.list",
-                "topics": [
-                  {
-                    "type": "topic",
-                    "name": "Example Topic 1",
-                    "id": 839
-                  }
-                ],
-                "total_count": 1
-              },
-              "open": true,
-              "state": "open",
-              "read": true,
-              "waiting_since": 64654125776,
-              "snoozed_until": null,
-              "tags": {
-                "tags": [],
-                "type": "tag.list"
-              },
-              "first_contact_reply": {
-                "created_at": 1539897198,
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/"
-              },
-              "priority": "not_priority",
-              "sla_applied": {
-                "sla_name": "VIP customer <5m",
-                "sla_status": "missed"
-              },
-              "conversation_rating": {
-                "created_at": null,
-                "contact": {
-                  "id": null,
-                  "type": null
-                },
-                "rating": null,
-                "remark": null,
-                "teammate": {
-                  "id": null,
-                  "type": null
-                }
-              },
-              "statistics": {
-                "time_to_assignment": 2310,
-                "time_to_admin_reply": 2408,
-                "time_to_first_close": 4915 ,
-                "time_to_last_close": 5125,
-                "median_time_to_reply": 321,
-                "first_contact_reply_at": 1539897200,
-                "first_assignment_at": 1539897200,
-                "first_admin_reply_at": 1539897200,
-                "first_close_at": 1539897200,
-                "last_assignment_at": 1539897200,
-                "last_assignment_admin_reply_at": 1539897200,
-                "last_contact_reply_at": 1539897200,
-                "last_admin_reply_at": 1539897200,
-                "last_close_at": 1539897200,
-                "last_closed_by": {
-                  "type": "admin",
-                  "id": "325432652",
-                  "name": "Tom Smith",
-                  "email": "tom@example.com"
-                },
-                "count_reopens": 3,
-                "count_assignments": 2,
-                "count_conversation_parts": 67
-              },
-              "conversation_parts": {
-                "conversation_parts": [
-                  {
-                    "assigned_to": null,
-                    "attachments": [],
-                    "author": {
-                      "id": "815309",
-                      "type": "bot"
-                    },
-                    "body": "<p>Test_App typically replies in a few hours.</p>",
-                    "created_at": 1539897200,
-                    "external_id": null,
-                    "id": "2202737122",
-                    "notified_at": 1539897200,
-                    "part_type": "comment",
-                    "type": "conversation_part",
-                    "updated_at": 1539897200,
-                    "redacted": false
-                  }
-                ],
-                "total_count": 67,
-                "type": "conversation_part.list"
+              "url": "https://intercom-survey-app.glitch.me/",
+              "redacted": false
+            },
+            "contacts": [
+              {
+                "id": "5bc8f7ae2d96695c18a",
+                "type": "lead"
               }
+            ],
+            "teammates": [
+              {
+                "id": "814860",
+                "type": "admin"
+              }
+            ],
+            "title": "Conversation Title",
+            "admin_assignee_id": 814860,
+            "team_assignee_id": null,
+            "custom_attributes": {
+              "issue_type": "Billing",
+              "priority": "High"
+            },
+            "topics": {
+              "type": "topic.list",
+              "topics": [
+                {
+                  "type": "topic",
+                  "name": "Example Topic 1",
+                  "id": 839
+                }
+              ],
+              "total_count": 1
+            },
+            "open": true,
+            "state": "open",
+            "read": true,
+            "waiting_since": 64654125776,
+            "snoozed_until": null,
+            "tags": {
+              "tags": [],
+              "type": "tag.list"
+            },
+            "first_contact_reply": {
+              "created_at": 1539897198,
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/"
+            },
+            "priority": "not_priority",
+            "sla_applied": {
+              "sla_name": "VIP customer <5m",
+              "sla_status": "missed"
+            },
+            "conversation_rating": {
+              "created_at": null,
+              "contact": {
+                "id": null,
+                "type": null
+              },
+              "rating": null,
+              "remark": null,
+              "teammate": {
+                "id": null,
+                "type": null
+              }
+            },
+            "statistics": {
+              "time_to_assignment": 2310,
+              "time_to_admin_reply": 2408,
+              "time_to_first_close": 4915 ,
+              "time_to_last_close": 5125,
+              "median_time_to_reply": 321,
+              "first_contact_reply_at": 1539897200,
+              "first_assignment_at": 1539897200,
+              "first_admin_reply_at": 1539897200,
+              "first_close_at": 1539897200,
+              "last_assignment_at": 1539897200,
+              "last_assignment_admin_reply_at": 1539897200,
+              "last_contact_reply_at": 1539897200,
+              "last_admin_reply_at": 1539897200,
+              "last_close_at": 1539897200,
+              "last_closed_by": {
+                "type": "admin",
+                "id": "325432652",
+                "name": "Tom Smith",
+                "email": "tom@example.com"
+              },
+              "count_reopens": 3,
+              "count_assignments": 2,
+              "count_conversation_parts": 67
+            },
+            "conversation_parts": {
+              "conversation_parts": [
+                {
+                  "assigned_to": null,
+                  "attachments": [],
+                  "author": {
+                    "id": "815309",
+                    "type": "bot"
+                  },
+                  "body": "<p>Test_App typically replies in a few hours.</p>",
+                  "created_at": 1539897200,
+                  "external_id": null,
+                  "id": "2202737122",
+                  "notified_at": 1539897200,
+                  "part_type": "comment",
+                  "type": "conversation_part",
+                  "updated_at": 1539897200,
+                  "redacted": false
+                }
+              ],
+              "total_count": 67,
+              "type": "conversation_part.list"
             }
-          },
-          "links": {},
-          "id": "notif_9cc0ef6e-3dfd-47a9-a715-be6cf19a273a",
-          "topic": "conversation.updated",
-          "delivery_status": "retry",
-          "delivery_attempts": 2,
-          "delivered_at": 0,
-          "first_sent_at": 1692131395,
-          "created_at": 1692131388
-        }
-      J
-    end
+          }
+        },
+        "links": {},
+        "id": "notif_9cc0ef6e-3dfd-47a9-a715-be6cf19a273a",
+        "topic": "conversation.updated",
+        "delivery_status": "retry",
+        "delivery_attempts": 2,
+        "delivered_at": 0,
+        "first_sent_at": 1692131395,
+        "created_at": 1692131388
+      }
+    JSON
   end
 
   it_behaves_like "a replicator dependent on another", "intercom_conversation_v1", "intercom_marketplace_root_v1" do
@@ -307,449 +316,443 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
   it_behaves_like "a replicator that can backfill", "intercom_conversation_v1" do
     before(:each) { Webhookdb::Intercom.page_size = 2 }
 
-    let(:page1_response) do
-      <<~R
-        {
-          "type": "list",
-          "data": [
-            {
+    let(:page1_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "conversation",
+            "id": "123",
+            "created_at": 1539897198,
+            "updated_at": 1540393270,
+            "source": {
+              "attachments": [],
+              "author": {
+                "id": "5bc8f7421ae2d96695c18a",
+                "type": "lead"
+              },
+              "body": "<p>Hi</p>",
+              "delivered_as": "customer_initiated",
+              "id": "269650473",
+              "subject": "",
               "type": "conversation",
-              "id": "123",
-              "created_at": 1539897198,
-              "updated_at": 1540393270,
-              "source": {
-                "attachments": [],
-                "author": {
-                  "id": "5bc8f7421ae2d96695c18a",
-                  "type": "lead"
-                },
-                "body": "<p>Hi</p>",
-                "delivered_as": "customer_initiated",
-                "id": "269650473",
-                "subject": "",
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/",
-                "redacted": false
-              },
-              "contacts": [
-                {
-                  "id": "5bc8f7ae2d96695c18a",
-                  "type": "lead"
-                }
-              ],
-              "teammates": [
-                {
-                  "id": "814860",
-                  "type": "admin"
-                }
-              ],
-              "title": "Conversation Title",
-              "admin_assignee_id": 814860,
-              "team_assignee_id": null,
-              "custom_attributes": {
-                "issue_type": "Billing",
-                "priority": "High"
-              },
-              "topics": {
-                "type": "topic.list",
-                "topics": [
-                  {
-                    "type": "topic",
-                    "name": "Example Topic 1",
-                    "id": 839
-                  }
-                ],
-                "total_count": 1
-              },
-              "open": true,
-              "state": "open",
-              "read": true,
-              "waiting_since": 64654125776,
-              "snoozed_until": null,
-              "tags": {
-                "tags": [],
-                "type": "tag.list"
-              },
-              "first_contact_reply": {
-                "created_at": 1539897198,
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/"
-              },
-              "priority": "not_priority",
-              "sla_applied": {
-                "sla_name": "VIP customer <5m",
-                "sla_status": "missed"
-              },
-              "conversation_rating": {
-                "created_at": null,
-                "contact": {
-                  "id": null,
-                  "type": null
-                },
-                "rating": null,
-                "remark": null,
-                "teammate": {
-                  "id": null,
-                  "type": null
-                }
-              },
-              "statistics": {
-                "time_to_assignment": 2310,
-                "time_to_admin_reply": 2408,
-                "time_to_first_close": 4915 ,
-                "time_to_last_close": 5125,
-                "median_time_to_reply": 321,
-                "first_contact_reply_at": 1539897200,
-                "first_assignment_at": 1539897200,
-                "first_admin_reply_at": 1539897200,
-                "first_close_at": 1539897200,
-                "last_assignment_at": 1539897200,
-                "last_assignment_admin_reply_at": 1539897200,
-                "last_contact_reply_at": 1539897200,
-                "last_admin_reply_at": 1539897200,
-                "last_close_at": 1539897200,
-                "last_closed_by": {
-                  "type": "admin",
-                  "id": "325432652",
-                  "name": "Tom Smith",
-                  "email": "tom@example.com"
-                },
-                "count_reopens": 3,
-                "count_assignments": 2,
-                "count_conversation_parts": 67
-              },
-              "conversation_parts": {
-                "conversation_parts": [
-                  {
-                    "assigned_to": null,
-                    "attachments": [],
-                    "author": {
-                      "id": "815309",
-                      "type": "bot"
-                    },
-                    "body": "<p>Test_App typically replies in a few hours.</p>",
-                    "created_at": 1539897200,
-                    "external_id": null,
-                    "id": "2202737122",
-                    "notified_at": 1539897200,
-                    "part_type": "comment",
-                    "type": "conversation_part",
-                    "updated_at": 1539897200,
-                    "redacted": false
-                  }
-                ],
-                "total_count": 67,
-                "type": "conversation_part.list"
-              }
-            },#{' '}
-            {
-              "type": "conversation",
-              "id": "456",
-              "created_at": 1539897198,
-              "updated_at": 1540393270,
-              "source": {
-                "attachments": [],
-                "author": {
-                  "id": "5bc8f7421ae2d96695c18a",
-                  "type": "lead"
-                },
-                "body": "<p>Hi</p>",
-                "delivered_as": "customer_initiated",
-                "id": "269650473",
-                "subject": "",
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/",
-                "redacted": false
-              },
-              "contacts": [
-                {
-                  "id": "5bc8f7ae2d96695c18a",
-                  "type": "lead"
-                }
-              ],
-              "teammates": [
-                {
-                  "id": "814860",
-                  "type": "admin"
-                }
-              ],
-              "title": "Conversation Title",
-              "admin_assignee_id": 814860,
-              "team_assignee_id": null,
-              "custom_attributes": {
-                "issue_type": "Billing",
-                "priority": "High"
-              },
-              "topics": {
-                "type": "topic.list",
-                "topics": [
-                  {
-                    "type": "topic",
-                    "name": "Example Topic 1",
-                    "id": 839
-                  }
-                ],
-                "total_count": 1
-              },
-              "open": true,
-              "state": "open",
-              "read": true,
-              "waiting_since": 64654125776,
-              "snoozed_until": null,
-              "tags": {
-                "tags": [],
-                "type": "tag.list"
-              },
-              "first_contact_reply": {
-                "created_at": 1539897198,
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/"
-              },
-              "priority": "not_priority",
-              "sla_applied": {
-                "sla_name": "VIP customer <5m",
-                "sla_status": "missed"
-              },
-              "conversation_rating": {
-                "created_at": null,
-                "contact": {
-                  "id": null,
-                  "type": null
-                },
-                "rating": null,
-                "remark": null,
-                "teammate": {
-                  "id": null,
-                  "type": null
-                }
-              },
-              "statistics": {
-                "time_to_assignment": 2310,
-                "time_to_admin_reply": 2408,
-                "time_to_first_close": 4915 ,
-                "time_to_last_close": 5125,
-                "median_time_to_reply": 321,
-                "first_contact_reply_at": 1539897200,
-                "first_assignment_at": 1539897200,
-                "first_admin_reply_at": 1539897200,
-                "first_close_at": 1539897200,
-                "last_assignment_at": 1539897200,
-                "last_assignment_admin_reply_at": 1539897200,
-                "last_contact_reply_at": 1539897200,
-                "last_admin_reply_at": 1539897200,
-                "last_close_at": 1539897200,
-                "last_closed_by": {
-                  "type": "admin",
-                  "id": "325432652",
-                  "name": "Tom Smith",
-                  "email": "tom@example.com"
-                },
-                "count_reopens": 3,
-                "count_assignments": 2,
-                "count_conversation_parts": 67
-              },
-              "conversation_parts": {
-                "conversation_parts": [
-                  {
-                    "assigned_to": null,
-                    "attachments": [],
-                    "author": {
-                      "id": "815309",
-                      "type": "bot"
-                    },
-                    "body": "<p>Test_App typically replies in a few hours.</p>",
-                    "created_at": 1539897200,
-                    "external_id": null,
-                    "id": "2202737122",
-                    "notified_at": 1539897200,
-                    "part_type": "comment",
-                    "type": "conversation_part",
-                    "updated_at": 1539897200,
-                    "redacted": false
-                  }
-                ],
-                "total_count": 67,
-                "type": "conversation_part.list"
-              }
-            }
-          ],
-          "total_count": 3,
-          "pages": {
-            "type": "pages",
-            "next": {
-              "page": 2,
-              "starting_after": "intercom_pagination_token"
+              "url": "https://intercom-survey-app.glitch.me/",
+              "redacted": false
             },
-            "page": 1,
-            "per_page": 2,
-            "total_pages": 2
-          }
-        }
-      R
-    end
-    let(:page2_response) do
-      <<~R
-        {
-          "type": "list",
-          "data": [
-            {
-              "type": "conversation",
-              "id": "789",
-              "created_at": 1539897198,
-              "updated_at": 1540393270,
-              "source": {
-                "attachments": [],
-                "author": {
-                  "id": "5bc8f7421ae2d96695c18a",
-                  "type": "lead"
-                },
-                "body": "<p>Hi</p>",
-                "delivered_as": "customer_initiated",
-                "id": "269650473",
-                "subject": "",
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/",
-                "redacted": false
-              },
-              "contacts": [
-                {
-                  "id": "5bc8f7ae2d96695c18a",
-                  "type": "lead"
-                }
-              ],
-              "teammates": [
-                {
-                  "id": "814860",
-                  "type": "admin"
-                }
-              ],
-              "title": "Conversation Title",
-              "admin_assignee_id": 814860,
-              "team_assignee_id": null,
-              "custom_attributes": {
-                "issue_type": "Billing",
-                "priority": "High"
-              },
-              "topics": {
-                "type": "topic.list",
-                "topics": [
-                  {
-                    "type": "topic",
-                    "name": "Example Topic 1",
-                    "id": 839
-                  }
-                ],
-                "total_count": 1
-              },
-              "open": true,
-              "state": "open",
-              "read": true,
-              "waiting_since": 64654125776,
-              "snoozed_until": null,
-              "tags": {
-                "tags": [],
-                "type": "tag.list"
-              },
-              "first_contact_reply": {
-                "created_at": 1539897198,
-                "type": "conversation",
-                "url": "https://intercom-survey-app.glitch.me/"
-              },
-              "priority": "not_priority",
-              "sla_applied": {
-                "sla_name": "VIP customer <5m",
-                "sla_status": "missed"
-              },
-              "conversation_rating": {
-                "created_at": null,
-                "contact": {
-                  "id": null,
-                  "type": null
-                },
-                "rating": null,
-                "remark": null,
-                "teammate": {
-                  "id": null,
-                  "type": null
-                }
-              },
-              "statistics": {
-                "time_to_assignment": 2310,
-                "time_to_admin_reply": 2408,
-                "time_to_first_close": 4915 ,
-                "time_to_last_close": 5125,
-                "median_time_to_reply": 321,
-                "first_contact_reply_at": 1539897200,
-                "first_assignment_at": 1539897200,
-                "first_admin_reply_at": 1539897200,
-                "first_close_at": 1539897200,
-                "last_assignment_at": 1539897200,
-                "last_assignment_admin_reply_at": 1539897200,
-                "last_contact_reply_at": 1539897200,
-                "last_admin_reply_at": 1539897200,
-                "last_close_at": 1539897200,
-                "last_closed_by": {
-                  "type": "admin",
-                  "id": "325432652",
-                  "name": "Tom Smith",
-                  "email": "tom@example.com"
-                },
-                "count_reopens": 3,
-                "count_assignments": 2,
-                "count_conversation_parts": 67
-              },
-              "conversation_parts": {
-                "conversation_parts": [
-                  {
-                    "assigned_to": null,
-                    "attachments": [],
-                    "author": {
-                      "id": "815309",
-                      "type": "bot"
-                    },
-                    "body": "<p>Test_App typically replies in a few hours.</p>",
-                    "created_at": 1539897200,
-                    "external_id": null,
-                    "id": "2202737122",
-                    "notified_at": 1539897200,
-                    "part_type": "comment",
-                    "type": "conversation_part",
-                    "updated_at": 1539897200,
-                    "redacted": false
-                  }
-                ],
-                "total_count": 67,
-                "type": "conversation_part.list"
+            "contacts": [
+              {
+                "id": "5bc8f7ae2d96695c18a",
+                "type": "lead"
               }
+            ],
+            "teammates": [
+              {
+                "id": "814860",
+                "type": "admin"
+              }
+            ],
+            "title": "Conversation Title",
+            "admin_assignee_id": 814860,
+            "team_assignee_id": null,
+            "custom_attributes": {
+              "issue_type": "Billing",
+              "priority": "High"
+            },
+            "topics": {
+              "type": "topic.list",
+              "topics": [
+                {
+                  "type": "topic",
+                  "name": "Example Topic 1",
+                  "id": 839
+                }
+              ],
+              "total_count": 1
+            },
+            "open": true,
+            "state": "open",
+            "read": true,
+            "waiting_since": 64654125776,
+            "snoozed_until": null,
+            "tags": {
+              "tags": [],
+              "type": "tag.list"
+            },
+            "first_contact_reply": {
+              "created_at": 1539897198,
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/"
+            },
+            "priority": "not_priority",
+            "sla_applied": {
+              "sla_name": "VIP customer <5m",
+              "sla_status": "missed"
+            },
+            "conversation_rating": {
+              "created_at": null,
+              "contact": {
+                "id": null,
+                "type": null
+              },
+              "rating": null,
+              "remark": null,
+              "teammate": {
+                "id": null,
+                "type": null
+              }
+            },
+            "statistics": {
+              "time_to_assignment": 2310,
+              "time_to_admin_reply": 2408,
+              "time_to_first_close": 4915 ,
+              "time_to_last_close": 5125,
+              "median_time_to_reply": 321,
+              "first_contact_reply_at": 1539897200,
+              "first_assignment_at": 1539897200,
+              "first_admin_reply_at": 1539897200,
+              "first_close_at": 1539897200,
+              "last_assignment_at": 1539897200,
+              "last_assignment_admin_reply_at": 1539897200,
+              "last_contact_reply_at": 1539897200,
+              "last_admin_reply_at": 1539897200,
+              "last_close_at": 1539897200,
+              "last_closed_by": {
+                "type": "admin",
+                "id": "325432652",
+                "name": "Tom Smith",
+                "email": "tom@example.com"
+              },
+              "count_reopens": 3,
+              "count_assignments": 2,
+              "count_conversation_parts": 67
+            },
+            "conversation_parts": {
+              "conversation_parts": [
+                {
+                  "assigned_to": null,
+                  "attachments": [],
+                  "author": {
+                    "id": "815309",
+                    "type": "bot"
+                  },
+                  "body": "<p>Test_App typically replies in a few hours.</p>",
+                  "created_at": 1539897200,
+                  "external_id": null,
+                  "id": "2202737122",
+                  "notified_at": 1539897200,
+                  "part_type": "comment",
+                  "type": "conversation_part",
+                  "updated_at": 1539897200,
+                  "redacted": false
+                }
+              ],
+              "total_count": 67,
+              "type": "conversation_part.list"
             }
-          ],
-          "total_count": 3,
-          "pages": {
-            "type": "pages",
-            "page": 2,
-            "per_page": 2,
-            "total_pages": 2
+          },
+          {
+            "type": "conversation",
+            "id": "456",
+            "created_at": 1539897198,
+            "updated_at": 1540393270,
+            "source": {
+              "attachments": [],
+              "author": {
+                "id": "5bc8f7421ae2d96695c18a",
+                "type": "lead"
+              },
+              "body": "<p>Hi</p>",
+              "delivered_as": "customer_initiated",
+              "id": "269650473",
+              "subject": "",
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/",
+              "redacted": false
+            },
+            "contacts": [
+              {
+                "id": "5bc8f7ae2d96695c18a",
+                "type": "lead"
+              }
+            ],
+            "teammates": [
+              {
+                "id": "814860",
+                "type": "admin"
+              }
+            ],
+            "title": "Conversation Title",
+            "admin_assignee_id": 814860,
+            "team_assignee_id": null,
+            "custom_attributes": {
+              "issue_type": "Billing",
+              "priority": "High"
+            },
+            "topics": {
+              "type": "topic.list",
+              "topics": [
+                {
+                  "type": "topic",
+                  "name": "Example Topic 1",
+                  "id": 839
+                }
+              ],
+              "total_count": 1
+            },
+            "open": true,
+            "state": "open",
+            "read": true,
+            "waiting_since": 64654125776,
+            "snoozed_until": null,
+            "tags": {
+              "tags": [],
+              "type": "tag.list"
+            },
+            "first_contact_reply": {
+              "created_at": 1539897198,
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/"
+            },
+            "priority": "not_priority",
+            "sla_applied": {
+              "sla_name": "VIP customer <5m",
+              "sla_status": "missed"
+            },
+            "conversation_rating": {
+              "created_at": null,
+              "contact": {
+                "id": null,
+                "type": null
+              },
+              "rating": null,
+              "remark": null,
+              "teammate": {
+                "id": null,
+                "type": null
+              }
+            },
+            "statistics": {
+              "time_to_assignment": 2310,
+              "time_to_admin_reply": 2408,
+              "time_to_first_close": 4915 ,
+              "time_to_last_close": 5125,
+              "median_time_to_reply": 321,
+              "first_contact_reply_at": 1539897200,
+              "first_assignment_at": 1539897200,
+              "first_admin_reply_at": 1539897200,
+              "first_close_at": 1539897200,
+              "last_assignment_at": 1539897200,
+              "last_assignment_admin_reply_at": 1539897200,
+              "last_contact_reply_at": 1539897200,
+              "last_admin_reply_at": 1539897200,
+              "last_close_at": 1539897200,
+              "last_closed_by": {
+                "type": "admin",
+                "id": "325432652",
+                "name": "Tom Smith",
+                "email": "tom@example.com"
+              },
+              "count_reopens": 3,
+              "count_assignments": 2,
+              "count_conversation_parts": 67
+            },
+            "conversation_parts": {
+              "conversation_parts": [
+                {
+                  "assigned_to": null,
+                  "attachments": [],
+                  "author": {
+                    "id": "815309",
+                    "type": "bot"
+                  },
+                  "body": "<p>Test_App typically replies in a few hours.</p>",
+                  "created_at": 1539897200,
+                  "external_id": null,
+                  "id": "2202737122",
+                  "notified_at": 1539897200,
+                  "part_type": "comment",
+                  "type": "conversation_part",
+                  "updated_at": 1539897200,
+                  "redacted": false
+                }
+              ],
+              "total_count": 67,
+              "type": "conversation_part.list"
+            }
           }
+        ],
+        "total_count": 3,
+        "pages": {
+          "type": "pages",
+          "next": {
+            "page": 2,
+            "starting_after": "intercom_pagination_token"
+          },
+          "page": 1,
+          "per_page": 2,
+          "total_pages": 2
         }
-      R
-    end
+      }
+    JSON
+    let(:page2_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "conversation",
+            "id": "789",
+            "created_at": 1539897198,
+            "updated_at": 1540393270,
+            "source": {
+              "attachments": [],
+              "author": {
+                "id": "5bc8f7421ae2d96695c18a",
+                "type": "lead"
+              },
+              "body": "<p>Hi</p>",
+              "delivered_as": "customer_initiated",
+              "id": "269650473",
+              "subject": "",
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/",
+              "redacted": false
+            },
+            "contacts": [
+              {
+                "id": "5bc8f7ae2d96695c18a",
+                "type": "lead"
+              }
+            ],
+            "teammates": [
+              {
+                "id": "814860",
+                "type": "admin"
+              }
+            ],
+            "title": "Conversation Title",
+            "admin_assignee_id": 814860,
+            "team_assignee_id": null,
+            "custom_attributes": {
+              "issue_type": "Billing",
+              "priority": "High"
+            },
+            "topics": {
+              "type": "topic.list",
+              "topics": [
+                {
+                  "type": "topic",
+                  "name": "Example Topic 1",
+                  "id": 839
+                }
+              ],
+              "total_count": 1
+            },
+            "open": true,
+            "state": "open",
+            "read": true,
+            "waiting_since": 64654125776,
+            "snoozed_until": null,
+            "tags": {
+              "tags": [],
+              "type": "tag.list"
+            },
+            "first_contact_reply": {
+              "created_at": 1539897198,
+              "type": "conversation",
+              "url": "https://intercom-survey-app.glitch.me/"
+            },
+            "priority": "not_priority",
+            "sla_applied": {
+              "sla_name": "VIP customer <5m",
+              "sla_status": "missed"
+            },
+            "conversation_rating": {
+              "created_at": null,
+              "contact": {
+                "id": null,
+                "type": null
+              },
+              "rating": null,
+              "remark": null,
+              "teammate": {
+                "id": null,
+                "type": null
+              }
+            },
+            "statistics": {
+              "time_to_assignment": 2310,
+              "time_to_admin_reply": 2408,
+              "time_to_first_close": 4915 ,
+              "time_to_last_close": 5125,
+              "median_time_to_reply": 321,
+              "first_contact_reply_at": 1539897200,
+              "first_assignment_at": 1539897200,
+              "first_admin_reply_at": 1539897200,
+              "first_close_at": 1539897200,
+              "last_assignment_at": 1539897200,
+              "last_assignment_admin_reply_at": 1539897200,
+              "last_contact_reply_at": 1539897200,
+              "last_admin_reply_at": 1539897200,
+              "last_close_at": 1539897200,
+              "last_closed_by": {
+                "type": "admin",
+                "id": "325432652",
+                "name": "Tom Smith",
+                "email": "tom@example.com"
+              },
+              "count_reopens": 3,
+              "count_assignments": 2,
+              "count_conversation_parts": 67
+            },
+            "conversation_parts": {
+              "conversation_parts": [
+                {
+                  "assigned_to": null,
+                  "attachments": [],
+                  "author": {
+                    "id": "815309",
+                    "type": "bot"
+                  },
+                  "body": "<p>Test_App typically replies in a few hours.</p>",
+                  "created_at": 1539897200,
+                  "external_id": null,
+                  "id": "2202737122",
+                  "notified_at": 1539897200,
+                  "part_type": "comment",
+                  "type": "conversation_part",
+                  "updated_at": 1539897200,
+                  "redacted": false
+                }
+              ],
+              "total_count": 67,
+              "type": "conversation_part.list"
+            }
+          }
+        ],
+        "total_count": 3,
+        "pages": {
+          "type": "pages",
+          "page": 2,
+          "per_page": 2,
+          "total_pages": 2
+        }
+      }
+    JSON
     let(:expected_items_count) { 3 }
 
-    let(:empty_response) do
-      <<~R
-        {
-          "type": "list",
-          "data": [],
-          "total_count": 0,
-          "pages": {
-            "type": "pages",
-            "page": 1,
-            "per_page": 10,
-            "total_pages": 0
-          }
+    let(:empty_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [],
+        "total_count": 0,
+        "pages": {
+          "type": "pages",
+          "page": 1,
+          "per_page": 10,
+          "total_pages": 0
         }
-      R
-    end
+      }
+    JSON
 
     def insert_required_data_callback
       return lambda do |auth_svc|

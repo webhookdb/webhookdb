@@ -12,9 +12,16 @@ module Webhookdb::Intercom
     setting :page_size, 20
   end
 
-  def self.verify_webhook(data, hmac_header)
-    calculated_hmac = "sha1=#{OpenSSL::HMAC.hexdigest('SHA1', self.client_secret, data)}"
-    return ActiveSupport::SecurityUtils.secure_compare(calculated_hmac, hmac_header)
+  def self.webhook_response(request, webhook_secret)
+    header_value = request.env["HTTP_X_HUB_SIGNATURE"]
+    return Webhookdb::WebhookResponse.error("missing hmac") if header_value.nil?
+    request.body.rewind
+    request_data = request.body.read
+    hmac = OpenSSL::HMAC.hexdigest("SHA1", webhook_secret, request_data)
+    calculated_hmac = "sha1=#{hmac}"
+    verified = ActiveSupport::SecurityUtils.secure_compare(calculated_hmac, header_value)
+    return Webhookdb::WebhookResponse.ok if verified
+    return Webhookdb::WebhookResponse.error("invalid hmac")
   end
 
   def self.auth_headers(token)

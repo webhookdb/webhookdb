@@ -231,7 +231,7 @@ RSpec.describe Webhookdb::Http do
         described_class.post("https://foo/bar", {x: 1}, logger:, timeout: nil)
       end
       expect(logs.map { |j| JSON.parse(j) }).to contain_exactly(
-        include("message" => "httparty_request", "context" => include("http_method" => "POST")),
+        include("message" => "httparty_request", "context" => include("http_method" => "POST"), "level" => "debug"),
       )
     end
   end

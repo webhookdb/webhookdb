@@ -11,6 +11,8 @@ class Webhookdb::Async::AuditLogger < Amigo::AuditLogger
   MAX_STR_LEN = 64
   STR_PREFIX_LEN = 12
 
+  def audit_log_level = Webhookdb::Async.audit_log_level
+
   def perform(event_json)
     j2 = event_json.dup
     j2["payload"] = self.trim_long_strings(j2["payload"], max_str_len: MAX_STR_LEN, str_prefix_len: STR_PREFIX_LEN)

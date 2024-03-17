@@ -11,231 +11,240 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
   let(:svc) { sint.replicator }
 
   it_behaves_like "a replicator", "intercom_contact_v1" do
-    let(:body) do
-      JSON.parse(<<~J)
-        {
-          "type": "contact",
-          "id": "64d14669156d93e1e18f6a17",
-          "workspace_id": "vne310wv",
-          "external_id": null,
-          "role": "user",
-          "email": "alivia@example.com",
-          "phone": null,
-          "name": null,
-          "avatar": null,
-          "owner_id": null,
-          "social_profiles": {
-            "type": "list",
-            "data": []
-          },
-          "has_hard_bounced": false,
-          "marked_email_as_spam": false,
-          "unsubscribed_from_emails": false,
-          "created_at": 1691436649,
-          "updated_at": 1691436649,
-          "signed_up_at": null,
-          "last_seen_at": null,
-          "last_replied_at": null,
-          "last_contacted_at": null,
-          "last_email_opened_at": null,
-          "last_email_clicked_at": null,
-          "language_override": null,
-          "browser": null,
-          "browser_version": null,
-          "browser_language": null,
-          "os": null,
-          "location": {
-            "type": "location",
-            "country": null,
-            "region": null,
-            "city": null,
-            "country_code": null,
-            "continent_code": null
-          },
-          "android_app_name": null,
-          "android_app_version": null,
-          "android_device": null,
-          "android_os_version": null,
-          "android_sdk_version": null,
-          "android_last_seen_at": null,
-          "ios_app_name": null,
-          "ios_app_version": null,
-          "ios_device": null,
-          "ios_os_version": null,
-          "ios_sdk_version": null,
-          "ios_last_seen_at": null,
-          "custom_attributes": {},
-          "tags": {
-            "type": "list",
-            "data": [
-              {
-                "id": "8362462",
-                "type": "tag",
-                "url": "/tags/8362462"
-              }
-            ],
-            "url": "/contacts/64d14669156d93e1e18f6a17/tags",
-            "total_count": 1,
-            "has_more": false
-          },
-          "notes": {
-            "type": "list",
-            "data": [],
-            "url": "/contacts/64d14669156d93e1e18f6a17/notes",
-            "total_count": 0,
-            "has_more": false
-          },
-          "companies": {
-            "type": "list",
-            "data": [],
-            "url": "/contacts/64d14669156d93e1e18f6a17/companies",
-            "total_count": 0,
-            "has_more": false
-          },
-          "opted_out_subscription_types": {
-            "type": "list",
-            "data": [],
-            "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
-            "total_count": 0,
-            "has_more": false
-          },
-          "opted_in_subscription_types": {
-            "type": "list",
-            "data": [],
-            "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
-            "total_count": 0,
-            "has_more": false
-          },
-          "utm_campaign": null,
-          "utm_content": null,
-          "utm_medium": null,
-          "utm_source": null,
-          "utm_term": null,
-          "referrer": null,
-          "sms_consent": false,
-          "unsubscribed_from_sms": false
-        }
-      J
+    let(:body) { JSON.parse(<<~JSON) }
+      {
+        "type": "contact",
+        "id": "64d14669156d93e1e18f6a17",
+        "workspace_id": "vne310wv",
+        "external_id": null,
+        "role": "user",
+        "email": "alivia@example.com",
+        "phone": null,
+        "name": null,
+        "avatar": null,
+        "owner_id": null,
+        "social_profiles": {
+          "type": "list",
+          "data": []
+        },
+        "has_hard_bounced": false,
+        "marked_email_as_spam": false,
+        "unsubscribed_from_emails": false,
+        "created_at": 1691436649,
+        "updated_at": 1691436649,
+        "signed_up_at": null,
+        "last_seen_at": null,
+        "last_replied_at": null,
+        "last_contacted_at": null,
+        "last_email_opened_at": null,
+        "last_email_clicked_at": null,
+        "language_override": null,
+        "browser": null,
+        "browser_version": null,
+        "browser_language": null,
+        "os": null,
+        "location": {
+          "type": "location",
+          "country": null,
+          "region": null,
+          "city": null,
+          "country_code": null,
+          "continent_code": null
+        },
+        "android_app_name": null,
+        "android_app_version": null,
+        "android_device": null,
+        "android_os_version": null,
+        "android_sdk_version": null,
+        "android_last_seen_at": null,
+        "ios_app_name": null,
+        "ios_app_version": null,
+        "ios_device": null,
+        "ios_os_version": null,
+        "ios_sdk_version": null,
+        "ios_last_seen_at": null,
+        "custom_attributes": {},
+        "tags": {
+          "type": "list",
+          "data": [
+            {
+              "id": "8362462",
+              "type": "tag",
+              "url": "/tags/8362462"
+            }
+          ],
+          "url": "/contacts/64d14669156d93e1e18f6a17/tags",
+          "total_count": 1,
+          "has_more": false
+        },
+        "notes": {
+          "type": "list",
+          "data": [],
+          "url": "/contacts/64d14669156d93e1e18f6a17/notes",
+          "total_count": 0,
+          "has_more": false
+        },
+        "companies": {
+          "type": "list",
+          "data": [],
+          "url": "/contacts/64d14669156d93e1e18f6a17/companies",
+          "total_count": 0,
+          "has_more": false
+        },
+        "opted_out_subscription_types": {
+          "type": "list",
+          "data": [],
+          "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
+          "total_count": 0,
+          "has_more": false
+        },
+        "opted_in_subscription_types": {
+          "type": "list",
+          "data": [],
+          "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
+          "total_count": 0,
+          "has_more": false
+        },
+        "utm_campaign": null,
+        "utm_content": null,
+        "utm_medium": null,
+        "utm_source": null,
+        "utm_term": null,
+        "referrer": null,
+        "sms_consent": false,
+        "unsubscribed_from_sms": false
+      }
+    JSON
+
+    it "can handle string timestamps" do
+      svc.create_table
+      body["created_at"] = "2024-03-16T20:16:07.820+00:00"
+      body["updated_at"] = "2024-03-17T20:55:59.208+00:00"
+      upsert_webhook(svc, body:)
+      svc.readonly_dataset do |ds|
+        expect(ds.first).to include(
+          created_at: Time.parse("2024-03-16T20:16:07.820+00:00"),
+          updated_at: Time.parse("2024-03-17T20:55:59.208+00:00"),
+        )
+      end
     end
   end
 
   it_behaves_like "a replicator that deals with resources and wrapped events", "intercom_contact_v1" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "item") }
-    let(:resource_in_envelope_json) do
-      JSON.parse(<<~J)
-        {
-          "type": "notification_event",
-          "app_id": "vne310wv",
-          "data": {
-            "type": "notification_event_data",
-            "item": {
-              "type": "contact",
-              "id": "64dbc8be576618069c4e0560",
-              "workspace_id": "vne310wv",
-              "external_id": "12342353",
-              "role": "user",
-              "email": "nardwuar@example.com",
-              "phone": null,
-              "name": "Nardwuar",
-              "avatar": null,
-              "owner_id": null,
-              "social_profiles": {
-                "type": "list",
-                "data": []
-              },
-              "has_hard_bounced": false,
-              "marked_email_as_spam": false,
-              "unsubscribed_from_emails": false,
-              "created_at": "2023-08-15T18:49:35.016+00:00",
-              "updated_at": "2023-08-15T20:29:47.988+00:00",
-              "signed_up_at": null,
-              "last_seen_at": null,
-              "last_replied_at": null,
-              "last_contacted_at": null,
-              "last_email_opened_at": null,
-              "last_email_clicked_at": null,
-              "language_override": null,
-              "browser": null,
-              "browser_version": null,
-              "browser_language": null,
-              "os": null,
-              "location": {
-                "type": "location",
-                "country": null,
-                "region": null,
-                "city": null,
-                "country_code": null,
-                "continent_code": null
-              },
-              "android_app_name": null,
-              "android_app_version": null,
-              "android_device": null,
-              "android_os_version": null,
-              "android_sdk_version": null,
-              "android_last_seen_at": null,
-              "ios_app_name": null,
-              "ios_app_version": null,
-              "ios_device": null,
-              "ios_os_version": null,
-              "ios_sdk_version": null,
-              "ios_last_seen_at": null,
-              "custom_attributes": {},
-              "tags": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64dbc8be576618069c4e0560/tags",
-                "total_count": 0,
-                "has_more": false
-              },
-              "notes": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64dbc8be576618069c4e0560/notes",
-                "total_count": 0,
-                "has_more": false
-              },
-              "companies": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64dbc8be576618069c4e0560/companies",
-                "total_count": 0,
-                "has_more": false
-              },
-              "opted_out_subscription_types": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64dbc8be576618069c4e0560/subscriptions",
-                "total_count": 0,
-                "has_more": false
-              },
-              "opted_in_subscription_types": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64dbc8be576618069c4e0560/subscriptions",
-                "total_count": 0,
-                "has_more": false
-              },
-              "utm_campaign": null,
-              "utm_content": null,
-              "utm_medium": null,
-              "utm_source": null,
-              "utm_term": null,
-              "referrer": null,
-              "sms_consent": false,
-              "unsubscribed_from_sms": false
-            }
-          },
-          "links": {},
-          "id": "notif_9cc0ef6e-3dfd-47a9-a715-be6cf19a273a",
-          "topic": "contact.user.updated",
-          "delivery_status": "retry",
-          "delivery_attempts": 2,
-          "delivered_at": 0,
-          "first_sent_at": 1692131395,
-          "created_at": 1692131388
-        }
-      J
-    end
+    let(:resource_in_envelope_json) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "vne310wv",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "type": "contact",
+            "id": "64dbc8be576618069c4e0560",
+            "workspace_id": "vne310wv",
+            "external_id": "12342353",
+            "role": "user",
+            "email": "nardwuar@example.com",
+            "phone": null,
+            "name": "Nardwuar",
+            "avatar": null,
+            "owner_id": null,
+            "social_profiles": {
+              "type": "list",
+              "data": []
+            },
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": "2023-08-15T18:49:35.016+00:00",
+            "updated_at": "2023-08-15T20:29:47.988+00:00",
+            "signed_up_at": null,
+            "last_seen_at": null,
+            "last_replied_at": null,
+            "last_contacted_at": null,
+            "last_email_opened_at": null,
+            "last_email_clicked_at": null,
+            "language_override": null,
+            "browser": null,
+            "browser_version": null,
+            "browser_language": null,
+            "os": null,
+            "location": {
+              "type": "location",
+              "country": null,
+              "region": null,
+              "city": null,
+              "country_code": null,
+              "continent_code": null
+            },
+            "android_app_name": null,
+            "android_app_version": null,
+            "android_device": null,
+            "android_os_version": null,
+            "android_sdk_version": null,
+            "android_last_seen_at": null,
+            "ios_app_name": null,
+            "ios_app_version": null,
+            "ios_device": null,
+            "ios_os_version": null,
+            "ios_sdk_version": null,
+            "ios_last_seen_at": null,
+            "custom_attributes": {},
+            "tags": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64dbc8be576618069c4e0560/tags",
+              "total_count": 0,
+              "has_more": false
+            },
+            "notes": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64dbc8be576618069c4e0560/notes",
+              "total_count": 0,
+              "has_more": false
+            },
+            "companies": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64dbc8be576618069c4e0560/companies",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_out_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64dbc8be576618069c4e0560/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_in_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64dbc8be576618069c4e0560/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "utm_campaign": null,
+            "utm_content": null,
+            "utm_medium": null,
+            "utm_source": null,
+            "utm_term": null,
+            "referrer": null,
+            "sms_consent": false,
+            "unsubscribed_from_sms": false
+          }
+        },
+        "links": {},
+        "id": "notif_9cc0ef6e-3dfd-47a9-a715-be6cf19a273a",
+        "topic": "contact.user.updated",
+        "delivery_status": "retry",
+        "delivery_attempts": 2,
+        "delivered_at": 0,
+        "first_sent_at": 1692131395,
+        "created_at": 1692131388
+      }
+    JSON
   end
 
   it_behaves_like "a replicator dependent on another", "intercom_contact_v1", "intercom_marketplace_root_v1" do
@@ -245,9 +254,8 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
   it_behaves_like "a replicator that can backfill", "intercom_contact_v1" do
     before(:each) { Webhookdb::Intercom.page_size = 2 }
 
-    let(:page1_response) do
-      <<~R
-              {
+    let(:page1_response) { <<~JSON }
+      {
         "type": "list",
         "data": [
           {
@@ -467,143 +475,138 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
               "total_pages": 2
             }
           }
-      R
-    end
-    let(:page2_response) do
-      <<~R
-        {
-          "type": "list",
-          "data": [
-            {
-              "type": "contact",
-              "id": "64d14669156d93e1e18f6a17",
-              "workspace_id": "vne310wv",
-              "external_id": null,
-              "role": "user",
-              "email": "alivia@example.com",
-              "phone": null,
-              "name": null,
-              "avatar": null,
-              "owner_id": null,
-              "social_profiles": {
-                "type": "list",
-                "data": []
-              },
-              "has_hard_bounced": false,
-              "marked_email_as_spam": false,
-              "unsubscribed_from_emails": false,
-              "created_at": 1691436649,
-              "updated_at": 1691436649,
-              "signed_up_at": null,
-              "last_seen_at": null,
-              "last_replied_at": null,
-              "last_contacted_at": null,
-              "last_email_opened_at": null,
-              "last_email_clicked_at": null,
-              "language_override": null,
-              "browser": null,
-              "browser_version": null,
-              "browser_language": null,
-              "os": null,
-              "location": {
-                "type": "location",
-                "country": null,
-                "region": null,
-                "city": null,
-                "country_code": null,
-                "continent_code": null
-              },
-              "android_app_name": null,
-              "android_app_version": null,
-              "android_device": null,
-              "android_os_version": null,
-              "android_sdk_version": null,
-              "android_last_seen_at": null,
-              "ios_app_name": null,
-              "ios_app_version": null,
-              "ios_device": null,
-              "ios_os_version": null,
-              "ios_sdk_version": null,
-              "ios_last_seen_at": null,
-              "custom_attributes": {},
-              "tags": {
-                "type": "list",
-                "data": [
-                  {
-                    "id": "8362462",
-                    "type": "tag",
-                    "url": "/tags/8362462"
-                  }
-                ],
-                "url": "/contacts/64d14669156d93e1e18f6a17/tags",
-                "total_count": 1,
-                "has_more": false
-              },
-              "notes": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64d14669156d93e1e18f6a17/notes",
-                "total_count": 0,
-                "has_more": false
-              },
-              "companies": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64d14669156d93e1e18f6a17/companies",
-                "total_count": 0,
-                "has_more": false
-              },
-              "opted_out_subscription_types": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
-                "total_count": 0,
-                "has_more": false
-              },
-              "opted_in_subscription_types": {
-                "type": "list",
-                "data": [],
-                "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
-                "total_count": 0,
-                "has_more": false
-              },
-              "utm_campaign": null,
-              "utm_content": null,
-              "utm_medium": null,
-              "utm_source": null,
-              "utm_term": null,
-              "referrer": null,
-              "sms_consent": false,
-              "unsubscribed_from_sms": false
-            }
-          ],
-          "total_count": 3,
-          "pages": {
-            "type": "pages",
-            "page": 2,
-            "per_page": 2,
-            "total_pages": 2
+    JSON
+    let(:page2_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "contact",
+            "id": "64d14669156d93e1e18f6a17",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "alivia@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "social_profiles": {
+              "type": "list",
+              "data": []
+            },
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": 1691436649,
+            "updated_at": 1691436649,
+            "signed_up_at": null,
+            "last_seen_at": null,
+            "last_replied_at": null,
+            "last_contacted_at": null,
+            "last_email_opened_at": null,
+            "last_email_clicked_at": null,
+            "language_override": null,
+            "browser": null,
+            "browser_version": null,
+            "browser_language": null,
+            "os": null,
+            "location": {
+              "type": "location",
+              "country": null,
+              "region": null,
+              "city": null,
+              "country_code": null,
+              "continent_code": null
+            },
+            "android_app_name": null,
+            "android_app_version": null,
+            "android_device": null,
+            "android_os_version": null,
+            "android_sdk_version": null,
+            "android_last_seen_at": null,
+            "ios_app_name": null,
+            "ios_app_version": null,
+            "ios_device": null,
+            "ios_os_version": null,
+            "ios_sdk_version": null,
+            "ios_last_seen_at": null,
+            "custom_attributes": {},
+            "tags": {
+              "type": "list",
+              "data": [
+                {
+                  "id": "8362462",
+                  "type": "tag",
+                  "url": "/tags/8362462"
+                }
+              ],
+              "url": "/contacts/64d14669156d93e1e18f6a17/tags",
+              "total_count": 1,
+              "has_more": false
+            },
+            "notes": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14669156d93e1e18f6a17/notes",
+              "total_count": 0,
+              "has_more": false
+            },
+            "companies": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14669156d93e1e18f6a17/companies",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_out_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_in_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14669156d93e1e18f6a17/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "utm_campaign": null,
+            "utm_content": null,
+            "utm_medium": null,
+            "utm_source": null,
+            "utm_term": null,
+            "referrer": null,
+            "sms_consent": false,
+            "unsubscribed_from_sms": false
           }
+        ],
+        "total_count": 3,
+        "pages": {
+          "type": "pages",
+          "page": 2,
+          "per_page": 2,
+          "total_pages": 2
         }
-      R
-    end
+      }
+    JSON
     let(:expected_items_count) { 3 }
 
-    let(:empty_response) do
-      <<~R
-        {
-          "type": "list",
-          "data": [],
-          "total_count": 0,
-          "pages": {
-            "type": "pages",
-            "page": 1,
-            "per_page": 10,
-            "total_pages": 0
-          }
+    let(:empty_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [],
+        "total_count": 0,
+        "pages": {
+          "type": "pages",
+          "page": 1,
+          "per_page": 10,
+          "total_pages": 0
         }
-      R
-    end
+      }
+    JSON
 
     def insert_required_data_callback
       return lambda do |auth_svc|
