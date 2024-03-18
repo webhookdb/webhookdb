@@ -27,13 +27,13 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
     return [
       # All of these fields are missing on delete.
       # We merge the deleted info into an existing one when handling the upsert.
-      Webhookdb::Replicator::Column.new(:external_id, TEXT, optional: true),
-      Webhookdb::Replicator::Column.new(:email, TEXT, optional: true),
+      Webhookdb::Replicator::Column.new(:external_id, TEXT, optional: true, index: true),
+      Webhookdb::Replicator::Column.new(:email, TEXT, optional: true, index: true),
       Webhookdb::Replicator::Column.new(
-        :created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true,
+        :created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true, index: true,
       ),
       Webhookdb::Replicator::Column.new(
-        :updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true,
+        :updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true, index: true,
       ),
       # This is set in the contact.deleted webhook
       Webhookdb::Replicator::Column.new(:deleted_at, TIMESTAMP, optional: true),

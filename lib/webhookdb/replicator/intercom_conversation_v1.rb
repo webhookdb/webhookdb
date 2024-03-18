@@ -25,14 +25,45 @@ class Webhookdb::Replicator::IntercomConversationV1 < Webhookdb::Replicator::Bas
 
   def _denormalized_columns
     return [
-      Webhookdb::Replicator::Column.new(:title, TEXT),
-      Webhookdb::Replicator::Column.new(:state, TEXT),
-      Webhookdb::Replicator::Column.new(:open, BOOLEAN),
-      Webhookdb::Replicator::Column.new(:read, BOOLEAN),
-      Webhookdb::Replicator::Column.new(:created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
-      Webhookdb::Replicator::Column.new(:updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP),
+      Webhookdb::Replicator::Column.new(:title, TEXT, optional: true),
+      Webhookdb::Replicator::Column.new(:state, TEXT, optional: true),
+      Webhookdb::Replicator::Column.new(:open, BOOLEAN, optional: true),
+      Webhookdb::Replicator::Column.new(:read, BOOLEAN, optional: true),
+      Webhookdb::Replicator::Column.new(
+        :created_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true, index: true,
+      ),
+      Webhookdb::Replicator::Column.new(
+        :updated_at, TIMESTAMP, converter: QUESTIONABLE_TIMESTAMP, optional: true, index: true,
+      ),
+      Webhookdb::Replicator::Column.new(:deleted_at, TIMESTAMP, optional: true, index: true),
     ]
   end
 
   def _mixin_backfill_url = "https://api.intercom.io/conversations"
+
+  def _resource_and_event(request)
+    resource, event = super
+    return resource, nil if event.nil?
+    # noinspection RubyCaseWithoutElseBlockInspection
+    case event.fetch("topic")
+      when "conversation.deleted"
+        resource["id"] = resource.fetch("conversation_id")
+        resource["updated_at"] = Time.now
+        resource["deleted_at"] = Time.now
+    end
+    return resource, event
+  end
+
+  def _upsert_update_expr(inserting, enrichment: nil)
+    full_update = super
+    # In the case of a delete, update the deleted_at field and merge 'deleted' into the :data field.
+    return full_update unless inserting[:deleted_at]
+    data_col = Sequel[self.service_integration.table_name.to_sym][:data]
+    result = {
+      updated_at: full_update.fetch(:updated_at),
+      deleted_at: full_update.fetch(:deleted_at),
+      data: Sequel.join([data_col, Sequel.lit("'{\"deleted\":true}'::jsonb")]),
+    }
+    return result
+  end
 end
