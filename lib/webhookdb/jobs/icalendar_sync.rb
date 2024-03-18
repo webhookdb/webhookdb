@@ -16,7 +16,7 @@ class Webhookdb::Jobs::IcalendarSync
         self.logger.warn("icalendar_sync_row_miss", calendar_external_id:)
         return
       end
-      self.logger.info("icalendar_sync_start")
+      self.logger.debug("icalendar_sync_start")
       sint.replicator.sync_row(row)
     end
   end

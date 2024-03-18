@@ -22,7 +22,7 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
           self.with_log_tags(sint.log_tags) do
             splay = rand(1..max_splay)
             enqueued_job_id = Webhookdb::Jobs::IcalendarSync.perform_in(splay, sint.id, calendar_external_id)
-            self.logger.info("enqueued_icalendar_sync", calendar_external_id:, enqueued_job_id:)
+            self.logger.debug("enqueued_icalendar_sync", calendar_external_id:, enqueued_job_id:)
           end
         end
       end
