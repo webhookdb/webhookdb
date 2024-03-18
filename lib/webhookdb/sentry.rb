@@ -12,6 +12,7 @@ module Webhookdb::Sentry
 
   configurable(:sentry) do
     setting :dsn, ""
+    setting :log_level, :warn
 
     # Apply the current configuration to Sentry.
     # See https://docs.sentry.io/clients/ruby/config/ for more info.
@@ -22,6 +23,7 @@ module Webhookdb::Sentry
         Sentry.init do |config|
           config.dsn = dsn
           config.logger = self.logger
+          config.logger.level = self.log_level
         end
       else
         Sentry.instance_variable_set(:@main_hub, nil)

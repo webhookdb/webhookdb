@@ -29,7 +29,7 @@ module Webhookdb::Replicator::OAuthRefreshAccessTokenMixin
       if got
         yield got
       else
-        self.logger.info "creating_access_token"
+        self.logger.debug "creating_access_token", access_token_cache_key: key
         form_body = URI.encode_www_form(
           {
             client_id: self.service_integration.backfill_key,

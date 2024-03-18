@@ -9,7 +9,6 @@ class Webhookdb::Jobs::Emailer
   splay 5.seconds
 
   def _perform
-    self.logger.info "Sending pending emails"
     Webhookdb::Message.send_unsent
   end
 end
