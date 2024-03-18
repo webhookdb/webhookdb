@@ -207,14 +207,17 @@ The secret to use for signing is:
         response_body = "<too many redirects>"
       when Down::NotModified
         # Do not alert on 304, but do log
-        self.logger.warn("icalendar_fetch_error", response_status: 304, request_url:, calendar_external_id:)
+        self.logger.info("icalendar_fetch_not_modified", response_status: 304, request_url:, calendar_external_id:)
         return
-      when Down::TimeoutError, Down::SSLError, Down::ConnectionError, Down::InvalidUrl
+      when Down::TimeoutError, Down::SSLError, Down::ConnectionError
+        self._handle_retryable_down_error(e, request_url:, calendar_external_id:)
+      when Down::InvalidUrl
         response_status = 0
         response_body = e.to_s
       when Down::ClientError
         raise e if e.response.nil?
         response_status = e.response.code.to_i
+        self._handle_retryable_down_error(e, request_url:, calendar_external_id:) if response_status == 429
         # These are all the errors we've seen, we can't do anything about.
         # In theory we should do this for ALL 4xx errors,
         # but we'd rather error on the WebhookDB side until we're sure
@@ -251,6 +254,21 @@ The secret to use for signing is:
       request_method: "GET",
     )
     self.service_integration.organization.alerting.dispatch_alert(message)
+  end
+
+  def _handle_retryable_down_error(e, request_url:, calendar_external_id:)
+    # Retry on these, which are hopefully transient.
+    # For now, if they aren't transient, die so we see the job.
+    # We will probably need to do an alert if the retries on exhausted instead.
+    retry_in = rand(4..60).minutes
+    self.logger.debug(
+      "icalendar_fetch_error_retry",
+      response_status: e.respond_to?(:response) ? e.response&.code : 0,
+      request_url:,
+      calendar_external_id:,
+      retry_at: Time.now + retry_in,
+    )
+    raise Amigo::Retry::OrDie.new(10, retry_in)
   end
 
   class EventProcessor
