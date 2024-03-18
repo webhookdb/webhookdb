@@ -309,6 +309,74 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     JSON
   end
 
+  it_behaves_like "a replicator that may have a minimal body", "intercom_conversation_v1" do
+    let(:body) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "vne310wv",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "type": "conversation",
+            "id": "123",
+            "created_at": 1539897198,
+            "updated_at": 1540393270,
+            "title": "Conversation Title",
+            "admin_assignee_id": 814860,
+            "team_assignee_id": null,
+            "custom_attributes": {
+              "issue_type": "Billing",
+              "priority": "High"
+            },
+            "open": true,
+            "state": "open",
+            "read": true,
+            "waiting_since": 64654125776,
+            "snoozed_until": null,
+            "priority": "not_priority",
+            "sla_applied": {
+              "sla_name": "VIP customer <5m",
+              "sla_status": "missed"
+            }
+          }
+        },
+        "links": {},
+        "id": null,
+        "topic": "conversation.read",
+        "delivery_status": null,
+        "delivery_attempts": 1,
+        "delivered_at": 0,
+        "first_sent_at": 1710776797,
+        "created_at": 1710776797,
+        "self": null
+      }
+    JSON
+
+    let(:archived_body) { JSON.parse(<<~JSON) }
+      {
+        "type": "notification_event",
+        "app_id": "ol9hno6x",
+        "data": {
+          "type": "notification_event_data",
+          "item": {
+            "type": "conversation",
+            "conversation_id": "456"
+          }
+        },
+        "links": {},
+        "id": "notif_26c802a6-774d-41d2-806a-fede50eb8246",
+        "topic": "conversation.deleted",
+        "delivery_status": "pending",
+        "delivery_attempts": 1,
+        "delivered_at": 0,
+        "first_sent_at": 1710755503,
+        "created_at": 1710755503,
+        "self": null
+      }
+    JSON
+    let(:other_bodies) { [archived_body] }
+  end
+
   it_behaves_like "a replicator dependent on another", "intercom_conversation_v1", "intercom_marketplace_root_v1" do
     let(:no_dependencies_message) { "This integration requires Intercom Auth to sync" }
   end
@@ -786,6 +854,86 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:error_message) { /that the Intercom Auth integration has a valid Auth Token/ }
     def strip_auth(sint)
       sint.replicator.find_auth_integration.update(backfill_secret: "")
+    end
+  end
+
+  describe "upserting" do
+    let(:full_body) { JSON.parse(<<~JSON) }
+      {
+        "type": "conversation",
+        "id": "123",
+        "created_at": 1539897198,
+        "updated_at": 1540393270,
+        "title": "Conversation Title",
+        "admin_assignee_id": 814860,
+        "team_assignee_id": null,
+        "custom_attributes": {
+          "issue_type": "Billing",
+          "priority": "High"
+        },
+        "open": true,
+        "state": "open",
+        "read": true,
+        "waiting_since": 64654125776,
+        "snoozed_until": null,
+        "priority": "not_priority",
+        "sla_applied": {
+          "sla_name": "VIP customer <5m",
+          "sla_status": "missed"
+        }
+      }
+    JSON
+
+    describe "handling a delete event" do
+      let(:delete_event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "ol9hno6x",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "type": "conversation",
+              "conversation_id": "123"
+            }
+          },
+          "links": {},
+          "id": "notif_26c802a6-774d-41d2-806a-fede50eb8246",
+          "topic": "conversation.deleted",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1710755503,
+          "created_at": 1710755503,
+          "self": null
+        }
+      JSON
+
+      it "will merge the delete info into an existing row" do
+        org.prepare_database_connections
+        svc.create_table
+        svc.upsert_webhook_body(full_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "123",
+          state: "open",
+          read: true,
+          created_at: match_time("2018-10-18 21:13:18Z"),
+          updated_at: match_time("2018-10-24 15:01:10Z"),
+          deleted_at: nil,
+          data: hash_including("title" => "Conversation Title"),
+        )
+        svc.upsert_webhook_body(delete_event_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "123",
+          state: "open",
+          read: true,
+          created_at: match_time("2018-10-18 21:13:18Z"),
+          updated_at: match_time(:now),
+          deleted_at: match_time(:now),
+          data: hash_including("title" => "Conversation Title", "deleted" => true),
+        )
+      ensure
+        org.remove_related_database
+      end
     end
   end
 
