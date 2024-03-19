@@ -174,7 +174,7 @@ The secret to use for signing is:
 
   def _sync_row(row, dep)
     calendar_external_id = row.fetch(:external_id)
-    request_url = row.fetch(:ics_url)
+    request_url = self._clean_ics_url(row.fetch(:ics_url))
     begin
       io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
     rescue Down::Error => e
@@ -200,6 +200,14 @@ The secret to use for signing is:
     self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
   end
 
+  # We get all sorts of strange urls, fix up what we can.
+  def _clean_ics_url(url)
+    u = URI(url)
+    # https://xyz.com:80 is invalid, set it to 443 which yields https://xyz.com
+    u.port = 443 if u.scheme == "https" && u.port == 80
+    return u.to_s
+  end
+
   def _handle_down_error(e, request_url:, calendar_external_id:)
     case e
       when Down::TooManyRedirects
@@ -209,15 +217,15 @@ The secret to use for signing is:
         # Do not alert on 304, but do log
         self.logger.info("icalendar_fetch_not_modified", response_status: 304, request_url:, calendar_external_id:)
         return
-      when Down::TimeoutError, Down::SSLError, Down::ConnectionError
-        self._handle_retryable_down_error(e, request_url:, calendar_external_id:)
-      when Down::InvalidUrl
+      when Down::SSLError
+        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
+      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl
         response_status = 0
         response_body = e.to_s
       when Down::ClientError
         raise e if e.response.nil?
         response_status = e.response.code.to_i
-        self._handle_retryable_down_error(e, request_url:, calendar_external_id:) if response_status == 429
+        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if response_status == 429
         # These are all the errors we've seen, we can't do anything about.
         # In theory we should do this for ALL 4xx errors,
         # but we'd rather error on the WebhookDB side until we're sure
@@ -256,7 +264,7 @@ The secret to use for signing is:
     self.service_integration.organization.alerting.dispatch_alert(message)
   end
 
-  def _handle_retryable_down_error(e, request_url:, calendar_external_id:)
+  def _handle_retryable_down_error!(e, request_url:, calendar_external_id:)
     # Retry on these, which are hopefully transient.
     # For now, if they aren't transient, die so we see the job.
     # We will probably need to do an alert if the retries on exhausted instead.
