@@ -526,8 +526,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
       [
         ["429s", {status: 429}],
-        ["connection errors", Down::ConnectionError.new],
-        ["timeouts", Down::TimeoutError.new],
         ["ssl errors", Down::SSLError.new],
       ].each do |(msg, param)|
         it "retries on Down #{msg}" do
@@ -548,6 +546,39 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         row = insert_calendar_row(ics_url: "webca://feed.me", external_id: "abc")
         svc.sync_row(row)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down timeout" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::TimeoutError)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on Down connection errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "repairs invalid https port 80 urls" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
+        row = insert_calendar_row(ics_url: "https://feed.me:80", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
         expect(Webhookdb::Message::Delivery.all).to contain_exactly(
           have_attributes(template: "errors/icalendar_fetch"),
         )
