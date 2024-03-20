@@ -465,6 +465,80 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "updates row_updated_at when canceling an event" do
+      body1 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:already_cancelled
+        DTSTART:20080212
+        DTEND:20080213
+        STATUS:CANCELLED
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:will_cancel
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+      ICAL
+      body2 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:already_cancelled
+        DTSTART:20080212
+        DTEND:20080213
+        STATUS:CANCELLED
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+        )
+      cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      first_ran = Time.parse("2020-01-15T12:00:00Z")
+      Timecop.freeze(first_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: nil, row_updated_at: match_time(first_ran)),
+      )
+      second_ran = first_ran + 1.hour
+      Timecop.freeze(second_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: "CANCELLED", row_updated_at: match_time(second_ran)),
+      )
+      third_ran = second_ran + 1.hour
+      Timecop.freeze(third_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: "CANCELLED", row_updated_at: match_time(second_ran)),
+      )
+      expect(req).to have_been_made.times(3)
+    end
+
     describe "alerting", :no_transaction_check do
       it "raises on unexpected errors" do
         err = RuntimeError.new("hi")
@@ -1319,7 +1393,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   describe "icalendar parser tests" do
     let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
     let(:replicator) { described_class.new(nil) }
-    let(:upserter) { described_class::Upserter.new(replicator, "1") }
+    let(:upserter) { described_class::Upserter.new(replicator, "1", now: Time.now) }
 
     def events
       arr = []
