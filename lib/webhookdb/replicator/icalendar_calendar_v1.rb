@@ -231,7 +231,8 @@ The secret to use for signing is:
       when Down::ClientError
         raise e if e.response.nil?
         response_status = e.response.code.to_i
-        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if response_status == 429
+        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if
+          self._retryable_client_error?(e, request_url:)
         # These are all the errors we've seen, we can't do anything about.
         # In theory we should do this for ALL 4xx errors,
         # but we'd rather error on the WebhookDB side until we're sure
@@ -241,6 +242,7 @@ The secret to use for signing is:
           404, 405, # Fundamental issues with the URL given
           409, 410, # More access problems
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
+          429, # Usually 429s are retried (as above), but in some cases they're not.
         ]
         # For most client errors, we can't do anything about it. For example,
         # and 'unshared' URL could result in a 401, 403, 404, or even a 405.
@@ -268,6 +270,17 @@ The secret to use for signing is:
       request_method: "GET",
     )
     self.service_integration.organization.alerting.dispatch_alert(message)
+  end
+
+  def _retryable_client_error?(e, request_url:)
+    code = e.response.code.to_i
+    # This is a bad domain that returns 429 for most requests.
+    # Tell the org admins it won't sync.
+    return false if code == 429 && request_url.start_with?("https://ical.schedulestar.com")
+    # Other 429s can be retried.
+    return true if code == 429
+    # Otherwise, handle the client error normally, by telling the org admins, or raising.
+    return false
   end
 
   def _handle_retryable_down_error!(e, request_url:, calendar_external_id:)

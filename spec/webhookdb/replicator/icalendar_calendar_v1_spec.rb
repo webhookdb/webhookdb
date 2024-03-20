@@ -616,6 +616,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         end
       end
 
+      it "alerts on 429s to particular URLs" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://ical.schedulestar.com/fans/?uuid=123").
+          and_return(status: 429)
+        row = insert_calendar_row(ics_url: "https://ical.schedulestar.com/fans/?uuid=123", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
       it "alerts on invalid url errors" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         row = insert_calendar_row(ics_url: "webca://feed.me", external_id: "abc")
