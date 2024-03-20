@@ -625,6 +625,15 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      it "alerts on non-UTF8 url errors" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        row = insert_calendar_row(ics_url: "https://outlook.office365.com/\u2026acmecorp.com/", external_id: "abc")
+        svc.sync_row(row)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
       it "alerts on Down timeout" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").to_raise(Down::TimeoutError)

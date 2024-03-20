@@ -177,10 +177,10 @@ The secret to use for signing is:
 
   def _sync_row(row, dep, now:)
     calendar_external_id = row.fetch(:external_id)
-    request_url = self._clean_ics_url(row.fetch(:ics_url))
     begin
+      request_url = self._clean_ics_url(row.fetch(:ics_url))
       io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
-    rescue Down::Error => e
+    rescue Down::Error, URI::InvalidURIError => e
       self._handle_down_error(e, request_url:, calendar_external_id:)
       return
     end
@@ -225,7 +225,7 @@ The secret to use for signing is:
         return
       when Down::SSLError
         self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
-      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl
+      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl, URI::InvalidURIError
         response_status = 0
         response_body = e.to_s
       when Down::ClientError
