@@ -12,6 +12,33 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
   let(:calendar_external_id) { "123" }
   let(:ics_url) { "https://spec.test" }
 
+  it_behaves_like "a replicator", "icalendar_event_v1" do
+    let(:body) do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DTEND:20190820T190000Z
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      h = described_class.vevent_to_hash(s.lines)
+      h["calendar_external_id"] = "123"
+      h["row_updated_at"] = Time.now.iso8601
+      h
+    end
+    let(:expected_row) do
+      include(
+        :pk,
+        calendar_external_id: "123",
+        compound_identity: "123-79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
+        data: include("DTEND"),
+        start_at: match_time("2020-02-20 17:00:00Z"),
+        uid: "79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
+      )
+    end
+    let(:supports_row_diff) { false }
+  end
+
   it_behaves_like "a replicator dependent on another", "icalendar_event_v1", "icalendar_calendar_v1" do
     let(:no_dependencies_message) { "" }
   end
@@ -22,6 +49,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
     def upsert(s)
       h = described_class.vevent_to_hash(s.lines)
       h["calendar_external_id"] = "123"
+      h["row_updated_at"] = Time.now.iso8601
       return svc.upsert_webhook_body(h, upsert: false)
     end
 
@@ -311,6 +339,64 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_2a46eca5b6e6adca4a315774180a30_idx ON public.svctable (calendar_external_id, start_date, end_date) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_date\" IS NOT NULL))",
       )
       # rubocop:enable Layout/LineLength
+    end
+  end
+
+  describe "delete_stale_cancelled_events" do
+    before(:each) do
+      org.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) { org.remove_related_database }
+
+    def upsert(uid, updated, status: "CANCELLED")
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DTEND:20190820T190000Z
+        UID:#{uid}
+        STATUS:#{status}
+        END:VEVENT
+      ICAL
+      h = described_class.vevent_to_hash(s.lines)
+      h["calendar_external_id"] = "123"
+      h["row_updated_at"] = updated.iso8601
+      return svc.upsert_webhook_body(h)
+    end
+
+    it "deletes stale cancelled events" do
+      upsert("recent", 3.days.ago)
+      upsert("stale", 40.days.ago)
+      upsert("stale_not_cancelled", 40.days.ago, status: "CONFIRMED")
+      upsert("too_old", 100.days.ago)
+      svc.delete_stale_cancelled_events
+      expect(svc.admin_dataset { |ds| ds.select(:uid).all }).to contain_exactly(
+        include(uid: "recent"),
+        include(uid: "stale_not_cancelled"),
+        include(uid: "too_old"),
+      )
+    end
+
+    it "can use a nil age cutoff" do
+      upsert("recent", 3.days.ago)
+      upsert("stale", 40.days.ago)
+      upsert("old", 100.days.ago)
+      svc.delete_stale_cancelled_events(age_cutoff: nil)
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(uid: "recent"),
+      )
+    end
+
+    it "deletes in chunks" do
+      upsert("recent", 3.days.ago)
+      Array.new(100) { upsert("stale", 40.days.ago) }
+      upsert("not_cancelled", 40.days.ago, status: "CONFIRMED")
+      svc.delete_stale_cancelled_events
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(uid: "recent"),
+        include(uid: "not_cancelled"),
+      )
     end
   end
 end

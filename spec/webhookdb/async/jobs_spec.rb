@@ -215,6 +215,29 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "IcalendarDeleteStaleCancelledEvents" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "icalendar_event_v1") }
+    let(:org) { sint.organization }
+
+    before(:each) do
+      org.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) { org.remove_related_database }
+
+    it "deletes stale events" do
+      sint.replicator.admin_dataset do |ds|
+        ds.insert(data: "{}", compound_identity: "new", uid: "new", row_updated_at: Time.now, status: "CANCELLED")
+        ds.insert(
+          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 40.days.ago, status: "CANCELLED",
+        )
+      end
+      Webhookdb::Jobs::IcalendarDeleteStaleCancelledEvents.new.perform(true)
+      expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(uid: "new"))
+    end
+  end
+
   describe "IcalendarEnqueueSyncs" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:sint) do

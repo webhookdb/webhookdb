@@ -146,11 +146,12 @@ The secret to use for signing is:
 
   class Upserter
     include Webhookdb::Backfiller::Bulk
-    attr_reader :upserting_replicator, :calendar_external_id
+    attr_reader :upserting_replicator, :calendar_external_id, :now
 
-    def initialize(replicator, calendar_external_id)
+    def initialize(replicator, calendar_external_id, now:)
       @upserting_replicator = replicator
       @calendar_external_id = calendar_external_id
+      @now = now
     end
 
     def upsert_page_size = 500
@@ -158,21 +159,23 @@ The secret to use for signing is:
 
     def prepare_body(body)
       body["calendar_external_id"] = @calendar_external_id
+      body["row_updated_at"] = @now
     end
   end
 
   def sync_row(row)
     Appydays::Loggable.with_log_tags(icalendar_url: row.fetch(:ics_url)) do
       self.with_advisory_lock(row.fetch(:pk)) do
+        now = Time.now
         if (dep = self.find_dependent("icalendar_event_v1"))
-          self._sync_row(row, dep)
+          self._sync_row(row, dep, now:)
         end
-        self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
+        self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: now) }
       end
     end
   end
 
-  def _sync_row(row, dep)
+  def _sync_row(row, dep, now:)
     calendar_external_id = row.fetch(:external_id)
     request_url = self._clean_ics_url(row.fetch(:ics_url))
     begin
@@ -182,7 +185,7 @@ The secret to use for signing is:
       return
     end
 
-    upserter = Upserter.new(dep.replicator, calendar_external_id)
+    upserter = Upserter.new(dep.replicator, calendar_external_id, now:)
     processor = EventProcessor.new(io, upserter)
     processor.process
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
@@ -192,12 +195,15 @@ The secret to use for signing is:
         ds.where(delete_condition).delete
       end
       # Update both the status, and set the data json to match.
-      ds.exclude(compound_identity: processor.upserted_identities).update(
+      # Only update rows not already CANCELLED.
+      ds = ds.exclude(Sequel[compound_identity: processor.upserted_identities])
+      ds = ds.where(Sequel[status: nil] | ~Sequel[status: "CANCELLED"])
+      ds.update(
         status: "CANCELLED",
         data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),
+        row_updated_at: now,
       )
     end
-    self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: Time.now) }
   end
 
   # We get all sorts of strange urls, fix up what we can.
@@ -414,7 +420,7 @@ The secret to use for signing is:
 
       schedule = IceCube::Schedule.from_hash(ical_params)
       dont_project_before = Webhookdb::Icalendar.oldest_recurring_event
-      dont_project_after = Time.now + RECURRENCE_PROJECTION
+      dont_project_after = @upserter.now + RECURRENCE_PROJECTION
 
       # Just like google, track the original event id.
       h["recurring_event_id"] = uid
