@@ -587,5 +587,36 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         include(external_id: "OLD_sw_id_only", signalwire_sid: "OLD_swid2", front_message_id: "skipped_due_to_age"),
       )
     end
+
+    it "syncs a Front message using a default body if the signalwire body is null" do
+      t = Time.now
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          external_conversation_id: "convoid",
+          sender: "12223334444",
+          recipient: "4445556666",
+          body: nil,
+          data: {date_created: t.rfc2822}.to_json,
+        )
+      end
+      req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+        with(
+          body: {
+            sender: {handle: "+12223334444"},
+            body: "<no body>",
+            delivered_at: t.to_i,
+            metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
+          }.as_json,
+        ).
+        to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+      backfill(sint)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+      )
+    end
   end
 end

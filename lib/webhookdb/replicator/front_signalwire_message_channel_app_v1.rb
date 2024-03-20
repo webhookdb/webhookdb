@@ -324,7 +324,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     def _sync_front_inbound(sender:, texted_at:, item:, body:)
       body = {
         sender: {handle: sender},
-        body:,
+        body: body || "<no body>",
         delivered_at: texted_at.to_i,
         metadata: {
           external_id: item.fetch(:external_id),
