@@ -164,15 +164,15 @@ module Webhookdb::API::Helpers
     request_headers = {}
     raise LocalJumpError unless block_given?
     begin
+      request_headers = request.headers.dup
+      if (content_type = env["CONTENT_TYPE"])
+        request_headers["Content-Type"] = content_type
+      end
       sint = yield
       return if sint == :pass
       raise "error instead of return nil if there is no service integration" if sint.nil?
       opaque_id = sint.opaque_id
       organization_id = sint.organization_id
-      request_headers = request.headers.dup
-      if (content_type = env["CONTENT_TYPE"])
-        request_headers["Content-Type"] = content_type
-      end
       svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
       svc.preprocess_headers_for_logging(request_headers)
       handling_sint = svc.service_integration

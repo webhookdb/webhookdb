@@ -406,9 +406,10 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       post :uninstall do
         app_id = params[:app_id]
         root_sint = find_root(app_id)
-        # Apparently intercom's uninstall request does not come with any headers,
-        # unlike the normal /webhook request. This is... terrible,
-        # since there's no way to avoid the ability for someone to uninstall an app totally unauthenticated.
+        # Intercom uses X-Body-Signature rather than X-Hub-Signature here,
+        # unlike the normal /webhook request.
+        # I've asked Intercom if they can support X-Hub-Signature here as well.
+        # If they cannot, we need to add support for the alternative signature validation.
         opaque_id = root_sint&.opaque_id || "intercom_marketplace_appid-#{app_id}"
         handle_webhook_request(opaque_id) do
           root_sint&.destroy_self_and_all_dependents

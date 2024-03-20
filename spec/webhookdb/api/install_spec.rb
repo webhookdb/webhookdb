@@ -787,6 +787,19 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
 
       expect(last_response).to have_status(200)
     end
+
+    it "logs the webhook headers properly (tests handle_webhook_request)" do
+      post "/v1/install/intercom/uninstall", {app_id: "ghi567"}
+
+      expect(last_response).to have_status(200)
+
+      # This tests handle_webhook_request with a block returning :pass.
+      # We can test it directly in the future but this is good enough for now.
+      expect(Webhookdb::LoggedWebhook.first).to have_attributes(
+        request_path: "/v1/install/intercom/uninstall",
+        request_headers: include("Host", "Version", "Trace-Id"),
+      )
+    end
   end
 
   describe "POST /v1/install/intercom/health" do
