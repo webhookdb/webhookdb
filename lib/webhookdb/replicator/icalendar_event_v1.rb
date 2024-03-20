@@ -259,6 +259,21 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
         value.gsub!("\\r\\n", "\r\n")
         value.gsub!("\\n", "\n")
         value.gsub!("\\t", "\t")
+        # This line is not tested, since replicating issues with HTTP body encoding
+        # is really tricky (while I love Ruby's unicode handling, trying to replicate
+        # invalid data from other sources is a pain).
+        # However we do get invalid unicode sequences, like:
+        #   DESCRIPTION:\r\nNFL regional registration opens 9/25 and ends 11/20\XAOwww.nflflag.com
+        # which cannot be encoded in JSON:
+        #   Invalid Unicode [a0 77 77 77 2e] at 52 (JSON::GeneratorError)
+        # The only way I can think to handle this is with replacing invalid utf-8 chars
+        # (with the unicode questionmark icon), so they can be represented as JSON.
+        # This fix is here, and not in `Base#_to_json` (like the null char fixes),
+        # since I think this is an issue with feeds like icalendar,
+        # and not something to handle generally
+        # (we may also see this in something like Atom, but perhaps because
+        # atom is XML, not a 'plain' text format, it'll be more rare).
+        value.encode!("UTF-8", invalid: :replace, undef: :replace)
       end
       entry = {"v" => value}
       entry.merge!(params)
