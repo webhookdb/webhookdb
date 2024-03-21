@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/github"
+require "webhookdb/messages/error_github_repo"
 
 # Mixin for repo-specific resources like issues and pull requests.
 module Webhookdb::Replicator::GithubRepoV1Mixin
@@ -188,7 +189,21 @@ Then click 'Generate token'.)
       query = {per_page: 100}
       query.merge!(self._mixin_query_params(last_backfilled:))
     end
-    response, data = self._http_get(url, query)
+    begin
+      response, data = self._http_get(url, query)
+    rescue Webhookdb::Http::Error => e
+      raise e unless [401].include?(e.status)
+      self.logger.info("github_backfill_error", response_status: e.status)
+      message = Webhookdb::Messages::ErrorGithubRepo.new(
+        self.service_integration,
+        response_status: e.status,
+        response_body: e.body,
+        request_url: e.uri.to_s,
+        request_method: "GET",
+      )
+      self.service_integration.organization.alerting.dispatch_alert(message)
+      return [], nil
+    end
     next_link = nil
     if response.headers.key?("link")
       links = Webhookdb::Github.parse_link_header(response.headers["link"])
