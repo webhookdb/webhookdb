@@ -50,6 +50,11 @@ class Webhookdb::Replicator::IntercomConversationV1 < Webhookdb::Replicator::Bas
         resource["id"] = resource.fetch("conversation_id")
         resource["updated_at"] = Time.now
         resource["deleted_at"] = Time.now
+      when "conversation.contact.attached", "conversation.contact.detached"
+        # The convo is in resource['conversation']['model'], and doesn't have a number of fields.
+        # This doesn't seem like an important enough event to track for now,
+        # unless we start to do it relationally.
+        return nil, nil
     end
     return resource, event
   end

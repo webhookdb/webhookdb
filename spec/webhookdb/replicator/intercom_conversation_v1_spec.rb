@@ -908,9 +908,16 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
         }
       JSON
 
-      it "will merge the delete info into an existing row" do
+      before(:each) do
         org.prepare_database_connections
         svc.create_table
+      end
+
+      after(:each) do
+        org.remove_related_database
+      end
+
+      it "will merge the delete info into an existing row" do
         svc.upsert_webhook_body(full_body)
         expect(svc.admin_dataset(&:first)).to include(
           intercom_id: "123",
@@ -931,8 +938,116 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
           deleted_at: match_time(:now),
           data: hash_including("title" => "Conversation Title", "deleted" => true),
         )
-      ensure
+      end
+    end
+
+    describe "handling contact attach/detach events" do
+      let(:event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "ol9hno6x",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "conversation": {
+                "parts": [
+                  {
+                    "id": 21893097594,
+                    "app_id": 1650250,
+                    "conversation_id": 1886,
+                    "message_thread_id": 2202171768,
+                    "body": "",
+                    "created_at": "2024-03-23T14:41:12.000Z",
+                    "updated_at": "2024-03-23T14:41:12.000Z",
+                    "user_id": "65416fc0d0a855567fbf14ea"
+                  }
+                ],
+                "options": {
+                  "expand_for_notification": true
+                },
+                "model": {
+                  "id": 1886,
+                  "user_id": "65416fc0d0a855567fbf14ea",
+                  "app_id": 1650250,
+                  "message_id": 2113316339,
+                  "created_at": "2024-03-23T14:41:07.000Z",
+                  "updated_at": "2024-03-23T14:41:12.000Z",
+                  "read_at": "2024-03-23T14:41:12.000Z",
+                  "latest_user_visible_comment_at": "2024-03-23T14:41:12.000Z",
+                  "latest_admin_visible_comment_at": "2024-03-23T14:41:12.000Z",
+                  "first_opened_at": "2024-03-23T14:41:12.000Z",
+                  "first_user_comment_at": "2024-03-23T14:41:11.000Z",
+                  "message_subclass_type": 3,
+                  "deleted": false,
+                  "original_user_id": "-1",
+                  "dismissed": false,
+                  "delivery_state": "delivered",
+                  "sent_at": "2024-03-23T14:41:07.000Z",
+                  "initiator_id": null,
+                  "initiator_type": null,
+                  "initial_channel": 8,
+                  "current_channel": 8
+                }
+              },
+              "contact": {
+                "type": "contact",
+                "id": "65446e1aaf142d1550cfd6d7",
+                "workspace_id": "ol9hno6x",
+                "external_id": "4f45dea4-3f26-4728-9be4-668997f97459",
+                "role": "lead",
+                "email": "support@webhookdb.com",
+                "phone": null,
+                "formatted_phone": null,
+                "name": "Support",
+                "avatar": null,
+                "owner_id": null,
+                "social_profiles": {
+                  "type": "list",
+                  "data": []
+                },
+                "has_hard_bounced": false,
+                "marked_email_as_spam": false,
+                "unsubscribed_from_emails": false,
+                "created_at": "2023-11-03T03:50:50.437+00:00",
+                "updated_at": "2024-03-23T14:23:03.486+00:00",
+                "signed_up_at": null,
+                "last_seen_at": null,
+                "last_replied_at": "2024-03-04T19:44:02.000+00:00",
+                "last_contacted_at": "2024-03-23T10:48:22.713+00:00",
+                "last_email_opened_at": "2024-03-23T14:23:03.475+00:00",
+                "last_email_clicked_at": null,
+                "language_override": null,
+                "browser": null,
+                "browser_version": null,
+                "browser_language": null,
+                "os": null
+              }
+            }
+          },
+          "links": {},
+          "id": "notif_13111f53-116a-410c-90f8-2b3cd9459797",
+          "topic": "conversation.contact.attached",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1711204872,
+          "created_at": 1711204872,
+          "self": null
+        }
+      JSON
+
+      before(:each) do
+        org.prepare_database_connections
+        svc.create_table
+      end
+
+      after(:each) do
         org.remove_related_database
+      end
+
+      it "skips the upsert" do
+        svc.upsert_webhook_body(event_body)
+        expect(svc.admin_dataset(&:all)).to be_empty
       end
     end
   end
