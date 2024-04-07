@@ -53,6 +53,7 @@ module Webhookdb::Service::Middleware
     builder.use(Rack::ContentLength)
     builder.use(Rack::Chunked)
     builder.use(Sentry::Rack::CaptureExceptions)
+    builder.use(Rack::Deflater)
   end
 
   def self.add_dev_middleware(builder)
