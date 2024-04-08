@@ -817,6 +817,62 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
         org.remove_related_database
       end
     end
+
+    describe "handling an unsubscribe event" do
+      let(:archive_event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "12345",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "type": "contact_unsubscribe",
+              "contact": {
+                "type": "contact",
+                "id": "64d14669156d93e1e18f6a17",
+                "workspace_id": "44444",
+                "external_id": "1922",
+                "role": "user",
+                "email": "info@abc.com",
+                "phone": null,
+                "marked_email_as_spam": false,
+                "unsubscribed_from_emails": true,
+                "created_at": "2023-11-02T21:18:23.595+00:00",
+                "updated_at": "2024-04-02T21:22:22.670+00:00",
+                "signed_up_at": "2023-11-02T21:19:21.000+00:00"
+              },
+              "created_at": 1712092942
+            }
+          },
+          "links": {},
+          "id": "notif_6e4f9405-02df-439f-9f3b-e2a775cd385c",
+          "topic": "contact.unsubscribed",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1712092942,
+          "created_at": 1712092942,
+          "self": null
+        }
+      JSON
+
+      it "replaces an existing row" do
+        org.prepare_database_connections
+        svc.create_table
+        svc.upsert_webhook_body(full_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+        )
+        svc.upsert_webhook_body(archive_event_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "1922",
+        )
+      ensure
+        org.remove_related_database
+      end
+    end
   end
 
   describe "state machine calculation" do
