@@ -487,6 +487,7 @@ The secret to use for signing is:
         ical = ical.gsub(/BYMONTHDAY=[\d,]+/, "")
         ical.delete_prefix! ";"
         ical.delete_suffix! ";"
+        ical.squeeze!(";")
       end
       return IceCube::IcalParser.rule_from_ical(ical)
     end
