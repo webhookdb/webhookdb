@@ -72,7 +72,13 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
           alerting.dispatch_alert(tmpl)
         end
       end
+      # Sent 20 emails to each admin
       expect(Webhookdb::Message::Delivery.all).to have_length(40)
+      # Move to tomorrow and assert we send emails
+      Timecop.travel(25.hours.from_now) do
+        alerting.dispatch_alert(tmpl)
+      end
+      expect(Webhookdb::Message::Delivery.all).to have_length(42)
     end
   end
 end
