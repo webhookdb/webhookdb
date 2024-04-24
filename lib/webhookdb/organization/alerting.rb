@@ -31,11 +31,13 @@ class Webhookdb::Organization::Alerting
     end
     signature = message_template.signature
     max_alerts_per_customer_per_day = Webhookdb::Organization::Alerting.max_alerts_per_customer_per_day
+    yesterday = Time.now - 24.hours
     self.org.admin_customers.each do |c|
       idemkey = "orgalert-#{signature}-#{c.id}"
       Webhookdb::Idempotency.every(Webhookdb::Organization::Alerting.interval).under_key(idemkey) do
         sent_last_day = Webhookdb::Message::Delivery.
           where(template: message_template.full_template_name, recipient: c).
+          where { created_at > yesterday }.
           limit(max_alerts_per_customer_per_day).
           count
         next unless sent_last_day < max_alerts_per_customer_per_day

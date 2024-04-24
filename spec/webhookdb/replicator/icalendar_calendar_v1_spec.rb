@@ -1331,7 +1331,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         DTEND;VALUE=DATE:20230907
         DTSTAMP:20230819T112238Z
         DTSTART;VALUE=DATE:20230906
-        RRULE:FREQ=WEEKLY;UNTIL=20231001;INTERVAL=2;BYMONTHDAY=4,26,5
+        RRULE:FREQ=WEEKLY;UNTIL=20231001;BYMONTHDAY=4,26,5;INTERVAL=2
         SEQUENCE:0
         X-Comment:Same as above but with multiple BYMONTHDAY
         SUMMARY:Circles

@@ -36,7 +36,7 @@ RSpec.describe Webhookdb::API::Me, :db do
       expect(lines).to contain_exactly(
         ["Default Org", "Hi (hi)"],
         ["Email", "a@b.co"],
-        ["Memberships", "Hi (hi): member\nBye (bye): admin"],
+        ["Memberships", "Bye (bye): admin\nHi (hi): member"],
         ["Invitations", "Bar (bar): code1\nFoo (foo): code2"],
       )
     end
