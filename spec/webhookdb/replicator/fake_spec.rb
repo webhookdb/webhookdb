@@ -613,6 +613,13 @@ or leave blank to choose the first option.
         end.to raise_error(ArgumentError)
       end
 
+      it "always strips whitespace from the value" do
+        sint = Webhookdb::Fixtures.service_integration.create
+        sint.replicator.process_state_change("backfill_secret", " ab cd ")
+        sint.replicator.process_state_change("webhook_secret", "\nxy zw\n")
+        expect(sint).to have_attributes(backfill_secret: "ab cd", webhook_secret: "xy zw")
+      end
+
       describe "setting dependency_choice" do
         let(:org) { Webhookdb::Fixtures.organization.create }
         let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }

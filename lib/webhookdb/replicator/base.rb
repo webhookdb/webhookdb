@@ -159,6 +159,7 @@ class Webhookdb::Replicator::Base
   def process_state_change(field, value, attr: nil)
     attr ||= field
     desc = self.descriptor
+    value = value.strip if value.respond_to?(:strip)
     case field
       when *self._webhook_state_change_fields
         # If we don't support webhooks, then the backfill state machine may be using it.
