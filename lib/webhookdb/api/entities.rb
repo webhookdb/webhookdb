@@ -47,11 +47,13 @@ module Webhookdb::API
     expose :verified_memberships, with: OrganizationMembershipEntity
     expose :verified_memberships_formatted do |instance|
       lines = instance.verified_memberships.map { |m| "#{m.organization.display_string}: #{m.status}" }
+      lines.sort!
       lines.join("\n")
     end
     expose :invited_memberships, as: :invitations, with: OrganizationMembershipEntity
     expose :invitations_formatted do |instance|
       lines = instance.invited_memberships.map { |m| "#{m.organization.display_string}: #{m.invitation_code}" }
+      lines.sort!
       lines.join("\n")
     end
     expose :display_headers do |_|
