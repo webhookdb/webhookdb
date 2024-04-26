@@ -287,12 +287,18 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       org.prepare_database_connections
       sint.replicator.create_table
       Webhookdb::Replicator::Fake.process_webhooks_synchronously = {x: 1}.to_json
+      wh_req = nil
+      Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |req|
+        wh_req = req
+        req.body
+      }
       header "X-My-Test", "abc"
       post "/v1/service_integrations/xyz", my_id: "myid", at: Time.at(5)
 
       expect(last_response).to have_status(202)
       expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
       expect(last_response).to have_json_body.that_includes(x: 1)
+      expect(wh_req).to have_attributes(rack_request: be_a(Rack::Request))
     ensure
       org.remove_related_database
     end

@@ -109,9 +109,8 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   end
 
   def _resource_and_event(request)
-    body = request.body
-    return self.class.resource_and_event_hook.call(body) if self.class.resource_and_event_hook
-    return body, nil
+    return self.class.resource_and_event_hook.call(request) if self.class.resource_and_event_hook
+    return request.body, nil
   end
 
   def _update_where_expr

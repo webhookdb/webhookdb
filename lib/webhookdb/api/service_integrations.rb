@@ -16,7 +16,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
   # because external services (so no auth) will be posting webhooks here.
   # Depend on webhook verification to ensure the request is valid.
   resource :service_integrations do
-    route [:post, :put, :delete, :patch], "/:opaque_id*" do
+    route [:get, :post, :put, :delete, :patch], "/:opaque_id*" do
       opaque_id = params[:opaque_id]
       handle_webhook_request(opaque_id) do
         Webhookdb::ServiceIntegration[opaque_id:] or merror!(400, "No integration with that id")
@@ -95,7 +95,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 :guard_confirm,
                 "WARNING: #{org.name} already has an integration for service #{params[:service_name]}.\n" \
                 "Press Enter to create another, or Ctrl+C to quit.\n" \
-                "Modify the existing integration using `webhookdb integrations #{existing.opaque_id} setup`",
+                "Modify the existing integration using `webhookdb integrations setup #{existing.opaque_id}`",
               )
             end
           end
