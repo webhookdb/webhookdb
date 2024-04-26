@@ -3,6 +3,8 @@
 require "webhookdb/api"
 
 class Webhookdb::API::SavedViews < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :organizations do
     route_param :org_identifier do
       resource :saved_views do
@@ -34,7 +36,7 @@ class Webhookdb::API::SavedViews < Webhookdb::API::V1
         desc "Creates or replaces the view with the given name."
         params do
           optional :name,
-                   type: String,
+                   type: TrimmedString,
                    prompt: "Enter the view name (alphanumeric, spaces, underscores):"
           optional :sql, type: String, prompt: "Enter the SQL you would like to run:"
         end

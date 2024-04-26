@@ -62,21 +62,23 @@ class Webhookdb::API::TestService < Webhookdb::Service
   end
 
   params do
-    requires :email, type: String, coerce_with: NormalizedEmail
-    requires :phone, type: String, coerce_with: NormalizedPhone
+    requires :email, type: NormalizedEmail
+    requires :phone, type: NormalizedPhone
+    requires :trimstr, type: TrimmedString
     requires :arr, type: [String], coerce_with: CommaSepArray
   end
   get :custom_types do
-    present({email: params[:email], phone: params[:phone], arr: params[:arr]})
+    present({email: params[:email], phone: params[:phone], arr: params[:arr], trimstr: params[:trimstr]})
   end
   params do
-    requires :email, type: String, coerce_with: NormalizedEmail
-    requires :phone, type: String, coerce_with: NormalizedPhone
+    requires :email, type: NormalizedEmail
+    requires :phone, type: NormalizedPhone
+    requires :trimstr, type: TrimmedString
     requires :arr, type: [String], coerce_with: CommaSepArray
   end
   post :custom_types do
     status 200
-    present({email: params[:email], phone: params[:phone], arr: params[:arr]})
+    present({email: params[:email], phone: params[:phone], arr: params[:arr], trimstr: params[:trimstr]})
   end
 
   params do
@@ -638,32 +640,35 @@ RSpec.describe Webhookdb::Service, :db do
 
   describe "custom types" do
     it "works with custom types" do
-      get "/custom_types?email= x@Y.Z &phone=555-111-2222&arr=1,2,a"
+      get "/custom_types?email= x@Y.Z &phone=555-111-2222&arr=1,2,a&trimstr=%20abc%20"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "abc",
       )
     end
 
     it "POST works with custom types" do
-      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: "1,2,a"}
+      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: "1,2,a", trimstr: " abc "}
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "abc",
       )
     end
 
     it "POST works with actual arrays" do
-      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: ["1", "2", "a"]}
+      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: ["1", "2", "a"], trimstr: ""}
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "",
       )
     end
   end

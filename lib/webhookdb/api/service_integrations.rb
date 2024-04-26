@@ -10,6 +10,8 @@ require "webhookdb/async/audit_logger"
 require "webhookdb/jobs/process_webhook"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   # These URLs are not used by the CLI-
   # they are the url that customers should point their webhooks to.
   # We can't check org permissions on this endpoint
@@ -101,7 +103,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
           desc "Create service integration on a given organization"
           params do
-            optional :service_name, type: String,
+            optional :service_name, type: TrimmedString,
                                     prompt: "Enter the name of the service to create an integration for.\n" \
                                             "Run 'webhookdb services list' to see available services:"
             optional :guard_confirm
@@ -187,7 +189,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
           desc "Returns information about the integration."
           params do
-            optional :field, type: String, values: Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.keys + [""]
+            optional :field,
+                     type: TrimmedString,
+                     values: TrimmedString.map(Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.keys + [""])
           end
           post :info do
             ensure_plan_supports!
@@ -339,7 +343,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
 
           params do
-            optional :confirm, type: String
+            optional :confirm, type: TrimmedString
           end
           post :delete do
             ensure_plan_supports!
@@ -384,9 +388,11 @@ The tables and all data for this integration and its dependents will also be rem
 
           params do
             optional :new_name,
-                     type: String,
+                     type: TrimmedString,
                      db_identifier: true,
-                     prompt: "Enter the new name of the table. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
+                     prompt: "Enter the new name of the table. " +
+                       Webhookdb::DBAdapter::INVALID_IDENTIFIER_PROMPT +
+                       "\nTable name:"
           end
           post :rename_table do
             org = lookup_org!

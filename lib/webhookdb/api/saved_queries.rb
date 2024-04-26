@@ -4,6 +4,8 @@ require "webhookdb/api"
 require "webhookdb/saved_query"
 
 class Webhookdb::API::SavedQueries < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :organizations do
     route_param :org_identifier do
       resource :saved_queries do
@@ -99,8 +101,10 @@ class Webhookdb::API::SavedQueries < Webhookdb::API::V1
 
           desc "Updates the field on a custom query."
           params do
-            optional :field, type: String, prompt: "What field would you like to update (one of: " \
-                                                   "#{Webhookdb::SavedQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
+            optional :field,
+                     type: TrimmedString,
+                     prompt: "What field would you like to update (one of: " \
+                             "#{Webhookdb::SavedQuery::CLI_EDITABLE_FIELDS.join(', ')}): "
             optional :value, type: String, prompt: "What is the new value? "
           end
           post :update do
@@ -147,7 +151,9 @@ class Webhookdb::API::SavedQueries < Webhookdb::API::V1
           end
 
           params do
-            optional :field, type: String, values: Webhookdb::SavedQuery::INFO_FIELDS.keys + [""]
+            optional :field,
+                     type: TrimmedString,
+                     values: TrimmedString.map(Webhookdb::SavedQuery::INFO_FIELDS.keys + [""])
           end
           post :info do
             cq = lookup!

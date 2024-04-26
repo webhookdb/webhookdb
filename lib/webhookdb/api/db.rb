@@ -6,15 +6,17 @@ require "webhookdb/api"
 require "webhookdb/replicator"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   helpers do
     params :fdw do
       optional :message_fdw, type: Boolean
       optional :message_views, type: Boolean
       optional :message_all, type: Boolean
-      requires :remote_server_name, type: String
-      requires :fetch_size, type: String
-      requires :local_schema, type: String
-      requires :view_schema, type: String
+      requires :remote_server_name, type: TrimmedString
+      requires :fetch_size, type: TrimmedString
+      requires :local_schema, type: TrimmedString
+      requires :view_schema, type: TrimmedString
     end
 
     def run_fdw
@@ -43,9 +45,9 @@ class Webhookdb::API::Db < Webhookdb::API::V1
         headers Webhookdb::API::ConnstrAuth.headers_desc
       end
       params do
-        requires :org_identifier, type: String
+        requires :org_identifier, type: TrimmedString
         optional :query, type: String, desc: "SQL to run."
-        optional :query_base64, type: String, desc: "Base64 encoded SQL. Mostly used for GET requests."
+        optional :query_base64, type: TrimmedString, desc: "Base64 encoded SQL. Mostly used for GET requests."
         exactly_one_of :query, :query_base64
       end
       send(httpmethod, :run_sql) do
@@ -87,7 +89,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
 
       desc "Enqueues a database migration."
       params do
-        optional :admin_url, type: String, prompt: {
+        optional :admin_url, type: TrimmedString, prompt: {
           message: "ADMIN Postgres connection URL, in the form 'postgres://user:password@host:port/dbname',\n" \
                    "that is capable of administrative operations on your database,\n" \
                    "such as creating and dropping schemas and tables.\n" \
@@ -96,7 +98,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
           disable: ->(_) { !Webhookdb::Organization::DbBuilder.allow_public_migrations },
         }
 
-        optional :readonly_url, type: String, prompt: {
+        optional :readonly_url, type: TrimmedString, prompt: {
           message: "READONLY Postgres connection URL.\n" \
                    "This string is displayed when you ask for your organization's connection information.\n" \
                    "If you are okay with this being your ADMIN URL, leave it blank.\n" \

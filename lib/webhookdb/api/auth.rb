@@ -26,13 +26,12 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
 
     params do
       optional :email,
-               type: String,
-               coerce_with: NormalizedEmail,
+               type: NormalizedEmail,
                prompt: {
                  message: "Welcome to WebhookDB!\nPlease enter your email:",
                  demo_mode_proc: ->(r) { r.params[:email] = "demo@webhookdb.com" },
                }
-      optional :token, type: String
+      optional :token, type: TrimmedString
     end
     post do
       message = ""
@@ -86,9 +85,9 @@ class Webhookdb::API::Auth < Webhookdb::API::V1
     end
 
     params do
-      requires :form_name, type: String
-      optional :email, type: String
-      optional :name, type: String
+      requires :form_name, type: TrimmedString
+      optional :email, type: TrimmedString
+      optional :name, type: TrimmedString
       optional :message, type: String
     end
     post :contact do
