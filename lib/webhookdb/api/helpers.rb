@@ -205,6 +205,7 @@ module Webhookdb::API::Helpers
             path: process_kwargs[:request_path],
             headers: process_kwargs[:headers],
             body: process_kwargs[:body],
+            rack_request: request,
           )
           inserted = svc.upsert_webhook(whreq)
           s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)

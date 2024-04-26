@@ -104,13 +104,14 @@ module Webhookdb::SpecHelpers::Whdb
     this.let(:request_method) { nil }
     this.let(:request_body) { nil }
     this.let(:request_headers) { nil }
+    this.let(:rack_request) { nil }
     this.let(:webhook_request) do
       Webhookdb::Replicator::WebhookRequest.new(
-        body: request_body, method: request_method, path: request_path, headers: request_headers,
+        body: request_body, method: request_method, path: request_path, headers: request_headers, rack_request:,
       )
     end
     this.define_method(:upsert_webhook) do |svc, **kw|
-      params = {body: request_body, headers: request_headers, method: request_method, path: request_path}
+      params = {body: request_body, headers: request_headers, method: request_method, path: request_path, rack_request:}
       params.merge!(**kw)
       svc.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(**params))
     end
