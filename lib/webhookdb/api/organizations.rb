@@ -62,11 +62,11 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Generates an invitation code for a user, adds pending membership in the organization."
       params do
-        optional :email, type: String, coerce_with: NormalizedEmail,
+        optional :email, type: NormalizedEmail,
                          prompt: "Enter the email to send the invitation to:"
         optional :role_name,
-                 type: String,
-                 values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
+                 type: TrimmedString,
+                 values: TrimmedString.map(Webhookdb::OrganizationMembership::VALID_ROLE_NAMES),
                  default: "member"
       end
       post :invite do
@@ -102,7 +102,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allows organization admin to remove customer from an organization"
       params do
-        optional :email, type: String, coerce_with: NormalizedEmail,
+        optional :email, type: NormalizedEmail,
                          prompt: "Enter the email of the member you are removing permissions from:"
         optional :guard_confirm
       end
@@ -149,9 +149,11 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
       params do
         optional :emails, type: [String], coerce_with: CommaSepArray,
                           prompt: "Enter the emails to modify the roles of as a comma-separated list:"
-        optional :role_name, type: String, values: Webhookdb::OrganizationMembership::VALID_ROLE_NAMES,
-                             prompt: "Enter the name of the role to assign " \
-                                     "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')}): "
+        optional :role_name,
+                 type: TrimmedString,
+                 values: TrimmedString.map(Webhookdb::OrganizationMembership::VALID_ROLE_NAMES),
+                 prompt: "Enter the name of the role to assign " \
+                         "(#{Webhookdb::OrganizationMembership::VALID_ROLE_NAMES.join(', ')}): "
         optional :guard_confirm
       end
       post :change_roles do
@@ -173,7 +175,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
       desc "Allow organization admin to change the name of the organization"
       params do
-        optional :name, type: String, prompt: "Enter the new organization name:"
+        optional :name, type: TrimmedString, prompt: "Enter the new organization name:"
       end
       post :rename do
         customer = current_customer
@@ -214,7 +216,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     desc "Creates a new organization and adds current customer as a member."
     params do
-      optional :name, type: String, prompt: "Enter the name of the organization:"
+      optional :name, type: TrimmedString, prompt: "Enter the name of the organization:"
     end
     post :create do
       customer = current_customer
@@ -234,7 +236,7 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
 
     desc "Allows user to verify membership in an organization with an invitation code."
     params do
-      optional :invitation_code, type: String, prompt: "Enter the invitation code:"
+      optional :invitation_code, type: TrimmedString, prompt: "Enter the invitation code:"
     end
     post :join do
       customer = current_customer

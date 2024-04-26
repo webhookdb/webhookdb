@@ -5,6 +5,8 @@ require "webhookdb/jobs/sync_target_run_sync"
 
 # rubocop:disable Layout/LineLength
 class Webhookdb::API::SyncTargets < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   class ConnectionUrlType < Grape::Validations::Validators::Base
     def validate!(params)
       url = params[:connection_url]
@@ -46,14 +48,14 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                            disable: ->(req) { req.path.end_with?("/update") },
                          }
                 is_db && optional(:schema,
-                                  type: String,
+                                  type: TrimmedString,
                                   db_identifier: true,
                                   allow_blank: true,
                                   desc: "Schema (or namespace) to write the table into. Default to no schema/namespace.",)
                 # The description here says there is a default value, but the default value isn't actually saved to the SyncTarget
                 # object--it's inferred in the SyncTarget sync behavior when the table value is a blank string.
                 is_db && optional(:table,
-                                  type: String,
+                                  type: TrimmedString,
                                   db_identifier: true,
                                   allow_blank: true,
                                   desc: "Table to create and update. Default to match the table name of the service integration.",)
@@ -64,7 +66,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               end
               params :connection_url do
                 optional :connection_url,
-                         type: String,
+                         type: TrimmedString,
                          prompt: "Enter the #{is_db ? 'database connection string' : 'HTTP endpoint'} that WebhookDB should sync data to:",
                          connection_url_type: is_db ? "db" : "http"
               end
@@ -112,7 +114,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
             params do
               use :connection_url
               use :sync_target_params
-              requires :service_integration_identifier, type: String, allow_blank: false
+              requires :service_integration_identifier, type: TrimmedString, allow_blank: false
             end
             route_setting :target_type, target_type_resource
             post :create do
@@ -153,8 +155,8 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                 end
               end
               params do
-                optional :user, type: String, prompt: "Username for the connection:"
-                optional :password, type: String, prompt: "Password for the connection:"
+                optional :user, type: TrimmedString, prompt: "Username for the connection:"
+                optional :password, type: TrimmedString, prompt: "Password for the connection:"
               end
               route_setting :target_type, target_type_resource
               post :update_credentials do
@@ -187,7 +189,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
               end
 
               params do
-                optional :confirm, type: String
+                optional :confirm, type: TrimmedString
               end
               route_setting :target_type, target_type_resource
               post :delete do

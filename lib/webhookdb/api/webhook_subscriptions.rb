@@ -3,6 +3,8 @@
 require "webhookdb/api"
 
 class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :organizations do
     route_param :org_identifier, type: String do
       resource :webhook_subscriptions do
@@ -21,7 +23,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
 
         params do
           optional :service_integration_identifier,
-                   type: String,
+                   type: TrimmedString,
                    desc: "If provided, attach the webhook subscription to this integration rather than the org.",
                    prompt: "Which integration is this for? Use the service name, table name, or opaque id.\n" \
                            "See your integrations with `webhookdb integrations list`:"
