@@ -209,6 +209,6 @@ Press 'Show' next to the newly-created API token, and copy it.)
       request_method:,
     )
     self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: true)
-    raise Amigo::Retry::Quit, e
+    return true
   end
 end

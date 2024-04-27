@@ -747,14 +747,14 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     sint.organization.remove_related_database
   end
 
-  it "dispatches an alert and quits the job on handled errors" do
+  it "dispatches an alert and returns true for handled errors" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
     req = stub_service_request
     handled_responses.each { |(m, arg)| req.send(m, arg) }
     handled_responses.count.times do
-      expect { backfill(sint) }.to raise_error(Amigo::Retry::Quit)
+      backfill(sint)
     end
     expect(req).to have_been_made.times(handled_responses.count)
     expect(Webhookdb::Message::Delivery.all).to contain_exactly(
@@ -762,7 +762,7 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     )
   end
 
-  it "does not dispatch an alert and does retry the job without an auth error", :no_transaction_check do
+  it "does not dispatch an alert, and raises the original error, if unhandled" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create

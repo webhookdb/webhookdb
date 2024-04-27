@@ -1006,7 +1006,10 @@ for information on how to refresh data.)
         _do_serial_backfill(backfillers, last_backfilled)
       end
     rescue StandardError => e
-      self.on_backfill_error(e)
+      if self.on_backfill_error(e) == true
+        job.update(finished_at: Time.now)
+        return
+      end
       raise e
     end
 
