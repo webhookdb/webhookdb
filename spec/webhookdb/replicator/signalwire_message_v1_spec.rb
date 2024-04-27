@@ -458,6 +458,21 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
   end
 
+  it_behaves_like "a replicator that alerts on backfill auth errors" do
+    let(:sint_params) { {api_url: "namespace"} }
+    let(:template_name) { "errors/generic_backfill" }
+
+    around(:each) do |example|
+      Timecop.travel("2024-01-15T00:00:00Z") do
+        example.run
+      end
+    end
+
+    def stub_service_request
+      return stub_request(:get, "https://namespace.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2024-01-17&PageSize=100")
+    end
+  end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "signalwire_message_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }

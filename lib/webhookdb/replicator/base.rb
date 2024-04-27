@@ -999,48 +999,69 @@ for information on how to refresh data.)
     job.update(started_at: Time.now)
 
     backfillers = self._backfillers(**job.criteria.symbolize_keys)
-    if self._parallel_backfill && self._parallel_backfill > 1
-      # Create a dedicated threadpool for these backfillers,
-      # with max parallelism determined by the replicator.
-      pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
-      # Record any errors that occur, since they won't raise otherwise.
-      # Initialize a sized array to avoid any potential race conditions (though GIL should make it not an issue?).
-      errors = Array.new(backfillers.size)
-      backfillers.each_with_index do |bf, idx|
-        pool.post do
-          bf.backfill(last_backfilled)
-        rescue StandardError => e
-          errors[idx] = e
-        end
+    begin
+      if self._parallel_backfill && self._parallel_backfill > 1
+        _do_parallel_backfill(backfillers, last_backfilled)
+      else
+        _do_serial_backfill(backfillers, last_backfilled)
       end
-      # We've enqueued all backfillers; do not accept anymore work.
-      pool.shutdown
-      loop do
-        # We want to stop early if we find an error, so check for errors every 10 seconds.
-        completed = pool.wait_for_termination(10)
-        first_error = errors.find { |e| !e.nil? }
-        if first_error.nil?
-          # No error, and wait_for_termination returned true, so all work is done.
-          break if completed
-          # No error, but work is still going on, so loop again.
-          next
-        end
-        # We have an error; don't run any more backfillers.
-        pool.kill
-        # Wait for all ongoing backfills before raising.
-        pool.wait_for_termination
-        raise first_error
-      end
-    else
-      backfillers.each do |backfiller|
-        backfiller.backfill(last_backfilled)
-      end
+    rescue StandardError => e
+      self.on_backfill_error(e)
+      raise e
     end
 
     sint.update(last_backfilled_at: new_last_backfilled) if job.incremental?
     job.update(finished_at: Time.now)
     job.enqueue_children
   end
+
+  protected def _do_parallel_backfill(backfillers, last_backfilled)
+    # Create a dedicated threadpool for these backfillers,
+    # with max parallelism determined by the replicator.
+    pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
+    # Record any errors that occur, since they won't raise otherwise.
+    # Initialize a sized array to avoid any potential race conditions (though GIL should make it not an issue?).
+    errors = Array.new(backfillers.size)
+    backfillers.each_with_index do |bf, idx|
+      pool.post do
+        bf.backfill(last_backfilled)
+      rescue StandardError => e
+        errors[idx] = e
+      end
+    end
+    # We've enqueued all backfillers; do not accept anymore work.
+    pool.shutdown
+    loop do
+      # We want to stop early if we find an error, so check for errors every 10 seconds.
+      completed = pool.wait_for_termination(10)
+      first_error = errors.find { |e| !e.nil? }
+      if first_error.nil?
+        # No error, and wait_for_termination returned true, so all work is done.
+        break if completed
+        # No error, but work is still going on, so loop again.
+        next
+      end
+      # We have an error; don't run any more backfillers.
+      pool.kill
+      # Wait for all ongoing backfills before raising.
+      pool.wait_for_termination
+      raise first_error
+    end
+  end
+
+  protected def _do_serial_backfill(backfillers, last_backfilled)
+    backfillers.each do |backfiller|
+      backfiller.backfill(last_backfilled)
+    end
+  end
+
+  # Called when the #backfill method errors.
+  # This can do something like dispatch a developer alert.
+  # The handler must raise in order to stop the job from processing-
+  # if nothing is raised, the original exception will be raised instead.
+  # By default, this method noops, so the original exception is raised.
+  # @param e [Exception]
+  def on_backfill_error(e) = nil
 
   # If this replicator supports backfilling in parallel (running multiple backfillers at a time),
   # return the degree of paralellism (or nil if not running in parallel).
@@ -1096,15 +1117,15 @@ for information on how to refresh data.)
 
     def fetch_backfill_page(pagination_token, last_backfilled:)
       return @svc._fetch_backfill_page(pagination_token, last_backfilled:)
-    rescue ::Timeout::Error, ::SocketError
-      self.__retryordie
+    rescue ::Timeout::Error, ::SocketError => e
+      self.__retryordie(e)
     rescue Webhookdb::Http::Error => e
-      self.__retryordie if e.status >= 500
+      self.__retryordie(e) if e.status >= 500
       raise
     end
 
-    def __retryordie
-      raise Amigo::Retry::OrDie.new(self.server_error_retries, self.server_error_backoff)
+    def __retryordie(e)
+      raise Amigo::Retry::OrDie.new(self.server_error_retries, self.server_error_backoff, e)
     end
   end
 

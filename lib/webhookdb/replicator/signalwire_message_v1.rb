@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "webhookdb/errors"
 require "webhookdb/signalwire"
+require "webhookdb/messages/error_generic_backfill"
 
 class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
@@ -179,5 +181,21 @@ Press 'Show' next to the newly-created API token, and copy it.)
     end
 
     return messages, data["next_page_uri"]
+  end
+
+  def on_backfill_error(be)
+    e = Webhookdb::Errors.find_cause(be) { |ex| ex.is_a?(Webhookdb::Http::Error) && ex.status == 401 }
+    return unless e
+    self.logger.warn("signalwire_backfill_error",
+                     response_body: e.body, response_status: e.status, request_url: e.uri.to_s,)
+    message = Webhookdb::Messages::ErrorGenericBackfill.new(
+      self.service_integration,
+      response_status: e.status,
+      response_body: e.body,
+      request_url: e.uri.to_s,
+      request_method: e.http_method,
+    )
+    self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: true)
+    raise Amigo::Retry::Quit, e
   end
 end

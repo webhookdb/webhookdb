@@ -707,6 +707,62 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 end
 
+RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
+  let(:name) { described_class.descriptor.name }
+  let(:sint_params) { {} }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url: "https://fake-url.com",
+      **sint_params,
+    )
+  end
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  let(:auth_error) { {status: 401, body: "Unauthorized"} }
+  let(:unhandled_error) { {status: 500, body: "Error"} }
+  let(:template_name) { raise NotImplementedError }
+
+  def stub_service_request
+    raise NotImplementedError, "stub the request without setting the return response"
+  end
+
+  def insert_required_data_callback
+    # See backfiller example
+    return ->(*) { return }
+  end
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "dispatches an alert and quites the job on auth error", :no_transaction_check do
+    create_all_dependencies(sint)
+    setup_dependencies(sint, insert_required_data_callback)
+    Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    resp = stub_service_request.and_return(auth_error)
+    expect { backfill(sint) }.to raise_error(Amigo::Retry::Quit)
+    expect(resp).to have_been_made
+    expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+      have_attributes(template: template_name),
+    )
+  end
+
+  it "does not dispatch an alert and does retry the job without an auth error", :no_transaction_check do
+    create_all_dependencies(sint)
+    setup_dependencies(sint, insert_required_data_callback)
+    Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    resp = stub_service_request.and_return(unhandled_error)
+    expect { backfill(sint) }.to raise_error(Amigo::Retry::OrDie)
+    expect(resp).to have_been_made
+  end
+end
+
 RSpec.shared_examples "a replicator that verifies backfill secrets" do
   let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
   let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }

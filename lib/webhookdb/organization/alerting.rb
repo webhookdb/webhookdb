@@ -23,7 +23,7 @@ class Webhookdb::Organization::Alerting
 
   # Dispatch the message template to administrators of the org.
   # @param message_template [Webhookdb::Message::Template]
-  def dispatch_alert(message_template)
+  def dispatch_alert(message_template, separate_connection: false)
     unless message_template.respond_to?(:signature)
       raise Webhookdb::InvalidPrecondition,
             "message template #{message_template.template_name} must define a #signature method, " \
@@ -33,8 +33,9 @@ class Webhookdb::Organization::Alerting
     max_alerts_per_customer_per_day = Webhookdb::Organization::Alerting.max_alerts_per_customer_per_day
     yesterday = Time.now - 24.hours
     self.org.admin_customers.each do |c|
-      idemkey = "orgalert-#{signature}-#{c.id}"
-      Webhookdb::Idempotency.every(Webhookdb::Organization::Alerting.interval).under_key(idemkey) do
+      idem = Webhookdb::Idempotency.every(Webhookdb::Organization::Alerting.interval)
+      idem = idem.using_seperate_connection if separate_connection
+      idem.under_key("orgalert-#{signature}-#{c.id}") do
         sent_last_day = Webhookdb::Message::Delivery.
           where(template: message_template.full_template_name, recipient: c).
           where { created_at > yesterday }.
