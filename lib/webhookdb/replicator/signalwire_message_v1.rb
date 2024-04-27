@@ -184,16 +184,29 @@ Press 'Show' next to the newly-created API token, and copy it.)
   end
 
   def on_backfill_error(be)
-    e = Webhookdb::Errors.find_cause(be) { |ex| ex.is_a?(Webhookdb::Http::Error) && ex.status == 401 }
+    e = Webhookdb::Errors.find_cause(be) do |ex|
+      next true if ex.is_a?(Webhookdb::Http::Error) && ex.status == 401
+      next true if ex.is_a?(::SocketError)
+    end
     return unless e
-    self.logger.warn("signalwire_backfill_error",
-                     response_body: e.body, response_status: e.status, request_url: e.uri.to_s,)
+    if e.is_a?(::SocketError)
+      response_status = 0
+      response_body = e.message
+      request_url = "<unknown>"
+      request_method = "<unknown>"
+    else
+      response_status = e.status
+      response_body = e.body
+      request_url = e.uri.to_s
+      request_method = e.http_method
+    end
+    self.logger.warn("signalwire_backfill_error", response_body:, response_status:, request_url:)
     message = Webhookdb::Messages::ErrorGenericBackfill.new(
       self.service_integration,
-      response_status: e.status,
-      response_body: e.body,
-      request_url: e.uri.to_s,
-      request_method: e.http_method,
+      response_status:,
+      response_body:,
+      request_url:,
+      request_method:,
     )
     self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: true)
     raise Amigo::Retry::Quit, e

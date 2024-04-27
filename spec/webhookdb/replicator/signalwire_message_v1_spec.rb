@@ -471,6 +471,17 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     def stub_service_request
       return stub_request(:get, "https://namespace.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2024-01-17&PageSize=100")
     end
+
+    def handled_responses
+      return [
+        [:and_return, {status: 401, body: "Unauthorized"}],
+        [:and_raise, SocketError.new("Failed to open TCP connection to .signalwire.com:443")],
+      ]
+    end
+
+    def unhandled_response
+      return [:and_return, {status: 500, body: "Error"}]
+    end
   end
 
   describe "webhook validation" do

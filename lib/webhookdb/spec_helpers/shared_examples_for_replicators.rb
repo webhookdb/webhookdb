@@ -720,12 +720,18 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     )
   end
   let(:svc) { Webhookdb::Replicator.create(sint) }
-  let(:auth_error) { {status: 401, body: "Unauthorized"} }
-  let(:unhandled_error) { {status: 500, body: "Error"} }
   let(:template_name) { raise NotImplementedError }
 
   def stub_service_request
     raise NotImplementedError, "stub the request without setting the return response"
+  end
+
+  def handled_responses
+    raise NotImplementedError, "Something like: [[:and_return, {status: 401}], [:and_raise, SocketError.new('hi')]]"
+  end
+
+  def unhandled_response
+    raise NotImplementedError, "Something like: [:and_return, {status: 500}]"
   end
 
   def insert_required_data_callback
@@ -741,13 +747,16 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     sint.organization.remove_related_database
   end
 
-  it "dispatches an alert and quites the job on auth error", :no_transaction_check do
+  it "dispatches an alert and quits the job on handled errors" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
-    resp = stub_service_request.and_return(auth_error)
-    expect { backfill(sint) }.to raise_error(Amigo::Retry::Quit)
-    expect(resp).to have_been_made
+    req = stub_service_request
+    handled_responses.each { |(m, arg)| req.send(m, arg) }
+    handled_responses.count.times do
+      expect { backfill(sint) }.to raise_error(Amigo::Retry::Quit)
+    end
+    expect(req).to have_been_made.times(handled_responses.count)
     expect(Webhookdb::Message::Delivery.all).to contain_exactly(
       have_attributes(template: template_name),
     )
@@ -757,9 +766,9 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
-    resp = stub_service_request.and_return(unhandled_error)
+    req = stub_service_request.send(*unhandled_response)
     expect { backfill(sint) }.to raise_error(Amigo::Retry::OrDie)
-    expect(resp).to have_been_made
+    expect(req).to have_been_made
   end
 end
 
