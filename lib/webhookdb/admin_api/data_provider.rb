@@ -29,6 +29,7 @@ class Webhookdb::AdminAPI::DataProvider < Webhookdb::AdminAPI::V1
     service_integrations: [Webhookdb::ServiceIntegration, ServiceIntegration],
     subscriptions: [Webhookdb::Subscription, Subscription],
     sync_targets: [Webhookdb::SyncTarget, SyncTarget],
+    system_log_events: [Webhookdb::SystemLogEvent, SystemLogEvent],
     webhook_subscriptions: [Webhookdb::WebhookSubscription, WebhookSubscription],
     webhook_subscription_deliveries: [Webhookdb::WebhookSubscription::Delivery, WebhookSubscriptionDelivery],
   }.freeze

@@ -163,6 +163,14 @@ module Webhookdb::AdminAPI::Entities
     expose :page_size
   end
 
+  class SystemLogEvent < Base
+    expose :at
+    expose :title
+    expose :body
+    expose :link
+    expose :actor_id
+  end
+
   class WebhookSubscription < Base
     expose :organization, with: Related
     expose :service_integration, with: Related

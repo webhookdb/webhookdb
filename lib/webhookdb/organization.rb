@@ -7,6 +7,8 @@ require "webhookdb/stripe"
 require "webhookdb/jobs/replication_migration"
 
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
+  include Webhookdb::Admin::Linked
+
   class SchemaMigrationError < StandardError; end
 
   plugin :timestamps

@@ -206,6 +206,12 @@ class Webhookdb::API::Organizations < Webhookdb::API::V1
             {title: "Customer", value: "(#{c.id}) #{c.email}", short: false},
           ],
         ).emit
+        Webhookdb::SystemLogEvent.create(
+          title: "Organization Closure Requested",
+          body: "#{org.name} (#{org.key})",
+          link: org.admin_link,
+          actor: c,
+        )
         step = Webhookdb::Replicator::StateMachineStep.new.completed
         step.output = "Thanks! We've received the request to close your #{org.name} organization. " \
                       "We'll be in touch within 2 business days confirming removal."

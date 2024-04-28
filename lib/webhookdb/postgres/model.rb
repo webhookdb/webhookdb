@@ -7,6 +7,7 @@ require "sequel"
 require "tsort"
 
 require "webhookdb"
+require "webhookdb/admin"
 require "webhookdb/postgres"
 require "webhookdb/postgres/validations"
 require "webhookdb/postgres/model_utilities"

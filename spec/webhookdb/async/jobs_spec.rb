@@ -137,17 +137,6 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "CustomerCreatedNotifyInternal" do
-    it "publishes a developer alert" do
-      expect do
-        Webhookdb::Fixtures.customer.create
-      end.to perform_async_job(Webhookdb::Jobs::CustomerCreatedNotifyInternal).
-        and(publish("webhookdb.developeralert.emitted").with_payload(
-              contain_exactly(include("subsystem" => "Customer Created")),
-            ))
-    end
-  end
-
   describe "deprecated jobs" do
     it "exist as job classes" do
       expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
@@ -368,6 +357,62 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
       expect(Webhookdb::Message::Delivery).to have_row(to: email).
         with_attributes(transport_message_id: be_a(String))
+    end
+  end
+
+  describe "ModelEventSystemLogTracker" do
+    it "notifies on customer create" do
+      expect do
+        Webhookdb::Fixtures.customer.create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Customer Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Customer Created"),
+      )
+    end
+
+    it "notifies on org create" do
+      expect do
+        Webhookdb::Fixtures.organization.create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Organization Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Organization Created"),
+      )
+    end
+
+    it "notifies on integraiton create" do
+      org = Webhookdb::Fixtures.organization.create
+      expect do
+        Webhookdb::Fixtures.service_integration(organization: org).create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Integration Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Integration Created"),
+      )
+    end
+
+    it "notifies on integration destroy" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      expect do
+        sint.destroy
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Integration Deleted")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Integration Deleted"),
+      )
     end
   end
 

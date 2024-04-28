@@ -14,6 +14,7 @@ Amigo::DeprecatedJobs.install(
   "Jobs::ConvertKitBroadcastBackfill",
   "Jobs::ConvertKitSubscriberBackfill",
   "Jobs::ConvertKitTagBackfill",
+  "Jobs::CustomerCreatedNotifyInternal",
   "Jobs::RssBackfillPoller",
   "Jobs::TwilioScheduledBackfill",
 )

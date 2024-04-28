@@ -66,6 +66,7 @@ module Webhookdb::Postgres
     "webhookdb/service_integration",
     "webhookdb/subscription",
     "webhookdb/sync_target",
+    "webhookdb/system_log_event",
     "webhookdb/webhook_subscription",
     "webhookdb/webhook_subscription/delivery",
   ].freeze

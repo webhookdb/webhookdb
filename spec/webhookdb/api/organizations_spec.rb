@@ -332,6 +332,9 @@ RSpec.describe Webhookdb::API::Organizations, :async, :db do
           },
         ),
       )
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(actor: be === customer, title: "Organization Closure Requested"),
+      )
     end
 
     it "fails if request customer doesn't have admin privileges" do

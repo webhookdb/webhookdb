@@ -11,6 +11,7 @@ import {
 } from "react-admin";
 
 import CodeField from "../components/CodeField";
+import LinkField from "../components/LinkField";
 import SimpleArrayField from "../components/SimpleArrayField";
 
 export default function fieldList(...fields) {
@@ -25,7 +26,7 @@ export default function fieldList(...fields) {
       } else if (f === "opaqueId") {
         // Default sortable to true since this column will almost always have an index
         return <TextField key={i} source="opaqueId" label="Opaque ID" />;
-      } else if (f.endsWith("At")) {
+      } else if (f.endsWith("At") || f === "at") {
         // Default sortable to false, if this timestamp is not indexed perf can be terrible.
         return <DateField key={f} showTime source={f} sortable={false} />;
       } else if (f === "createdBy") {
@@ -80,6 +81,9 @@ export default function fieldList(...fields) {
         );
       case "number":
         return <NumberField {...p} />;
+      case "url":
+        delete p.sortable;
+        return <LinkField {...p} />;
       case "array":
         return <SimpleArrayField {...p} />;
       default:
