@@ -707,6 +707,71 @@ RSpec.shared_examples "a replicator that can backfill incrementally" do |name|
   end
 end
 
+RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
+  let(:name) { described_class.descriptor.name }
+  let(:sint_params) { {} }
+  let(:sint) do
+    Webhookdb::Fixtures.service_integration.create(
+      service_name: name,
+      backfill_key: "bfkey",
+      backfill_secret: "bfsek",
+      api_url: "https://fake-url.com",
+      **sint_params,
+    )
+  end
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  let(:template_name) { raise NotImplementedError }
+
+  def stub_service_request
+    raise NotImplementedError, "stub the request without setting the return response"
+  end
+
+  def handled_responses
+    raise NotImplementedError, "Something like: [[:and_return, {status: 401}], [:and_raise, SocketError.new('hi')]]"
+  end
+
+  def unhandled_response
+    raise NotImplementedError, "Something like: [:and_return, {status: 500}]"
+  end
+
+  def insert_required_data_callback
+    # See backfiller example
+    return ->(*) { return }
+  end
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  it "dispatches an alert and returns true for handled errors" do
+    create_all_dependencies(sint)
+    setup_dependencies(sint, insert_required_data_callback)
+    Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    req = stub_service_request
+    handled_responses.each { |(m, arg)| req.send(m, arg) }
+    handled_responses.count.times do
+      backfill(sint)
+    end
+    expect(req).to have_been_made.times(handled_responses.count)
+    expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+      have_attributes(template: template_name),
+    )
+  end
+
+  it "does not dispatch an alert, and raises the original error, if unhandled" do
+    create_all_dependencies(sint)
+    setup_dependencies(sint, insert_required_data_callback)
+    Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    req = stub_service_request.send(*unhandled_response)
+    expect { backfill(sint) }.to raise_error(Amigo::Retry::OrDie)
+    expect(req).to have_been_made
+  end
+end
+
 RSpec.shared_examples "a replicator that verifies backfill secrets" do
   let(:correct_creds_sint) { raise NotImplementedError, "what sint should we use to test correct creds?" }
   let(:incorrect_creds_sint) { raise NotImplementedError, "what sint should we use to test incorrect creds?" }

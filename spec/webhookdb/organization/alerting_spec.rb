@@ -80,5 +80,15 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
       end
       expect(Webhookdb::Message::Delivery.all).to have_length(42)
     end
+
+    it "can alert on a separate connection to get around idempotency", no_transaction_check: false do
+      admin = membership_fac.verified.admin.create
+      tmpl = Webhookdb::Messages::Testers::Basic.new
+      tmpl.define_singleton_method(:signature) { "tester" }
+      admin.db.transaction do
+        alerting.dispatch_alert(tmpl, separate_connection: true)
+      end
+      expect(Webhookdb::Message::Delivery.all).to have_length(1)
+    end
   end
 end

@@ -236,6 +236,28 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
         end.to raise_error(RuntimeError, "hello")
       end
     end
+
+    describe "when an error occurs" do
+      it "calls the error handler and finishes the job (but does not modify the integration)" do
+        stub_request(:get, "https://fake-integration/?token=").
+          to_return(status: 500, body: "Error")
+        replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
+        expect(replicator).to receive(:on_backfill_error).and_return(true)
+        job = backfill(sint)
+        expect(sint).to have_attributes(last_backfilled_at: nil)
+        expect(job).to have_attributes(finished_at: match_time(:now).within(1))
+      end
+
+      it "raises the original error if not handled" do
+        stub_request(:get, "https://fake-integration/?token=").
+          to_return(status: 500, body: "Error")
+        replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
+        expect(replicator).to receive(:on_backfill_error).and_return(false)
+        expect { backfill(replicator) }.to raise_error(Amigo::Retry::OrDie, /status: 500, method: GET/)
+      end
+    end
   end
 
   describe "ServiceBackfiller" do
