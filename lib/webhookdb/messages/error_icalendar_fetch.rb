@@ -36,6 +36,9 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
       response_status: @response_status,
       response_body: @response_body,
       external_calendar_id: @external_calendar_id,
+      webhook_endpoint: @service_integration.replicator.webhook_endpoint,
+      org_name: @service_integration.organization.name,
+      org_key: @service_integration.organization.key,
     )
   end
 end
