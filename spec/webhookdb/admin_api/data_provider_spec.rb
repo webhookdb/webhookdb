@@ -41,7 +41,7 @@ RSpec.describe Webhookdb::AdminAPI::DataProvider, :db do
       post "/v1/data_provider/get_one", resource: "customers", id: c.id
       expect(last_response).to have_status(200)
       expect(last_response_json_body[:data].keys).to contain_exactly(
-        :created_at, :email, :id, :name, :note, :soft_deleted_at, :updated_at,
+        :created_at, :email, :id, :name, :note, :soft_deleted_at, :updated_at, :admin_link,
       )
     end
   end
