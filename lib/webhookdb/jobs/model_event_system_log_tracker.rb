@@ -86,7 +86,7 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
     org = Webhookdb::Organization[pl[:organization_id]]
     Webhookdb::DeveloperAlert.new(
       subsystem: "Integration Deleted",
-      emoji: ":funeral_urn: ",
+      emoji: ":funeral_urn:",
       fallback: "Service Integration #{pl[:service_name]} (#{pl[:opaque_id]}) deleted",
       fields: [
         {title: "Id", value: pl[:opaque_id], short: true},
