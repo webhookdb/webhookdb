@@ -11,6 +11,7 @@ import SavedQueryIcon from "@mui/icons-material/SavedSearch";
 import WebhookSubscriptionIcon from "@mui/icons-material/Send";
 import WebhookDeliveryIcon from "@mui/icons-material/SendAndArchive";
 import RoleIcon from "@mui/icons-material/SensorOccupied";
+import SystemLogEventIcon from "@mui/icons-material/Speaker";
 import DatabaseMigrationIcon from "@mui/icons-material/Storage";
 import SubscriptionIcon from "@mui/icons-material/Subscriptions";
 import SyncTargetIcon from "@mui/icons-material/Sync";
@@ -46,6 +47,7 @@ import {
 } from "./resources/service_integration";
 import { SubscriptionList, SubscriptionShow } from "./resources/subscriptions";
 import { SyncTargetList, SyncTargetShow } from "./resources/sync_targets";
+import { SystemLogEventList, SystemLogEventShow } from "./resources/system_log_events";
 import { WebhookDeliveryList, WebhookDeliveryShow } from "./resources/webhook_deliveries";
 import {
   WebhookSubscriptionList,
@@ -205,6 +207,14 @@ function AdminApp() {
         show={LoggedWebhookShow}
         icon={LoggedWebhookIcon}
         options={{ label: "Logged Webhooks" }}
+        recordRepresentation="id"
+      />
+      <Resource
+        name="system_log_events"
+        list={SystemLogEventList}
+        show={SystemLogEventShow}
+        icon={SystemLogEventIcon}
+        options={{ label: "System Log Events" }}
         recordRepresentation="id"
       />
       <CustomRoutes>

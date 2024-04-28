@@ -6,6 +6,8 @@ require "webhookdb/postgres/model"
 require "sequel/plugins/soft_deletes"
 
 class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integrations)
+  include Webhookdb::Admin::Linked
+
   class TableRenameError < Webhookdb::InvalidInput; end
 
   # We limit the information that a user can access through the CLI to these fields.

@@ -10,6 +10,7 @@ require "webhookdb/demo_mode"
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   extend Webhookdb::MethodUtilities
   include Appydays::Configurable
+  include Webhookdb::Admin::Linked
 
   class InvalidPassword < StandardError; end
   class SignupDisabled < StandardError; end

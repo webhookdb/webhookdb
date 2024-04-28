@@ -93,6 +93,8 @@ module Webhookdb
     end
   end
 
+  def self.admin_url = self.api_url
+
   # Regression mode is true when we re replaying webhooks locally,
   # or for some other reason, want to disable certain checks we use in production.
   # For example, we may want to ignore certain errors (like if integrations are missing dependency rows),
