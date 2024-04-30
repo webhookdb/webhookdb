@@ -317,7 +317,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         request_url:,
         request_method: "POST",
       )
-      @replicator.service_integration.organization.alerting.dispatch_alert(message)
+      @replicator.service_integration.organization.alerting.dispatch_alert(message, separate_connection: true)
       return nil
     end
 
