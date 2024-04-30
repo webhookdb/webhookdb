@@ -200,6 +200,7 @@ module Webhookdb::API::Helpers
         # serializing the (large) webhook payload multiple times, as with normal pubsub.
         Webhookdb::Async::AuditLogger.new.perform(event_json)
         if svc.process_webhooks_synchronously? || Webhookdb::Replicator.always_process_synchronously
+          self.logger.info("debug_creating_request")
           whreq = Webhookdb::Replicator::WebhookRequest.new(
             method: process_kwargs[:request_method],
             path: process_kwargs[:request_path],
@@ -207,7 +208,9 @@ module Webhookdb::API::Helpers
             body: process_kwargs[:body],
             rack_request: request,
           )
+          self.logger.info("debug_upserting")
           inserted = svc.upsert_webhook(whreq)
+          self.logger.info("debug_getting_body")
           s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)
         else
           queue = svc.upsert_has_deps? ? "netout" : "webhook"
@@ -215,13 +218,18 @@ module Webhookdb::API::Helpers
         end
       end
 
+      self.logger.info("debug_setting_headers")
       s_headers.each { |k, v| header k, v }
       if s_headers["Content-Type"] == "application/json"
-        body Oj.load(s_body)
+        self.logger.info("debug_reloading_body")
+        reloaded_body = Oj.load(s_body)
+        self.logger.info("debug_setting_reloaded_body")
+        body reloaded_body
       else
         env["api.format"] = :binary
         body s_body
       end
+      self.logger.info("debug_setting_status")
       status s_status
     ensure
       _log_webhook_request(opaque_id, organization_id, s_status, request_headers)
