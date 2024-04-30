@@ -656,36 +656,41 @@ for information on how to refresh data.)
     raise
   end
 
+  def debug_special(msg)
+    return unless self.process_webhooks_synchronously?
+    self.logger.info(msg)
+  end
+
   # Hook to be overridden, while still retaining
   # top-level upsert_webhook functionality like error handling.
   #
   # @param request [Webhookdb::Replicator::WebhookRequest]
   # @param upsert [Boolean] If false, just return what would be upserted.
   def _upsert_webhook(request, upsert: true)
-    self.logger.info("debug_resandevent")
+    debug_special("debug_resandevent")
     resource, event = self._resource_and_event(request)
     return nil if resource.nil?
-    self.logger.info("debug_fetch_enrichment")
+    debug_special("debug_fetch_enrichment")
     enrichment = self._fetch_enrichment(resource, event, request)
-    self.logger.info("debug_prepare_insert")
+    debug_special("debug_prepare_insert")
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
     inserting = {}
-    self.logger.info("debug_rez2data")
+    debug_special("debug_rez2data")
     data_col_val = self._resource_to_data(resource, event, request, enrichment)
-    self.logger.info("debug_tojson_data")
+    debug_special("debug_tojson_data")
     inserting[:data] = self._to_json(data_col_val)
-    self.logger.info("debug_tojson_enrichment")
+    debug_special("debug_tojson_enrichment")
     inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
-    self.logger.info("debug_merge")
+    debug_special("debug_merge")
     inserting.merge!(prepared)
     return inserting unless upsert
     remote_key_col = self._remote_key_column
-    self.logger.info("debug_upsert_expr")
+    debug_special("debug_upsert_expr")
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
     upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
-      self.logger.info("debug_inserting")
+      debug_special("debug_inserting")
       ds.insert_conflict(
         target: remote_key_col.name,
         update: updating,
@@ -693,11 +698,11 @@ for information on how to refresh data.)
       ).insert(inserting)
     end
     row_changed = upserted_rows.present?
-    self.logger.info("debug_notify_deps")
+    debug_special("debug_notify_deps")
     self._notify_dependents(inserting, row_changed)
-    self.logger.info("debug_publish_rowupsert")
+    debug_special("debug_publish_rowupsert")
     self._publish_rowupsert(inserting) if row_changed
-    self.logger.info("debug_upserted")
+    debug_special("debug_upserted")
     return inserting
   end
 
