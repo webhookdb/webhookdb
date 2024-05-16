@@ -72,7 +72,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
                 end)
 
   many_to_one :depends_on, class: self
-  one_to_many :dependents, key: :depends_on_id, class: self
+  one_to_many :dependents, key: :depends_on_id, class: self, order: :id
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
   # @return [Webhookdb::ServiceIntegration]
@@ -141,8 +141,19 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
         select { |si| si.service_name == dep_descr.name }
   end
 
+  # Return all dependents (integrations that depend on this one), breadth-first
+  # (that is, all children before grandchildren).
+  # @return [Array<Webhookdb::ServiceIntegration>]
   def recursive_dependents
     return self.dependents + self.dependents.flat_map(&:recursive_dependents)
+  end
+
+  # Return all service integrations this one depends on,
+  # in closest-ancestor order (that is, parent before grandparent).
+  # @return [Array<Webhookdb::ServiceIntegration>]
+  def recursive_dependencies
+    return [] if self.depends_on.nil?
+    return [self.depends_on].concat(self.depends_on.recursive_dependencies)
   end
 
   def destroy_self_and_all_dependents

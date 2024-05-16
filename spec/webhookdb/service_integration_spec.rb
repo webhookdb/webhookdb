@@ -248,4 +248,27 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       expect(sint.table_name).to match(/fake_v1_([a-z\d]){4}/)
     end
   end
+
+  describe "recursive dependents/dependencies" do
+    it "returns the expected dependents and dependency chain" do
+      fac = Webhookdb::Fixtures.service_integration
+      a = fac.create
+      a_a = fac.create(depends_on: a)
+      a_b = fac.create(depends_on: a)
+      a_a_a = fac.create(depends_on: a_a)
+      a_a_b = fac.create(depends_on: a_a)
+      a_b_a = fac.create(depends_on: a_b)
+      expect(a.recursive_dependencies).to be_empty
+      expect(a.recursive_dependents).to have_same_ids_as(a_a, a_b, a_a_a, a_a_b, a_b_a).ordered
+
+      expect(a_a.recursive_dependencies).to have_same_ids_as(a).ordered
+      expect(a_a.recursive_dependents).to have_same_ids_as(a_a_a, a_a_b).ordered
+
+      expect(a_a_b.recursive_dependencies).to have_same_ids_as(a_a, a).ordered
+      expect(a_a_b.recursive_dependents).to be_empty
+
+      a_a_a_a = fac.create(depends_on: a_a_a)
+      expect(a_a_a_a.recursive_dependencies).to have_same_ids_as(a_a_a, a_a, a).ordered
+    end
+  end
 end
