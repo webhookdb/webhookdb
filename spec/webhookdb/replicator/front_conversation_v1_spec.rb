@@ -9,7 +9,7 @@ RSpec.describe Webhookdb::Replicator::FrontConversationV1, :db do
   let(:sint) { fac.depending_on(root).create(service_name: "front_conversation_v1").refresh }
   let(:svc) { sint.replicator }
 
-  it_behaves_like "a replicator", "front_conversation_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {

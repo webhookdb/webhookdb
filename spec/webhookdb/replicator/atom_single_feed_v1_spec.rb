@@ -24,7 +24,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
     J
   end
 
-  it_behaves_like "a replicator", "atom_single_feed_v1" do
+  it_behaves_like "a replicator" do
     let(:sint) { super() }
     let(:body) { entry_hash }
     let(:expected_row) do
@@ -40,10 +40,9 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
         geo_lng: BigDecimal("-122.646064077"),
       )
     end
-    let(:supports_row_diff) { true }
   end
 
-  it_behaves_like "a replicator that may have a minimal body", "atom_single_feed_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) do
       Webhookdb::Xml::Atom.parse_entry(<<~J)
         <entry>
@@ -55,7 +54,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "atom_single_feed_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) { entry_hash }
     let(:new_body) { entry_hash.merge("updated" => "Fri, 10 Jun 2023 17:40:38 PST", "title" => "new title") }
   end
@@ -89,7 +88,7 @@ RSpec.describe Webhookdb::Replicator::AtomSingleFeedV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "atom_single_feed_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~J
         <feed xmlns="http://www.w3.org/2005/Atom" xmlns:georss="http://www.georss.org/georss">

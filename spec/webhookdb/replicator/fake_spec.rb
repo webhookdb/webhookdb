@@ -14,7 +14,7 @@ RSpec.describe "fake implementations", :db do
       described_class.reset
     end
 
-    it_behaves_like "a replicator", "fake_v1" do
+    it_behaves_like "a replicator" do
       let(:body) do
         {
           "my_id" => "abc",
@@ -23,7 +23,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that prevents overwriting new data with old", "fake_v1" do
+    it_behaves_like "a replicator that prevents overwriting new data with old" do
       let(:old_body) do
         {
           "my_id" => "abc",
@@ -38,7 +38,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that can backfill", "fake_v1" do
+    it_behaves_like "a replicator that can backfill" do
       let(:page1_items) do
         [
           {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
@@ -74,7 +74,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that upserts webhooks only under specific conditions", "fake_v1" do
+    it_behaves_like "a replicator that upserts webhooks only under specific conditions" do
       before(:each) do
         described_class.resource_and_event_hook = ->(_h) {}
       end
@@ -87,7 +87,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator with dependents", "fake_v1", "fake_dependent_v1" do
+    it_behaves_like "a replicator with dependents", "fake_dependent_v1" do
       let(:body) do
         {
           "my_id" => "abc",
@@ -167,7 +167,7 @@ RSpec.describe "fake implementations", :db do
       described_class.reset
     end
 
-    it_behaves_like "a replicator that uses enrichments", "fake_with_enrichments_v1" do
+    it_behaves_like "a replicator that uses enrichments" do
       let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
       let(:enrichment_body) { {extra: "abc"}.to_json }
       let(:expected_enrichment_data) { JSON.parse(enrichment_body) }
@@ -197,7 +197,7 @@ RSpec.describe "fake implementations", :db do
       described_class.reset
     end
 
-    it_behaves_like "a replicator dependent on another", "fake_dependent_v1", "fake_v1" do
+    it_behaves_like "a replicator dependent on another", "fake_v1" do
       let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
     end
   end
@@ -211,8 +211,8 @@ RSpec.describe "fake implementations", :db do
       described_class.reset
     end
 
-    it_behaves_like "a replicator dependent on another", "fake_dependent_v1", "fake_v1" do
-      let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
+    it_behaves_like "a replicator dependent on another", "fake_dependent_v1" do
+      let(:no_dependencies_message) { "You don't have any FakeDependent integrations yet. You can run:" }
     end
   end
 

@@ -12,7 +12,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
   let(:calendar_external_id) { "123" }
   let(:ics_url) { "https://spec.test" }
 
-  it_behaves_like "a replicator", "icalendar_event_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:body) do
       s = <<~ICAL
         BEGIN:VEVENT
@@ -36,14 +36,13 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         uid: "79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
       )
     end
-    let(:supports_row_diff) { false }
   end
 
-  it_behaves_like "a replicator dependent on another", "icalendar_event_v1", "icalendar_calendar_v1" do
+  it_behaves_like "a replicator dependent on another", "icalendar_calendar_v1" do
     let(:no_dependencies_message) { "" }
   end
 
-  it_behaves_like "a replicator with a custom backfill not supported message", "icalendar_event_v1"
+  it_behaves_like "a replicator with a custom backfill not supported message"
 
   describe "upsert" do
     def upsert(s)

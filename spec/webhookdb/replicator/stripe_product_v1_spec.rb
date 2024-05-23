@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
-  it_behaves_like "a replicator", "stripe_product_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -43,7 +43,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
     end
     let(:expected_data) { body["data"]["object"] }
   end
-  it_behaves_like "a replicator that prevents overwriting new data with old", "stripe_product_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -123,7 +123,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
     let(:expected_new_data) { new_body["data"]["object"] }
   end
 
-  it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_product_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "object") }
     let(:resource_in_envelope_json) do
       JSON.parse(<<~J)
@@ -200,7 +200,7 @@ RSpec.describe Webhookdb::Replicator::StripeProductV1, :db do
           to_return(status: 403, body: "", headers: {})
     end
   end
-  it_behaves_like "a replicator that can backfill", "stripe_product_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {

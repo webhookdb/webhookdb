@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::UrlRecorderV1, :db do
-  it_behaves_like "a replicator", "url_recorder_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:request_path) { "/foo" }
     let(:request_method) { "GET" }
     let(:request_headers) { {"Accept" => "*"} }
@@ -26,7 +26,6 @@ RSpec.describe Webhookdb::Replicator::UrlRecorderV1, :db do
     end
 
     let(:body) { {"x" => 1} }
-    let(:supports_row_diff) { false }
     let(:expected_row) do
       include(
         unique_id: 1,

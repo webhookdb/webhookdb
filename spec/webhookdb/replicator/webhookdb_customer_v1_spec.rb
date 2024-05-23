@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::WebhookdbCustomerV1, :db do
-  it_behaves_like "a replicator", "webhookdb_customer_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -16,7 +16,7 @@ RSpec.describe Webhookdb::Replicator::WebhookdbCustomerV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "webhookdb_customer_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
