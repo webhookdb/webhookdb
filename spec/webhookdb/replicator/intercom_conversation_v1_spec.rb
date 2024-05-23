@@ -10,7 +10,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
   let(:sint) { fac.depending_on(root).create(service_name: "intercom_conversation_v1").refresh }
   let(:svc) { sint.replicator }
 
-  it_behaves_like "a replicator", "intercom_conversation_v1" do
+  it_behaves_like "a replicator" do
     let(:body) { JSON.parse(<<~JSON) }
       {
         "type": "conversation",
@@ -158,7 +158,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that deals with resources and wrapped events", "intercom_conversation_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_json) { resource_in_envelope_json.dig("data", "item") }
     let(:resource_in_envelope_json) { JSON.parse(<<~JSON) }
       {
@@ -309,7 +309,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     JSON
   end
 
-  it_behaves_like "a replicator that may have a minimal body", "intercom_conversation_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) { JSON.parse(<<~JSON) }
       {
         "type": "notification_event",
@@ -377,11 +377,11 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:other_bodies) { [archived_body] }
   end
 
-  it_behaves_like "a replicator dependent on another", "intercom_conversation_v1", "intercom_marketplace_root_v1" do
+  it_behaves_like "a replicator dependent on another", "intercom_marketplace_root_v1" do
     let(:no_dependencies_message) { "This integration requires Intercom Auth to sync" }
   end
 
-  it_behaves_like "a replicator that can backfill", "intercom_conversation_v1" do
+  it_behaves_like "a replicator that can backfill" do
     before(:each) { Webhookdb::Intercom.page_size = 2 }
 
     let(:page1_response) { <<~JSON }
@@ -850,7 +850,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     end
   end
 
-  it_behaves_like "a backfill replicator that requires credentials from a dependency", "intercom_conversation_v1" do
+  it_behaves_like "a backfill replicator that requires credentials from a dependency" do
     let(:error_message) { /that the Intercom Auth integration has a valid Auth Token/ }
     def strip_auth(sint)
       sint.replicator.find_auth_integration.update(backfill_secret: "")

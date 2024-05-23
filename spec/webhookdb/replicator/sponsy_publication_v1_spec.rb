@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
-  it_behaves_like "a replicator", "sponsy_publication_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -87,7 +87,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -143,7 +143,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {
@@ -242,7 +242,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "sponsy_publication_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:last_backfilled) { "2022-09-01T18:00:00Z" }
     let(:expected_new_items_count) { 2 }
     let(:expected_old_items_count) { 1 }

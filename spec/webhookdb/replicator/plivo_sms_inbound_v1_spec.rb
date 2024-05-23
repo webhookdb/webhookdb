@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::PlivoSmsInboundV1, :db do
-  it_behaves_like "a replicator", "plivo_sms_inbound_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:sint) do
       Webhookdb::Fixtures.service_integration.create(service_name: "plivo_sms_inbound_v1", backfill_secret: "x")
     end
@@ -39,7 +39,6 @@ RSpec.describe Webhookdb::Replicator::PlivoSmsInboundV1, :db do
         }
       JSON
     end
-    let(:supports_row_diff) { false }
   end
 
   describe "state machine calculation" do

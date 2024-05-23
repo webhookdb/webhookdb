@@ -3,16 +3,14 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
-  service_name = "front_signalwire_message_channel_app_v1"
   let(:org) { Webhookdb::Fixtures.organization.create }
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:signalwire_sint) { fac.create(service_name: "signalwire_message_v1") }
-  let(:sint) { fac.depending_on(signalwire_sint).create(service_name:) }
+  let(:sint) { fac.depending_on(signalwire_sint).create(service_name: "front_signalwire_message_channel_app_v1") }
   let(:svc) { sint.replicator }
 
-  it_behaves_like "a replicator", service_name do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:sint) { super().update(api_url: "2223334444") }
-    let(:supports_row_diff) { false }
     let(:body) do
       {
         "type" => "message_autoreply",
@@ -54,7 +52,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     end
   end
 
-  it_behaves_like "a replicator dependent on another", service_name, "signalwire_message_v1" do
+  it_behaves_like "a replicator dependent on another", "signalwire_message_v1" do
     let(:no_dependencies_message) { "This integration requires SignalWire Messages to sync" }
   end
 

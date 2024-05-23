@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::IncreaseEventV1, :db do
-  it_behaves_like "a replicator", "increase_event_v1" do
+  it_behaves_like "a replicator" do
     let(:body) { JSON.parse(<<~JSON) }
       {
         "id": "event_123abc",
@@ -16,7 +16,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseEventV1, :db do
     JSON
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "increase_event_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) { JSON.parse(<<~JSON) }
       {
         "id": "transfer_event_123",
@@ -39,7 +39,7 @@ RSpec.describe Webhookdb::Replicator::IncreaseEventV1, :db do
     JSON
   end
 
-  it_behaves_like "a replicator that can backfill", "increase_event_v1" do
+  it_behaves_like "a replicator that can backfill" do
     def create_all_dependencies(sint)
       r = super
       sint.depends_on&.update(backfill_key: "bfkey", api_url: "https://api.increase.com")

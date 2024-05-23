@@ -17,7 +17,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
       )
   end
 
-  it_behaves_like "a replicator", "convertkit_tag_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -61,7 +61,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "convertkit_tag_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {
@@ -150,7 +150,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitTagV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that uses enrichments", "convertkit_tag_v1" do
+  it_behaves_like "a replicator that uses enrichments" do
     let(:body) do
       JSON.parse(<<~J)
         {

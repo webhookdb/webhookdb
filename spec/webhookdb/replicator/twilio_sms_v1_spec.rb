@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
-  it_behaves_like "a replicator", "twilio_sms_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "twilio_sms_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -146,7 +146,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R
@@ -302,7 +302,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R

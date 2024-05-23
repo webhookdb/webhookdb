@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
-  it_behaves_like "a replicator", "signalwire_message_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "signalwire_message_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -148,7 +148,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "signalwire_message_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:api_url) { "whdbtestfake" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
@@ -305,7 +305,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "signalwire_message_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:api_url) { "whdbtestfake" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do

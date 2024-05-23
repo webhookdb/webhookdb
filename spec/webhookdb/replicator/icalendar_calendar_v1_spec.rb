@@ -24,7 +24,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
-  it_behaves_like "a replicator", "icalendar_calendar_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:sint) { super() }
     let(:body) do
       JSON.parse(<<~J)
@@ -46,10 +46,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         last_synced_at: nil,
       )
     end
-    let(:supports_row_diff) { false }
   end
 
-  it_behaves_like "a replicator with dependents", "icalendar_calendar_v1", "icalendar_event_v1" do
+  it_behaves_like "a replicator with dependents", "icalendar_event_v1" do
     let(:sint) { super() }
     let(:body) do
       JSON.parse(<<~J)
@@ -199,7 +198,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
-  it_behaves_like "a replicator with a custom backfill not supported message", "icalendar_calendar_v1"
+  it_behaves_like "a replicator with a custom backfill not supported message"
 
   describe "webhook_response" do
     it "validates using Whdb-Webhook-Secret" do

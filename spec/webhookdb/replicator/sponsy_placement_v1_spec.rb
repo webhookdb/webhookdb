@@ -42,7 +42,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
     return {data:, cursor: {afterCursor: cursor}}.to_json
   end
 
-  it_behaves_like "a replicator", "sponsy_placement_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -59,7 +59,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "sponsy_placement_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -90,11 +90,11 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
     end
   end
 
-  it_behaves_like "a replicator dependent on another", "sponsy_placement_v1", "sponsy_publication_v1" do
+  it_behaves_like "a replicator dependent on another", "sponsy_publication_v1" do
     let(:no_dependencies_message) { "This integration requires Sponsy Publications to sync" }
   end
 
-  it_behaves_like "a replicator that can backfill", "sponsy_placement_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:expected_items_count) { 8 }
 
     def insert_required_data_callback
@@ -150,7 +150,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "sponsy_placement_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:last_backfilled) { "2022-09-01T18:00:00Z" }
     let(:expected_new_items_count) { 4 }
     let(:expected_old_items_count) { 2 }
@@ -192,7 +192,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPlacementV1, :db do
     end
   end
 
-  it_behaves_like "a backfill replicator that requires credentials from a dependency", "sponsy_placement_v1" do
+  it_behaves_like "a backfill replicator that requires credentials from a dependency" do
     let(:error_message) { /This Sponsy/ }
     def strip_auth(sint)
       sint.replicator.root_integration.update(backfill_secret: "")

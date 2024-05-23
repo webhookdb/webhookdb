@@ -6,7 +6,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
   let(:accept_json_contenttype) { "application/vnd.github+json" }
   let(:response_json_contenttype) { ["application/json; charset=utf-8", accept_json_contenttype].sample }
 
-  it_behaves_like "a replicator", "github_issue_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -83,7 +83,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "github_issue_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~JSON)
         {
@@ -234,7 +234,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that may have a minimal body", "github_issue_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -263,7 +263,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
       JSON
     end
   end
-  it_behaves_like "a replicator that deals with resources and wrapped events", "github_issue_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_json) { resource_in_envelope_json.fetch("issue") }
     let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
@@ -305,7 +305,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that uses enrichments", "github_issue_v1", stores_enrichment_column: false do
+  it_behaves_like "a replicator that uses enrichments", stores_enrichment_column: false do
     # super() is not working here for some reason
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "github_issue_v1", backfill_secret: "x") }
     let(:body) do
@@ -396,7 +396,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
           to_return(status: 401, body: "", headers: {})
     end
   end
-  it_behaves_like "a replicator that can backfill", "github_issue_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:api_url) { "my/code" }
     let(:page1_response) do
       <<~JSON
@@ -525,7 +525,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "github_issue_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:api_url) { "my/code" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do

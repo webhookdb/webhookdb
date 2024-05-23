@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
-  it_behaves_like "a replicator", "transistor_episode_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -50,7 +50,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "transistor_episode_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -176,7 +176,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "transistor_episode_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {
@@ -333,7 +333,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "transistor_episode_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:page1_response) do
       <<~R
         {
@@ -457,7 +457,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that uses enrichments", "transistor_episode_v1", stores_enrichment_column: false do
+  it_behaves_like "a replicator that uses enrichments", stores_enrichment_column: false do
     let(:body) do
       JSON.parse(<<~JSON)
         {

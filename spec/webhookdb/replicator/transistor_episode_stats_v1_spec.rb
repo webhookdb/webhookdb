@@ -30,7 +30,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator", "transistor_episode_stats_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -42,12 +42,12 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator dependent on another", "transistor_episode_stats_v1",
+  it_behaves_like "a replicator dependent on another",
                   "transistor_episode_v1" do
     let(:no_dependencies_message) { "This integration requires Transistor Episodes to sync" }
   end
 
-  it_behaves_like "a replicator that can backfill", "transistor_episode_stats_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {

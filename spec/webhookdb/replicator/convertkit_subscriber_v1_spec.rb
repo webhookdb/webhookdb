@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
-  it_behaves_like "a replicator", "convertkit_subscriber_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -58,7 +58,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "convertkit_subscriber_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {
@@ -186,7 +186,7 @@ RSpec.describe Webhookdb::Replicator::ConvertkitSubscriberV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "convertkit_subscriber_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:page1_response) do
       <<~R
         {

@@ -30,12 +30,12 @@ RSpec.shared_examples "an Increase replicator dependent on events and increase_a
     let(:body) { insertable_body }
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", name do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) { old_insertable_body }
     let(:new_body) { new_insertable_body }
   end
 
-  it_behaves_like "a replicator that uses enrichments", name, stores_enrichment_column: false do
+  it_behaves_like "a replicator that uses enrichments", stores_enrichment_column: false do
     before(:each) do
       create_all_dependencies(sint).first.update(backfill_key: "access-tok")
     end
@@ -66,7 +66,7 @@ RSpec.shared_examples "an Increase replicator dependent on events and increase_a
     end
   end
 
-  it_behaves_like "a replicator that can backfill", name do
+  it_behaves_like "a replicator that can backfill" do
     def create_all_dependencies(sint)
       r = super
       sint.depends_on.update(backfill_key: "access-tok")
