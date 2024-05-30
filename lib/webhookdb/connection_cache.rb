@@ -52,6 +52,9 @@ class Webhookdb::ConnectionCache
     # prune connections with no pending borrows.
     setting :prune_interval, 120
 
+    # If a connection hasn't been used in this long, validate it before reusing it.
+    setting :idle_timeout, 20.minutes
+
     # Seconds for the :fast timeout option.
     setting :timeout_fast, 30
     # Seconds for the :slow timeout option.
@@ -83,6 +86,25 @@ class Webhookdb::ConnectionCache
     @last_pruned_at = Time.now
   end
 
+  Available = Struct.new(:connection, :at) do
+    delegate :disconnect, to: :connection
+
+    # Return +connection+ if it has not been idle long enough,
+    # or if it has been idle, then validate it (SELECT 1), and return +connection+
+    # if it's valid, or +nil+ if the database disconnected it.
+    def validated_connection
+      needs_validation_at = self.at + Webhookdb::ConnectionCache.idle_timeout
+      return self.connection if needs_validation_at > Time.now
+      begin
+        self.connection << "SELECT 1"
+        return self.connection
+      rescue Sequel::DatabaseDisconnectError
+        self.connection.disconnect
+        return nil
+      end
+    end
+  end
+
   # Connect to the database at the given URL.
   # borrow is not re-entrant, so if the current thread already owns a connection
   # to the given url, raise a ReentrantError.
@@ -111,7 +133,11 @@ class Webhookdb::ConnectionCache
         raise ReentranceError,
               "ConnectionCache#borrow is not re-entrant for the same database since the connection has stateful config"
       end
-      conn = db_loans[:available].pop || take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
+      if (available = db_loans[:available].pop)
+        # If the connection doesn't validate, it won't be in :available at this point, so don't worry about it.
+        conn = available.validated_connection
+      end
+      conn ||= take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
       db_loans[:loaned][t] = conn
     end
     conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
@@ -126,7 +152,7 @@ class Webhookdb::ConnectionCache
       conn << "SET statement_timeout TO 0" if timeout.present?
       @mutex.synchronize do
         @dbs_for_urls[url][:loaned].delete(t)
-        @dbs_for_urls[url][:available] << conn
+        @dbs_for_urls[url][:available] << Available.new(conn, Time.now)
       end
     end
     self.prune(url) if now > self.next_prune_at
