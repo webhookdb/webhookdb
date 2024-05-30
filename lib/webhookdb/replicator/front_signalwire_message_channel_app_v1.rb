@@ -239,35 +239,44 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       @signalwire_sint = replicator.service_integration.depends_on
     end
 
-    def handle_item(item)
-      front_id = item.fetch(:front_message_id)
-      sw_id = item.fetch(:signalwire_sid)
+    def handle_item(db_row)
+      front_id = db_row.fetch(:front_message_id)
+      sw_id = db_row.fetch(:signalwire_sid)
+      # This is sort of gross- we get the db row here, and need to re-update it with certain fields
+      # as a result of the signalwire or front sync. To do that, we need to run the upsert on 'data',
+      # but what's in 'data' is incomplete. So we use the db row to form a more fully complete 'data'.
+      upserting_data = db_row.dup
+      # Remove the columns that don't belong in 'data'
+      upserting_data.delete(:pk)
+      upserting_data.delete(:row_updated_at)
+      # Splat the 'data' column into the row so it all gets put back into 'data'
+      upserting_data.merge!(**upserting_data.delete(:data))
       if (front_id && sw_id) || (!front_id && !sw_id)
-        msg = "row should have a front id OR signalwire id, should not have been inserted, or selected: #{item}"
+        msg = "row should have a front id OR signalwire id, should not have been inserted, or selected: #{db_row}"
         raise Webhookdb::InvariantViolation, msg
       end
-      sender = @replicator.format_phone(item.fetch(:sender))
-      recipient = @replicator.format_phone(item.fetch(:recipient))
-      body = item.fetch(:body)
-      idempotency_key = "fsmca-fims-#{item.fetch(:external_id)}"
+      sender = @replicator.format_phone(db_row.fetch(:sender))
+      recipient = @replicator.format_phone(db_row.fetch(:recipient))
+      body = db_row.fetch(:body)
+      idempotency_key = "fsmca-fims-#{db_row.fetch(:external_id)}"
       idempotency = Webhookdb::Idempotency.once_ever.stored.using_seperate_connection.under_key(idempotency_key)
       if front_id.nil?
-        texted_at = Time.parse(item.fetch(:data).fetch("date_created"))
+        texted_at = Time.parse(db_row.fetch(:data).fetch("date_created"))
         if texted_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
-          item[:front_message_id] = "skipped_due_to_age"
+          upserting_data[:front_message_id] = "skipped_due_to_age"
         else
           # sync the message into Front
           front_response_body = idempotency.execute do
-            self._sync_front_inbound(sender:, texted_at:, item:, body:)
+            self._sync_front_inbound(sender:, texted_at:, db_row:, body:)
           end
-          item[:front_message_id] = front_response_body.fetch("message_uid")
+          upserting_data[:front_message_id] = front_response_body.fetch("message_uid")
         end
       else
-        messaged_at = Time.at(item.fetch(:data).fetch("payload").fetch("created_at"))
+        messaged_at = Time.at(db_row.fetch(:data).fetch("payload").fetch("created_at"))
         if messaged_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
-          item[:signalwire_sid] = "skipped_due_to_age"
+          upserting_data[:signalwire_sid] = "skipped_due_to_age"
         else
           # send the SMS via signalwire
           signalwire_resp = _send_sms(
@@ -276,10 +285,10 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
             to: recipient,
             body:,
           )
-          item[:signalwire_sid] = signalwire_resp.fetch("sid") if signalwire_resp
+          upserting_data[:signalwire_sid] = signalwire_resp.fetch("sid") if signalwire_resp
         end
       end
-      @replicator.upsert_webhook_body(item.deep_stringify_keys)
+      @replicator.upsert_webhook_body(upserting_data.deep_stringify_keys)
     end
 
     def _send_sms(idempotency, from:, to:, body:)
@@ -321,14 +330,14 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       return nil
     end
 
-    def _sync_front_inbound(sender:, texted_at:, item:, body:)
+    def _sync_front_inbound(sender:, texted_at:, db_row:, body:)
       body = {
         sender: {handle: sender},
         body: body || "<no body>",
         delivered_at: texted_at.to_i,
         metadata: {
-          external_id: item.fetch(:external_id),
-          external_conversation_id: item.fetch(:external_conversation_id),
+          external_id: db_row.fetch(:external_id),
+          external_conversation_id: db_row.fetch(:external_conversation_id),
         },
       }
       token = JWT.encode(

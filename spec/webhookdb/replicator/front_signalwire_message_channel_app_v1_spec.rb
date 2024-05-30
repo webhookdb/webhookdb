@@ -580,9 +580,25 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       end
       expect(req).to have_been_made
       expect(svc.admin_dataset(&:all)).to contain_exactly(
-        include(external_id: "both_id", signalwire_sid: "swid1", front_message_id: "fmid"),
-        include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
-        include(external_id: "OLD_sw_id_only", signalwire_sid: "OLD_swid2", front_message_id: "skipped_due_to_age"),
+        include(
+          external_id: "both_id",
+          signalwire_sid: "swid1",
+          front_message_id: "fmid",
+          data: be_empty,
+        ),
+        # Use not_includde to verify the data/row splat workaround works.
+        include(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          front_message_id: "FMID2",
+          data: not_include("pk"),
+        ),
+        include(
+          external_id: "OLD_sw_id_only",
+          signalwire_sid: "OLD_swid2",
+          front_message_id: "skipped_due_to_age",
+          data: not_include("pk"),
+        ),
       )
     end
 
