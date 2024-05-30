@@ -456,6 +456,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return self.add_all_membership(opts)
   end
 
+  def close(confirm:)
+    raise Webhookdb::InvalidPrecondition, "confirm must be true to close the org" unless confirm
+    unless self.service_integrations_dataset.empty?
+      msg = "Organization[#{self.key} cannot close with active service integrations"
+      raise Webhookdb::InvalidPrecondition, msg
+    end
+    memberships = self.all_memberships_dataset.all.each(&:destroy)
+    self.destroy
+    return [self, memberships]
+  end
+
   # SUBSCRIPTION PERMISSIONS
 
   def active_subscription?

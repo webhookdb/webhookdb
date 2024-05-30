@@ -2,7 +2,7 @@
 
 RSpec.describe "Webhookdb::Organization", :async, :db do
   let(:described_class) { Webhookdb::Organization }
-  let!(:o) { Webhookdb::Fixtures.organization.create }
+  let(:o) { Webhookdb::Fixtures.organization.create }
 
   it "can fixture and full text search" do
     expect { Webhookdb::Fixtures.organization.create.text_search_reindex }.to_not raise_error
@@ -422,6 +422,27 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
       internal_role = Webhookdb::Role.create(name: "internal")
       o.add_feature_role(internal_role)
       expect(o.available_replicators.map(&:name)).to include("fake_v1", "fake_with_enrichments_v1")
+    end
+  end
+
+  describe "#close" do
+    let(:org) { Webhookdb::Fixtures.organization.with_member.create(name: "testorg") }
+
+    it "removes all memberships and destroys the org" do
+      c = org.all_memberships.first.customer
+      org.close(confirm: true)
+      expect(Webhookdb::Customer.all).to contain_exactly(be === c)
+      expect(Webhookdb::Organization.all).to be_empty
+      expect(Webhookdb::OrganizationMembership.all).to be_empty
+    end
+
+    it "errors if there are any service integrations" do
+      Webhookdb::Fixtures.service_integration(organization: org).create
+      expect { org.close(confirm: true) }.to raise_error(/cannot close with active service integrations/)
+    end
+
+    it "errors if confirm is false" do
+      expect { org.close(confirm: false) }.to raise_error(/confirm must be true/)
     end
   end
 end
