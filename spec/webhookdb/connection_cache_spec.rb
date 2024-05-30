@@ -133,6 +133,42 @@ RSpec.describe Webhookdb::ConnectionCache do
       end
     end
 
+    def connpid(c)
+      return c.select(Sequel.function(:pg_backend_pid)).first[:pg_backend_pid]
+    end
+
+    it "validates connections idle more than the idle timeout, and does not use ones that fail" do
+      conn = nil
+      pid = nil
+      instance.borrow(db1_url) do |c|
+        conn = c
+        pid = connpid(c)
+        c.execute("SET application_name TO 'validationtest'")
+      end
+      instance.borrow(db1_url) do |c|
+        expect(conn).to be(c)
+      end
+      t1 = 2.hours.from_now
+      t2 = 4.hours.from_now
+      # This should validate, and reuse the original connection reused because it is still valid.
+      Timecop.travel(t1) do
+        instance.borrow(db1_url) do |c|
+          expect(connpid(c)).to eq(pid)
+          expect(conn).to be(c)
+        end
+      end
+      # This should validate, and a new conneciton opened because validation failed.
+      Timecop.travel(t2) do
+        Sequel.connect(db1_url) do |c|
+          c << "SELECT pg_terminate_backend(#{pid})"
+        end
+        instance.borrow(db1_url) do |c|
+          expect(connpid(c)).to_not eq(pid)
+          expect(conn).to_not be(c)
+        end
+      end
+    end
+
     it "prunes available connections once it has been prune_seconds since the last prune" do
       Timecop.freeze do
         instance.borrow(db1_url) do |_|
