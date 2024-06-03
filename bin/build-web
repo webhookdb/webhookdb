@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-cd admin
+cd web
 npm install --production=false
 export NODE_ENV=production
 npm run build
-rm -f -r ../admin-dist
-mv dist/ ../admin-dist
+rm -f -r ../web-dist
+mv dist/ ../web-dist

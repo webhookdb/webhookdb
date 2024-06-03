@@ -1,0 +1,47 @@
+{
+  "name": "webhookdb-web",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build --base=/app/",
+    "lint-check": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint-fix": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "fmt-check": "prettier --no-error-on-unmatched-pattern --check '*.{js,jsx}' './tools/*.{js,jsx}' './src/**/*.{js,jsx}'",
+    "fmt-fix": "prettier --no-error-on-unmatched-pattern --write '*.{js,jsx}' './tools/*.{js,jsx}' './src/**/*.{js,jsx}'",
+    "test": "vitest --passWithNoTests --globals",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mantine/core": "^7.10.1",
+    "@mantine/hooks": "^7.10.1",
+    "@sentry/react": "^8.7.0",
+    "@tabler/icons-react": "^3.5.0",
+    "axios": "^1.7.2",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.10",
+    "humps": "git+https://github.com/lithictech/humps.git#fb9844c8d37cea67ee9c592e2685aee68d05015f",
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-helmet-async": "^2.0.5",
+    "react-router-dom": "^6.21.0"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^4.2.1",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react-swc": "^3.3.2",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "postcss": "^8.4.38",
+    "postcss-preset-mantine": "^1.15.0",
+    "postcss-simple-vars": "^7.0.1",
+    "prettier": "^3.0.3",
+    "typescript": "^5.1.6",
+    "vite": "^4.3.9",
+    "vitest": "^0.34.6"
+  }
+}

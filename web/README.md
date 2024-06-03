@@ -1,4 +1,4 @@
-# admin
+# WebhookDB Web App
 
 ## Installation
 
@@ -27,15 +27,15 @@ npm run build
 Or, from the root `webhookdb/Makefile`:
 
 ```sh
-make admin-build
+make web-build
 ```
 
 ## Hosting
 
-For now, the admin app is built manually and checked in.
+For now, the web app is built manually and checked in.
 This isn't ideal, but I don't want to deal with the rigamarole of getting the app building
 in both the container and Heroku, like we do with Suma (https://github.com/lithictech/suma).
 
-Run `make admin-build`, and check in the diffs in `admin-build`.
+Run `make web-build`, and check in the diffs in `web-build`.
 This is served as a SPA using [`rack-spa`](https://github.com/lithictech/rack-spa)
 set up in `apps.rb`.

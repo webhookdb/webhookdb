@@ -100,17 +100,22 @@ module Webhookdb::Apps
     add_swagger_documentation if ENV["RACK_ENV"] == "development"
   end
 
-  Admin = Rack::Builder.new do
-    build_dir = Pathname(__FILE__).dirname.parent.parent + "admin-dist"
-    dw = Rack::DynamicConfigWriter.new(build_dir + "index.html", global_assign: "window.whdbDynamicEnv")
-    env = {
-      "VITE_API_ROOT" => "/",
-      "VITE_RELEASE" => "admin@1.0.0",
-      "NODE_ENV" => "production",
-    }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))
-    index_bytes = dw.as_string(env)
-    Rack::SpaApp.run_spa_app(self, build_dir, enforce_ssl: Webhookdb::Service.enforce_ssl, index_bytes:)
+  def self.build_static_app(name)
+    Rack::Builder.new do
+      build_dir = Pathname(__FILE__).dirname.parent.parent + "#{name}-dist"
+      dw = Rack::DynamicConfigWriter.new(build_dir + "index.html", global_assign: "window.whdbDynamicEnv")
+      env = {
+        "VITE_API_ROOT" => "/",
+        "VITE_RELEASE_COMMIT" => Webhookdb::COMMIT,
+        "NODE_ENV" => "production",
+      }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))
+      index_bytes = dw.as_string(env)
+      Rack::SpaApp.run_spa_app(self, build_dir, enforce_ssl: Webhookdb::Service.enforce_ssl, index_bytes:)
+    end
   end
+
+  Admin = build_static_app("admin")
+  Web = build_static_app("web")
 
   SidekiqWeb = Rack::Builder.new do
     use Sentry::Rack::CaptureExceptions if Webhookdb::Sentry.enabled?

@@ -93,6 +93,8 @@ message-render-html: env-MESSAGE
 
 admin-build:
 	bin/build-admin
+web-build:
+	bin/build-web
 
 dockerdev-build:
 	@docker build -f docker/dev.Dockerfile -t webhookdb-dev:latest --progress=plain .
