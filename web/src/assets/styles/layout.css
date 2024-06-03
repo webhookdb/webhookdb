@@ -1,0 +1,7 @@
+.max-width-sm {
+    max-width: var(--size-sm);
+}
+
+.max-width-lg {
+    max-width: var(--size-lg);
+}

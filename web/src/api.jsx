@@ -15,11 +15,9 @@ const post = (path, params, opts) => {
 const patch = (path, params, opts) => {
   return instance.patch(path, params, opts);
 };
-
 const put = (path, params, opts) => {
   return instance.put(path, params, opts);
 };
-
 const del = (path, params, opts) => {
   return instance.delete(path, apiBase.mergeParams(params, opts));
 };
