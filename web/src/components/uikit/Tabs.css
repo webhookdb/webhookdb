@@ -1,0 +1,27 @@
+.tabs-list {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-2);
+}
+
+.tabs-tab {
+  border-radius: var(--border-radius);
+  padding: var(--spacing);
+
+  &.selected {
+    background-color: var(--color-secondary);
+  }
+
+  &:hover {
+    background-color: var(--color-secondary);
+  }
+}
+
+.tabs-tab-link {
+  color: var(--color-foreground);
+  text-decoration: none;
+
+  &:visited {
+    color: var(--color-foreground);
+  }
+}

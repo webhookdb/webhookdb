@@ -1,16 +1,15 @@
-import { Logger } from "./logger";
 import get from "lodash/get";
 import identity from "lodash/identity";
 import omit from "lodash/omit";
+
+import { Logger } from "./logger";
 
 const reqLogger = new Logger("api.requests");
 const respLogger = new Logger("api.responses");
 
 function reqSuccessDebug(config) {
   // https://github.com/axios/axios#request-config
-  reqLogger
-    .tags({ method: method(config), url: config.url })
-    .debug("api_request");
+  reqLogger.tags({ method: method(config), url: config.url }).debug("api_request");
   return config;
 }
 

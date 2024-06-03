@@ -1,0 +1,193 @@
+@font-face {
+  font-family: 'Karla';
+  font-style: normal;
+  font-weight: 300;
+  src: local("Karla"), url("../fonts/karla/static/Karla-Regular.ttf") format('truetype');
+}
+
+@font-face {
+  font-family: 'Karla';
+  font-style: normal;
+  font-weight: 700;
+  src: local("Karla"), url("../fonts/karla/static/Karla-SemiBold.ttf") format('truetype');
+}
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-weight: 400;
+  src: local("Lora"),url("../fonts/lora/Lora-VariableFont_wght.ttf") format('truetype');
+}
+
+body {
+  font-family:
+          'Karla',
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          "Noto Sans",
+          "Liberation Sans",
+          sans-serif,
+          "Apple Color Emoji",
+          "Segoe UI Emoji",
+          "Segoe UI Symbol",
+          "Noto Color Emoji";
+}
+
+h1, h2, h3 {
+  font-family: 'Lora', serif;
+}
+
+:root {
+  --fw-thin: 100;
+  --fw-extra-light: 200;
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semi-bold: 600;
+  --fw-bold: 700;
+  --fw-extra-bold: 800;
+  --fw-black: 900;
+  --fw-extra-black: 950;
+}
+
+h1,
+.h1 {
+  font-weight: var(--fw-bold);
+  font-size: 40px;
+  line-height: 60px;
+}
+
+h2,
+.h2 {
+  font-weight: var(--fw-extra-bold);
+  font-size: 32px;
+  line-height: 39px;
+}
+
+h3,
+.h3 {
+  font-weight: var(--fw-bold);
+  font-size: 28px;
+  line-height: 34px;
+}
+
+h4,
+.h4 {
+  font-weight: var(--fw-semi-bold);
+  font-size: 28px;
+  line-height: 34px;
+}
+
+h5,
+.h5 {
+  font-weight: var(--fw-bold);
+  font-size: 24px;
+  line-height: 30px;
+}
+
+h6,
+.h6 {
+  font-weight: var(--fw-semi-bold);
+  font-size: 20px;
+  line-height: 18px;
+}
+
+.h7 {
+  font-weight: var(--fw-bold);
+  font-size: 18px;
+  line-height: 22px;
+}
+
+p {
+  margin-bottom: 0;
+}
+
+p,
+.text {
+  font-weight: var(--fw-regular);
+  font-size: 14px;
+  line-height: 16px;
+}
+
+strong,
+.text-strong {
+  font-weight: var(--fw-semi-bold) !important;
+  font-size: 14px;
+  line-height: 16px;
+}
+
+.subtitle {
+  font-weight: var(--fw-medium);
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.subtitle strong,
+.subtitle-strong {
+  font-weight: var(--fw-semi-bold);
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.btn-lg,
+.btn-md,
+.text-btn-lg,
+.text-btn-md {
+  font-weight: var(--fw-bold);
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.btn-sm,
+.text-btn-sm {
+  font-weight: var(--fw-semi-bold);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.text-desc {
+  font-weight: var(--fw-regular);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.text-desc-sm {
+  font-weight: var(--fw-regular);
+  font-size: 9px;
+  line-height: 11px;
+}
+
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.decoration-none {
+  text-decoration: none;
+}
+
+.fw-thin { font-weight: var(--fw-thin); }
+.fw-extra-light { font-weight: var(--fw-extra-light); }
+.fw-light { font-weight: var(--fw-light); }
+.fw-regular { font-weight: var(--fw-regular); }
+.fw-medium { font-weight: var(--fw-medium); }
+.fw-semi-bold { font-weight: var(--fw-semi-bold); }
+.fw-bold { font-weight: var(--fw-bold); }
+.fw-extra-bold { font-weight: var(--fw-extra-bold); }
+.fw-black { font-weight: var(--fw-black); }
+.fw-extra-black { font-weight: var(--fw-extra-black); }

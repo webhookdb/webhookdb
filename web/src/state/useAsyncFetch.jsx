@@ -1,10 +1,6 @@
 import React from "react";
-import {
-  arrayAppend,
-  arrayRemoveAt,
-  arraySetAt,
-  mapSetAt,
-} from "../modules/fp.js";
+
+import { arrayAppend, arrayRemoveAt, arraySetAt, mapSetAt } from "../modules/fp.js";
 
 /**
  * @param makeRequest
@@ -107,9 +103,7 @@ export function useAsyncCollectionFetch(makeRequest, options) {
   const scratchItems = scratchState.items || emptyArray;
   const replaceItemAt = React.useCallback(
     (index, value) => {
-      replaceState(
-        mapSetAt(fetchedState, "items", arraySetAt(items, index, value)),
-      );
+      replaceState(mapSetAt(fetchedState, "items", arraySetAt(items, index, value)));
     },
     [fetchedState, items, replaceState],
   );

@@ -1,7 +1,8 @@
-import { Logger } from "../modules/logger";
 import get from "lodash/get";
 import isString from "lodash/isString";
 import React from "react";
+
+import { Logger } from "../modules/logger";
 
 const logger = new Logger("errors");
 

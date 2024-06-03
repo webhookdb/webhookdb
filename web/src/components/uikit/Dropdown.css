@@ -1,0 +1,88 @@
+.dropdown-button {
+  --bgcolor: var(--color-light-grey);
+
+  white-space: nowrap;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  position: relative;
+
+  .dropdown-arrow {
+    position: absolute;
+    right: var(--spacing-3);
+  }
+
+  .dropdown-arrow-scrim {
+    position: absolute;
+    right: 16px;
+    background-color: var(--bgcolor);
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 1px 2px var(--bgcolor);
+    border-radius: 50%;
+  }
+
+  .dropdown-edge-scrim {
+    position: absolute;
+    background-color: var(--bgcolor);
+    width: 4px;
+    right: 0;
+    height: 100%;
+  }
+}
+
+.dropdown-popover {
+  /* noinspection CssUnresolvedCustomProperty */
+  min-width: var(--trigger-width);
+  border: var(--nofocus-border);
+}
+
+.dropdown-icon {
+  vertical-align: middle;
+  margin-bottom: 3px;
+}
+
+.dropdown-listbox {
+  border-radius: 12px;
+  background: var(--color-background);
+  box-shadow: 0 4px 32px 0 rgb(55 61 113 / 20%);
+  padding: 4px;
+  border: var(--nofocus-border);
+  outline: none;
+}
+
+.dropdown-item {
+  padding: var(--spacing-2p5);
+  color: var(--color-foreground);
+  font-weight: var(--fw-regular);
+  font-size: 14px;
+  line-height: 18px;
+  border-radius: var(--border-radius);
+  text-decoration: none;
+  display: block;
+  cursor: pointer;
+}
+
+.dropdown-item[data-focused],
+.dropdown-item:hover {
+  outline: none;
+  background-color: var(--color-light-grey);
+}
+
+.dropdown-header {
+  padding: var(--spacing-2p5);
+  color: var(--color-foreground);
+  font-weight: var(--fw-medium);
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.dropdown-seperator {
+  outline: none;
+  border: none;
+  height: 3px;
+  background-color: var(--color-light-grey);
+  margin-left: var(--spacing);
+  margin-right: var(--spacing);
+}

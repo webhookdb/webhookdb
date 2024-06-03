@@ -1,0 +1,9 @@
+.input-field-label {
+  color: var(--color-blurple);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: var(--fw-bold);
+  line-height: 18px;
+  margin-left: var(--border-radius-half);
+  margin-bottom: var(--spacing-1);
+}

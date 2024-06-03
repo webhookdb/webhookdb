@@ -1,4 +1,5 @@
 import React from "react";
+
 import { GlobalViewStateContext } from "./GlobalViewStateProvider";
 
 /**

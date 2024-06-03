@@ -1,9 +1,10 @@
-import useMountEffect from "../state/useMountEffect.jsx";
-import isUndefined from "lodash/isUndefined";
 import get from "lodash/get";
+import isUndefined from "lodash/isUndefined";
 import { useNavigate } from "react-router-dom";
-import {Button, Stack} from "@mantine/core";
-import ButtonLink from "./ButtonLink";
+
+import useMountEffect from "../state/useMountEffect.jsx";
+import Button from "./uikit/Button.jsx";
+import Stack from "./uikit/Stack.jsx";
 
 /**
  * Show this component when an unhandled error has occurred.
@@ -25,14 +26,14 @@ export default function ErrorScreen({ error, redirect403 }) {
   });
 
   return (
-    <Stack>
+    <Stack className="px-4 pt-5 w-100 bg-background align-center" gap={5}>
       <h2>Whoops!</h2>
-      <p>
+      <p className="text text-center color-red" style={{ maxWidth: 300 }}>
         Sorry, something went wrong. You can reload the page or start over.
       </p>
-      <ButtonLink href="/dashboard">
+      <Button href="/dashboard" size="lg">
         Go to Dashboard
-      </ButtonLink>
+      </Button>
     </Stack>
   );
 }

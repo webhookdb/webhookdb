@@ -1,12 +1,13 @@
+import axios, { AxiosError, CanceledError } from "axios";
+import humps from "humps";
+import get from "lodash/get";
+import noop from "lodash/noop";
+
 import {
   debugRequestLogger,
   debugResponseLogger,
   errorResponseLogger,
 } from "./apilogger";
-import axios, { AxiosError, CanceledError } from "axios";
-import humps from "humps";
-import get from "lodash/get";
-import noop from "lodash/noop";
 
 function create(apiHost, config) {
   const { debug, chaos, ...rest } = config || {};

@@ -53,9 +53,7 @@ export class Logger {
       arr.push(`${k}=${stringifyNonString(v)}`),
     );
     const ctx = { ...this._context, ...fields };
-    Object.entries(ctx).forEach(([k, v]) =>
-      arr.push(`${k}=${stringifyNonString(v)}`),
-    );
+    Object.entries(ctx).forEach(([k, v]) => arr.push(`${k}=${stringifyNonString(v)}`));
     return arr;
   }
 
@@ -73,4 +71,4 @@ function stringifyNonString(o) {
   return typeof o === "string" ? o : JSON.stringify(o);
 }
 
-window.CiroLogger = Logger;
+window.WhdbLogger = Logger;

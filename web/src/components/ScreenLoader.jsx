@@ -1,7 +1,8 @@
-import "./ScreenLoader.css";
 import clsx from "clsx";
-import loader from "../assets/images/loader.svg";
 import isUndefined from "lodash/isUndefined";
+
+import loader from "../assets/images/loader.svg";
+import "./ScreenLoader.css";
 
 /**
  * Render the screen loader overlay.
@@ -21,9 +22,7 @@ export default function ScreenLoader({ show, scrim, height }) {
   if (!scrim && !show) {
     return null;
   }
-  const img = (
-    <img className="img" src={loader} alt="loading" height={height} />
-  );
+  const img = <img className="img" src={loader} alt="loading" height={height} />;
   if (!scrim) {
     return img;
   }

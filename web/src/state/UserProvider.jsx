@@ -1,11 +1,12 @@
-import api from "../api";
-import { localStorageCache } from "../modules/localStorageHelper";
 import React from "react";
+
+import api from "../api";
 import badContext from "../modules/badContext";
+import { localStorageCache } from "../modules/localStorageHelper";
 import { withSentry } from "../modules/sentry.js";
 
 export const UserContext = React.createContext({
-  user: {id: 0, email: '', activeOrganization: {id: 0, name: ''}},
+  user: { id: 0, email: "", activeOrganization: { id: 0, name: "" } },
   setUser: badContext("User", {}),
   userLoading: false,
   userError: null,
@@ -73,4 +74,4 @@ export function UserProvider({ children }) {
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
 
-const STORAGE_KEY = "cirouser";
+const STORAGE_KEY = "whdbuser";

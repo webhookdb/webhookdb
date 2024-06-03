@@ -1,6 +1,7 @@
-import useMountEffect from "./useMountEffect";
 import React from "react";
+
 import { ScreenLoaderContext } from "./ScreenLoaderProvider";
+import useMountEffect from "./useMountEffect";
 
 /**
  * @returns {Toggle}

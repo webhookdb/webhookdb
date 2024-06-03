@@ -1,27 +1,30 @@
-import ErrorScreen from "./components/ErrorScreen";
-import { redirectIfAuthed, redirectIfUnauthed } from "./hocs/authRedirects";
-import applyHocs from "./modules/applyHocs";
-import Redirect from "./components/Redirect";
 import * as Sentry from "@sentry/react";
-import renderComponent from "./modules/renderComponent";
-import withMetatags from "./hocs/withMetatags";
+import { RouterProvider } from "react-aria-components";
 import { HelmetProvider } from "react-helmet-async";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { UserProvider } from "./state/UserProvider";
+import { Toaster } from "react-hot-toast";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+
+import Redirect from "./components/Redirect";
+import { redirectIfAuthed } from "./hocs/authRedirects";
+import withMetatags from "./hocs/withMetatags";
+import applyHocs from "./modules/applyHocs";
+import { installPromiseExtras } from "./modules/bluejay.js";
+import "./modules/dayConfig";
+import renderComponent from "./modules/renderComponent";
+import SigninPage from "./pages/auth/SigninPage";
 import GlobalViewStateProvider from "./state/GlobalViewStateProvider";
 import { ScreenLoaderProvider } from "./state/ScreenLoaderProvider";
+import { UserProvider } from "./state/UserProvider";
+import useFlexiNavigate from "./state/useFlexiNavigate";
 import { withScreenLoaderMount } from "./state/useScreenLoader";
-import {installPromiseExtras} from "./modules/bluejay.js";
-import "./modules/dayConfig";
 import useUser from "./state/useUser.jsx";
-import config from "./config.js";
-import SigninPage from "./pages/SigninPage";
 
 installPromiseExtras(window.Promise);
 
 export default function App() {
   return (
     <GlobalViewStateProvider>
+      <Toaster />
       <UserProvider>
         <ScreenLoaderProvider>
           <HelmetProvider>
@@ -36,15 +39,17 @@ export default function App() {
 function AppRouter() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
-     <AppRoutes />
+      <AppRoutes />
     </BrowserRouter>
   );
 }
 
 function AppRoutes() {
+  const navigate = useFlexiNavigate();
   return (
+    <RouterProvider navigate={navigate}>
       <AppRoutesInner />
-
+    </RouterProvider>
   );
 }
 

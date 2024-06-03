@@ -1,0 +1,14 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border-radius: var(--border-radius);
+
+  &.color-mode-default {
+    background-color: var(--color-light-grey);
+  }
+
+  &.color-mode-inverted {
+    background-color: var(--color-background);
+  }
+}

@@ -13,18 +13,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mantine/core": "^7.10.1",
-    "@mantine/hooks": "^7.10.1",
+    "@fortawesome/fontawesome-svg-core": "^6.5.2",
+    "@fortawesome/free-solid-svg-icons": "^6.5.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "@sentry/react": "^8.7.0",
-    "@tabler/icons-react": "^3.5.0",
     "axios": "^1.7.2",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.10",
+    "framer-motion": "^11.2.10",
     "humps": "git+https://github.com/lithictech/humps.git#fb9844c8d37cea67ee9c592e2685aee68d05015f",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
+    "react-aria-components": "^1.2.1",
     "react-dom": "^18.2.0",
     "react-helmet-async": "^2.0.5",
+    "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
@@ -36,11 +39,7 @@
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
-    "postcss": "^8.4.38",
-    "postcss-preset-mantine": "^1.15.0",
-    "postcss-simple-vars": "^7.0.1",
     "prettier": "^3.0.3",
-    "typescript": "^5.1.6",
     "vite": "^4.3.9",
     "vitest": "^0.34.6"
   }

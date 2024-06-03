@@ -41,9 +41,7 @@ const makeCache = (store) => {
      */
     useState: (field, initialValue, convert) => {
       convert = convert || identity;
-      const [val, setVal] = React.useState(
-        convert(getItem(store, field, initialValue)),
-      );
+      const [val, setVal] = React.useState(convert(getItem(store, field, initialValue)));
       const setValAndCache = (v) => {
         setItem(store, field, v);
         return setVal(v);

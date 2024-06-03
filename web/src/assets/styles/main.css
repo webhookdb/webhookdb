@@ -1,0 +1,72 @@
+:root {
+  --spacing: 8px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-2p5: 12px;
+  --spacing-3: 16px;
+  --spacing-4: 24px;
+  --spacing-5: 32px;
+  --spacing-6: 48px;
+  --spacing-7: 80px;
+  --color-blurple: #373D71;
+  --color-blurple-hover: #232646;
+  --color-blue: #3AC4FF;
+  --color-blue-light: rgb(58 196 255 / 20%);
+  --color-foreground: #302F42;
+  --color-grey: #9C9AB4;
+  --color-secondary: #E7E6F0;
+  --color-light-grey: #F1F0FA;
+  --color-green: #3BBEAE;
+  --color-green-light: rgb(221 242 239);
+  --color-orange: #FD6157;
+  --color-orange-light: rgb(250 224 222);
+  --color-red: #F36;
+  --color-red-light: rgb(249 216 224);
+  --color-purple: #A066EB;
+  --color-purple-light: #ebdbff;
+  --color-background: #FFF;
+  --color-scrim: rgb(255 255 255 / 30%);
+  --border-radius: 12px;
+  --border-radius-half: 6px;
+  --border-radius-2x: 24px;
+  --nofocus-border: 1px solid transparent;
+  --focus-border: 1px solid var(--color-blue);
+  --focus-box-shadow: 0 0 0 3px rgb(58 196 255 / 20%);
+}
+
+.color-blurple { color: var(--color-blurple); }
+.color-blue { color: var(--color-blue); }
+.color-blue-light { color: var(--color-blue-light); }
+.color-grey { color: var(--color-grey); }
+.color-secondary { color: var(--color-secondary); }
+.color-green { color: var(--color-green); }
+.color-green-light { color: var(--color-green-light); }
+.color-orange { color: var(--color-orange); }
+.color-orange-light { color: var(--color-orange-light); }
+.color-red { color: var(--color-red); }
+.color-red-light { color: var(--color-red-light); }
+.color-purple { color: var(--color-purple); }
+.color-purple-light { color: var(--color-purple-light); }
+.color-foreground { color: var(--color-foreground); }
+.color-background { color: var(--color-background); }
+
+.bg-blurple { background-color: var(--color-blurple); }
+.bg-blue { background-color: var(--color-blue); }
+.bg-blue-light { background-color: var(--color-blue-light); }
+.bg-grey { background-color: var(--color-grey); }
+.bg-light-grey { background-color: var(--color-light-grey); }
+.bg-secondary { background-color: var(--color-secondary); }
+.bg-green { background-color: var(--color-green); }
+.bg-green-light { background-color: var(--color-green-light); }
+.bg-orange { background-color: var(--color-orange); }
+.bg-orange-light { background-color: var(--color-orange-light); }
+.bg-red { background-color: var(--color-red); }
+.bg-red-light { background-color: var(--color-red-light); }
+.bg-purple { background-color: var(--color-purple); }
+.bg-purple-light { background-color: var(--color-purple-light); }
+.bg-background { background-color: var(--color-background); }
+
+a {
+	color: unset;
+  font-weight: var(--fw-medium);
+}

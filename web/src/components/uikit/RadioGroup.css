@@ -1,0 +1,54 @@
+.radiogroup {
+  --label-color: var(--color-foreground);
+  --deselected-color: var(--color-background);
+  --deselected-color-pressed: lch(from var(--color-blue) calc(l - 10%) c h);
+  --background-color: var(--color-background);
+  --selected-color: var(--color-blue);
+  --selected-color-pressed: lch(from var(--color-blue) calc(l - 10%) c h);
+  --invalid-color: var(--color-red);
+  --invalid-color-pressed: lch(from var(--color-red) calc(l - 10%) c h);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.radiogroup-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--label-color);
+  font-size: 14px;
+  line-height: 20px;
+
+  &::before {
+    content: '';
+    display: block;
+    width: 16px;
+    height: 16px;
+    box-sizing: border-box;
+    background-color: var(--deselected-color);
+    border-radius: 50%;
+    transition: all 200ms;
+  }
+
+  &[data-pressed]::before {
+    background-color: var(--deselected-color-pressed);
+  }
+
+  &[data-selected] {
+    font-weight: var(--fw-semi-bold);
+
+    &::before {
+      background-color: var(--selected-color);
+    }
+
+    &[data-pressed]::before {
+      background-color: var(--selected-color-pressed);
+    }
+  }
+
+  &[data-focus-visible]::before {
+    box-shadow: 0 0 0 2px var(--color-blurple) inset;
+  }
+}

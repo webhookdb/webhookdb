@@ -18,7 +18,4 @@ export const redirectIfAuthed = redirectUnless(
   ({ userUnauthed }) => userUnauthed,
 );
 
-export const redirectIfUnauthed = redirectUnless(
-  "/",
-  ({ userAuthed }) => userAuthed,
-);
+export const redirectIfUnauthed = redirectUnless("/", ({ userAuthed }) => userAuthed);

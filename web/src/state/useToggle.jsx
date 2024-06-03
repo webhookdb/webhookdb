@@ -6,10 +6,7 @@ import React from "react";
  */
 export default function useToggle(initial) {
   const [isOn, setState] = React.useState(initial || false);
-  const toggle = React.useMemo(
-    () => createToggle(isOn, setState),
-    [isOn],
-  );
+  const toggle = React.useMemo(() => createToggle(isOn, setState), [isOn]);
   return toggle;
 }
 
@@ -27,7 +24,7 @@ export function createToggle(isOn, setState) {
     turnOn: () => setState(true),
     turnOff: () => setState(false),
     toggle: () => setState(!isOn),
-  }
+  };
 }
 
 /**

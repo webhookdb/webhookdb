@@ -1,7 +1,8 @@
+import isUndefined from "lodash/isUndefined";
 import React from "react";
 import toast from "react-hot-toast";
+
 import Toast from "../components/uikit/Toast.jsx";
-import isUndefined from "lodash/isUndefined";
 import { ifEqElse } from "../modules/fp.js";
 
 export default function useToast() {

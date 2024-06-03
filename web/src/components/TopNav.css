@@ -1,0 +1,124 @@
+.top-nav-root {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: var(--color-background);
+  box-shadow: 0 4px 24px 0 rgb(156 154 180 / 20%);
+  z-index: 10;
+}
+
+.top-nav-logo {
+  height: 48px;
+  width: 48px;
+  margin-right: var(--spacing-5);
+}
+
+.top-nav-textlink {
+  border-radius: var(--border-radius);
+  color: var(--color-foreground);
+  padding: var(--spacing);
+  text-decoration: none;
+
+  &.active {
+    background-color: var(--color-blue-light);
+  }
+
+  &:hover {
+    background-color: var(--color-secondary);
+  }
+
+  &:visited {
+    color: var(--color-foreground);
+    text-decoration: none;
+  }
+}
+
+.top-nav-icongroup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-left: auto;
+}
+
+.top-nav-iconlink-root {
+  padding-left: var(--spacing);
+  padding-right: var(--spacing);
+}
+
+.top-nav-iconlink {
+  color: var(--color-grey);
+  background-color: transparent;
+  text-decoration: none;
+  width: 24px;
+  height: 24px;
+  font-size: 24px !important;
+
+  &:hover {
+    color: var(--color-foreground) !important;
+  }
+
+  &.active {
+    color: var(--color-blue) !important;
+  }
+
+  &:focus {
+    outline: none;
+    border: var(--nofocus-border);
+    box-shadow: none;
+  }
+
+  &:visited {
+    color: var(--color-grey);
+    text-decoration: none;
+  }
+}
+
+.top-nav-orgswitch {
+  color: var(--color-grey) !important;
+
+  &::before {
+    content: "\2022";
+    font-size: 20px;
+    margin-right: var(--spacing-2);
+  }
+
+  &.active::before {
+    color: var(--color-green);
+  }
+
+  &.active {
+    color: var(--color-foreground) !important;
+  }
+}
+
+.top-nav-sep {
+  width: 2px;
+  height: 40px;
+  background-color: var(--color-light-grey);
+  margin-left: var(--spacing-4);
+  margin-right: var(--spacing-4);
+}
+
+.top-nav-avatar-root {
+  display: flex;
+  flex-direction: row;
+  cursor: pointer;
+  height: unset !important;
+  background-color: var(--color-background);
+  border-radius: var(--border-radius);
+  padding: var(--spacing) !important;
+  margin: calc(-1 * var(--spacing)) !important;
+
+  &:hover,
+  &.focused {
+    filter: brightness(90%);
+  }
+
+  &:focus {
+    outline: none;
+    border: var(--nofocus-border);
+    box-shadow: none;
+  }
+}
