@@ -1415,9 +1415,20 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     let(:replicator) { described_class.new(nil) }
     let(:upserter) { described_class::Upserter.new(replicator, "1", now: Time.now) }
 
-    def events
+    def feed_events
       arr = []
       described_class::EventProcessor.new(source, upserter).each_feed_event { |a| arr << a }
+      arr
+    end
+
+    def all_events
+      arr = []
+      pr = described_class::EventProcessor.new(source, upserter)
+      pr.each_feed_event do |a|
+        pr.each_projected_event(a) do |b|
+          arr << b
+        end
+      end
       arr
     end
 
@@ -1425,7 +1436,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event.ics" }
 
       it "returns an array of calendars" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           {
             "DTSTAMP" => {"v" => "20050118T211523Z"},
@@ -1452,7 +1463,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event_wrong_encoding.ics" }
 
       it "forces encoding to utf8" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           include("UID" => {"v" => "bsuidfortestabc123"}),
         )
@@ -1463,7 +1474,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "event.ics" }
 
       it "returns an array of events" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           {
             "DTSTAMP" => {"v" => "20050118T211523Z"},
@@ -1487,7 +1498,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "two_events.ics" }
 
       it "returns an array of events" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including("UID" => {"v" => "bsuidfortestabc123"}),
           {
@@ -1510,7 +1521,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "tzid_search.ics" }
 
       it "correctly sets the weird tzid" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including(
             "DTEND" => {"v" => "20180104T130000", "TZID" => "(GMT-05:00) Eastern Time (US & Canada)"},
@@ -1528,7 +1539,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
       it "skips and warns about invalid items" do
         logs = capture_logs_from(replicator.logger, level: :warn, formatter: :json) do
-          parsed = events
+          parsed = feed_events
           expect(parsed).to contain_exactly(
             hash_including("SUMMARY" => {"v" => "Missing DTSTAMP"}),
             hash_including("SUMMARY" => {"v" => "Missing nothing"}),
@@ -1551,7 +1562,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event_bad_line.ics" }
 
       it "uses nil" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including(
             "UID" => {"v" => "bsuidfortestabc123"},
@@ -1565,8 +1576,25 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event_bad_dtstart.ics" }
 
       it "falls back to date type for dtstart" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(hash_including("DTSTART" => {"v" => "20050120"}))
+      end
+    end
+
+    context "with an invalid bymonthyear/day/frequency combination" do
+      let(:fn) { "invalid_bymonthyearday.ics" }
+
+      it "returns an array of calendars" do
+        parsed = all_events
+        expect(parsed).to have_length(36)
+        expect(parsed).to include(
+          hash_including("DTSTART" => {"v" => "20220514"}),
+          hash_including("DTSTART" => {"v" => "20220814"}),
+          hash_including("DTSTART" => {"v" => "20221114"}),
+          hash_including("DTSTART" => {"v" => "20210814"}),
+          hash_including("DTSTART" => {"v" => "20211114"}),
+          hash_including("DTSTART" => {"v" => "20220214"}),
+        )
       end
     end
   end
