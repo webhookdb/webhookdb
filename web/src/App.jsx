@@ -11,7 +11,7 @@ import applyHocs from "./modules/applyHocs";
 import { installPromiseExtras } from "./modules/bluejay.js";
 import "./modules/dayConfig";
 import renderComponent from "./modules/renderComponent";
-import SigninPage from "./pages/auth/SigninPage";
+import AuthPage from "./pages/AuthPage";
 import GlobalViewStateProvider from "./state/GlobalViewStateProvider";
 import { ScreenLoaderProvider } from "./state/ScreenLoaderProvider";
 import { UserProvider } from "./state/UserProvider";
@@ -66,7 +66,7 @@ function AppRoutesInner() {
           redirectIfAuthed,
           withScreenLoaderMount(),
           withMetatags({ title: "Authenticate" }),
-          SigninPage,
+          AuthPage,
         )}
       />
       {/*<Route*/}
