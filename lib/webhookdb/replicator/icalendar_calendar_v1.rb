@@ -483,11 +483,20 @@ The secret to use for signing is:
       # IceCube errors, because `day_of_month` isn't valid on a WeeklyRule.
       # In this case, we need to sanitize the string to remove the offending rule piece.
       # There are probably many other offending formats, but we'll add them here as needed.
+      unambiguous_ical = nil
       if ical.include?("FREQ=WEEKLY") && ical.include?("BYMONTHDAY=")
-        ical = ical.gsub(/BYMONTHDAY=[\d,]+/, "")
-        ical.delete_prefix! ";"
-        ical.delete_suffix! ";"
-        ical.squeeze!(";")
+        unambiguous_ical = ical.gsub(/BYMONTHDAY=[\d,]+/, "")
+      elsif ical.include?("FREQ=MONTHLY") && ical.include?("BYYEARDAY=") && ical.include?("BYMONTHDAY=")
+        # Another rule: FREQ=MONTHLY;INTERVAL=3;BYYEARDAY=14;BYMONTHDAY=14
+        # Apple interprets this as monthly on the 14th; rrule.js interprets this as never happening.
+        # 'day_of_year' isn't valid on a MonthlyRule, so delete the BYYEARDAY component.
+        unambiguous_ical = ical.gsub(/BYYEARDAY=[\d,]+/, "")
+      end
+      if unambiguous_ical
+        unambiguous_ical.delete_prefix! ";"
+        unambiguous_ical.delete_suffix! ";"
+        unambiguous_ical.squeeze!(";")
+        ical = unambiguous_ical
       end
       return IceCube::IcalParser.rule_from_ical(ical)
     end
