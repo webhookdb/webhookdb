@@ -667,6 +667,23 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
+      [
+        ["certificate failures", "certificate verify failed (certificate has expired)"],
+        ["legacy TLS", "unsafe legacy renegotiation disabled"],
+      ].each do |(name, msg)|
+        it "alerts on SSL #{name} errors" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          de = Down::SSLError.new(OpenSSL::SSL::SSLError.new("SSL_connect returned=1 errno=0 peeraddr=216.235.207.153:443 state=error: #{msg}"))
+          req = stub_request(:get, "https://feed.me").to_raise(de)
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          svc.sync_row(row)
+          expect(req).to have_been_made
+          expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+            have_attributes(template: "errors/icalendar_fetch"),
+          )
+        end
+      end
+
       it "repairs invalid https port 80 urls" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)

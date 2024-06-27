@@ -224,7 +224,20 @@ The secret to use for signing is:
         self.logger.info("icalendar_fetch_not_modified", response_status: 304, request_url:, calendar_external_id:)
         return
       when Down::SSLError
-        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
+        # Most SSL errors are transient and can be retried, but some are due to a long-term misconfiguration.
+        # Handle these with an alert, like if we had a 404, which indicates a longer-term issue.
+        is_fatal =
+          # There doesn't appear to be a way to allow unsafe legacy content negotiation on a per-request basis,
+          # it is compiled into OpenSSL (may be wrong about this).
+          e.to_s.include?("unsafe legacy renegotiation disabled") ||
+          # Certificate failures are not transient
+          e.to_s.include?("certificate verify failed")
+        if is_fatal
+          response_status = 0
+          response_body = e.to_s
+        else
+          self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
+        end
       when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl, URI::InvalidURIError
         response_status = 0
         response_body = e.to_s
