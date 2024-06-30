@@ -27,6 +27,22 @@ module Webhookdb::Messages::Testers
     end
   end
 
+  class WithFields < Base
+    # noinspection RubyInstanceVariableNamingConvention
+    def initialize(a: nil, b: nil, c: nil, d: nil, e: nil)
+      @a = a
+      @b = b
+      @c = c
+      @d = d
+      @e = e
+      super()
+    end
+
+    def liquid_drops
+      return super.merge(a: @a, b: @b, c: @c, d: @d, e: @e)
+    end
+  end
+
   class Nonextant < Base
   end
 

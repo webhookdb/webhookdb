@@ -103,6 +103,16 @@ RSpec.describe "Webhookdb::Message", :db, :messaging do
       expect(r.contents).to include("email to")
       expect(r.contents.strip).to end_with("</html>")
     end
+
+    it "encodes non-UTF-8 string liquid drops into UTF-8 to avoid an exception" do
+      ascii8bit_str = [255].pack("c*")
+      expect(ascii8bit_str.encoding).to eq(Encoding.find("ASCII-8BIT"))
+      utf8_str = "\u0777"
+      expect(utf8_str.encoding).to eq(Encoding.find("UTF-8"))
+      tmpl = testers::WithFields.new(a: ascii8bit_str, b: utf8_str, c: 4, d: "w".encode("ASCII"))
+      r = Webhookdb::Message.render(tmpl, :email, recipient)
+      expect(r.contents.strip).to eq("a: ?\nb: ݷ\nc: 4\nd: w\ne:")
+    end
   end
 
   describe "send_unsent" do

@@ -73,6 +73,7 @@ module Webhookdb::Message
       "environment" => Webhookdb::Message::EnvironmentDrop.new,
       "app_url" => Webhookdb.app_url,
     )
+    drops = self.unify_drops_encoding(drops)
 
     content_tmpl = Liquid::Template.parse(template_file.read)
     # The 'expose' drop smashes data into the register.
@@ -99,6 +100,56 @@ module Webhookdb::Message
     end
 
     return Rendering.new(content, lctx.registers)
+  end
+
+  # Handle encoding in liquid drop string values that would likely crash message rendering.
+  #
+  # If there is a mixed character encoding of string values in a liquid drop,
+  # such as when handling user-supplied values, force all strings into UTF-8.
+  #
+  # This is needed because the way Ruby does encoding coercion when parsing input
+  # which does not declare an encoding, such as a file or especially an HTTP response.
+  # Ruby will:
+  # - Use ASCII if the values fit into 7 bits
+  # - Use ASCII-8BIT if the values fit into 8 bits (128 to 255)
+  # - Otherwise, use UTF-8.
+  #
+  # The actual rules are more complex, but this is common enough.
+  #
+  # While ASCII encoding can be used as UTF-8, ASCII-8BIT cannot.
+  # So adding `(ascii-8bit string) + (utf-8 string)` will error with an
+  # `Encoding::CompatibilityError`.
+  #
+  # Instead, if we see a series of liquid drop string values
+  # with different encodings, force them all to be UTF-8.
+  # This can result in some unexpected behavior,
+  # but it should be fine, since you'd only see it with unexpected input
+  # (all valid inputs should be UTF-8).
+  #
+  # @param [Hash] drops
+  # @return [Hash]
+  def self.unify_drops_encoding(drops)
+    return drops if drops.empty?
+    seen_enc = nil
+    force_enc = false
+    drops.each_value do |v|
+      next unless v.respond_to?(:encoding)
+      seen_enc ||= v.encoding
+      next if seen_enc == v.encoding
+      force_enc = true
+      break
+    end
+    return drops unless force_enc
+    utf8 = Encoding.find("UTF-8")
+    result = drops.each_with_object({}) do |(k, v), memo|
+      if v.respond_to?(:encoding) && v.encoding != utf8
+        v2 = v.encode(utf8, invalid: :replace, undef: :replace, replace: "?")
+        memo[k] = v2
+      else
+        memo[k] = v
+      end
+    end
+    return result
   end
 
   def self.send_unsent
