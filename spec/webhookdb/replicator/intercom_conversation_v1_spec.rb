@@ -1089,8 +1089,11 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
   end
 
   describe "_fetch_backfill_page" do
-    it "ignores 'api_plan_restricted' error" do
+    before(:each) do
       Webhookdb::Intercom.page_size = 20
+    end
+
+    it "ignores 'api_plan_restricted' error" do
       error_body = {
         "type" => "error.list",
         "request_id" => "001io5rapr5ilb5s15c0",
@@ -1105,6 +1108,45 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
       page, pagination_token = svc._fetch_backfill_page(nil)
       expect(page).to eq([])
       expect(pagination_token).to be_nil
+      expect(stub_error_request).to have_been_made
+    end
+
+    it "emits a developer alert on a token_suspended 401", :async do
+      error_body = {
+        type: "error.list",
+        request_id: "002d0qq7vsu5q3c6el80",
+        errors: [{code: "token_suspended", message: "Unauthorized token, suspended application"}],
+      }.to_json
+      stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20").
+        to_return(status: 401, body: error_body, headers: {"Content-Type" => "application/json"})
+
+      expect do
+        page, pagination_token = svc._fetch_backfill_page(nil)
+        expect(page).to eq([])
+        expect(pagination_token).to be_nil
+        expect(stub_error_request).to have_been_made
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "Intercom Workspace Closed Error",
+            "emoji" => ":hook:",
+            "fallback" => /From a console/,
+            "fields" => have_length(3),
+          },
+        ),
+      )
+    end
+
+    it "raises other errors" do
+      error_body = {
+        type: "error.list",
+        request_id: "abc123",
+        errors: [nil, [], [{code: "whatever"}]].sample,
+      }.to_json
+      stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20").
+        to_return(status: [401, 404].sample, body: error_body, headers: {"Content-Type" => "application/json"})
+
+      expect { svc._fetch_backfill_page(nil) }.to raise_error(Webhookdb::Http::Error, /"request_id":"abc123"/)
       expect(stub_error_request).to have_been_made
     end
   end
