@@ -22,10 +22,9 @@ module Webhookdb::Replicator::IntercomV1Mixin
   # webhook verification, which means that webhooks actually don't require any setup on the integration level. Thus,
   # `supports_webhooks` is false.
   def find_auth_integration
-    # rubocop:disable Naming/MemoizedInstanceVariableName
-    return @auth ||= Webhookdb::Replicator.find_at_root!(self.service_integration,
-                                                         service_name: "intercom_marketplace_root_v1",)
-    # rubocop:enable Naming/MemoizedInstanceVariableName
+    return @find_auth_integration ||= Webhookdb::Replicator.find_at_root!(
+      self.service_integration, service_name: "intercom_marketplace_root_v1",
+    )
   end
 
   def intercom_auth_headers
@@ -93,6 +92,28 @@ module Webhookdb::Replicator::IntercomV1Mixin
         timeout: Webhookdb::Intercom.http_timeout,
       )
     rescue Webhookdb::Http::Error => e
+      is_token_suspended = e.status == 401 &&
+        e.response["errors"].present? &&
+        e.response["errors"].any? { |er| er["code"] == "token_suspended" }
+      if is_token_suspended
+        root_sint = self.find_auth_integration
+        message = "Organization has closed their Intercom workspace and this integration should be deleted. " \
+                  "From a console, run: " \
+                  "Webhookdb::ServiceIntegration[#{root_sint.id}].destroy_self_and_all_dependents"
+        Webhookdb::DeveloperAlert.new(
+          subsystem: "Intercom Workspace Closed Error",
+          emoji: ":hook:",
+          fallback: message,
+          fields: [
+            {title: "Organization", value: root_sint.organization.name, short: true},
+            {title: "Integration ID", value: root_sint.id.to_s, short: true},
+            {title: "Instructions", value: message},
+          ],
+        ).emit
+        # Noop here since there's nothing to do, the developer alert takes care of notifying
+        # so no need to error or log.
+        return [], nil
+      end
       #  We are looking to catch the "api plan restricted" error. This is always a 403 and every
       # 403 will be an "api plan restricted" error according to the API documentation. Because we
       # specify the API version in our headers we can expect that this won't change.
