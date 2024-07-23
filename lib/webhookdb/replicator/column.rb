@@ -349,6 +349,8 @@ class Webhookdb::Replicator::Column
 
   # If provided, use this expression as the UPDATE value when adding the column
   # to an existing table.
+  # To explicitly backfill using NULL, use the value +Sequel[nil]+
+  # rather than +nil+.
   # @return [String,Sequel,Sequel::SQL::Expression]
   attr_reader :backfill_expr
 

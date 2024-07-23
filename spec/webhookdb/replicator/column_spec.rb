@@ -880,6 +880,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
           to_utc_date: Date.new(2013, 1, 2),
           unix_ts: Time.parse("1970-01-01 01:40:00Z"),
           using_backfill_expr: "1",
+          using_null_backfill_expr: "1",
           using_backfill_statement: "1",
         )
       end
@@ -914,6 +915,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
           to_utc_date: Date.new(2013, 1, 2),
           unix_ts: Time.parse("1970-01-01 01:40:00Z"),
           using_backfill_expr: "hi there",
+          using_null_backfill_expr: nil,
           using_backfill_statement: "11",
         )
       end

@@ -410,6 +410,12 @@ class Webhookdb::Replicator::FakeExhaustiveConverter < Webhookdb::Replicator::Fa
         backfill_expr: "hi there",
       ),
       Webhookdb::Replicator::Column.new(
+        :using_null_backfill_expr,
+        TEXT,
+        data_key: "my_id",
+        backfill_expr: Sequel[nil],
+      ),
+      Webhookdb::Replicator::Column.new(
         :using_backfill_statement,
         TEXT,
         data_key: "my_id",
