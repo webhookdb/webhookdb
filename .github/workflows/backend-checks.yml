@@ -28,7 +28,7 @@ jobs:
           $HOME/snowflake/snowsql -v
           echo "$HOME/snowflake" >> $GITHUB_PATH
       - name: Start backing services
-        run: docker-compose up -d
+        run: docker compose up -d
       - name: Wait for services to come up
         run: sleep 10
       - name: Run rubocop
