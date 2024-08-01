@@ -14,9 +14,9 @@ fix:
 fmt: fix
 
 up:
-	docker-compose up -d
+	docker compose up -d
 down:
-	docker-compose stop
+	docker compose stop
 
 release:
 	bundle exec foreman start release
@@ -55,9 +55,9 @@ migrate-test:
 wipe-test-db:
 	RACK_ENV=test bundle exec rake db:wipe_tables_and_drop_replication_databases
 recreate-test-db:
-	docker-compose stop test_db
-	docker-compose rm -f test_db
-	docker-compose up -d test_db
+	docker compose stop test_db
+	docker compose rm -f test_db
+	docker compose up -d test_db
 	make migrate-test
 
 fixture-full:

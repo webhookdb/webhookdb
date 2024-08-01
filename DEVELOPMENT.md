@@ -26,7 +26,7 @@ Running with a local Ruby install:
 
 ```
 $ make install    # Install gems and dependencies
-$ make up         # Start docker-compose services
+$ make up         # Start docker compose services
 
 $ make migrate-test   # Migrate the test database
 $ make test           # Run unit tests
@@ -44,7 +44,7 @@ are passed through to the underlying container (ie, `make dockertest-test` runs 
 in the container, which is running with the proper environment.
 
 ```
-$ make up                   # Start docker-compose services
+$ make up                   # Start docker compose services
 $ make dockerdev-build      # Build a dev/test container with gems built into it
 
 $ make dockertest-migrate-test   # Migrate the test database
