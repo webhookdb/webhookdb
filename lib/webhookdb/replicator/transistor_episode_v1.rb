@@ -141,11 +141,17 @@ class Webhookdb::Replicator::TransistorEpisodeV1 < Webhookdb::Replicator::Base
     transcript_url = resource.fetch("attributes").fetch("transcript_url", nil)
     return nil if transcript_url.blank?
     (transcript_url += ".txt") unless transcript_url.end_with?(".txt")
-    resp = Webhookdb::Http.get(
-      transcript_url,
-      logger: self.logger,
-      timeout: Webhookdb::Transistor.http_timeout,
-    )
+    begin
+      resp = Webhookdb::Http.get(
+        transcript_url,
+        logger: self.logger,
+        timeout: Webhookdb::Transistor.http_timeout,
+      )
+    rescue Webhookdb::Http::Error => e
+      # Not sure why this happens, but nothing we can do if it does.
+      return nil if e.status == 404
+      raise e
+    end
     transcript_text = resp.body
     return {transcript_text:}
   end

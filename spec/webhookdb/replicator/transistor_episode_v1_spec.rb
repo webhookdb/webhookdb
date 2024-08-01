@@ -510,8 +510,8 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
           to_return(status: 200, body: transcript)
     end
 
-    def stub_service_request_error
-      return stub_request(:get, "https://share.transistor.fm/s/1dde3f66/transcript.txt").to_return(status: 500)
+    def stub_service_request_error(status: 500)
+      return stub_request(:get, "https://share.transistor.fm/s/1dde3f66/transcript.txt").to_return(status:)
     end
 
     def assert_is_enriched(row)
@@ -530,6 +530,15 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     it "noops if there is no transcript url" do
       body["data"]["attributes"]["transcript_url"] = nil
       upsert_webhook(svc, body:)
+      row = svc.readonly_dataset(&:first)
+      expect(row).to include(transcript_text: nil)
+    end
+
+    it "ignores 404s on the transcript" do
+      body["data"]["attributes"]["transcript_url"] += ".txt"
+      req = stub_service_request_error(status: 404)
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made
       row = svc.readonly_dataset(&:first)
       expect(row).to include(transcript_text: nil)
     end
