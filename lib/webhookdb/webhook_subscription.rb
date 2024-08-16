@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "webhookdb/jobs/webhook_subscription_delivery_attempt"
+require "webhookdb/jobs/webhook_subscription_delivery_event"
 
 # Webhook subscriptions have a few parts:
 #
