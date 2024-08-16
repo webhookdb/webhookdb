@@ -1603,7 +1603,10 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
       it "returns an array of calendars" do
         parsed = all_events
-        expect(parsed).to have_length(36)
+        # Because we project '5 years' into the future, we can end up with 36 or 37 events
+        # (3102AFB1-1FE8-49A1-BBB2-20965DFD44C9-30 is the extra event).
+        # Use Timecop.travel('2024-08-10') to see 36 and Timecop.travel('2024-08-16') to see 37.
+        expect(parsed).to have_length(be_between(36, 37))
         expect(parsed).to include(
           hash_including("DTSTART" => {"v" => "20220514"}),
           hash_including("DTSTART" => {"v" => "20220814"}),
