@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "amigo/queue_backoff_job"
 require "webhookdb/async/job"
 require "webhookdb/jobs"
 
@@ -9,8 +10,10 @@ require "webhookdb/jobs"
 # Calls #renew_watch_channel(row_pk:, expiring_before:).
 class Webhookdb::Jobs::RenewWatchChannel
   extend Webhookdb::Async::Job
+  include Amigo::QueueBackoffJob
 
   on "webhookdb.serviceintegration.renewwatchchannel"
+  sidekiq_options queue: "netout"
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
