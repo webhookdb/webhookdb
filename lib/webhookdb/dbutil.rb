@@ -35,6 +35,7 @@ module Webhookdb::Dbutil
               4
             end)
     setting :pool_timeout, 10
+    setting :pool_class, :timed_queue
     # Set to 'disable' to work around segfault.
     # See https://github.com/ged/ruby-pg/issues/538
     setting :gssencmode, ""
@@ -70,6 +71,7 @@ module Webhookdb::Dbutil
     res[:log_warn_duration] ||= Webhookdb::Dbutil.slow_query_seconds
     res[:max_connections] ||= Webhookdb::Dbutil.max_connections
     res[:pool_timeout] ||= Webhookdb::Dbutil.pool_timeout
+    res[:pool_class] ||= Webhookdb::Dbutil.pool_class
     res[:driver_options] = {}
     (res[:driver_options][:gssencmode] = Webhookdb::Dbutil.gssencmode) if Webhookdb::Dbutil.gssencmode.present?
     return res
