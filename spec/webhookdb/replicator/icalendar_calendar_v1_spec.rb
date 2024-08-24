@@ -68,6 +68,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         last_synced_at: nil,
         row_created_at: match_time(:now),
         row_updated_at: match_time(:now),
+        event_count: nil,
+        feed_bytes: nil,
+        last_sync_duration_ms: nil,
       }
     end
   end
@@ -275,8 +278,11 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
-      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
       expect(req).to have_been_made
+      expect(svc.admin_dataset(&:first)).to include(
+        last_synced_at: match_time(:now),
+        last_sync_duration_ms: be_positive,
+      )
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
         include(
           calendar_external_id: "abc",
@@ -302,6 +308,39 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           uid: "c7614cff-3549-4a00-9152-d25cc1fe077d",
         ),
       )
+    end
+
+    it "stores the total number of upserts and the feed byte size" do
+      body = <<~ICAL
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//ZContent.net//Zap Calendar 1.0//EN
+        CALSCALE:GREGORIAN
+        METHOD:PUBLISH
+        BEGIN:VEVENT
+        SUMMARY:Abraham Lincoln
+        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+        SEQUENCE:0
+        STATUS:CONFIRMED
+        TRANSP:TRANSPARENT
+        DTSTART:20080212
+        DTEND:20080213
+        DTSTAMP:20150421T141403
+        RRULE:FREQ=YEARLY;UNTIL=20110101T000000Z
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:first)).to include(
+        last_synced_at: match_time(:now),
+        event_count: 3,
+        feed_bytes: 354,
+      )
+      expect(event_svc.admin_dataset(&:all)).to have_length(3)
     end
 
     it "noops if there's no event integration" do

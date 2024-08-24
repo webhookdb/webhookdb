@@ -74,6 +74,9 @@ The secret to use for signing is:
       col.new(:row_updated_at, TIMESTAMP, index: true, optional: true, defaulter: :now),
       col.new(:last_synced_at, TIMESTAMP, index: true, optional: true),
       col.new(:ics_url, TEXT, converter: col.converter_gsub("^webcal", "https")),
+      col.new(:event_count, INTEGER, optional: true),
+      col.new(:feed_bytes, INTEGER, optional: true),
+      col.new(:last_sync_duration_ms, INTEGER, optional: true),
     ]
   end
 
@@ -166,11 +169,20 @@ The secret to use for signing is:
   def sync_row(row)
     Appydays::Loggable.with_log_tags(icalendar_url: row.fetch(:ics_url)) do
       self.with_advisory_lock(row.fetch(:pk)) do
+        start = Time.now
         now = Time.now
         if (dep = self.find_dependent("icalendar_event_v1"))
-          self._sync_row(row, dep, now:)
+          processor = self._sync_row(row, dep, now:)
         end
-        self.admin_dataset { |ds| ds.where(pk: row.fetch(:pk)).update(last_synced_at: now) }
+        self.admin_dataset do |ds|
+          ds.where(pk: row.fetch(:pk)).
+            update(
+              last_synced_at: now,
+              event_count: processor&.upserted_identities&.count,
+              feed_bytes: processor&.read_bytes,
+              last_sync_duration_ms: (Time.now - start).in_milliseconds,
+            )
+        end
       end
     end
   end
@@ -204,6 +216,7 @@ The secret to use for signing is:
         row_updated_at: now,
       )
     end
+    return processor
   end
 
   # We get all sorts of strange urls, fix up what we can.
@@ -312,7 +325,7 @@ The secret to use for signing is:
   end
 
   class EventProcessor
-    attr_reader :upserted_identities
+    attr_reader :upserted_identities, :read_bytes
 
     def initialize(io, upserter)
       @io = io
@@ -329,6 +342,9 @@ The secret to use for signing is:
       # We need to keep track of how many events each UID spawns,
       # so we can delete any with a higher count.
       @max_sequence_num_by_uid = {}
+      # Keep track of the bytes we've read from the file.
+      # Never trust Content-Length headers for ical feeds.
+      @read_bytes = 0
     end
 
     def delete_condition
@@ -533,6 +549,7 @@ The secret to use for signing is:
       vevent_lines = []
       in_vevent = false
       while (line = @io.gets)
+        @read_bytes += line.size
         begin
           line.rstrip!
         rescue Encoding::CompatibilityError
