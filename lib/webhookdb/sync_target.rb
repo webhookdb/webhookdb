@@ -87,8 +87,10 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   dataset_module do
     def due_for_sync(as_of:)
       never_synced = Sequel[last_synced_at: nil]
-      next_due_at = Sequel[:last_synced_at] + (Sequel.lit("INTERVAL '1 second'") * Sequel[:period_seconds])
-      due_before_now = next_due_at <= as_of
+      # Use 'last_synced_at <= (now - internal)' rather than 'last_synced_at + interval <= now'
+      # so we can use the last_synced_at index.
+      cutoff = (Sequel[as_of].cast("TIMESTAMPTZ") - (Sequel.lit("INTERVAL '1 second'") * Sequel[:period_seconds]))
+      due_before_now = Sequel[:last_synced_at] <= cutoff
       return self.where(never_synced | due_before_now)
     end
   end
