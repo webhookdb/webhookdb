@@ -23,7 +23,10 @@ class Webhookdb::Organization::Alerting
 
   # Dispatch the message template to administrators of the org.
   # @param message_template [Webhookdb::Message::Template]
-  def dispatch_alert(message_template, separate_connection: false)
+  # @param separate_connection [true,false] If true, send the alert on a separate connection.
+  #   See +Webhookdb::Idempotency+. Defaults to true since this is an alert method and we
+  #   don't want it to error accidentally, if the code is called from an unexpected situation.
+  def dispatch_alert(message_template, separate_connection: true)
     unless message_template.respond_to?(:signature)
       raise Webhookdb::InvalidPrecondition,
             "message template #{message_template.template_name} must define a #signature method, " \

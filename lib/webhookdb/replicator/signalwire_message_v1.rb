@@ -208,7 +208,7 @@ Press 'Show' next to the newly-created API token, and copy it.)
       request_url:,
       request_method:,
     )
-    self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: true)
+    self.service_integration.organization.alerting.dispatch_alert(message)
     return true
   end
 end
