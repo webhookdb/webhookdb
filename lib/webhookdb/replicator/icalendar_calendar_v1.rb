@@ -487,7 +487,11 @@ The secret to use for signing is:
     def _ical_entry_from_ruby(r, entry, is_date)
       return {"v" => r.strftime("%Y%m%d")} if is_date
       return {"v" => r.strftime("%Y%m%dT%H%M%SZ")} if r.zone == "UTC"
-      return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => entry.fetch("TZID")}
+      tzid = entry["TZID"]
+      return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => tzid} if tzid
+      value = entry.fetch("v")
+      return {"v" => value} if value.end_with?("Z")
+      raise "Cannot create ical entry from: #{r}, #{entry}, is_date: #{is_date}"
     end
 
     def _icecube_rule_from_ical(ical)
