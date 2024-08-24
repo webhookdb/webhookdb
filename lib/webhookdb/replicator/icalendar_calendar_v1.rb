@@ -295,7 +295,7 @@ The secret to use for signing is:
       request_url:,
       request_method: "GET",
     )
-    self.service_integration.organization.alerting.dispatch_alert(message)
+    self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: false)
   end
 
   def _retryable_client_error?(e, request_url:)
