@@ -385,6 +385,56 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "handles missing timezones" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        SEQUENCE:0
+        CREATED:20130607T011211Z
+        DTSTAMP:20130607T011211Z
+        UID:ABCD-07DD0607-005F-011C-FF1B-0091E
+        SUMMARY:Management Team Call
+        DTSTART;TZID=America/New_York:20121001T140000
+        DTEND:20121001T190000Z
+        RRULE:FREQ=YEARLY;UNTIL=20130101T000000Z
+        LAST-MODIFIED:20130607T011211Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          start_at: match_time("2012-10-01T18:00:00Z"),
+          end_at: match_time("2012-10-01T19:00:00Z"),
+        ),
+      )
+    end
+
+    it "errors for an invalid start/end time with recurrence" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        SEQUENCE:0
+        CREATED:20130607T011211Z
+        DTSTAMP:20130607T011211Z
+        UID:ABCD-07DD0607-005F-011C-FF1B-0091E
+        SUMMARY:Management Team Call
+        DTSTART;TZID=America/New_York:20121001T140000
+        DTEND:20121001T190000
+        RRULE:FREQ=YEARLY;UNTIL=20130101T000000Z
+        LAST-MODIFIED:20130607T011211Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      expect do
+        svc.sync_row(row)
+      end.to raise_error(/Cannot create ical entry from/)
+      expect(req).to have_been_made
+    end
+
     it "cancels events added previously no longer present in the calendar" do
       body1 = <<~ICAL
         BEGIN:VEVENT
