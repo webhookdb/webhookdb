@@ -708,6 +708,17 @@ or leave blank to choose the first option.
         )
       end
 
+      it "does not log Amigo errors" do
+        err = Amigo::Retry::OrDie.new(1, 1)
+        expect(fake).to receive(:_upsert_webhook).and_raise(err)
+        logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
+          expect do
+            fake.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body: {"a" => 1}))
+          end.to raise_error(err)
+        end
+        expect(logs).to be_empty
+      end
+
       describe "" do
         before(:each) do
           sint.organization.prepare_database_connections

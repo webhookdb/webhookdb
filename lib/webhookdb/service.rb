@@ -191,17 +191,7 @@ class Webhookdb::Service < Grape::API
     status = e.respond_to?(:status) ? e.status : 500
     error_id = SecureRandom.uuid
     error_signature = Digest::MD5.hexdigest("#{e.class}: #{e.message}")
-
-    Webhookdb::Service.logger.error "[%s] Uncaught %p in service: %s" %
-      [error_id, e.class, e.message]
-    Webhookdb::Service.logger.debug { e.backtrace.join("\n") }
-    if ENV["PRINT_API_ERROR"]
-      puts e
-      puts e.backtrace
-    end
-
     more = {error_id:, error_signature:}
-
     if Webhookdb::Service.devmode
       msg = e.message
       more[:backtrace] = e.backtrace.join("\n")
@@ -210,6 +200,12 @@ class Webhookdb::Service < Grape::API
       msg = "An internal error occurred of type #{error_signature}. Error ID: #{error_id}"
     end
     Webhookdb::Service.logger.error("api_exception", {error_id:, error_signature:}, e)
+    Webhookdb::Service.logger.debug { e.backtrace.join("\n") }
+    if ENV["PRINT_API_ERROR"]
+      puts e
+      puts e.backtrace
+    end
+
     merror!(status, msg, code: "api_error", more:)
   end
 

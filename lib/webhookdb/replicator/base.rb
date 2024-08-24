@@ -651,6 +651,9 @@ for information on how to refresh data.)
   # @param [Webhookdb::Replicator::WebhookRequest] request
   def upsert_webhook(request, **kw)
     return self._upsert_webhook(request, **kw)
+  rescue Amigo::Retry::Error
+    # Do not log this since it's expected/handled by Amigo
+    raise
   rescue StandardError => e
     self.logger.error("upsert_webhook_error", request: request.as_json, error: e)
     raise
