@@ -285,8 +285,9 @@ The secret to use for signing is:
         response_status = nil
     end
     raise e if response_status.nil?
+    loggable_body = response_body && response_body[..256]
     self.logger.warn("icalendar_fetch_error",
-                     response_body:, response_status:, request_url:, calendar_external_id:,)
+                     response_body: loggable_body, response_status:, request_url:, calendar_external_id:,)
     message = Webhookdb::Messages::ErrorIcalendarFetch.new(
       self.service_integration,
       calendar_external_id,
