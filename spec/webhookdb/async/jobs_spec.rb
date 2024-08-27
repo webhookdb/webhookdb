@@ -416,6 +416,20 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "MonitorMetrics" do
+    it "logs queue latency" do
+      q = instance_double(Sidekiq::Queue)
+      expect(q).to receive(:name).twice.and_return("q1")
+      expect(q).to receive(:latency).and_return(5)
+      expect(q).to receive(:size).and_return(2)
+      expect(Sidekiq::Queue).to receive(:all).and_return([q])
+      logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
+        Webhookdb::Jobs::MonitorMetrics.new.perform
+      end
+      expect(logs).to include(match(/metrics_monitor_queue.*"q1_size":2,"q1_latency":5/))
+    end
+  end
+
   describe "PrepareDatabaseConnections" do
     let(:org) { Webhookdb::Fixtures.organization.create }
 
