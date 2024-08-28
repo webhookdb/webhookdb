@@ -171,6 +171,23 @@ module Webhookdb::API::Helpers
       sint = yield
       return if sint == :pass
       raise "error instead of return nil if there is no service integration" if sint.nil?
+      # If this is a valid GET request (ie, the replicator doesn't do useful auth),
+      # and it's from a bot, we want to block it, otherwise we'd process invalid webhooks.
+      #
+      # This is almost never a problem, because almost all services perform some validation,
+      # and the auth info isn't in a GET URL; but in some cases, that won't be the case,
+      # and we protect against it here.
+      #
+      # An example would be a bot getting a link preview.
+      if request.get? && !request.GET["skipbotcheck"] && Browser.new(request.user_agent).bot?
+        # IMPORTANT: Run the Browser code last since it has to run a bunch of regexes to detect a bot.
+        env["api.format"] = :binary
+        header "Content-Type", "text/plain"
+        body("This route is for receiving webhooks and HTTP calls, not for bots. " \
+             "Call this endpoint with the query param 'skipbotcheck=true' to bypass this check.")
+        status 403
+        return
+      end
       opaque_id = sint.opaque_id
       organization_id = sint.organization_id
       svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
