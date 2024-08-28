@@ -550,6 +550,29 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.all).to be_empty
     end
+
+    describe "using a bot user agent" do
+      before(:each) do
+        header "User-Agent", "Slackbot"
+      end
+
+      it "blocks bots from GET requests" do
+        get "/v1/service_integrations/xyz"
+        expect(last_response).to have_status(403)
+        expect(last_response.body).to include("This route is for receiving webhooks and HTTP calls")
+        expect(last_response.headers).to include("Content-Type" => "text/plain")
+      end
+
+      it "bypasses the botcheck if skipbotcheck is set" do
+        get "/v1/service_integrations/xyz?skipbotcheck=1"
+        expect(last_response).to have_status(202)
+      end
+
+      it "does not check non-GET" do
+        delete "/v1/service_integrations/xyz"
+        expect(last_response).to have_status(202)
+      end
+    end
   end
 
   describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/stats" do

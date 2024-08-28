@@ -38,6 +38,7 @@ Gem::Specification.new do |s|
   s.add_dependency("barnes", "~> 0.0")
   s.add_dependency("bcrypt", "~> 3.1")
   s.add_dependency("biz", "~> 1.8")
+  s.add_dependency("browser", "~> 6.0")
   s.add_dependency("clipboard", "~> 1.3")
   s.add_dependency("concurrent-ruby", "~> 1.2")
   s.add_dependency("down", "~> 5.4")
