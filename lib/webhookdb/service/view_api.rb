@@ -3,7 +3,7 @@
 # Mixin for Grape API endpoints that use HTML rendering.
 # This isn't tested well enough.
 module Webhookdb::Service::ViewApi
-  class FormError < StandardError
+  class FormError < Webhookdb::WebhookdbError
     attr_reader :status
 
     def initialize(msg, status=400)

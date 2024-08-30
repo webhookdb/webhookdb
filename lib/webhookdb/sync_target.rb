@@ -21,9 +21,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Appydays::Configurable
   include Webhookdb::Dbutil
 
-  class Deleted < StandardError; end
-  class InvalidConnection < StandardError; end
-  class SyncInProgress < StandardError; end
+  class Deleted < Webhookdb::WebhookdbError; end
+  class InvalidConnection < Webhookdb::WebhookdbError; end
+  class SyncInProgress < Webhookdb::WebhookdbError; end
 
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000

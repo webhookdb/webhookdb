@@ -3,7 +3,7 @@
 class Webhookdb::DBAdapter
   require "webhookdb/db_adapter/column_types"
 
-  class UnsupportedAdapter < StandardError; end
+  class UnsupportedAdapter < Webhookdb::ProgrammingError; end
 
   VALID_IDENTIFIER = /^[a-zA-Z][a-zA-Z\d_ ]*$/
   INVALID_IDENTIFIER_PROMPT =

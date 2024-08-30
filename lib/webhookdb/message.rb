@@ -156,9 +156,9 @@ module Webhookdb::Message
     Webhookdb::Message::Delivery.unsent.each(&:send!)
   end
 
-  class InvalidTransportError < StandardError; end
+  class InvalidTransportError < Webhookdb::ProgrammingError; end
 
-  class MissingTemplateError < StandardError; end
+  class MissingTemplateError < Webhookdb::ProgrammingError; end
 
   # Presents a homogeneous interface for a given 'to' value (email vs. customer, for example).
   # .to will always be a plain object, and .customer will be a +Webhookdb::Customer+ if present.

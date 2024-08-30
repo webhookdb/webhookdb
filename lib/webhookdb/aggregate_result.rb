@@ -18,7 +18,7 @@ require "webhookdb" unless defined?(Webhookdb)
 #   end
 #   return ag.finish
 #
-class Webhookdb::AggregateResult < StandardError
+class Webhookdb::AggregateResult < Webhookdb::WebhookdbError
   attr_reader :successes, :failures, :errors
 
   def initialize(existing=nil)

@@ -4,7 +4,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   include Webhookdb::Dbutil
 
   class MigrationInProgress < Webhookdb::DatabaseLocked; end
-  class MigrationAlreadyFinished < StandardError; end
+  class MigrationAlreadyFinished < Webhookdb::WebhookdbError; end
 
   plugin :timestamps
   plugin :text_searchable, terms: [:organization, :started_by]

@@ -15,11 +15,11 @@ class Webhookdb::Replicator
   PLUGIN_DIR = Pathname(__FILE__).dirname + PLUGIN_DIRNAME
 
   # Raised when there is no service registered for a name.
-  class Invalid < StandardError; end
+  class Invalid < Webhookdb::WebhookdbError; end
 
   # Raised when credentials to interact with a service are not set up.
   # Usually this is due to a missing dependency.
-  class CredentialsMissing < StandardError; end
+  class CredentialsMissing < Webhookdb::WebhookdbError; end
 
   # Statically describe a replicator.
   class Descriptor < Webhookdb::TypedStruct

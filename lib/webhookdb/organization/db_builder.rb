@@ -22,7 +22,7 @@ class Webhookdb::Organization::DbBuilder
   include Webhookdb::Dbutil
   extend Webhookdb::MethodUtilities
 
-  class IsolatedOperationError < StandardError; end
+  class IsolatedOperationError < Webhookdb::ProgrammingError; end
 
   DATABASE = "database"
   SCHEMA = "schema"
