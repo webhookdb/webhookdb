@@ -8,39 +8,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## [1.3.0] - 2024-04-26
+## [1.4.0] - 2024-08-31
 
 ### Features and Replicators
 
-* Go to `/admin` to see a new administrative interface by @rgalanakis in [#874)(https://github.com/webhookdb/webhookdb/pull/874), [#877)(https://github.com/webhookdb/webhookdb/pull/877), and [#878)(https://github.com/webhookdb/webhookdb/pull/878)
-* Manage views from WebhookDB using `webhookdb saved-view`, by @rgalanakis in [#866)(https://github.com/webhookdb/webhookdb/pull/866)
-* API /db/run_sql endpoint added, for safe CORS usage. by @rgalanakis in [#867)(https://github.com/webhookdb/webhookdb/pull/867) and [#868)(https://github.com/webhookdb/webhookdb/pull/868)
-* Use OAuth in Increase replicators, and overhaul to new API shapes by @rgalanakis in [#882)(https://github.com/webhookdb/webhookdb/pull/882)
-* Add `url_recorder_v1` replicator by @rgalanakis in [#898)(https://github.com/webhookdb/webhookdb/pull/898)
-* Transistor: Add transcript text to table by @rgalanakis in [#864)(https://github.com/webhookdb/webhookdb/pull/864)
+* Send alerts for backfill errors (Signalwire) by @rgalanakis in [#900](https://github.com/webhookdb/webhookdb/pull/900)
+* Add a 'system log' capability so that it's easier to track important things happening across the app, and show it in admin by @rgalanakis in [#901](https://github.com/webhookdb/webhookdb/pull/901)
+* Icalendar:
+  * Support another ambiguous rule by @rgalanakis in [#910](https://github.com/webhookdb/webhookdb/pull/910)
+  * SSL legacy content negotiation is fatal by @rgalanakis in [#912](https://github.com/webhookdb/webhookdb/pull/912)
+  * Handle missing TZID, and add feed metrics by @rgalanakis in [#918](https://github.com/webhookdb/webhookdb/pull/918)
+* Transistor: Ignore 404s when fetching a transcript by @rgalanakis in [#915](https://github.com/webhookdb/webhookdb/pull/915)
+* Add a job to log useful metrics by @rgalanakis in [#920](https://github.com/webhookdb/webhookdb/pull/920)
+* Do not enqueue webhooks for bot GET requests by @rgalanakis in [#920](https://github.com/webhookdb/webhookdb/pull/920)
+* Add `Webhookdb::ExceptionCarrier`, which can be used to report API errors from deeper within a synchronous replicator by @rgalanakis in [#921](https://github.com/webhookdb/webhookdb/pull/921)
+
+### Changes and Fixes
+
+* Fix encoding error when sending developer alerts by @rgalanakis in [#913](https://github.com/webhookdb/webhookdb/pull/913)
+* WebhookRequest#as_json should not jsonify Rack by @rgalanakis in [#903](https://github.com/webhookdb/webhookdb/pull/903)
+* Improve shared behavior parameters by @rgalanakis in [#907](https://github.com/webhookdb/webhookdb/pull/907)
+* Fix front signalwire message edge case by @rgalanakis in [#908](https://github.com/webhookdb/webhookdb/pull/908)
+* Re-validate old connections when pulling them from the cache by @rgalanakis in [#909](https://github.com/webhookdb/webhookdb/pull/909)
+* Handle Intercom token_suspended errors by @rgalanakis in [#914](https://github.com/webhookdb/webhookdb/pull/914)
+* RenewWatchChannel is a QueueBackoffJob, to avoid queue overload for a low-priority job by @rgalanakis in [#916](https://github.com/webhookdb/webhookdb/pull/916)
+* Use Sequel timed queue (performance improvement) by @rgalanakis in [#917](https://github.com/webhookdb/webhookdb/pull/917)
+* Quality-of-life fixes by @rgalanakis in [#919](https://github.com/webhookdb/webhookdb/pull/919)
+
+## [1.3.1] - 2024-04-26
+
+Note: Version 1.3.0 had a link to an [older CLI version in its web terminal](https://github.com/webhookdb/webhookdb/commit/1fc31329bd2b59b715463a1ce3038c6b071bf78b) but is otherwise the same.
+
+### Features and Replicators
+
+* Go to `/admin` to see a new administrative interface by @rgalanakis in [#874](https://github.com/webhookdb/webhookdb/pull/874), [#877](https://github.com/webhookdb/webhookdb/pull/877), and [#878](https://github.com/webhookdb/webhookdb/pull/878)
+* Manage views from WebhookDB using `webhookdb saved-view`, by @rgalanakis in [#866](https://github.com/webhookdb/webhookdb/pull/866)
+* API /db/run_sql endpoint added, for safe CORS usage. by @rgalanakis in [#867](https://github.com/webhookdb/webhookdb/pull/867) and [#868](https://github.com/webhookdb/webhookdb/pull/868)
+* Use OAuth in Increase replicators, and overhaul to new API shapes by @rgalanakis in [#882](https://github.com/webhookdb/webhookdb/pull/882)
+* Add `url_recorder_v1` replicator by @rgalanakis in [#898](https://github.com/webhookdb/webhookdb/pull/898)
+* Transistor: Add transcript text to table by @rgalanakis in [#864](https://github.com/webhookdb/webhookdb/pull/864)
 
 ### Changes and Fixes
 
 * Icalendar fixes:
-  - Handle wrong encoding, handle 304s and 410s by @rgalanakis in [#865)(https://github.com/webhookdb/webhookdb/pull/865)
-  - Implicit end dates handled by @rgalanakis in [#870)(https://github.com/webhookdb/webhookdb/pull/870)
-  * Fix endless time calculation in ical rrule by @rgalanakis in [#880)(https://github.com/webhookdb/webhookdb/pull/880)
-  * Retry instead of alerting on icalendar errors, and update Sentry by @rgalanakis in [#887)(https://github.com/webhookdb/webhookdb/pull/887)
-  * Better error handling by @rgalanakis in [#889)(https://github.com/webhookdb/webhookdb/pull/889)
-  * Delete stale cancelled events by @rgalanakis in [#891)(https://github.com/webhookdb/webhookdb/pull/891)
-  * Better invalid unicode handling by @rgalanakis in [#893)(https://github.com/webhookdb/webhookdb/pull/893)
-  * Ical rules, strip whitespace, developer alerts by @rgalanakis in [#897)(https://github.com/webhookdb/webhookdb/pull/897)
+  - Handle wrong encoding, handle 304s and 410s by @rgalanakis in [#865](https://github.com/webhookdb/webhookdb/pull/865)
+  - Implicit end dates handled by @rgalanakis in [#870](https://github.com/webhookdb/webhookdb/pull/870)
+  * Fix endless time calculation in ical rrule by @rgalanakis in [#880](https://github.com/webhookdb/webhookdb/pull/880)
+  * Retry instead of alerting on icalendar errors, and update Sentry by @rgalanakis in [#887](https://github.com/webhookdb/webhookdb/pull/887)
+  * Better error handling by @rgalanakis in [#889](https://github.com/webhookdb/webhookdb/pull/889)
+  * Delete stale cancelled events by @rgalanakis in [#891](https://github.com/webhookdb/webhookdb/pull/891)
+  * Better invalid unicode handling by @rgalanakis in [#893](https://github.com/webhookdb/webhookdb/pull/893)
+  * Ical rules, strip whitespace, developer alerts by @rgalanakis in [#897](https://github.com/webhookdb/webhookdb/pull/897)
 * Signalwire-Front Channel:
-  * Alert admins on failure, fix dangling table on uninstall by @rgalanakis in [#879)(https://github.com/webhookdb/webhookdb/pull/879)
-  * Handle null SW body by @rgalanakis in [#892)(https://github.com/webhookdb/webhookdb/pull/892)
-* OAuth and related cleanup by @rgalanakis in [#881)(https://github.com/webhookdb/webhookdb/pull/881) and [#883)(https://github.com/webhookdb/webhookdb/pull/883)
+  * Alert admins on failure, fix dangling table on uninstall by @rgalanakis in [#879](https://github.com/webhookdb/webhookdb/pull/879)
+  * Handle null SW body by @rgalanakis in [#892](https://github.com/webhookdb/webhookdb/pull/892)
+* OAuth and related cleanup by @rgalanakis in [#881](https://github.com/webhookdb/webhookdb/pull/881) and [#883](https://github.com/webhookdb/webhookdb/pull/883)
 * Intercom:
-  * Fixes and log output reduction by @rgalanakis in [#884)(https://github.com/webhookdb/webhookdb/pull/884)
-  * Handle the intercom contact.delete event by @rgalanakis in [#885)(https://github.com/webhookdb/webhookdb/pull/885)
-  * Handle conversation.deleted events by @rgalanakis in [#886)(https://github.com/webhookdb/webhookdb/pull/886)
-* Backfill job: Do not allow multiple backfills by @rgalanakis in [#871)(https://github.com/webhookdb/webhookdb/pull/871)
-* Use admin instead of readonly dataset interally by @rgalanakis in [#872)(https://github.com/webhookdb/webhookdb/pull/872)
-* Trim whitespace from API inputs by @rgalanakis in [#899)(https://github.com/webhookdb/webhookdb/pull/899)
+  * Fixes and log output reduction by @rgalanakis in [#884](https://github.com/webhookdb/webhookdb/pull/884)
+  * Handle the intercom contact.delete event by @rgalanakis in [#885](https://github.com/webhookdb/webhookdb/pull/885)
+  * Handle conversation.deleted events by @rgalanakis in [#886](https://github.com/webhookdb/webhookdb/pull/886)
+* Backfill job: Do not allow multiple backfills by @rgalanakis in [#871](https://github.com/webhookdb/webhookdb/pull/871)
+* Use admin instead of readonly dataset interally by @rgalanakis in [#872](https://github.com/webhookdb/webhookdb/pull/872)
+* Trim whitespace from API inputs by @rgalanakis in [#899](https://github.com/webhookdb/webhookdb/pull/899)
 
 ## [1.2.2] - 2024-02-05
 
