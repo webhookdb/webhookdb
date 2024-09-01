@@ -144,6 +144,22 @@ module Webhookdb
 
   class LockFailed < WebhookdbError; end
 
+  # This exception is rescued in the API and returned to the caller via +merror!+.
+  # This is mostly used in synchronously-processed replicators that need to return
+  # very specific types of errors during processing.
+  # This is very rare.
+  class ExceptionCarrier < WebhookdbError
+    attr_reader :status, :code, :more, :headers
+
+    def initialize(status, message, code: nil, more: {}, headers: {})
+      super(message)
+      @status = status
+      @code = code
+      @more = more
+      @headers = headers
+    end
+  end
+
   ### Generate a key for the specified Sequel model +instance+ and
   ### any additional +parts+ that can be used for idempotent requests.
   def self.idempotency_key(instance, *parts)
