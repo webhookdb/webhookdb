@@ -163,6 +163,10 @@ class Webhookdb::Service < Grape::API
     error!(e.message, 405)
   end
 
+  rescue_from Webhookdb::ExceptionCarrier do |e|
+    merror!(e.status, e.message, code: e.code, more: e.more, headers: e.headers)
+  end
+
   rescue_from Webhookdb::LockFailed do |_e|
     merror!(
       409,

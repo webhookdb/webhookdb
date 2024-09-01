@@ -9,7 +9,7 @@ require "webhookdb/jobs/replication_migration"
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   include Webhookdb::Admin::Linked
 
-  class SchemaMigrationError < StandardError; end
+  class SchemaMigrationError < Webhookdb::ProgrammingError; end
 
   plugin :timestamps
   plugin :soft_deletes

@@ -11,7 +11,7 @@ module Webhookdb::Http
   end
 
   # Error raised when some API has rate limited us.
-  class BaseError < StandardError; end
+  class BaseError < Webhookdb::WebhookdbError; end
 
   class Error < BaseError
     attr_reader :response, :body, :uri, :status, :http_method

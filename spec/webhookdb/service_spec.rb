@@ -176,6 +176,10 @@ class Webhookdb::API::TestService < Webhookdb::Service
     c = admin_customer?
     present({id: c&.id})
   end
+
+  get :exception_carrier do
+    raise Webhookdb::ExceptionCarrier.new(429, "hello", **params.symbolize_keys)
+  end
 end
 
 RSpec.describe Webhookdb::Service, :db do
@@ -401,6 +405,19 @@ RSpec.describe Webhookdb::Service, :db do
 
     expect(last_response).to have_status(201)
     expect(last_session_id).to be_present
+  end
+
+  it "returns ExceptionCarrier exceptions as structured errors" do
+    get "/exception_carrier"
+    expect(last_response).to have_status(429)
+    expect(last_response_json_body).to eq({error: {message: "hello", status: 429}})
+  end
+
+  it "includes 'more' and 'headers' with ExceptionCarrier errors" do
+    get "/exception_carrier", code: "hi", more: {x: "1"}, headers: {y: "2"}
+    expect(last_response).to have_status(429)
+    expect(last_response_json_body).to eq({error: {code: "hi", message: "hello", status: 429, x: "1"}})
+    expect(last_response.headers).to include({"y" => "2"})
   end
 
   describe "session length" do

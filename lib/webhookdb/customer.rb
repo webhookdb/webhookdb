@@ -12,8 +12,8 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   include Appydays::Configurable
   include Webhookdb::Admin::Linked
 
-  class InvalidPassword < StandardError; end
-  class SignupDisabled < StandardError; end
+  class InvalidPassword < Webhookdb::WebhookdbError; end
+  class SignupDisabled < Webhookdb::WebhookdbError; end
 
   configurable(:customer) do
     setting :signup_email_allowlist, ["*"], convert: ->(s) { s.split }

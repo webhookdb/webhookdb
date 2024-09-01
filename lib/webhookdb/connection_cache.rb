@@ -45,7 +45,7 @@ class Webhookdb::ConnectionCache
   extend Webhookdb::MethodUtilities
   include Webhookdb::Dbutil
 
-  class ReentranceError < StandardError; end
+  class ReentranceError < Webhookdb::ProgrammingError; end
 
   configurable(:connection_cache) do
     # If this many seconds has elapsed since the last connecton was borrowed,

@@ -13,7 +13,7 @@ module Webhookdb::Postgres
   extend Webhookdb::MethodUtilities
   include Appydays::Loggable
 
-  class InTransaction < StandardError; end
+  class InTransaction < Webhookdb::ProgrammingError; end
 
   singleton_attr_accessor :unsafe_skip_transaction_check
   @unsafe_skip_transaction_check = false
