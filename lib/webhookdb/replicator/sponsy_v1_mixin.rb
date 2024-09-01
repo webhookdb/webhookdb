@@ -99,7 +99,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
       )
     rescue Webhookdb::Http::Error => e
       raise e unless e.status == 404
-      self.logger.warn("sponsy_404", error: e)
+      self.logger.warn("sponsy_404", e)
       return [], nil
     end
 

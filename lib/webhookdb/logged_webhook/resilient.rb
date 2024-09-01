@@ -12,10 +12,10 @@ class Webhookdb::LoggedWebhook::Resilient
     str_payload = JSON.dump(kwargs)
     self.database_urls.each do |url|
       next unless self.write_to(url, service_integration_opaque_id, str_payload)
-      self.logger.warn "resilient_insert_handled", error: e, **self._dburl_log_kwargs(url)
+      self.logger.warn "resilient_insert_handled", self._dburl_log_kwargs(url), e
       return true
     end
-    self.logger.error "resilient_insert_unhandled", error: e, logged_webhook_kwargs: kwargs
+    self.logger.error "resilient_insert_unhandled", {logged_webhook_kwargs: kwargs}, e
     raise
   end
 
@@ -37,7 +37,7 @@ class Webhookdb::LoggedWebhook::Resilient
     end
     return true
   rescue StandardError => e
-    self.logger.debug "resilient_insert_failure", error: e, **self._dburl_log_kwargs(dburl)
+    self.logger.debug "resilient_insert_failure", self._dburl_log_kwargs(dburl), e
     return false
   end
 

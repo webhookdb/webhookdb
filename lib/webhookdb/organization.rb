@@ -158,7 +158,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     result = self.execute_readonly_query(sql)
     return result, nil
   rescue Sequel::DatabaseError => e
-    self.logger.error("db_query_database_error", error: e)
+    self.logger.error("db_query_database_error", e)
     # We want to handle InsufficientPrivileges and UndefinedTable explicitly
     # since we can hint the user at what to do.
     # Otherwise, we should just return the Postgres exception.

@@ -179,7 +179,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             begin
               svc.upsert_webhook_body(body)
             rescue KeyError, TypeError => e
-              self.logger.error "immediate_upsert", error: e
+              self.logger.error "immediate_upsert", e
               err_msg = "Sorry! Looks like something has gone wrong. " \
                         "Check your schema or contact support at #{Webhookdb.support_email}."
               merror!(400, err_msg)

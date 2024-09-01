@@ -73,7 +73,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
         def exchange_authorization_code(code)
           return oauth_provider.exchange_authorization_code(code:)
         rescue Webhookdb::Http::Error => e
-          logger.warn "oauth_exchange_error", exception: e
+          logger.warn "oauth_exchange_error", e
           url = "#{Webhookdb.api_url}/v1/install/#{oauth_provider.key}"
           raise FormError.new(
             "Something went wrong getting your access token from #{oauth_provider.app_name}. " \
