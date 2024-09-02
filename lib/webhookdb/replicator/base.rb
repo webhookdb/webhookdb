@@ -655,7 +655,7 @@ for information on how to refresh data.)
     # Do not log this since it's expected/handled by Amigo
     raise
   rescue StandardError => e
-    self.logger.error("upsert_webhook_error", request: request.as_json, error: e)
+    self.logger.error("upsert_webhook_error", {request: request.as_json}, e)
     raise
   end
 
@@ -969,7 +969,7 @@ for information on how to refresh data.)
     rescue TypeError, NoMethodError => e
       # if we don't incur an HTTP error, but do incur an Error due to differences in the shapes of anticipated
       # response data in the `fetch_backfill_page` function, we can assume that the credentials are okay
-      self.logger.info "verify_backfill_credentials_expected_failure", error: e
+      self.logger.info "verify_backfill_credentials_expected_failure", e
       return CredentialVerificationResult.new(verified: true, message: "")
     end
     return CredentialVerificationResult.new(verified: true, message: "")

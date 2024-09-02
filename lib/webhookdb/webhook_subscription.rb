@@ -136,9 +136,8 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
       rescue StandardError => e
         self.logger.error(
           "webhook_subscription_delivery_failure",
-          error: e,
-          webhook_subscription_id: self.id,
-          webhook_subscription_delivery_id: d.id,
+          {webhook_subscription_id: self.id, webhook_subscription_delivery_id: d.id},
+          e,
         )
         d.add_attempt(status: e.is_a?(Webhookdb::Http::Error) ? e.status : 0)
         if attempt < MAX_DELIVERY_ATTEMPTS

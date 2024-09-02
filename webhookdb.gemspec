@@ -32,7 +32,7 @@ Gem::Specification.new do |s|
   s.files += Dir["admin-dist/**/*"]
 
   s.add_dependency("activesupport", "~> 7.1")
-  s.add_dependency("appydays", ">= 0.8")
+  s.add_dependency("appydays", ">= 0.10")
   s.add_dependency("aws-sdk-pricing", "~> 1.53")
   s.add_dependency("aws-sdk-sts", "~> 1.11")
   s.add_dependency("barnes", "~> 0.0")

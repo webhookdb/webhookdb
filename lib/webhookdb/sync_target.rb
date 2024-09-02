@@ -372,7 +372,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       # Don't spam our logs with downstream errors
       idem_key = "sync_target_http_error-#{self.sync_target.id}-#{e.class.name}"
       Webhookdb::Idempotency.every(1.hour).in_memory.under_key(idem_key) do
-        self.sync_target.logger.warn("sync_target_http_error", error: e)
+        self.sync_target.logger.warn("sync_target_http_error", e)
       end
     end
 

@@ -84,7 +84,7 @@ module Webhookdb
             nil,
             key: "LOG_LEVEL",
             side_effect: ->(v) { Appydays::Loggable.default_level = v if v }
-    setting :log_format, nil
+    setting :log_format, :json_trunc
     setting :app_url, "http://localhost:18002"
     setting :api_url, "http://localhost:#{ENV.fetch('PORT', 18_001)}"
     setting :bust_idempotency, false

@@ -22,7 +22,7 @@ class Webhookdb::Jobs::Backfill
     begin
       bfjob = self.lookup_model(Webhookdb::BackfillJob, event.payload)
     rescue RuntimeError => e
-      self.logger.info "skipping_missing_backfill_job", error: e
+      self.logger.info "skipping_missing_backfill_job", e
       return
     end
     sint = bfjob.service_integration
