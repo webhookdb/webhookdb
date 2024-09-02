@@ -700,8 +700,8 @@ or leave blank to choose the first option.
           include_json(
             message: eq("upsert_webhook_error"),
             name: eq("Webhookdb::Replicator::Fake"),
+            exception: include("name" => "RuntimeError", "message" => "hi"),
             context: {
-              error: "hi",
               request: {body: {a: 1}, headers: {X: "1"}, path: "/hi", method: "POST"},
             },
           ),
