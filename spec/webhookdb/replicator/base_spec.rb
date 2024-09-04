@@ -321,4 +321,41 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       end
     end
   end
+
+  describe "avoid_writes?" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(backfill_key: "abc") }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "is true if the table has an exclusive lock" do
+      Sequel.connect(sint.organization.admin_connection_url) do |db|
+        # expect(sint.replicator).to_not be_avoid_writes
+        # Find the locked table and tell us to not write.
+        db.transaction do
+          db << "LOCK TABLE #{sint.table_name}"
+          expect(sint.replicator).to be_avoid_writes
+        end
+        expect(sint.replicator).to_not be_avoid_writes
+        # Make sure we don't find the wrong locked table.
+        db.transaction do
+          db << "CREATE TABLE IF NOT EXISTS placeholder_fake_test_table(pk INTEGER)"
+          db << "LOCK TABLE placeholder_fake_test_table"
+          expect(sint.replicator).to_not be_avoid_writes
+        ensure
+          db << "DROP TABLE IF EXISTS placeholder_fake_test_table;"
+        end
+      end
+    end
+
+    it "is false if not" do
+      expect(sint.replicator).to_not be_avoid_writes
+    end
+  end
 end

@@ -1513,6 +1513,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made
       expect(event_svc.admin_dataset(&:all)).to be_empty
     end
+
+    it "backs off if the table should avoid writes" do
+      Sequel.connect(sint.organization.admin_connection_url) do |db|
+        db.transaction do
+          db << "LOCK TABLE #{event_sint.table_name}"
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          expect do
+            svc.sync_row(row)
+          end.to raise_error(Amigo::Retry::Retry)
+        end
+      end
+    end
   end
 
   # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
