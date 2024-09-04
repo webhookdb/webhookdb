@@ -105,7 +105,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end
@@ -142,7 +142,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end

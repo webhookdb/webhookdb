@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
+require "amigo/semaphore_backoff_job"
+
 require "webhookdb/async/job"
 require "webhookdb/jobs"
 
 class Webhookdb::Jobs::IcalendarSync
   extend Webhookdb::Async::Job
+  include Amigo::SemaphoreBackoffJob
 
-  sidekiq_options retry: false
+  sidekiq_options retry: false, queue: "netout"
 
   def perform(sint_id, calendar_external_id)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
@@ -20,4 +23,13 @@ class Webhookdb::Jobs::IcalendarSync
       sint.replicator.sync_row(row)
     end
   end
+
+  def before_perform(sint_id, *)
+    @sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
+  end
+
+  def semaphore_key = "semaphore-icalendarsync-#{@sint.organization_id}"
+  def semaphore_size = @sint.organization.job_semaphore_size
+  def semaphore_expiry = 15.minutes
+  def semaphore_backoff = 60 + (rand * 30)
 end
