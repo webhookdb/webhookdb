@@ -222,12 +222,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
     end
   end
 
-  describe "POST /v1/service_integrations/:opaque_id" do
+  describe "POST /v1/service_integrations/:opaque_id", sidekiq: :fake do
     before(:each) do
       # this endpoint should be unauthed, so we will test it unauthed
       logout
       _ = sint
-      Sidekiq::Testing.fake! # We don't want to process the jobs
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
