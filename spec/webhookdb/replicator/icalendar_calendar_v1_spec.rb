@@ -395,6 +395,39 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made.times(4)
     end
 
+    it "skips rows that have not been modified, which do not have a LAST-MODIFIED timestamp" do
+      v1 = <<~ICAL
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//ZContent.net//Zap Calendar 1.0//EN
+        CALSCALE:GREGORIAN
+        BEGIN:VEVENT
+        SUMMARY:Version1
+        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+        DTSTART:20080212
+        DTEND:20080213
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      updated1 = v1.gsub("Version1", "Version2")
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: v1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: v1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated1},
+        )
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      orig_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      Timecop.travel(3.hours.from_now) { svc.sync_row(row) }
+      newly_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      expect(newly_updated_at).to eq(orig_updated_at)
+      Timecop.travel(6.hours.from_now) { svc.sync_row(row) }
+      final_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      expect(final_updated_at).to be > orig_updated_at
+      expect(req).to have_been_made.times(3)
+    end
+
     it "uses UTC for unregonized timezones" do
       body = <<~ICAL
         BEGIN:VCALENDAR
@@ -1512,6 +1545,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       svc.sync_row(row)
       expect(req).to have_been_made
       expect(event_svc.admin_dataset(&:all)).to be_empty
+    end
+
+    it "backs off if the table should avoid writes" do
+      Sequel.connect(sint.organization.admin_connection_url) do |db|
+        db.transaction do
+          db << "LOCK TABLE #{event_sint.table_name}"
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          expect do
+            svc.sync_row(row)
+          end.to raise_error(Amigo::Retry::Retry)
+        end
+      end
     end
   end
 

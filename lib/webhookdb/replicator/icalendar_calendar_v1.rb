@@ -172,6 +172,15 @@ The secret to use for signing is:
         start = Time.now
         now = Time.now
         if (dep = self.find_dependent("icalendar_event_v1"))
+          if dep.replicator.avoid_writes?
+            # Check if this table is being vacuumed/etc. We use this instead of a semaphore job,
+            # since it's a better fit for icalendar, which is pre-scheduled, rather than reactive.
+            # That is, when we receive webhooks, a semaphore job gives us a more predictable rate;
+            # but icalendar rate is negotiated in advance (when enqueing jobs),
+            # and we can be more 'helpful' to something like a vacuum by not running any jobs at all.
+            self.logger.info("skip_sync_table_locked")
+            raise Amigo::Retry::Retry, 60.seconds + (rand * 10.seconds)
+          end
           processor = self._sync_row(row, dep, now:)
         end
         self.admin_dataset do |ds|

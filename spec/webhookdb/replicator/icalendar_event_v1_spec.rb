@@ -31,7 +31,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         :pk,
         calendar_external_id: "123",
         compound_identity: "123-79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
-        data: include("DTEND"),
+        data: include("DTEND").and(not_include("row_updated_at")),
         start_at: match_time("2020-02-20 17:00:00Z"),
         uid: "79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
       )

@@ -231,9 +231,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return "#{self.name} (#{self.key})"
   end
 
-  def prepare_database_connections?
-    return self.prepare_database_connections(safe: true)
-  end
+  # @return [Webhookdb::Organization::DbBuilder]
+  def db_builder = Webhookdb::Organization::DbBuilder.new(self)
+
+  def prepare_database_connections? = self.prepare_database_connections(safe: true)
 
   # Build the org-specific users, database, and set our connection URLs to it.
   # @param safe [*] If true, noop if connection urls are set.
@@ -244,7 +245,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         return if safe
         raise Webhookdb::InvalidPrecondition, "connections already set"
       end
-      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder = self.db_builder
       builder.prepare_database_connections
       self.admin_connection_url_raw = builder.admin_url
       self.readonly_connection_url_raw = builder.readonly_url
@@ -266,7 +267,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       end
       # Use the raw URL, even though we know at this point
       # public_host is empty so raw and public host urls are the same.
-      Webhookdb::Organization::DbBuilder.new(self).create_public_host_cname(self.readonly_connection_url_raw)
+      self.db_builder.create_public_host_cname(self.readonly_connection_url_raw)
       self.save_changes
     end
   end
@@ -276,7 +277,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def remove_related_database
     self.db.transaction do
       self.lock!
-      Webhookdb::Organization::DbBuilder.new(self).remove_related_database
+      self.db_builder.remove_related_database
       self.admin_connection_url_raw = ""
       self.readonly_connection_url_raw = ""
       self.save_changes
@@ -377,7 +378,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def roll_database_credentials
     self.db.transaction do
       self.lock!
-      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder = self.db_builder
       builder.roll_connection_credentials
       self.admin_connection_url_raw = builder.admin_url
       self.readonly_connection_url_raw = builder.readonly_url
@@ -389,7 +390,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     Webhookdb::DBAdapter.validate_identifier!(schema, type: "schema")
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
-    builder = Webhookdb::Organization::DbBuilder.new(self)
+    builder = self.db_builder
     sql = builder.migration_replication_schema_sql(self.replication_schema, schema)
     self.admin_connection(transaction: true) do |db|
       db << sql

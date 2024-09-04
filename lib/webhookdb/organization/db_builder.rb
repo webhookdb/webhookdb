@@ -282,7 +282,7 @@ class Webhookdb::Organization::DbBuilder
   # (and we probably don't want the admin role trying to delete itself).
   def remove_related_database
     return if @org.admin_connection_url_raw.blank?
-    superuser_str = self._find_superuser_url_str
+    superuser_str = self.find_superuser_url_str
     # Cannot use conn cache since we may be removing ourselves
     borrow_conn(superuser_str) do |conn|
       case self.class.isolation_mode
@@ -309,7 +309,8 @@ class Webhookdb::Organization::DbBuilder
     end
   end
 
-  protected def _find_superuser_url_str
+  # Find the superuser connection URL for the organization's database.
+  def find_superuser_url_str
     admin_url = URI.parse(@org.admin_connection_url_raw)
     superuser_str = self.class.available_server_urls.find do |sstr|
       surl = URI.parse(sstr)
@@ -325,7 +326,7 @@ class Webhookdb::Organization::DbBuilder
   def roll_connection_credentials
     raise IsolatedOperationError, "cannot roll credentials without a user isolation mode" unless
       self.class.isolate?(USER)
-    superuser_uri = URI(self._find_superuser_url_str)
+    superuser_uri = URI(self.find_superuser_url_str)
     orig_readonly_user = URI(@org.readonly_connection_url_raw).user
     ro_user = self.randident("ro")
     ro_pwd = self.randident

@@ -166,6 +166,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     data.delete("calendar_external_id")
     data.delete("recurring_event_id")
     data.delete("recurring_event_sequence")
+    data.delete("row_updated_at")
     return data
   end
 
@@ -219,7 +220,12 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   end
 
   def _update_where_expr
-    return self.qualified_table_sequel_identifier[:last_modified_at] < Sequel[:excluded][:last_modified_at]
+    # last_modified_at is set to either the LAST-MODIFIED value, OR the row_updated_at timestamp.
+    # Many feeds do not have LAST-MODIFIED, so all rows get updated.
+    # Compare against data to avoid the constant writes. JSONB != operations are very fast,
+    # so this should not be any real performance issue.
+    return (self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]) &
+        (self.qualified_table_sequel_identifier[:last_modified_at] < Sequel[:excluded][:last_modified_at])
   end
 
   # @param [Array<String>] lines

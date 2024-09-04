@@ -1190,6 +1190,34 @@ or leave blank to choose the first option.
     return self._webhook_endpoint
   end
 
+  # Avoid writes under the following conditions:
+  #
+  # - A table lock is taken on the table
+  # - A vacuum is in progress on the table
+  #
+  # Of course, in most situations we want to write anyway,
+  # but there are some cases (lower-priority replicators for example)
+  # where we can reschedule the job to happen in the future instead.
+  def avoid_writes?
+    # We will need to handle this differently when not under Postgres, but for now,
+    # just assume Postgres.
+    # Find the admin URL for the organization's server (NOT the organization admin url, it can't see system processes).
+    # Then check for 1) vacuums in progress, 2) locks.
+    self.service_integration.organization.readonly_connection do |db|
+      count = db[:pg_locks].
+        join(:pg_class, {oid: :relation}).
+        join(:pg_namespace, {oid: :relnamespace}).
+        where(
+          locktype: "relation",
+          nspname: self.service_integration.organization.replication_schema,
+          relname: self.service_integration.table_name,
+          mode: ["ShareUpdateExclusiveLock", "ExclusiveLock", "AccessExclusiveLock"],
+        ).limit(1).count
+      return true if count&.positive?
+    end
+    return false
+  end
+
   protected def _webhook_endpoint
     return self.service_integration.unauthed_webhook_endpoint
   end
