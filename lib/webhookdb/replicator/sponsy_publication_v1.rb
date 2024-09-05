@@ -118,7 +118,9 @@ Run `webhookdb services list` to see what's available.
 
     def flush_pending_inserts
       self.svc.admin_dataset do |ds|
-        ds.exclude(sponsy_id: @seen_ids).where(deleted_at: nil).update(deleted_at: Sequel.function(:now))
+        ds = Webhookdb::Dbutil.where_not_in_using_index(ds, :sponsy_id, @seen_ids)
+        ds = ds.where(deleted_at: nil)
+        ds.update(deleted_at: Sequel.function(:now))
       end
     end
   end

@@ -222,10 +222,11 @@ The secret to use for signing is:
       if (delete_condition = processor.delete_condition)
         ds.where(delete_condition).delete
       end
-      # Update both the status, and set the data json to match.
       # Only update rows not already CANCELLED.
-      ds = ds.exclude(Sequel[compound_identity: processor.upserted_identities])
       ds = ds.where(Sequel[status: nil] | ~Sequel[status: "CANCELLED"])
+      # Find the compound identities we did not update.
+      ds = Webhookdb::Dbutil.where_not_in_using_index(ds, :compound_identity, processor.upserted_identities)
+      # Update both the status, and set the data json to match.
       ds.update(
         status: "CANCELLED",
         data: Sequel.lit('data || \'{"STATUS":{"v":"CANCELLED"}}\'::jsonb'),

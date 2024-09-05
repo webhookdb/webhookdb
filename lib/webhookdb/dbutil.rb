@@ -91,4 +91,42 @@ module Webhookdb::Dbutil
     full_op = present_ops.reduce(&op_symbol)
     return dataset.send(method, full_op)
   end
+
+  # Faster version of dataset.exclude(column => values)
+  # when +column+ has an index.
+  # Instead of "where column not in values", which cannot use the index on +column+
+  # (it has to walk each row to check if the value is in +values+),
+  # it uses, "where +column+ not in the set of rows that have a column in +values+".
+  # Concretely, instead of:
+  #
+  #   SELECT * FROM mytable
+  #   WHERE mycolumn NOT IN ('a', 'b', 'c')
+  #
+  # use this method to build the query:
+  #
+  #   SELECT * FROM mytable
+  #   WHERE mycolumn NOT IN (SELECT mycolumn FROM mytable WHERE mycolumn IN ('a', 'b', 'c'))
+  #
+  # The explain plan of the first includes:
+  #   Filter: (mycolumn <> ALL ('{a,b,c}'::text[]))
+  #
+  # The explain plan of the second instead includes something like:
+  #   Filter: (NOT (hashed SubPlan 1))
+  #     SubPlan 1
+  #      ->  Index Only Scan using mycolumn_idx on mytable
+  #            Index Cond: (mycolumn = ANY ('{a,b,c}'::text[]))
+  #
+  # I'm not entirely sure why this makes such a difference,
+  # but especially with large lists, it certainly does.
+  # For smaller lists it may not make a difference, or may have a small negative impact.
+  # Postgres17 may obvious the need for this due to IN changes, if so it can be removed.
+  #
+  # NOTE: If +column+ is not indexed, this method will require a full table scan.
+  # Use with caution!
+  module_function def where_not_in_using_index(dataset, column, values, full_dataset: nil)
+    return dataset if values.blank?
+    full_dataset ||= dataset.db[dataset.opts[:from].first]
+    found = full_dataset.where(column => values)
+    return dataset.exclude(column => found.select(column))
+  end
 end

@@ -138,6 +138,28 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
     expect(ds.reduce_expr(:|, [nil, false], method: :exclude)).to equal(ds)
   end
 
+  describe "where_not_in_using_index" do
+    it "is the same as NOT IN" do
+      mc = Webhookdb::Postgres::TestingPixie
+      w = mc.create(name: "W")
+      x = mc.create(name: "X")
+      y = mc.create(name: "Y")
+      z = mc.create(name: "Z")
+      names = ["Y", "Z"]
+      expect(Webhookdb::Dbutil.where_not_in_using_index(mc.dataset, :name, names).all).to have_same_ids_as(w, x)
+      expect(mc.exclude(name: names).all).to have_same_ids_as(w, x)
+    end
+
+    it "noops if the values are empty" do
+      mc = Webhookdb::Postgres::TestingPixie
+      w = mc.create(name: "W")
+      ds1 = mc.dataset
+      ds2 = Webhookdb::Dbutil.where_not_in_using_index(ds1, :name, [])
+      expect(ds1).to be(ds2)
+      expect(ds1.all).to have_same_ids_as(w)
+    end
+  end
+
   describe "#find_or_create_or_find" do
     let(:model_class) { Webhookdb::Postgres::TestingPixie }
 
