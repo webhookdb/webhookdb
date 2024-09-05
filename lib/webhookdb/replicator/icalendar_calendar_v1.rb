@@ -166,11 +166,18 @@ The secret to use for signing is:
     end
   end
 
-  def sync_row(row)
+  def sync_row(row, force: false, now: Time.now)
     Appydays::Loggable.with_log_tags(icalendar_url: row.fetch(:ics_url)) do
+      last_synced_at = row.fetch(:last_synced_at)
+      should_sync = force ||
+        last_synced_at.nil? ||
+        last_synced_at < (now - Webhookdb::Icalendar.sync_period_hours.hours)
+      unless should_sync
+        self.logger.info("skip_sync_recently_synced", last_synced_at:)
+        return
+      end
       self.with_advisory_lock(row.fetch(:pk)) do
         start = Time.now
-        now = Time.now
         if (dep = self.find_dependent("icalendar_event_v1"))
           if dep.replicator.avoid_writes?
             # Check if this table is being vacuumed/etc. We use this instead of a semaphore job,
