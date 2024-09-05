@@ -105,7 +105,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end
@@ -142,7 +142,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end
@@ -1557,6 +1557,27 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           end.to raise_error(Amigo::Retry::Retry)
         end
       end
+    end
+
+    it "skips the job if the row has recently been synced, unless force: true" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        SUMMARY:Abraham Lincoln
+        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+        DTSTART:20080212
+        DTEND:20080213
+        DTSTAMP:20150421T141403
+        END:VEVENT
+      ICAL
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc", last_synced_at: 2.hours.ago)
+      svc.sync_row(row)
+      expect(event_svc.admin_dataset(&:all)).to be_empty
+
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      svc.sync_row(row, force: true)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to have_length(1)
     end
   end
 

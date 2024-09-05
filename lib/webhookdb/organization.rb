@@ -513,6 +513,57 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   # @!attribute service_integrations
   #   @return [Array<Webhookdb::ServiceIntegration>]
+
+  # @!attribute created_at
+  #   @return [Time,nil]
+
+  # @!attribute updated_at
+  #   @return [Time,nil]
+
+  # @!attribute soft_deleted_at
+  #   @return [Time,nil]
+
+  # @!attribute name
+  #   @return [String]
+
+  # @!attribute key
+  #   @return [String]
+
+  # @!attribute billing_email
+  #   @return [String]
+
+  # @!attribute stripe_customer_id
+  #   @return [String]
+
+  # @!attribute readonly_connection_url_raw
+  #   @return [String]
+
+  # @!attribute admin_connection_url_raw
+  #   @return [String]
+
+  # @!attribute public_host
+  #   @return [String]
+
+  # @!attribute cloudflare_dns_record_json
+  #   @return [Hash]
+
+  # @!attribute replication_schema
+  #   @return [String]
+
+  # @!attribute job_semaphore_size
+  #   @return [Integer]
+
+  # @!attribute minimum_sync_seconds
+  #   @return [Integer]
+
+  # @!attribute sync_target_timeout
+  #   @return [Integer]
+
+  # @!attribute max_query_rows
+  #   @return [Integer]
+
+  # @!attribute priority_backfill
+  #   @return [true,false]
 end
 
 require "webhookdb/organization/alerting"

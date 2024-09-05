@@ -258,7 +258,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         )
       end
       Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
-      expect(Sidekiq).to have_queue.consisting_of(
+      expect(Sidekiq).to have_queue("netout").consisting_of(
         job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "abc"], at: be > Time.now.to_f),
         job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "xyz"], at: be > Time.now.to_f),
       )
