@@ -484,6 +484,37 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "assumes a UTC end date if it is missing TZID but start date has it" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        CREATED:20240926T125710Z
+        DTEND:20240926T210000
+        DTSTART;TZID=US/Eastern:20240926T160000
+        LAST-MODIFIED:20240926T125710Z
+        RRULE:FREQ=WEEKLY;UNTIL=20241003T200000Z
+        UID:003CEEF7-23D0-4F95-96F3-FF3EAEBD155A
+        DTSTAMP:20240926T134830Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      Timecop.freeze("2024-09-25 20:00:00") do
+        svc.sync_row(row)
+      end
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to include(
+        include(
+          start_at: match_time("2024-09-26T20:00:00Z"),
+          end_at: match_time("2024-09-26T21:00:00Z"),
+          data: hash_including(
+            "DTSTART" => {"TZID" => "US/Eastern", "v" => "20240926T160000"},
+            "DTEND" => {"v" => "20240926T210000Z"},
+          ),
+        ),
+      )
+    end
+
     it "errors for an invalid start/end time with recurrence" do
       body = <<~ICAL
         BEGIN:VEVENT
@@ -493,7 +524,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         UID:ABCD-07DD0607-005F-011C-FF1B-0091E
         SUMMARY:Management Team Call
         DTSTART;TZID=America/New_York:20121001T140000
-        DTEND:20121001T190000
+        DTEND:20121001T190000.0
         RRULE:FREQ=YEARLY;UNTIL=20130101T000000Z
         LAST-MODIFIED:20130607T011211Z
         END:VEVENT

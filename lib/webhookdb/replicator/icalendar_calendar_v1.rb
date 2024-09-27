@@ -524,7 +524,11 @@ The secret to use for signing is:
       return {"v" => r.strftime("%Y%m%dT%H%M%S"), "TZID" => tzid} if tzid
       value = entry.fetch("v")
       return {"v" => value} if value.end_with?("Z")
-      raise "Cannot create ical entry from: #{r}, #{entry}, is_date: #{is_date}"
+      if /^\d{8}T\d{6}$/.match?(value)
+        @upserter.upserting_replicator.logger.warn "ical_assuming_utc_time", ical_entry: entry, ruby_time: r
+        return {"v" => "#{value}Z"}
+      end
+      raise "Cannot create ical entry from: '#{r}', #{entry}"
     end
 
     def _icecube_rule_from_ical(ical)
