@@ -341,7 +341,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
     end
   end
 
-  describe "delete_stale_cancelled_events" do
+  describe "StaleRowDeleter" do
     before(:each) do
       org.prepare_database_connections
       svc.create_table
@@ -369,7 +369,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       upsert("stale", 40.days.ago)
       upsert("stale_not_cancelled", 40.days.ago, status: "CONFIRMED")
       upsert("too_old", 100.days.ago)
-      svc.delete_stale_cancelled_events
+      svc.stale_row_deleter.run
       expect(svc.admin_dataset { |ds| ds.select(:uid).all }).to contain_exactly(
         include(uid: "recent"),
         include(uid: "stale_not_cancelled"),
@@ -381,7 +381,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       upsert("recent", 3.days.ago)
       upsert("stale", 40.days.ago)
       upsert("old", 100.days.ago)
-      svc.delete_stale_cancelled_events(age_cutoff: nil)
+      svc.stale_row_deleter.run_initial
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(uid: "recent"),
       )
@@ -391,7 +391,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       upsert("recent", 3.days.ago)
       Array.new(100) { upsert("stale", 40.days.ago) }
       upsert("not_cancelled", 40.days.ago, status: "CONFIRMED")
-      svc.delete_stale_cancelled_events
+      svc.stale_row_deleter.run
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(uid: "recent"),
         include(uid: "not_cancelled"),

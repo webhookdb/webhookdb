@@ -2,6 +2,7 @@
 
 require "webhookdb/icalendar"
 require "webhookdb/windows_tz"
+require "webhookdb/replicator/base_stale_row_deleter"
 
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
@@ -375,49 +376,14 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   # +stale_at+ to +age_cutoff+. This avoids endlessly adding to the icalendar events table
   # due to feeds that change UIDs each fetch- events with changed UIDs will become CANCELLED,
   # and then deleted over time.
-  # @param stale_at [Time] When an event is considered 'stale'.
-  #   If stale events are a big problem, this can be shortened to just a few days.
-  # @param age_cutoff [Time] Where to stop searching for old events.
-  #   This is important to avoid a full table scale when deleting events,
-  #   since otherwise it is like 'row_updated_at < 35.days.ago'.
-  #   Since this routine should run regularly, we should rarely have events more than 35 or 36 days old,
-  #   for example.
-  #   Use +nil+ to use no limit (a full table scan) which may be necessary when running this feature
-  #   for the first time.
-  # @param chunk_size [Integer] The row delete is done in chunks to avoid long locks.
-  #   The default seems safe, but it's exposed as a parameter if you need to play around with it,
-  #   and can be done via configuration if needed at some point.
-  def delete_stale_cancelled_events(
-    stale_at: Webhookdb::Icalendar.stale_cancelled_event_threshold_days.days.ago,
-    age_cutoff: (Webhookdb::Icalendar.stale_cancelled_event_threshold_days + 10).days.ago,
-    chunk_size: 10_000
-  )
-    # Delete in chunks, like:
-    #   DELETE from "public"."icalendar_event_v1_aaaa"
-    #   WHERE pk IN (
-    #     SELECT pk FROM "public"."icalendar_event_v1_aaaa"
-    #     WHERE row_updated_at < (now() - '35 days'::interval)
-    #     LIMIT 10000
-    #   )
-    age = age_cutoff..stale_at
-    self.admin_dataset do |ds|
-      chunk_ds = ds.where(row_updated_at: age, status: "CANCELLED").select(:pk).limit(chunk_size)
-      loop do
-        # Due to conflicts where a feed is being inserted while the delete is happening,
-        # this may raise an error like:
-        #   deadlock detected
-        #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
-        #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
-        #   HINT:  See server log for query details.
-        #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
-        # Unit testing this is very difficult though, and in practice it is rare,
-        # and normal Sidekiq job retries should be sufficient to handle this.
-        # So we don't explicitly handle deadlocks, but could if it becomes an issue.
-        deleted = ds.where(pk: chunk_ds).delete
-        break if deleted != chunk_size
-      end
-    end
+  class StaleRowDeleter < Webhookdb::Replicator::BaseStaleRowDeleter
+    def stale_at = Webhookdb::Icalendar.stale_cancelled_event_threshold_days.days
+    def age_cutoff = (Webhookdb::Icalendar.stale_cancelled_event_threshold_days + 10).days
+    def updated_at_column = :row_updated_at
+    def stale_condition = {status: "CANCELLED"}
   end
+
+  def stale_row_deleter = StaleRowDeleter.new(self)
 
   def calculate_webhook_state_machine
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))

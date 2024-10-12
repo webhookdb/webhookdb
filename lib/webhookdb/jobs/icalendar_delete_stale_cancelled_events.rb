@@ -12,7 +12,7 @@ class Webhookdb::Jobs::IcalendarDeleteStaleCancelledEvents
   def _perform
     Webhookdb::ServiceIntegration.where(service_name: "icalendar_event_v1").each do |sint|
       self.with_log_tags(sint.log_tags) do
-        sint.replicator.delete_stale_cancelled_events
+        sint.replicator.stale_row_deleter.run
       end
     end
   end
