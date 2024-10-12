@@ -1,29 +1,37 @@
 # frozen_string_literal: true
 
 # Delete stale rows (like cancelled calendar events) not updated (row_updated_at or whatever column)
-# in the window between +stale_at+ to +age_cutoff+.
+# in the window between +stale_at+ back to +lookback_window+.
 # This avoids endlessly adding to a table where we expect rows to become stale over time.
 class Webhookdb::Replicator::BaseStaleRowDeleter
+  # @return [Webhookdb::Replicator::Base]
+  attr_reader :replicator
+
   def initialize(replicator)
     @replicator = replicator
   end
 
   # When a row is considered 'stale'.
-  # If stale rows are a big problem, this can be shortened to just a few days.
+  # For example, a value of +35.days+ would treat any row older than 35 days as stale.
   # @return [ActiveSupport::Duration]
   def stale_at
     raise NotImplementedError
   end
 
-  # Where to stop searching for old rows.
-  # This is important to avoid a full table scale when deleting rows,
-  # since otherwise it is like 'row_updated_at < 35.days.ago'.
-  # Since this routine should run regularly, we should rarely have rows more than 35 or 36 days old,
-  # for example.
-  # Use +run_initial+ to use a nil cutoff/no limit (a full table scan)
+  # How far from +stale_at+ to "look back" for stale rows.
+  # We cannot just use "row_updated_at < stale_at" since this would scan ALL the rows
+  # every time we delete rows. Instead, we only want to scale rows where
+  # "row_updated_at < stale_at AND row_updated_at > (stale_at - lookback_window)".
+  # For example, a +stale_at+ of 20 days and a +lookback_window+ of 7 days
+  # would look to delete rows 20 to 27 days old.
+  #
+  # If the stale row deleter is run daily, a good lookback window would be 2-3 days,
+  # since as long as the job is running we shouldn't rows that aren't cleaned up.
+  #
+  # Use +run_initial+ to do a full table scan,
   # which may be necessary when running this feature for a table for the first time.
   # @return [ActiveSupport::Duration]
-  def age_cutoff
+  def lookback_window
     raise NotImplementedError
   end
 
@@ -40,39 +48,92 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
   end
 
   # The row delete is done in chunks to avoid long locks.
-  # The default seems safe, but it's exposed as a parameter if you need to play around with it,
+  # The default seems safe, but it's exposed if you need to play around with it,
   # and can be done via configuration if needed at some point.
   # @return [Integer]
   def chunk_size = 10_000
 
-  def run(age_cutoff: self.age_cutoff)
-    # Delete in chunks, like:
-    #   DELETE from "public"."icalendar_event_v1_aaaa"
-    #   WHERE pk IN (
-    #     SELECT pk FROM "public"."icalendar_event_v1_aaaa"
-    #     WHERE row_updated_at < (now() - '35 days'::interval)
-    #     LIMIT 10000
-    #   )
-    age = age_cutoff&.ago..self.stale_at.ago
-    @replicator.admin_dataset do |ds|
-      chunk_ds = ds.where(self.updated_at_column => age).where(self.stale_condition).select(:pk).limit(self.chunk_size)
-      loop do
-        # Due to conflicts where a feed is being inserted while the delete is happening,
-        # this may raise an error like:
-        #   deadlock detected
-        #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
-        #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
-        #   HINT:  See server log for query details.
-        #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
-        # Unit testing this is very difficult though, and in practice it is rare,
-        # and normal Sidekiq job retries should be sufficient to handle this.
-        # So we don't explicitly handle deadlocks, but could if it becomes an issue.
-        deleted = ds.where(pk: chunk_ds).delete
-        break if deleted != chunk_size
+  # How small should the incremental lookback window be? See +run+ for details.
+  # A size of 1 hour, and a lookback window of 2 days, would yield at least 48 delete queries.
+  def incremental_lookback_size = 1.hour
+
+  # Run the deleter.
+  # @param lookback_window [nil,ActiveSupport::Duration] The lookback window
+  #   (how many days before +stale_cutoff+ to look for rows). Use +nil+ to look for all rows.
+  def run(lookback_window: self.lookback_window)
+    # The algorithm to delete stale rows is complex for a couple reasons.
+    # The native solution is "delete rows where updated_at > (stale_at - lookback_window) AND updated_at < stale_at"
+    # However, this would cause a single massive query over the entire candidate row space,
+    # which has problems:
+    # - The query can be very slow
+    # - Deadlocks can happen due to the slow query.
+    # - If the query is interrupted (due to a worker restart), all progress is lost.
+    # - Scanning the large 'updated at timestamp' index can cause the database to do a sequential scan.
+    #
+    # Instead, we need to do issue a series of fast queries over small 'updated at' windows:
+    #
+    # - Break the lookback period into hour-long windows.
+    #   If the lookback_window is 2 days, this would issue 48 queries.
+    #   But each one would be very fast, since the column is indexed.
+    # - For each small window, delete in chunks, like:
+    #      DELETE from "public"."icalendar_event_v1_aaaa"
+    #      WHERE pk IN (
+    #        SELECT pk FROM "public"."icalendar_event_v1_aaaa"
+    #        WHERE row_updated_at >= (hour start)
+    #        AND row_updated_at < (hour end)
+    #        LIMIT (chunk size)
+    #      )
+    # - If a seqscan is ever used for the delete, an error is raised.
+    # - Using the chunked delete with the hour-long (small-sized) windows
+    #   is important. Because each chunk requires scanning potentially the entire indexed row space,
+    #   it would take longer and longer to find 10k rows to fill the chunk.
+    #   This is, for example, the same performance problem that OFFSET/LIMIT pagination
+    #   has at later pages (but not earlier pages).
+    self.replicator.admin_dataset do |ds|
+      stale_window_late = Time.now - self.stale_at
+      stale_window_early = lookback_window.nil? ? ds.min(self.updated_at_column) : stale_window_late - lookback_window
+      # If we are querying the whole table (no lookback window), and have no rows,
+      # there's nothing to clean up.
+      break if stale_window_early.nil?
+
+      # We must disable vacuuming for this sort of cleanup. Otherwise it will take a LONG time
+      # since we use a series of short deletes.
+      ds.db << "ALTER TABLE #{self.replicator.schema_and_table_symbols.join('.')} SET (autovacuum_enabled='off')"
+      base_ds = ds.where(self.stale_condition).limit(self.chunk_size).select(:pk)
+      window_start = stale_window_early
+      until window_start >= stale_window_late
+        window_end = window_start + self.incremental_lookback_size
+        inner_ds = base_ds.where(self.updated_at_column => window_start..window_end)
+        loop do
+          # Due to conflicts where a feed is being inserted while the delete is happening,
+          # this may raise an error like:
+          #   deadlock detected
+          #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
+          #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
+          #   HINT:  See server log for query details.
+          #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
+          # So we don't explicitly handle deadlocks, but could if it becomes an issue.
+          delete_ds = ds.where(pk: inner_ds)
+          if ds.db[delete_ds.delete_sql].explain.include?("Seq Scan")
+            # NOTE: We can shrink the window size from 1 hour to something dynamic if we see this
+            # in the real world (ie, the hour window is too large and still fools the planner
+            # into doing a seq scan).
+            msg = "Stale row deletion would have caused a sequential scan. See code for info.\n#{delete_ds.delete_sql}"
+            raise Webhookdb::InvariantViolation, msg
+          end
+          deleted = delete_ds.delete
+          break if deleted != self.chunk_size
+        end
+        window_start = window_end
       end
+    end
+  ensure
+    # Open a new connection in case the previous one is trashed for whatever reason.
+    self.replicator.admin_dataset do |ds|
+      ds.db << "ALTER TABLE #{self.replicator.schema_and_table_symbols.join('.')} SET (autovacuum_enabled='on')"
     end
   end
 
-  # Run with +age_cutoff+ as +nil+, which does a full table scan.
-  def run_initial = self.run(age_cutoff: nil)
+  # Run with +lookback_window+ as +nil+, which does a full table scan.
+  def run_initial = self.run(lookback_window: nil)
 end

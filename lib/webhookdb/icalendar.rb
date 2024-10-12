@@ -20,7 +20,9 @@ module Webhookdb::Icalendar
     # (ie, no thundering herd every 8 hours), but it is still a good idea to sync as infrequently as possible.
     setting :sync_period_hours, 6
 
-    # Cancelled events that were cancelled this long ago are deleted from the database.
-    setting :stale_cancelled_event_threshold_days, 35
+    # Cancelled events that were last updated this long ago are deleted from the database.
+    setting :stale_cancelled_event_threshold_days, 20
+    # The stale row deleter job will look for rows this far before the threshold.
+    setting :stale_cancelled_event_lookback_days, 3
   end
 end

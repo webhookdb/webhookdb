@@ -219,7 +219,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint.replicator.admin_dataset do |ds|
         ds.insert(data: "{}", compound_identity: "new", uid: "new", row_updated_at: Time.now, status: "CANCELLED")
         ds.insert(
-          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 40.days.ago, status: "CANCELLED",
+          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 21.days.ago, status: "CANCELLED",
         )
       end
       Webhookdb::Jobs::IcalendarDeleteStaleCancelledEvents.new.perform(true)
