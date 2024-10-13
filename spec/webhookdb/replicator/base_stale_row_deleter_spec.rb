@@ -59,24 +59,24 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
       at = 4.days.ago.utc
       cutoff = 11.days.ago.utc
       until at < cutoff
-        upsert("e-#{at.iso8601}", at, "cancelled")
+        upsert("e-#{at.strftime('%Y-%m-%dT%H')}", at, "cancelled")
         at -= 4.hours
       end
       svc.stale_row_deleter.run
     end
     expect(svc.admin_dataset(&:all)).to contain_exactly(
-      include(my_id: "e-2020-10-26T07:00:00Z"),
-      include(my_id: "e-2020-10-26T03:00:00Z"),
-      include(my_id: "e-2020-10-25T23:00:00Z"),
-      include(my_id: "e-2020-10-25T19:00:00Z"),
-      include(my_id: "e-2020-10-25T15:00:00Z"),
-      include(my_id: "e-2020-10-25T11:00:00Z"),
-      include(my_id: "e-2020-10-20T03:00:00Z"),
-      include(my_id: "e-2020-10-19T23:00:00Z"),
-      include(my_id: "e-2020-10-19T19:00:00Z"),
-      include(my_id: "e-2020-10-19T15:00:00Z"),
-      include(my_id: "e-2020-10-19T11:00:00Z"),
-      include(my_id: "e-2020-10-19T07:00:00Z"),
+      include(my_id: "e-2020-10-26T07"),
+      include(my_id: "e-2020-10-26T03"),
+      include(my_id: "e-2020-10-25T23"),
+      include(my_id: "e-2020-10-25T19"),
+      include(my_id: "e-2020-10-25T15"),
+      include(my_id: "e-2020-10-25T11"),
+      include(my_id: "e-2020-10-20T03"),
+      include(my_id: "e-2020-10-19T23"),
+      include(my_id: "e-2020-10-19T19"),
+      include(my_id: "e-2020-10-19T15"),
+      include(my_id: "e-2020-10-19T11"),
+      include(my_id: "e-2020-10-19T07"),
     )
   end
 
