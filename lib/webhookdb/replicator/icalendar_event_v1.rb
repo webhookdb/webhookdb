@@ -378,7 +378,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   # and then deleted over time.
   class StaleRowDeleter < Webhookdb::Replicator::BaseStaleRowDeleter
     def stale_at = Webhookdb::Icalendar.stale_cancelled_event_threshold_days.days
-    def age_cutoff = (Webhookdb::Icalendar.stale_cancelled_event_threshold_days + 10).days
+    def lookback_window = Webhookdb::Icalendar.stale_cancelled_event_lookback_days.days
     def updated_at_column = :row_updated_at
     def stale_condition = {status: "CANCELLED"}
   end

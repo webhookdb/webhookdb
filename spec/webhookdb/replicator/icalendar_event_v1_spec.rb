@@ -366,35 +366,14 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
 
     it "deletes stale cancelled events" do
       upsert("recent", 3.days.ago)
-      upsert("stale", 40.days.ago)
-      upsert("stale_not_cancelled", 40.days.ago, status: "CONFIRMED")
+      upsert("stale", 21.days.ago)
+      upsert("stale_not_cancelled", 21.days.ago, status: "CONFIRMED")
       upsert("too_old", 100.days.ago)
       svc.stale_row_deleter.run
       expect(svc.admin_dataset { |ds| ds.select(:uid).all }).to contain_exactly(
         include(uid: "recent"),
         include(uid: "stale_not_cancelled"),
         include(uid: "too_old"),
-      )
-    end
-
-    it "can use a nil age cutoff" do
-      upsert("recent", 3.days.ago)
-      upsert("stale", 40.days.ago)
-      upsert("old", 100.days.ago)
-      svc.stale_row_deleter.run_initial
-      expect(svc.admin_dataset(&:all)).to contain_exactly(
-        include(uid: "recent"),
-      )
-    end
-
-    it "deletes in chunks" do
-      upsert("recent", 3.days.ago)
-      Array.new(100) { upsert("stale", 40.days.ago) }
-      upsert("not_cancelled", 40.days.ago, status: "CONFIRMED")
-      svc.stale_row_deleter.run
-      expect(svc.admin_dataset(&:all)).to contain_exactly(
-        include(uid: "recent"),
-        include(uid: "not_cancelled"),
       )
     end
   end

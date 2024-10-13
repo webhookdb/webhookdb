@@ -219,7 +219,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint.replicator.admin_dataset do |ds|
         ds.insert(data: "{}", compound_identity: "new", uid: "new", row_updated_at: Time.now, status: "CANCELLED")
         ds.insert(
-          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 40.days.ago, status: "CANCELLED",
+          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 21.days.ago, status: "CANCELLED",
         )
       end
       Webhookdb::Jobs::IcalendarDeleteStaleCancelledEvents.new.perform(true)
@@ -706,6 +706,52 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           have_attributes(content: match(/join-abcxyz/)),
         ),
       )
+    end
+  end
+
+  describe "StaleRowDeleter" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint_fac) { Webhookdb::Fixtures.service_integration(service_name: "fake_stale_row_v1", organization: org) }
+    let(:sint1) { sint_fac.create }
+    let(:sint2) { sint_fac.create }
+    let(:sint3) { sint_fac.create }
+    let(:sints) { [sint1, sint2, sint3] }
+
+    before(:each) do
+      # Make sure the queries don't hit anything extra
+      Webhookdb::Fixtures.service_integration(organization: org).create
+      org.prepare_database_connections
+      sints.each { |s| s.replicator.create_table }
+    end
+
+    after(:each) { org.remove_related_database }
+
+    it "runs the stale row deleter using the given where/exclude criteria" do
+      sints.each do |s|
+        s.replicator.upsert_webhook_body({my_id: "stale", at: 7.days.ago, textcol: "cancelled"}.stringify_keys)
+        s.replicator.upsert_webhook_body({my_id: "new", at: Time.now, textcol: "cancelled"}.stringify_keys)
+      end
+      Webhookdb::Jobs::StaleRowDeleter.new.perform(
+        {
+          where: {table_name: [sint1.table_name, sint2.table_name]},
+          exclude: {table_name: sint1.table_name},
+        }.deep_stringify_keys!,
+      )
+      expect(sint1.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "new")
+      expect(sint2.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("new")
+      expect(sint3.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "new")
+    end
+
+    it "will call run_initial if initial=true" do
+      sints.each do |s|
+        s.replicator.upsert_webhook_body({my_id: "stale", at: 7.days.ago, textcol: "cancelled"}.stringify_keys)
+        s.replicator.upsert_webhook_body({my_id: "old", at: 100.days.ago, textcol: "cancelled"}.stringify_keys)
+      end
+      Webhookdb::Jobs::StaleRowDeleter.new.
+        perform({initial: true, where: {table_name: [sint1.table_name]}}.deep_stringify_keys!)
+      expect(sint1.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to be_empty
+      expect(sint2.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "old")
+      expect(sint3.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "old")
     end
   end
 

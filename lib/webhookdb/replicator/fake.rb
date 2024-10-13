@@ -456,3 +456,33 @@ class Webhookdb::Replicator::FakeExhaustiveConverter < Webhookdb::Replicator::Fa
     return cols
   end
 end
+
+class Webhookdb::Replicator::FakeStaleRow < Webhookdb::Replicator::Fake
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_stale_row_v1",
+      ctor: ->(sint) { self.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "FakeStaleRow",
+      supports_webhooks: true,
+      supports_backfill: true,
+    )
+  end
+
+  def _denormalized_columns
+    return [
+      Webhookdb::Replicator::Column.new(:at, TIMESTAMP, index: true),
+      Webhookdb::Replicator::Column.new(:textcol, TEXT),
+    ]
+  end
+
+  class StaleRowDeleter < Webhookdb::Replicator::BaseStaleRowDeleter
+    def stale_at = 5.days
+    def lookback_window = 5.days
+    def updated_at_column = :at
+    def stale_condition = {textcol: "cancelled"}
+    def chunk_size = 10
+  end
+
+  def stale_row_deleter = StaleRowDeleter.new(self)
+end
