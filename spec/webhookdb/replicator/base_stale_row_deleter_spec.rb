@@ -55,28 +55,29 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
   it "walks the row delete interval in small increments (implementation test)" do
     # Create a spread of rows across and beyond the full time range and make sure they all get deleted,
     # to check the 'incremental time range walking' behavior.
-    Timecop.freeze("2020-10-30") do
-      at = 4.days.ago.utc
-      cutoff = 11.days.ago.utc
+    Timecop.freeze("2020-10-30T00:00:00Z") do
+      now = Time.now.utc
+      at = now - 4.days
+      cutoff = now - 11.days
       until at < cutoff
         upsert("e-#{at.strftime('%Y-%m-%dT%H')}", at, "cancelled")
         at -= 4.hours
       end
       svc.stale_row_deleter.run
     end
-    expect(svc.admin_dataset(&:all)).to contain_exactly(
-      include(my_id: "e-2020-10-26T07"),
-      include(my_id: "e-2020-10-26T03"),
-      include(my_id: "e-2020-10-25T23"),
-      include(my_id: "e-2020-10-25T19"),
-      include(my_id: "e-2020-10-25T15"),
-      include(my_id: "e-2020-10-25T11"),
-      include(my_id: "e-2020-10-20T03"),
-      include(my_id: "e-2020-10-19T23"),
-      include(my_id: "e-2020-10-19T19"),
-      include(my_id: "e-2020-10-19T15"),
-      include(my_id: "e-2020-10-19T11"),
-      include(my_id: "e-2020-10-19T07"),
+    expect(svc.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly(
+      "e-2020-10-19T00",
+      "e-2020-10-19T04",
+      "e-2020-10-19T08",
+      "e-2020-10-19T12",
+      "e-2020-10-19T16",
+      "e-2020-10-19T20",
+      "e-2020-10-25T04",
+      "e-2020-10-25T08",
+      "e-2020-10-25T12",
+      "e-2020-10-25T16",
+      "e-2020-10-25T20",
+      "e-2020-10-26T00",
     )
   end
 
