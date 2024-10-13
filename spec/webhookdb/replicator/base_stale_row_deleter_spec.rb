@@ -80,7 +80,8 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
     )
   end
 
-  it "disables and re-enables vacuuming" do
+  it "disables and re-enables vacuuming, and runs with seqscan disabled" do
+    upsert("e1", Time.now, "confirmed")
     logs = capture_logs_from(Webhookdb.logger, level: :debug, formatter: :json) do
       svc.stale_row_deleter.run
     end
@@ -90,14 +91,9 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
     expect(logs).to have_a_line_matching(
       /"query":"ALTER TABLE public\.#{sint.table_name} SET \(autovacuum_enabled='on'\)"/,
     )
-  end
-
-  it "errors if the delete would cause a sequential scan" do
-    svc.admin_dataset { |ds| ds.db << "DROP INDEX #{sint.opaque_id}_at_idx" }
-    upsert("e1", 7.days.ago, "cancelled")
-    expect do
-      svc.stale_row_deleter.run
-    end.to raise_error(Webhookdb::InvariantViolation, /would have caused a sequential scan/)
+    expect(logs).to have_a_line_matching(
+      /SET LOCAL enable_seqscan='off';/,
+    )
   end
 
   it "handles no rows (to delete, or at all)" do

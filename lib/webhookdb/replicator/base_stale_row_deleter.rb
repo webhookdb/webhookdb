@@ -83,7 +83,8 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
     #        AND row_updated_at < (hour end)
     #        LIMIT (chunk size)
     #      )
-    # - If a seqscan is ever used for the delete, an error is raised.
+    # - Issue each DELETE within a transaction with seqscan disabled.
+    #   This is crude, but we know for our usage case that we never want a seqscan.
     # - Using the chunked delete with the hour-long (small-sized) windows
     #   is important. Because each chunk requires scanning potentially the entire indexed row space,
     #   it would take longer and longer to find 10k rows to fill the chunk.
@@ -114,14 +115,17 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
           #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
           # So we don't explicitly handle deadlocks, but could if it becomes an issue.
           delete_ds = ds.where(pk: inner_ds)
-          if ds.db[delete_ds.delete_sql].explain.include?("Seq Scan")
-            # NOTE: We can shrink the window size from 1 hour to something dynamic if we see this
-            # in the real world (ie, the hour window is too large and still fools the planner
-            # into doing a seq scan).
-            msg = "Stale row deletion would have caused a sequential scan. See code for info.\n#{delete_ds.delete_sql}"
-            raise Webhookdb::InvariantViolation, msg
-          end
-          deleted = delete_ds.delete
+          # Disable seqscan for the delete. We can end up with seqscans if the planner decides
+          # it's a better choice given the 'updated at' index, but for our purposes we know
+          # we never want to use it (the impact is negligible on small tables,
+          # and catastrophic on large tables).
+          sql_lines = [
+            "BEGIN",
+            "SET LOCAL enable_seqscan='off'",
+            delete_ds.delete_sql,
+            "COMMIT",
+          ]
+          deleted = ds.db << sql_lines.join(";\n")
           break if deleted != self.chunk_size
         end
         window_start = window_end
