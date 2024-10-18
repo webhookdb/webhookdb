@@ -202,6 +202,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return RAND.rand(1..max_jitter)
   end
 
+  # @return [ActiveSupport::Duration,Integer]
+  def latency(now: Time.now)
+    return 0 if self.last_synced_at.nil?
+    return 0 if self.last_synced_at > now
+    return now - self.last_synced_at
+  end
+
   # Running a sync involves some work we always do (export, transform),
   # and then work that varies per-adapter (load).
   #

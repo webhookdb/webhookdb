@@ -272,6 +272,22 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "latency" do
+    it "returns the duration between now and the last sync" do
+      Timecop.freeze do
+        syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now - 35.seconds)
+        expect(syt).to have_attributes(latency: be_within(0.1).of(35.seconds))
+      end
+    end
+
+    it "uses 0 for a future or missing last sync time" do
+      syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: nil)
+      expect(syt).to have_attributes(latency: 0)
+      syt.last_synced_at = 10.minutes.from_now
+      expect(syt).to have_attributes(latency: 0)
+    end
+  end
+
   describe "run_sync" do
     before(:each) do
       sint.organization.prepare_database_connections
