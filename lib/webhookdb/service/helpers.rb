@@ -16,6 +16,10 @@ module Webhookdb::Service::Helpers
     return Webhookdb::Service.logger
   end
 
+  def set_request_tags(tags)
+    Webhookdb::Service::Middleware::RequestLogger.set_request_tags(tags)
+  end
+
   # Return the currently-authenticated user,
   # or respond with a 401 if there is no authenticated user.
   def current_customer

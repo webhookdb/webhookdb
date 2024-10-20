@@ -9,6 +9,7 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
   on "webhookdb.*"
 
   def _perform(event)
+    self.set_job_tags(event_name: event.name)
     case event.name
         when "webhookdb.customer.created"
           self.alert_customer_created(event)
@@ -18,6 +19,8 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
           self.alert_sint_created(event)
         when "webhookdb.serviceintegration.destroyed"
           self.alert_sint_destroyed(event)
+      else
+          self.set_job_tags(result: "noop")
       end
   end
 
@@ -43,6 +46,7 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
       ],
     ).emit
     create_event("Customer Created", customer.email, customer.admin_link)
+    self.set_job_tags(result: "created_customer", email: customer.email)
   end
 
   def alert_org_created(event)
@@ -58,6 +62,7 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
       ],
     ).emit
     create_event("Organization Created", "#{org.name} (#{org.key})", org.admin_link)
+    self.set_job_tags(result: "created_organization", key: org.key)
   end
 
   def alert_sint_created(event)
@@ -79,6 +84,7 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
       "#{sint.service_name} (#{sint.opaque_id}) created in #{sint.organization.name}",
       sint.admin_link,
     )
+    self.set_job_tags(result: "created_service_integration", opaque_id: sint.opaque_id, service: sint.service_name)
   end
 
   def alert_sint_destroyed(event)
@@ -101,5 +107,6 @@ class Webhookdb::Jobs::ModelEventSystemLogTracker
       "#{pl[:service_name]} (#{pl[:opaque_id]}) deleted from #{org.name}",
       org.admin_link,
     )
+    self.set_job_tags(result: "destroyed_service_integration", opaque_id: pl[:oparque_id], service: pl[:service_name])
   end
 end

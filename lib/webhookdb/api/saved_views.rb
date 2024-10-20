@@ -13,6 +13,7 @@ class Webhookdb::API::SavedViews < Webhookdb::API::V1
             org = lookup_org!
             cq = org.saved_views_dataset[name: params[:name].strip]
             merror!(403, "There is no view with that name.") if cq.nil?
+            set_request_tags(saved_view_name: cq.name)
             return cq
           end
 

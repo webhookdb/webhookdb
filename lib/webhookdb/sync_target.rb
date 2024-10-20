@@ -272,6 +272,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return displaysafe_url(self.connection_url)
   end
 
+  def log_tags
+    return {
+      sync_target_id: self.id,
+      sync_target_connection_url: self.displaysafe_connection_url,
+      service_integration_id: self.service_integration_id,
+      service_integration_service: self.service_integration.service_name,
+      service_integration_table: self.service_integration.table_name,
+    }
+  end
+
   # @return [String]
   def associated_type
     # Eventually we need to support orgs
@@ -352,10 +362,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
     end
 
-    def record(last_synced_at)
-      self.sync_target.update(last_synced_at:)
+    def perform_db_op(&)
+      yield
     rescue Sequel::NoExistingObject => e
       raise Webhookdb::SyncTarget::Deleted, e
+    end
+
+    def record(last_synced_at)
+      self.perform_db_op do
+        self.sync_target.update(last_synced_at:)
+      end
     end
   end
 
@@ -365,7 +381,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       @inflight_timestamps = []
       @cleanurl, @authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
       @threadpool = if self.sync_target.parallelism.zero?
-                      Webhookdb::Concurrent::FakePool.new
+                      Webhookdb::Concurrent::SerialPool.new
         else
           Webhookdb::Concurrent::ParallelizedPool.new(self.sync_target.parallelism)
       end
@@ -491,7 +507,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       schema_expr = schema_lines.join(";\n") + ";"
       if schema_expr != self.sync_target.last_applied_schema
         adapter_conn.execute(schema_expr)
-        self.sync_target.update(last_applied_schema: schema_expr)
+        self.perform_db_op do
+          self.sync_target.update(last_applied_schema: schema_expr)
+        end
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.sync_target.id}")
       begin

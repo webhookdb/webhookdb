@@ -9,6 +9,7 @@ class Webhookdb::Jobs::Emailer
   splay 5.seconds
 
   def _perform
-    Webhookdb::Message.send_unsent
+    sent = Webhookdb::Message.send_unsent
+    self.set_job_tags(sent_messages: sent.count)
   end
 end

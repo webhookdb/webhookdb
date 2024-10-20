@@ -14,9 +14,7 @@ class Webhookdb::Jobs::SendTestWebhook
   # we don't want to retry and randomly send a payload later.
   sidekiq_options retry: false
 
-  def dependent_queues
-    return ["critical"]
-  end
+  def dependent_queues = ["critical"]
 
   def _perform(event)
     webhook_sub = self.lookup_model(Webhookdb::WebhookSubscription, event)

@@ -17,11 +17,10 @@ class Webhookdb::Jobs::RenewWatchChannel
 
   def _perform(event)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
-    self.with_log_tags(sint.log_tags) do
-      opts = event.payload[1]
-      row_pk = opts.fetch("row_pk")
-      expiring_before = Time.parse(opts.fetch("expiring_before"))
-      sint.replicator.renew_watch_channel(row_pk:, expiring_before:)
-    end
+    self.set_job_tags(sint.log_tags)
+    opts = event.payload[1]
+    row_pk = opts.fetch("row_pk")
+    expiring_before = Time.parse(opts.fetch("expiring_before"))
+    sint.replicator.renew_watch_channel(row_pk:, expiring_before:)
   end
 end

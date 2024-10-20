@@ -24,6 +24,6 @@ class Webhookdb::Jobs::MonitorMetrics
     end
     opts[:max_size] = max_size
     opts[:max_latency] = max_latency
-    self.logger.info("metrics_monitor_queue", **opts)
+    self.set_job_tags(action: "metrics_monitor_queue", **opts)
   end
 end

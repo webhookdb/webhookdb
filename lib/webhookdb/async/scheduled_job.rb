@@ -14,5 +14,9 @@ module Webhookdb::Async::ScheduledJob
     def with_log_tags(tags, &)
       Webhookdb::Async::JobLogger.with_log_tags(tags, &)
     end
+
+    def set_job_tags(**tags)
+      Webhookdb::Async::JobLogger.set_job_tags(**tags)
+    end
   end
 end

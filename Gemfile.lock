@@ -10,7 +10,7 @@ PATH
   specs:
     webhookdb (1.4.0)
       activesupport (~> 7.1)
-      appydays (>= 0.10)
+      appydays (>= 0.12.2)
       aws-sdk-pricing (~> 1.53)
       aws-sdk-sts (~> 1.11)
       barnes (~> 0.0)
@@ -81,7 +81,7 @@ GEM
       tzinfo (~> 2.0)
     addressable (2.8.6)
       public_suffix (>= 2.0.2, < 6.0)
-    appydays (0.10.0)
+    appydays (0.12.2)
       dotenv (~> 2.7)
       semantic_logger (~> 4.6)
     ast (2.4.2)
@@ -331,7 +331,7 @@ GEM
       rubocop (~> 1.0)
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
-    semantic_logger (4.16.0)
+    semantic_logger (4.16.1)
       concurrent-ruby (~> 1.0)
     sentry-ruby (5.17.3)
       bigdecimal

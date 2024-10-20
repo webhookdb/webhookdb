@@ -9,6 +9,7 @@ class Webhookdb::Jobs::MessageDispatched
 
   def _perform(event)
     delivery = self.lookup_model(Webhookdb::Message::Delivery, event)
+    self.set_job_tags(delivery_id: delivery.id, to: delivery.to)
     Webhookdb::Idempotency.once_ever.under_key("message-dispatched-#{delivery.id}") do
       delivery.send!
     end

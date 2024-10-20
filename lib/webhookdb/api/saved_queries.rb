@@ -15,6 +15,7 @@ class Webhookdb::API::SavedQueries < Webhookdb::API::V1
             # We can add other identifiers in the future
             cq = org.saved_queries_dataset[opaque_id: params[:query_identifier]]
             merror!(403, "There is no saved query with that identifier.") if cq.nil?
+            set_request_tags(saved_query_opaque_id: cq.opaque_id)
             return cq
           end
 

@@ -13,15 +13,15 @@ class Webhookdb::Jobs::IcalendarSync
 
   def perform(sint_id, calendar_external_id)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
-    self.with_log_tags(sint.log_tags.merge(calendar_external_id:)) do
-      row = sint.replicator.admin_dataset { |ds| ds[external_id: calendar_external_id] }
-      if row.nil?
-        self.logger.warn("icalendar_sync_row_miss", calendar_external_id:)
-        return
-      end
-      self.logger.debug("icalendar_sync_start")
-      sint.replicator.sync_row(row)
+    self.set_job_tags(sint.log_tags.merge(calendar_external_id:))
+    row = sint.replicator.admin_dataset { |ds| ds[external_id: calendar_external_id] }
+    if row.nil?
+      self.set_job_tags(result: "icalendar_sync_row_miss")
+      return
     end
+    self.logger.debug("icalendar_sync_start")
+    sint.replicator.sync_row(row)
+    self.set_job_tags(result: "icalendar_synced")
   end
 
   def before_perform(sint_id, *)
