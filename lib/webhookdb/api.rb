@@ -52,11 +52,14 @@ module Webhookdb::API
               memberships = customer.verified_memberships_dataset.where(organization: orgs).limit(2).all
               permission_error!("You don't have permissions with that organization.") if memberships.empty?
               merror!(500, "ambiguous", alert: true) if memberships.size > 1 # TODO: better message, tests
-              return memberships.first.organization
+              org = memberships.first.organization
+              set_request_tags(organization: org.key)
+              return org
             end
             raise "something went wrong" unless allow_connstr_auth
             org = Webhookdb::API::ConnstrAuth.find_authed(orgs, request)
             unauthenticated! if org.nil?
+            set_request_tags(organization: org.key)
             return org
           end
 

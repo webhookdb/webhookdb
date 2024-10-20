@@ -122,7 +122,14 @@ module Webhookdb::API::Helpers
     sints = org.service_integrations_dataset.
       where(Sequel[service_name: identifier] | Sequel[table_name: identifier] | Sequel[opaque_id: identifier]).
       limit(2).all
-    return sints.first if sints.size == 1
+    if sints.size == 1
+      sint = sints.first
+      set_request_tags(
+        service_integration_service_name: sint.service_name,
+        service_integration_table_name: sint.table_name,
+      )
+      return sint
+    end
     merror!(403, "There is no service integration with that identifier.") if sints.empty?
     dupe_attr = nil
     alternative = nil

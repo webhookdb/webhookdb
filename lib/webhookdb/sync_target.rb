@@ -3,6 +3,8 @@
 require "sequel/advisory_lock"
 require "sequel/database"
 
+require "webhookdb/concurrent"
+
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
 #
@@ -202,6 +204,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return RAND.rand(1..max_jitter)
   end
 
+  # @return [ActiveSupport::Duration,Integer]
+  def latency(now: Time.now)
+    return 0 if self.last_synced_at.nil?
+    return 0 if self.last_synced_at > now
+    return now - self.last_synced_at
+  end
+
   # Running a sync involves some work we always do (export, transform),
   # and then work that varies per-adapter (load).
   #
@@ -261,6 +270,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   def displaysafe_connection_url
     return displaysafe_url(self.connection_url)
+  end
+
+  def log_tags
+    return {
+      sync_target_id: self.id,
+      sync_target_connection_url: self.displaysafe_connection_url,
+      service_integration_id: self.service_integration_id,
+      service_integration_service: self.service_integration.service_name,
+      service_integration_table: self.service_integration.table_name,
+    }
   end
 
   # @return [String]
@@ -343,23 +362,46 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
     end
 
-    def record(last_synced_at)
-      self.sync_target.update(last_synced_at:)
+    def perform_db_op(&)
+      yield
     rescue Sequel::NoExistingObject => e
       raise Webhookdb::SyncTarget::Deleted, e
+    end
+
+    def record(last_synced_at)
+      self.perform_db_op do
+        self.sync_target.update(last_synced_at:)
+      end
     end
   end
 
   class HttpRoutine < Routine
+    def initialize(*)
+      super
+      @inflight_timestamps = []
+      @cleanurl, @authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
+      @threadpool = if self.sync_target.parallelism.zero?
+                      Webhookdb::Concurrent::SerialPool.new
+        else
+          Webhookdb::Concurrent::ParallelizedPool.new(self.sync_target.parallelism)
+      end
+      @mutex = Thread::Mutex.new
+    end
+
     def run
       page_size = self.sync_target.page_size
       self.dataset_to_sync do |ds|
         chunk = []
         ds.paged_each(rows_per_fetch: page_size) do |row|
           chunk << row
-          self._flush_http_chunk(chunk) if chunk.size >= page_size
+          if chunk.size >= page_size
+            # Do not share chunks across threads
+            self._flush_http_chunk(chunk.dup)
+            chunk.clear
+          end
         end
         self._flush_http_chunk(chunk) unless chunk.empty?
+        @threadpool.join
         # We should save 'now' as the timestamp, rather than the last updated row.
         # This is important because other we'd keep trying to sync the last row synced.
         self.record(self.now)
@@ -377,6 +419,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     end
 
     def _flush_http_chunk(chunk)
+      chunk_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
+      @mutex.synchronize do
+        @inflight_timestamps << chunk_ts
+        @inflight_timestamps.sort!
+      end
       sint = self.sync_target.service_integration
       body = {
         rows: chunk,
@@ -385,19 +432,32 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         table: sint.table_name,
         sync_timestamp: self.now,
       }
-      cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
-      Webhookdb::Http.post(
-        cleanurl,
-        body,
-        timeout: sint.organization.sync_target_timeout,
-        logger: self.sync_target.logger,
-        basic_auth: authparams,
-      )
-      latest_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
-      # The client committed the sync page we sent. Record it in case of a future error,
-      # so we don't re-send the same page.
-      self.record(latest_ts)
-      chunk.clear
+      @threadpool.post do
+        Webhookdb::Http.post(
+          @cleanurl,
+          body,
+          timeout: sint.organization.sync_target_timeout,
+          logger: self.sync_target.logger,
+          basic_auth: @authparams,
+        )
+        # On success, we want to commit the latest timestamp we sent to the client,
+        # so it can be recorded. Then in the case of an error on later rows,
+        # we won't re-sync rows we've already processed (with earlier updated timestamps).
+        @mutex.synchronize do
+          this_ts_idx = @inflight_timestamps.index { |t| t == chunk_ts }
+          raise Webhookdb::InvariantViolation, "timestamp no longer found!?" if this_ts_idx.nil?
+          # However, we only want to record the timestamp if this request is the earliest inflight request;
+          # ie, if a later request finishes before an earlier one, we don't want to record the timestamp
+          # of the later request as 'finished' since the earlier one didn't finish.
+          # This does mean though that, if the earliest request errors, we'll throw away the work
+          # done by the later request.
+          # Note that each row can only appear in a sync once, even if it is modified after the sync starts;
+          # thus, parallel httpsync should be fine for most clients to handle,
+          # since race conditions *on the same row* cannot happen even with parallel httpsync.
+          self.record(chunk_ts) if this_ts_idx.zero?
+          @inflight_timestamps.delete_at(this_ts_idx)
+        end
+      end
     end
   end
 
@@ -447,7 +507,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       schema_expr = schema_lines.join(";\n") + ";"
       if schema_expr != self.sync_target.last_applied_schema
         adapter_conn.execute(schema_expr)
-        self.sync_target.update(last_applied_schema: schema_expr)
+        self.perform_db_op do
+          self.sync_target.update(last_applied_schema: schema_expr)
+        end
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.sync_target.id}")
       begin

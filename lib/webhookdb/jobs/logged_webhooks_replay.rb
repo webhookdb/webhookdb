@@ -10,8 +10,10 @@ class Webhookdb::Jobs::LoggedWebhooksReplay
 
   def _perform(event)
     lwh = self.lookup_model(Webhookdb::LoggedWebhook, event)
-    self.with_log_tags(service_integration_opaque_id: lwh.service_integration_opaque_id) do
-      lwh.retry_one(truncate_successful: true)
-    end
+    self.set_job_tags(
+      logged_webhook_id: lwh.id,
+      service_integration_opaque_id: lwh.service_integration_opaque_id,
+    )
+    lwh.retry_one(truncate_successful: true)
   end
 end

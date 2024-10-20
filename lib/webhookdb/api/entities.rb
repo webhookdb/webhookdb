@@ -136,10 +136,12 @@ module Webhookdb::API
     expose :opaque_id
     expose :service_integration, with: ServiceIntegrationEntity
     expose :period_seconds
+    expose :page_size
     expose :displaysafe_connection_url, as: :connection_url
     expose :table
     expose :schema
     expose :last_synced_at
+    expose :latency, &self.delegate_to(:latency, :to_i)
     expose :associated_type
     expose :associated_id
     expose :associated_object_display
@@ -155,8 +157,9 @@ module Webhookdb::API
         [:associated_object_display, "Associated"],
         [:schema_and_table_string, "Table"],
         [:last_synced_at, "Last Synced"],
+        [:latency_sec, "Latency"],
         [:period_seconds, "Period"],
-        [:page_size, "Page"],
+        [:page_size, "Page Size"],
       ]
     end
   end
@@ -168,8 +171,9 @@ module Webhookdb::API
         [:connection_url, "URL"],
         [:associated_object_display, "Associated"],
         [:last_synced_at, "Last Synced"],
+        [:latency_sec, "Latency"],
         [:period_seconds, "Period"],
-        [:page_size, "Page"],
+        [:page_size, "Page Size"],
       ]
     end
   end

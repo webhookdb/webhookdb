@@ -13,6 +13,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       def lookup_session!
         session = Webhookdb::Oauth::Session.usable.where(oauth_state: params[:state]).first
         error!("Forbidden", 302, {"Location" => "/v1/install/#{oauth_provider.key}/forbidden"}) if session.nil?
+        set_request_tags(session_id: session.id, session_state: session.oauth_state)
         return session
       end
 

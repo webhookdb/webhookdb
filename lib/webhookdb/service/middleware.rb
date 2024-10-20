@@ -128,12 +128,16 @@ module Webhookdb::Service::Middleware
     def request_tags(env)
       tags = super
       begin
-        tags[:customer_id] = env["warden"].user(:customer)&.id || 0
+        c = env["warden"].user(:customer)
       rescue Sequel::DatabaseError
         # If we cant hit the database, ignore this for now.
         # We run this code on all code paths, including those that don't need the customer,
         # and we want those to run even if the DB is down (like health checks, for example).
-        nil
+        c = nil
+      end
+      if c
+        tags[:customer_id] = c.id || 0
+        tags[:customer] = c.email
       end
       return tags
     end

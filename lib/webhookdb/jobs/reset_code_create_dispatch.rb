@@ -10,13 +10,12 @@ class Webhookdb::Jobs::ResetCodeCreateDispatch
 
   def _perform(event)
     code = self.lookup_model(Webhookdb::Customer::ResetCode, event)
+    self.set_job_tags(code_id: code.id, customer: code.customer.email, transport: code.transport)
     Webhookdb::Idempotency.once_ever.under_key("reset-code-#{code.customer_id}-#{code.id}") do
       msg = Webhookdb::Messages::Verification.new(code)
       case code.transport
         when "email"
           msg.dispatch_email(code.customer)
-      else
-          raise "Unknown transport for #{code.inspect}"
       end
     end
   end

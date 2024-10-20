@@ -272,6 +272,22 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "latency" do
+    it "returns the duration between now and the last sync" do
+      Timecop.freeze do
+        syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now - 35.seconds)
+        expect(syt).to have_attributes(latency: be_within(0.1).of(35.seconds))
+      end
+    end
+
+    it "uses 0 for a future or missing last sync time" do
+      syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: nil)
+      expect(syt).to have_attributes(latency: 0)
+      syt.last_synced_at = 10.minutes.from_now
+      expect(syt).to have_attributes(latency: 0)
+    end
+  end
+
   describe "run_sync" do
     before(:each) do
       sint.organization.prepare_database_connections
@@ -427,9 +443,9 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       end
     end
 
-    describe "with an https target" do
+    shared_examples_for "an https sync target" do |**params|
       url = "https://user:pass@sync-target-webhook/xyz"
-      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).https(url).create }
+      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).https(url).create(**params) }
 
       it "incrementally POSTs to the webhook and sets last synced" do
         t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
@@ -520,13 +536,21 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       it "raises a Deleted error if the sync target is destroyed during the sync" do
         req = stub_request(:post, "https://sync-target-webhook/xyz").
           to_return do
-            # Destroy this while the sync is running
-            Webhookdb::SyncTarget[sync_tgt.id]&.destroy
-            {status: 200, body: "", headers: {}}
-          end
+          # Destroy this while the sync is running
+          Webhookdb::SyncTarget[sync_tgt.id]&.destroy
+          {status: 200, body: "", headers: {}}
+        end
         expect { sync_tgt.run_sync(now: Time.now) }.to raise_error(Webhookdb::SyncTarget::Deleted)
         expect(req).to have_been_made
       end
+    end
+
+    describe "with a single threaded https target" do
+      it_behaves_like "an https sync target"
+    end
+
+    describe "with a multi-threaded https sync target", db: :no_transaction do
+      it_behaves_like "an https sync target", {parallelism: 3}
     end
   end
 end

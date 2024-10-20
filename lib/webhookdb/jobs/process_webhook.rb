@@ -23,18 +23,17 @@ class Webhookdb::Jobs::ProcessWebhook
   end
 
   def _perform(event)
-    self.with_log_tags(@sint.log_tags) do
-      kw = event.payload[1].symbolize_keys
-      svc = Webhookdb::Replicator.create(@sint)
-      # kwargs contains: :headers, :body, :request_path, :request_method
-      req = Webhookdb::Replicator::WebhookRequest.new(
-        body: kw.fetch(:body),
-        headers: kw.fetch(:headers),
-        path: kw.fetch(:request_path),
-        method: kw.fetch(:request_method),
-      )
-      svc.upsert_webhook(req)
-    end
+    self.set_job_tags(@sint.log_tags)
+    kw = event.payload[1].symbolize_keys
+    svc = Webhookdb::Replicator.create(@sint)
+    # kwargs contains: :headers, :body, :request_path, :request_method
+    req = Webhookdb::Replicator::WebhookRequest.new(
+      body: kw.fetch(:body),
+      headers: kw.fetch(:headers),
+      path: kw.fetch(:request_path),
+      method: kw.fetch(:request_method),
+    )
+    svc.upsert_webhook(req)
   end
 
   def semaphore_key

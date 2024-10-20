@@ -151,6 +151,7 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                   (stgt = org.all_sync_targets_dataset[Sequel[:sync_targets][:opaque_id] => params[:opaque_id]])
                   merror!(403, "There is no #{fullname} sync target with that id.") if
                     stgt.nil? || !stgt.send(predicate)
+                  set_request_tags(stgt.log_tags)
                   return stgt
                 end
               end
@@ -204,7 +205,6 @@ class Webhookdb::API::SyncTargets < Webhookdb::API::V1
                   )
                 end
 
-                stgt.logger.warn("destroying_sync_target", sync_target_id: stgt.id, customer_id: current_customer.id)
                 stgt.destroy
                 status 200
                 message = "#{fullname.capitalize} sync target has been removed and will no longer sync."

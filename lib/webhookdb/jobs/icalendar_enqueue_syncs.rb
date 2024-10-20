@@ -15,7 +15,9 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
 
   def _perform
     max_splay = Webhookdb::Icalendar.sync_period_hours.hours.to_i / 4
+    total_count = 0
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "icalendar_calendar_v1") do |sint|
+      sint_count = 0
       sint.replicator.admin_dataset do |ds|
         sint.replicator.rows_needing_sync(ds).each do |row|
           calendar_external_id = row.fetch(:external_id)
@@ -23,9 +25,13 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
             splay = rand(1..max_splay)
             enqueued_job_id = Webhookdb::Jobs::IcalendarSync.perform_in(splay, sint.id, calendar_external_id)
             self.logger.debug("enqueued_icalendar_sync", calendar_external_id:, enqueued_job_id:)
+            sint_count += 1
           end
         end
       end
+      total_count += sint_count
+      self.set_job_tags("#{sint.organization.key}_#{sint.table_name}" => sint_count)
     end
+    self.set_job_tags(total_enqueued: total_count)
   end
 end

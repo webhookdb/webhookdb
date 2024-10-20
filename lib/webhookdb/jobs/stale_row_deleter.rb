@@ -17,11 +17,15 @@ class Webhookdb::Jobs::StaleRowDeleter
     ds = Webhookdb::ServiceIntegration.dataset
     ds = ds.where(opts[:where]) if opts[:where]
     ds = ds.exclude(opts[:exclude]) if opts[:exclude]
+    self.set_job_tags(dataset: ds.sql)
+    count = 0
     ds.each do |sint|
       self.with_log_tags(sint.log_tags) do
         d = sint.replicator.stale_row_deleter
         opts[:initial] ? d.run_initial : d.run
+        count += 1
       end
     end
+    self.set_job_tags(run_count: count)
   end
 end

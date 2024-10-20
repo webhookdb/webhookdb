@@ -52,6 +52,7 @@ class Webhookdb::API::WebhookSubscriptions < Webhookdb::API::V1
               org = lookup_org!
               whsub = org.all_webhook_subscriptions_dataset[opaque_id: params[:opaque_id]]
               merror!(403, "No webhook subscription with that ID exists in that organization.") if whsub.nil?
+              set_request_tags(webhook_subscription_id: whsub.id)
               return whsub
             end
           end

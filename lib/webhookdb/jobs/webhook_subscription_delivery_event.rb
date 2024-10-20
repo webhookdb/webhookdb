@@ -12,18 +12,15 @@ class Webhookdb::Jobs::WebhookSubscriptionDeliveryEvent
 
   sidekiq_options queue: "netout"
 
-  def dependent_queues
-    return ["critical"]
-  end
+  def dependent_queues = ["critical"]
 
   def perform(delivery_id)
     delivery = Webhookdb::WebhookSubscription::Delivery[delivery_id]
-    Webhookdb::Async::JobLogger.with_log_tags(
+    Webhookdb::Async::JobLogger.set_job_tags(
       webhook_subscription_delivery_id: delivery.id,
       webhook_subscription_id: delivery.webhook_subscription_id,
-      organization_key: delivery.webhook_subscription.fetch_organization,
-    ) do
-      delivery.attempt_delivery
-    end
+      organization: delivery.webhook_subscription.fetch_organization,
+    )
+    delivery.attempt_delivery
   end
 end
