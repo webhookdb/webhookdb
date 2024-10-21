@@ -392,7 +392,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       page_size = self.sync_target.page_size
       self.dataset_to_sync do |ds|
         chunk = []
-        ds.paged_each(rows_per_fetch: page_size) do |row|
+        ds.paged_each(rows_per_fetch: page_size, cursor_name: "synctarget_#{self.sync_target.id}_cursor") do |row|
           chunk << row
           if chunk.size >= page_size
             # Do not share chunks across threads
@@ -414,7 +414,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       # Don't spam our logs with downstream errors
       idem_key = "sync_target_http_error-#{self.sync_target.id}-#{e.class.name}"
       Webhookdb::Idempotency.every(1.hour).in_memory.under_key(idem_key) do
-        self.sync_target.logger.warn("sync_target_http_error", e)
+        self.sync_target.logger.warn("sync_target_http_error", e, self.sync_target.log_tags)
       end
     end
 
