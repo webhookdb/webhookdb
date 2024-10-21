@@ -3,7 +3,6 @@
 require "amigo/durable_job"
 require "webhookdb/async"
 require "webhookdb/messages/specs"
-require "rspec/eventually"
 
 RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_transaction_check do
   before(:all) do
