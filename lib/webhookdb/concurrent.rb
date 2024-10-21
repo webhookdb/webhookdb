@@ -49,7 +49,7 @@ module Webhookdb::Concurrent
   # you can use a +Concurrent::ThreadPoolExecutor+. This pool will not allow the enqueing of more work
   # while the queue is full.
   class ParallelizedPool < Pool
-    def initialize(queue_size, timeout:, threads: nil)
+    def initialize(queue_size, timeout: nil, threads: nil)
       super()
       threads ||= queue_size
       @timeout = timeout
@@ -80,8 +80,8 @@ module Webhookdb::Concurrent
 
     def post(&task)
       raise @exception if @exception
-      ok = @queue.push(task)
-      raise Timeout if ok.nil?
+      added = @queue.push(task, timeout: @timeout)
+      raise Timeout, "waited #{@timeout} to add to the queue" if added.nil?
       return true
     end
 

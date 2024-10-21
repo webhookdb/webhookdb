@@ -436,10 +436,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       @threadpool = if self.sync_target.parallelism.zero?
                       Webhookdb::Concurrent::SerialPool.new
         else
-          Webhookdb::Concurrent::ParallelizedPool.new(
-            self.sync_target.parallelism,
-            timeout: self.sync_target.service_integration.organization.sync_target_timeout,
-          )
+          Webhookdb::Concurrent::ParallelizedPool.new(self.sync_target.parallelism)
       end
       @mutex = Thread::Mutex.new
     end
