@@ -34,6 +34,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   DB_VERIFY_TIMEOUT = 2000
   DB_VERIFY_STATEMENT = "SELECT 1"
   RAND = Random.new
+  MAX_STATS = 200
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync.
@@ -250,6 +251,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # since the session will be ended.
     Webhookdb::Dbutil.borrow_conn(Webhookdb::Postgres::Model.uri) do |db|
       self.advisory_lock(db).with_lock? do
+        self.logger.info "starting_sync"
         routine = if self.connection_url.start_with?("https://", "http://")
                     # Note that http links are not secure and should only be used for development purposes
                     HttpRoutine.new(now, self)
@@ -303,6 +305,39 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     schema_name = self.schema.present? ? self.schema : self.class.default_schema
     table_name = self.table.present? ? self.table : self.service_integration.table_name
     return "#{schema_name}.#{table_name}"
+  end
+
+  # :section: Stats
+
+  def add_sync_stat(start, exception: nil, response_status: nil)
+    stat = {"t" => s2ms(start), "d" => s2ms(Time.now - start)}
+    stat["e"] = exception.class.name if exception
+    stat["rs"] = response_status unless response_status.nil?
+    stats = self.sync_stats
+    stats.prepend(stat)
+    stats.pop if stats.size > MAX_STATS
+    self.will_change_column(:sync_stats)
+  end
+
+  protected def s2ms(t) = (t.to_f * 1000).to_i
+  protected def ms2s(ms) = ms / 1000.0
+
+  def sync_stat_summary
+    return {} if self.sync_stats.empty?
+    earliest = self.sync_stats.last
+    latest = self.sync_stats.first
+    average_latency = (self.sync_stats.sum { |st| ms2s(st["d"]) }) / self.sync_stats.size
+    errors = self.sync_stats.count { |st| st["e"] || st["rs"] }
+    calls_per_minute = 60 / average_latency
+    rpm = self.page_size * calls_per_minute
+    rpm *= self.parallelism if self.parallelism.positive?
+    return {
+      latest: Time.at(ms2s(latest["t"]).to_i),
+      earliest: Time.at(ms2s(earliest["t"]).to_i),
+      average_latency: average_latency.round(2),
+      average_rows_minute: rpm.to_i,
+      errors:,
+    }
   end
 
   # @return [Webhookdb::Organization]
@@ -373,6 +408,24 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         self.sync_target.update(last_synced_at:)
       end
     end
+
+    def with_stat(&)
+      start = Time.now
+      begin
+        yield
+        self.sync_target.add_sync_stat(start)
+      rescue Webhookdb::Http::Error => e
+        self.sync_target.add_sync_stat(start, response_status: e.status)
+        raise
+      rescue StandardError => e
+        self.sync_target.add_sync_stat(start, exception: e)
+        raise
+      end
+    end
+
+    def to_ms(t)
+      return (t.to_f * 1000).to_i
+    end
   end
 
   class HttpRoutine < Routine
@@ -406,11 +459,20 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         # This is important because other we'd keep trying to sync the last row synced.
         self.record(self.now)
       end
+    rescue Webhookdb::Concurrent::Timeout => e
+      # This should never really happen, but it does, so record it while we debug it.
+      self.perform_db_op do
+        self.sync_target.save_changes
+      end
+      self.sync_target.logger.error("sync_target_pool_timeout_error", e, self.sync_target.log_tags)
     rescue Webhookdb::Http::Error, Errno::ECONNRESET, Net::ReadTimeout, Net::OpenTimeout, OpenSSL::SSL::SSLError => e
       # This is handled well so no need to re-raise.
       # We already committed the last page that was successful,
       # so we can just stop syncing at this point to try again later.
-
+      self.perform_db_op do
+        # Save any outstanding stats.
+        self.sync_target.save_changes
+      end
       # Don't spam our logs with downstream errors
       idem_key = "sync_target_http_error-#{self.sync_target.id}-#{e.class.name}"
       Webhookdb::Idempotency.every(1.hour).in_memory.under_key(idem_key) do
@@ -433,13 +495,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         sync_timestamp: self.now,
       }
       @threadpool.post do
-        Webhookdb::Http.post(
-          @cleanurl,
-          body,
-          timeout: sint.organization.sync_target_timeout,
-          logger: self.sync_target.logger,
-          basic_auth: @authparams,
-        )
+        self.with_stat do
+          Webhookdb::Http.post(
+            @cleanurl,
+            body,
+            timeout: sint.organization.sync_target_timeout,
+            logger: self.sync_target.logger,
+            basic_auth: @authparams,
+          )
+        end
         # On success, we want to commit the latest timestamp we sent to the client,
         # so it can be recorded. Then in the case of an error on later rows,
         # we won't re-sync rows we've already processed (with earlier updated timestamps).

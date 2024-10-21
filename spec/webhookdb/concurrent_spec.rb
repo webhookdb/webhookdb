@@ -41,5 +41,18 @@ RSpec.describe Webhookdb::Concurrent do
       pool.join
       expect { pool.post {} }.to raise_error(ClosedQueueError)
     end
+
+    it "raises if the post times out" do
+      pool = described_class.new(1, timeout: 0.01)
+      mux = Thread::Mutex.new
+      expect do
+        mux.synchronize do
+          pool.post { mux.synchronize {} }
+          pool.post { mux.synchronize {} }
+          pool.post { mux.synchronize {} }
+        end
+      end.to raise_error(Webhookdb::Concurrent::Timeout)
+      pool.join
+    end
   end
 end

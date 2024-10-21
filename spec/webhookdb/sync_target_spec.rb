@@ -32,6 +32,28 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "sync_stats" do
+    it "can summarize stats" do
+      syt = Webhookdb::Fixtures.sync_target.create(page_size: 100)
+      expect(syt.sync_stat_summary).to eq({})
+      Timecop.freeze("2024-10-21T13:27:29Z") do
+        syt.add_sync_stat(12.seconds.ago)
+        syt.add_sync_stat(9.seconds.ago, response_status: 503)
+        syt.add_sync_stat(6.seconds.ago, exception: RuntimeError.new("hi"))
+        syt.add_sync_stat(3.seconds.ago)
+        expect(syt.sync_stat_summary).to include(
+          average_latency: 7.5,
+          average_rows_minute: 800,
+          earliest: match_time(12.seconds.ago),
+          errors: 2,
+          latest: match_time(3.seconds.ago),
+        )
+        syt.parallelism = 2
+        expect(syt.sync_stat_summary).to include(average_rows_minute: 1600)
+      end
+    end
+  end
+
   describe "schema_and_table_string" do
     it "displays" do
       described_class.default_schema = "defaultschema"
@@ -500,6 +522,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: t2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
         expect(sync2_req).to have_been_made
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("d", "t"),
+          hash_including("d", "t"),
+        )
       end
 
       it "records timestamp of last successful synced item, logs, and ignores http errors" do
@@ -510,6 +536,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: Time.now)
         expect(reqs).to have_been_made.times(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("d", "t"),
+          hash_including("d", "t", "rs" => 413),
+        )
       end
 
       it "logs and does not reraise ECONNRESET" do
@@ -542,6 +572,19 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         end
         expect { sync_tgt.run_sync(now: Time.now) }.to raise_error(Webhookdb::SyncTarget::Deleted)
         expect(req).to have_been_made
+      end
+
+      it "records only up to MAX_STATS" do
+        stub_const("Webhookdb::SyncTarget::MAX_STATS", 13)
+        sync_tgt.update(page_size: 1)
+        Array.new(20) do |i|
+          sint.replicator.upsert_webhook_body({"my_id" => "a-#{i}", "at" => "Thu, 30 Jul 2016 21:12:33 +0000"})
+        end
+        req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return(status: 200, body: "", headers: {})
+        sync_tgt.run_sync(now: Time.now)
+        expect(req).to have_been_made.times(23) # new rows, plus the 3 original
+        expect(sync_tgt.refresh.sync_stats).to have_length(13)
       end
     end
 
