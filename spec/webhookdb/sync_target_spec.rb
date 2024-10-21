@@ -500,6 +500,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: t2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
         expect(sync2_req).to have_been_made
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("d", "t"),
+          hash_including("d", "t"),
+        )
       end
 
       it "records timestamp of last successful synced item, logs, and ignores http errors" do
@@ -510,6 +514,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: Time.now)
         expect(reqs).to have_been_made.times(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("d", "t"),
+          hash_including("d", "t", "rs" => 413),
+        )
       end
 
       it "logs and does not reraise ECONNRESET" do
@@ -542,6 +550,19 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         end
         expect { sync_tgt.run_sync(now: Time.now) }.to raise_error(Webhookdb::SyncTarget::Deleted)
         expect(req).to have_been_made
+      end
+
+      it "records only up to MAX_STATS" do
+        stub_const("Webhookdb::SyncTarget::MAX_STATS", 13)
+        sync_tgt.update(page_size: 1)
+        Array.new(20) do |i|
+          sint.replicator.upsert_webhook_body({"my_id" => "a-#{i}", "at" => "Thu, 30 Jul 2016 21:12:33 +0000"})
+        end
+        req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return(status: 200, body: "", headers: {})
+        sync_tgt.run_sync(now: Time.now)
+        expect(req).to have_been_made.times(23) # new rows, plus the 3 original
+        expect(sync_tgt.refresh.sync_stats).to have_length(13)
       end
     end
 
