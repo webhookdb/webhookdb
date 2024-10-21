@@ -394,7 +394,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
           chunk = ds.first(page_size)
           break if chunk.empty?
           self._flush_http_chunk(chunk)
-          previous_chunk_pks = chunk.map { |ch| ch.fetch(:pk) }
+          # There is a latent bug with this algorithm where, if more than page_size rows share the same timestamp,
+          # we can end up reprocessing the same rows over and over.
+          # We need to fix this. For now, we just special-case a page_size of 1.
+          # TODO: Fix this
+          if page_size == 1
+            previous_chunk_pks << chunk.first.fetch(:pk)
+          else
+            previous_chunk_pks = chunk.map { |ch| ch.fetch(:pk) }
+          end
           break if chunk.size < page_size
         end
         @threadpool.join

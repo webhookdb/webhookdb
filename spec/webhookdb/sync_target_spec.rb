@@ -502,6 +502,20 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         expect(sync2_req).to have_been_made
       end
 
+      it "can use a single page size" do
+        # Add more events, but with the same timestamp, to check that we don't keep re-fetching.
+        sint.replicator.upsert_webhook_body({"my_id" => "def2", "at" => "Thu, 30 Jul 2017 21:12:33 +0000"})
+        sint.replicator.upsert_webhook_body({"my_id" => "def3", "at" => "Thu, 30 Jul 2017 21:12:33 +0000"})
+        sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return(status: 200, body: "", headers: {})
+
+        sync_tgt.update(page_size: 1)
+        t1 = Time.parse("Thu, 30 Aug 2024 21:12:33 +0000")
+        sync_tgt.run_sync(now: t1)
+        expect(sync_tgt).to have_attributes(last_synced_at: match_time(t1))
+        expect(sync1_req).to have_been_made.times(5)
+      end
+
       it "records timestamp of last successful synced item, logs, and ignores http errors" do
         sync_tgt.update(page_size: 2)
         reqs = stub_request(:post, "https://sync-target-webhook/xyz").
