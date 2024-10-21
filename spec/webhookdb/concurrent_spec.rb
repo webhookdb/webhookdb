@@ -13,17 +13,15 @@ RSpec.describe Webhookdb::Concurrent do
       expect(a).to contain_exactly(1, 2, 3)
     end
 
-    it "does not enqueue tasks once an error has occurred" do
-      a = []
-      pool.post { a << 1 }
+    it "re-raises an existing error when posting once an error has occurred" do
       pool.post { raise "oops" }
-      pool.post { a << 2 }
-      pool.post { a << 3 }
-      pool.post { a << 4 }
       expect do
-        pool.join
+        # If we keep posting, we can make sure the earlier error task is done,
+        # so one of these will raise.
+        Array.new(20) do
+          pool.post { nil }
+        end
       end.to raise_error(RuntimeError, "oops")
-      expect(a).to contain_exactly(1)
     end
   end
 

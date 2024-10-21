@@ -157,7 +157,7 @@ module Webhookdb::API
         [:associated_object_display, "Associated"],
         [:schema_and_table_string, "Table"],
         [:last_synced_at, "Last Synced"],
-        [:latency_sec, "Latency"],
+        [:latency, "Latency"],
         [:period_seconds, "Period"],
         [:page_size, "Page Size"],
       ]
@@ -171,7 +171,7 @@ module Webhookdb::API
         [:connection_url, "URL"],
         [:associated_object_display, "Associated"],
         [:last_synced_at, "Last Synced"],
-        [:latency_sec, "Latency"],
+        [:latency, "Latency"],
         [:period_seconds, "Period"],
         [:page_size, "Page Size"],
       ]

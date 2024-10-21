@@ -6,13 +6,14 @@ module Webhookdb::Concurrent
   # like a normal threadpool. They are for 'fanning out' a single operation
   # across multiple threads.
   #
-  # Tasks should not error; if they error, the pool will noop if more work is added via +post+,
-  # and no new enqueued work will be processed.
-  # The first error raised by a task is re-raised in +join+.
+  # Tasks should not error; if they error, the pool will becomes inoperable:
+  # +post+ and +join+ will re-raise the first task error.
   class Pool
     # Add work to the pool.
-    # Will not raise an error, but will block if no workers are free.
-    # Noops if the pool has an error.
+    # Will block if no workers are free.
+    # Re-raises the pool's error if the pool has an error.
+    # This is important as we don't want the caller to keep adding work,
+    # if the pool is inoperable.
     def post(&) = raise NotImplementedError
 
     # Wait for all work to finish.
@@ -24,10 +25,12 @@ module Webhookdb::Concurrent
   # but behaves like a threaded pool (ie, tasks do not raise).
   class SerialPool < Pool
     def post
-      return if @exception
-      yield
-    rescue StandardError => e
-      @exception = e
+      raise @exception if @exception
+      begin
+        yield
+      rescue StandardError => e
+        @exception = e
+      end
     end
 
     def join
@@ -73,7 +76,7 @@ module Webhookdb::Concurrent
     end
 
     def post(&task)
-      return if @exception
+      raise @exception if @exception
       @queue.push(task)
     end
 

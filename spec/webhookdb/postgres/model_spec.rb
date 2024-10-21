@@ -308,6 +308,12 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
       st.connection_url = ""
       expect(st.inspect).to include('connection_url: "...')
     end
+
+    it "abbreviates the text search column" do
+      inst = Webhookdb::Fixtures.customer.create(name: "user", email: "a@bee.com")
+      inst.text_search_reindex
+      expect(inst.refresh.inspect).to include("text_search: {22}")
+    end
   end
 
   describe "resource_lock!" do

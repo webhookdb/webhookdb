@@ -3,7 +3,6 @@
 require "appydays/configurable"
 require "httparty"
 require "rspec"
-require "rspec/eventually"
 
 require "webhookdb"
 require "webhookdb/async"
