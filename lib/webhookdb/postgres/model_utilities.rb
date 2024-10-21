@@ -208,7 +208,9 @@ module Webhookdb::Postgres::ModelUtilities
       rescue NoMethodError
         encrypted = Set.new
       end
+      text_search_col = self.class.respond_to?(:text_search_column) && self.class.text_search_column
       values = values.map do |(k, v)|
+        next "#{k}: {#{v.size}}" if k == text_search_col
         k = k.to_s
         v = if v.is_a?(Time)
               self.inspect_time(v)
