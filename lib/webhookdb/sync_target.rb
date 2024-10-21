@@ -334,7 +334,6 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     def initialize(now, sync_target)
       @now = now
       @sync_target = sync_target
-      @last_synced_at = sync_target.last_synced_at
       @replicator = sync_target.service_integration.replicator
       @timestamp_expr = Sequel[@replicator.timestamp_column.name]
     end
@@ -348,18 +347,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # multiple times when the row timestamp is set to last_synced_at but
     # it wasn't in the last sync; however that is likely not a big problem
     # since clients need to handle updates in any case.
-    def dataset_to_sync
-      # Use admin dataset, since the client could be using all their readonly conns.
-      @replicator.admin_dataset do |ds|
-        # Find rows updated before we started
-        tscond = (@timestamp_expr <= @now)
-        # Find rows updated after the last sync was run
-        @last_synced_at && (tscond &= (@timestamp_expr >= @last_synced_at))
-        ds = ds.where(tscond)
-        # We want to paginate from oldest to newest
-        ds = ds.order(@timestamp_expr)
-        yield(ds)
-      end
+    def dataset_to_sync(ds)
+      # Find rows updated before we started
+      tscond = (@timestamp_expr <= @now)
+      # Find rows updated after the last sync was run
+      @sync_target.last_synced_at && (tscond &= (@timestamp_expr >= @sync_target.last_synced_at))
+      ds = ds.where(tscond)
+      # We want to paginate from oldest to newest
+      ds = ds.order(@timestamp_expr)
+      return ds
     end
 
     def perform_db_op(&)
@@ -390,17 +386,17 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
     def run
       page_size = self.sync_target.page_size
-      self.dataset_to_sync do |ds|
-        chunk = []
-        ds.paged_each(rows_per_fetch: page_size) do |row|
-          chunk << row
-          if chunk.size >= page_size
-            # Do not share chunks across threads
-            self._flush_http_chunk(chunk.dup)
-            chunk.clear
-          end
+      @replicator.admin_dataset do |ads|
+        previous_chunk_pks = []
+        loop do
+          ds = self.dataset_to_sync(ads)
+          ds = ds.exclude(pk: previous_chunk_pks)
+          chunk = ds.first(page_size)
+          break if chunk.empty?
+          self._flush_http_chunk(chunk)
+          previous_chunk_pks = chunk.map { |ch| ch.fetch(:pk) }
+          break if chunk.size < page_size
         end
-        self._flush_http_chunk(chunk) unless chunk.empty?
         @threadpool.join
         # We should save 'now' as the timestamp, rather than the last updated row.
         # This is important because other we'd keep trying to sync the last row synced.
@@ -458,6 +454,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
           @inflight_timestamps.delete_at(this_ts_idx)
         end
       end
+      return chunk_ts
     end
   end
 
@@ -513,7 +510,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.sync_target.id}")
       begin
-        self.dataset_to_sync do |ds|
+        self.replicator.admin_dataset do |ds|
+          ds = self.dataset_to_sync(ds)
           ds.db.copy_table(ds, options: "DELIMITER ',', HEADER true, FORMAT csv") do |row|
             tempfile.write(row)
           end
