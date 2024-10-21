@@ -307,6 +307,39 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return "#{schema_name}.#{table_name}"
   end
 
+  # :section: Stats
+
+  def add_sync_stat(start, exception: nil, response_status: nil)
+    stat = {"t" => s2ms(start), "d" => s2ms(Time.now - start)}
+    stat["e"] = exception.class.name if exception
+    stat["rs"] = response_status unless response_status.nil?
+    stats = self.sync_stats
+    stats.prepend(stat)
+    stats.pop if stats.size > MAX_STATS
+    self.will_change_column(:sync_stats)
+  end
+
+  protected def s2ms(t) = (t.to_f * 1000).to_i
+  protected def ms2s(ms) = ms / 1000.0
+
+  def sync_stat_summary
+    return {} if self.sync_stats.empty?
+    earliest = self.sync_stats.last
+    latest = self.sync_stats.first
+    average_latency = (self.sync_stats.sum { |st| ms2s(st["d"]) }) / self.sync_stats.size
+    errors = self.sync_stats.count { |st| st["e"] || st["rs"] }
+    calls_per_minute = 60 / average_latency
+    rpm = self.page_size * calls_per_minute
+    rpm *= self.parallelism if self.parallelism.positive?
+    return {
+      latest: Time.at(ms2s(latest["t"]).to_i),
+      earliest: Time.at(ms2s(earliest["t"]).to_i),
+      average_latency: average_latency.round(2),
+      average_rows_minute: rpm.to_i,
+      errors:,
+    }
+  end
+
   # @return [Webhookdb::Organization]
   def organization
     return self.service_integration.organization
@@ -380,25 +413,18 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       start = Time.now
       begin
         yield
-        self.add_stat({t: to_ms(start), d: to_ms(Time.now - start)})
+        self.sync_target.add_sync_stat(start)
       rescue Webhookdb::Http::Error => e
-        self.add_stat({t: to_ms(start), d: to_ms(Time.now - start), rs: e.status})
+        self.sync_target.add_sync_stat(start, response_status: e.status)
         raise
       rescue StandardError => e
-        self.add_stat({t: to_ms(start), d: to_ms(Time.now - start), e: e.class.name})
+        self.sync_target.add_sync_stat(start, exception: e)
         raise
       end
     end
 
     def to_ms(t)
       return (t.to_f * 1000).to_i
-    end
-
-    def add_stat(stat)
-      stats = self.sync_target.sync_stats
-      stats.prepend(stat)
-      stats.pop if stats.size > MAX_STATS
-      self.sync_target.will_change_column(:sync_stats)
     end
   end
 

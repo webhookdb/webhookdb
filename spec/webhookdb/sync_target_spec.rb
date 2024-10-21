@@ -32,6 +32,28 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "sync_stats" do
+    it "can summarize stats" do
+      syt = Webhookdb::Fixtures.sync_target.create(page_size: 100)
+      expect(syt.sync_stat_summary).to eq({})
+      Timecop.freeze("2024-10-21T13:27:29Z") do
+        syt.add_sync_stat(12.seconds.ago)
+        syt.add_sync_stat(9.seconds.ago, response_status: 503)
+        syt.add_sync_stat(6.seconds.ago, exception: RuntimeError.new("hi"))
+        syt.add_sync_stat(3.seconds.ago)
+        expect(syt.sync_stat_summary).to include(
+          average_latency: 7.5,
+          average_rows_minute: 800,
+          earliest: match_time(12.seconds.ago),
+          errors: 2,
+          latest: match_time(3.seconds.ago),
+        )
+        syt.parallelism = 2
+        expect(syt.sync_stat_summary).to include(average_rows_minute: 1600)
+      end
+    end
+  end
+
   describe "schema_and_table_string" do
     it "displays" do
       described_class.default_schema = "defaultschema"
