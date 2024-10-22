@@ -88,16 +88,29 @@ class Webhookdb::Backfiller
       return k, inserting
     end
 
+    # Return the conditional update expression.
+    # Usually this is:
+    # - +nil+ if +conditional_upsert?+ is false.
+    # - the +_update_where_expr+ if +conditional_upsert?+ is true.
+    # - Can be overridden by a subclass if they need to use a specific conditional update expression
+    #   in certain cases (should be rare).
+    def update_where_expr = self.conditional_upsert? ? self.upserting_replicator._update_where_expr : nil
+
+    # The upsert 'UPDATE' expression, calculated using the first row of a multi-row upsert.
+    # Defaults to +_upsert_update_expr+, but may need to be overridden in rare cases.
+    def upsert_update_expr(first_inserting_row) = self.upserting_replicator._upsert_update_expr(first_inserting_row)
+
     def flush_pending_inserts
       return if self.dry_run?
       return if self.pending_inserts.empty?
       rows_to_insert = self.pending_inserts.values
-      update_where = self.conditional_upsert? ? self.upserting_replicator._update_where_expr : nil
+      update_where_expr = self.update_where_expr
+      update_expr = self.upserting_replicator._upsert_update_expr(rows_to_insert.first)
       self.upserting_replicator.admin_dataset(timeout: :fast) do |ds|
         insert_ds = ds.insert_conflict(
           target: self.upserting_replicator._remote_key_column.name,
-          update: self.upserting_replicator._upsert_update_expr(rows_to_insert.first),
-          update_where:,
+          update: update_expr,
+          update_where: update_where_expr,
         )
         insert_ds.multi_insert(rows_to_insert)
       end
