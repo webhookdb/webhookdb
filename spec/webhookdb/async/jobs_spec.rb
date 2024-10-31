@@ -605,6 +605,19 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "RenewWatchChannel", :fake_replicator do
+    it "renews the watch using the given criteria" do
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "fake_with_watch_channel_v1")
+      Webhookdb::Jobs::RenewWatchChannel.new.perform(
+        sint.id,
+        {row_pk: 1, expiring_before: "2020-01-24T00:00:00Z"}.as_json,
+      )
+      expect(Webhookdb::Replicator::FakeWithWatchChannel.renew_calls).to contain_exactly(
+        {row_pk: 1, expiring_before: Time.parse("2020-01-24T00:00:00Z")},
+      )
+    end
+  end
+
   describe "ReplicationMigration" do
     let(:fake_sint) { Webhookdb::Fixtures.service_integration.create }
     let(:o) { fake_sint.organization }

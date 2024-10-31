@@ -30,6 +30,9 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
     self.process_webhooks_synchronously = nil
     self.obfuscate_headers_for_logging = []
     self.requires_sequence = false
+    self.descendants&.each do |d|
+      d.reset if d.respond_to?(:reset)
+    end
   end
 
   def self.stub_backfill_request(items, status: 200)
@@ -485,4 +488,26 @@ class Webhookdb::Replicator::FakeStaleRow < Webhookdb::Replicator::Fake
   end
 
   def stale_row_deleter = StaleRowDeleter.new(self)
+end
+
+class Webhookdb::Replicator::FakeWithWatchChannel < Webhookdb::Replicator::Fake
+  singleton_attr_accessor :renew_calls
+
+  def self.reset
+    self.renew_calls = []
+  end
+
+  def self.descriptor
+    return Webhookdb::Replicator::Descriptor.new(
+      name: "fake_with_watch_channel_v1",
+      ctor: ->(sint) { self.new(sint) },
+      feature_roles: ["internal"],
+      resource_name_singular: "FakeWithWatchChannel",
+      supports_webhooks: true,
+    )
+  end
+
+  def renew_watch_channel(row_pk:, expiring_before:)
+    self.class.renew_calls << {row_pk:, expiring_before:}
+  end
 end

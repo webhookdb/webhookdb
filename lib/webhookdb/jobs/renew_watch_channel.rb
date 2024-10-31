@@ -6,21 +6,19 @@ require "webhookdb/jobs"
 
 # Generic helper to renew watch channels, enqueued by replicator-specific jobs
 # like RenewGoogleWatchChannels.
-# Must be emitted with [service integration id, {row_pk:, expirng_before:}]
+# Must be emitted with [service_integration_id, {row_pk:, expirng_before:}]
 # Calls #renew_watch_channel(row_pk:, expiring_before:).
 class Webhookdb::Jobs::RenewWatchChannel
   extend Webhookdb::Async::Job
   include Amigo::QueueBackoffJob
 
-  on "webhookdb.serviceintegration.renewwatchchannel"
   sidekiq_options queue: "netout"
 
-  def _perform(event)
-    sint = self.lookup_model(Webhookdb::ServiceIntegration, event)
+  def perform(service_integration_id, renew_watch_criteria)
+    sint = self.lookup_model(Webhookdb::ServiceIntegration, service_integration_id)
     self.set_job_tags(sint.log_tags)
-    opts = event.payload[1]
-    row_pk = opts.fetch("row_pk")
-    expiring_before = Time.parse(opts.fetch("expiring_before"))
+    row_pk = renew_watch_criteria.fetch("row_pk")
+    expiring_before = Time.parse(renew_watch_criteria.fetch("expiring_before"))
     sint.replicator.renew_watch_channel(row_pk:, expiring_before:)
   end
 end
