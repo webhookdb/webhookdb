@@ -1426,14 +1426,14 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           EXDATE;TZID=America/Indianapolis:20231220T110000
           EXDATE;TZID=America/Indianapolis:20231225T110000
           LAST-MODIFIED:20231214T143742Z
-          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          RRULE:FREQ=WEEKLY;BYDAY=SA
           SEQUENCE:0
           SUMMARY:Abe Lincoln
           UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
           END:VEVENT
         ICAL
         got = sync(body)
-        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-6881", start_at: match_time("1990-01-01 16:00:00Z"))
+        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-3962", start_at: match_time("2000-01-01 16:00:00Z"))
         expect(got.last).to include(start_at: be > 1.month.ago)
       end
 

@@ -241,7 +241,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       org.remove_related_database
     end
 
-    it "enqueues a splayed calendar sync for integration row needing a sync", sidekiq: :fake do
+    it "enqueues a calendar sync for integration row needing a sync", sidekiq: :fake do
       sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
@@ -280,16 +280,18 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     it "syncs the row" do
+      # Old and never synced should both sync
+      last_synced_at = [nil, 20.hours.ago].sample
       row = sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
           row_created_at: Time.now,
           row_updated_at: Time.now,
           external_id: "abc",
+          last_synced_at:,
         )
         ds.first
       end
-      expect(row).to include(last_synced_at: nil)
       Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, row.fetch(:external_id))
       expect(sint.replicator.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
       expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "icalendar_synced")
@@ -298,6 +300,23 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     it "noops a missing row" do
       Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, "0")
       expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "icalendar_sync_row_miss")
+    end
+
+    it "noops if the row has too recently been synced" do
+      last_synced_at = 2.hours.ago
+      row = sint.replicator.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          row_created_at: Time.now,
+          row_updated_at: Time.now,
+          external_id: "abc",
+          last_synced_at:,
+        )
+        ds.first
+      end
+      Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, row.fetch(:external_id))
+      expect(sint.replicator.admin_dataset(&:first)).to include(last_synced_at: match_time(last_synced_at))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "icalendar_sync_already_synced")
     end
   end
 
