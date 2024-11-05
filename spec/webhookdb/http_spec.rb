@@ -192,15 +192,6 @@ RSpec.describe Webhookdb::Http do
       expect(io.read).to eq("abc")
     end
 
-    it "handles gzip encoding" do
-      req = stub_request(:get, "https://a.b").
-        to_return(status: 200, body: ActiveSupport::Gzip.compress("abc"), headers: {"Content-Encoding" => "gzip"})
-      io = described_class.chunked_download("https://a.b", rewindable: false)
-      expect(req).to have_been_made
-      expect(io).to be_a(Zlib::GzipReader)
-      expect(io.read).to eq("abc")
-    end
-
     it "raises without an http url" do
       expect do
         described_class.chunked_download("webcal://a.b")

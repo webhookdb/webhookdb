@@ -106,15 +106,6 @@ module Webhookdb::Http
     down_kw[:headers] ||= {}
     down_kw[:headers]["User-Agent"] ||= self.user_agent
     io = Down::Httpx.open(uri, rewindable:, **down_kw)
-    if io.data[:headers].fetch("Content-Encoding", "").include?("gzip")
-      # If the response is gzipped, Down doesn't handle it properly.
-      # Wrap it with gzip reader, and force the encoding to binary
-      # the server may send back a header like Content-Type: text/plain; UTF-8,
-      # so each line Down yields via #gets will have force_encoding('utf-8').
-      # https://github.com/janko/down/issues/87
-      io.instance_variable_set(:@encoding, "binary")
-      io = Zlib::GzipReader.wrap(io)
-    end
     return io
   end
 end

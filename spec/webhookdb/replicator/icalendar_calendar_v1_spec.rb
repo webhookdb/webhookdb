@@ -1537,39 +1537,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
-    it "handles when the server sends gzip even though we do not want it" do
-      body = <<~ICAL
-        BEGIN:VCALENDAR
-        BEGIN:VEVENT
-        SUMMARY:Abraham Lincoln
-        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
-        STATUS:CONFIRMED
-        DTSTART:20080212
-        DTEND:20080213
-        DTSTAMP:20150421T141403
-        END:VEVENT
-        END:VCALENDAR
-      ICAL
-      resp = {
-        status: 200,
-        headers: {"Content-Type" => "text/calendar; charset=UTF-8", "Content-Encoding" => "gzip"},
-        body: ActiveSupport::Gzip.compress(body),
-      }
-      req = stub_request(:get, "https://feed.me").
-        with(
-          headers: {
-            "Accept" => "text/calendar,*/*",
-            "Accept-Encoding" => "gzip, deflate",
-          },
-        ).
-        and_return(resp, resp)
-      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-      svc.sync_row(row)
-      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
-      expect(req).to have_been_made # .times(2)
-      expect(event_svc.admin_dataset(&:all)).to have_length(1)
-    end
-
     it "does not get caught in an endless loop for impossible rrules" do
       body = <<~ICAL
         BEGIN:VCALENDAR
