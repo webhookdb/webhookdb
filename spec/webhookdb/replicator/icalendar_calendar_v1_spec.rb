@@ -717,7 +717,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      [400, 404, 417, 500, 503].each do |httpstatus|
+      [400, 404, 417, 422, 500, 503].each do |httpstatus|
         it "alerts on Down HTTP #{httpstatus} errors" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
           req = stub_request(:get, "https://feed.me").

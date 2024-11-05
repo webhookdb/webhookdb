@@ -291,6 +291,7 @@ The secret to use for signing is:
           404, 405, # Fundamental issues with the URL given
           409, 410, # More access problems
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
+          422, # Sometimes used instead of 404
           429, # Usually 429s are retried (as above), but in some cases they're not.
         ]
         # For most client errors, we can't do anything about it. For example,
@@ -299,10 +300,10 @@ The secret to use for signing is:
         # in case it's something we can fix/work around.
         # For example, it's possible something like a 415 is a WebhookDB issue.
         raise e unless expected_errors.include?(response_status)
-        response_body = e.response.body.to_s
+        response_body = self._safe_read_body(e)
       when Down::ServerError
         response_status = e.response.status.to_i
-        response_body = e.response.body.to_s
+        response_body = self._safe_read_body(e)
       else
         response_body = nil
         response_status = nil
@@ -320,6 +321,14 @@ The secret to use for signing is:
       request_method: "GET",
     )
     self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: false)
+  end
+
+  # We can hit an error while reading the error body, since it was opened as a stream.
+  # Ignore those errors.
+  def _safe_read_body(e)
+    return e.response.body.to_s
+  rescue OpenSSL::SSL::SSLError, HTTPX::Error
+    return "<error reading body>"
   end
 
   def _retryable_client_error?(e, request_url:)
