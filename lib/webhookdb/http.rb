@@ -2,6 +2,7 @@
 
 require "appydays/configurable"
 require "appydays/loggable/httparty_formatter"
+require "down/httpx"
 require "httparty"
 
 module Webhookdb::Http
@@ -96,10 +97,15 @@ module Webhookdb::Http
     options[:log_level] = self.log_level
   end
 
-  # Convenience wrapper around Down that handles gzip.
+  # Convenience wrapper around Down so we can use our preferred implementation.
+  # See commit history for more info.
   # @return Array<Down::ChunkedIO, IO> Tuple
   def self.chunked_download(request_url, rewindable: false, **down_kw)
-    io = Down::NetHttp.open(request_url, rewindable:, **down_kw)
+    uri = URI(request_url)
+    raise URI::InvalidURIError, "#{request_url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
+    down_kw[:headers] ||= {}
+    down_kw[:headers]["User-Agent"] ||= self.user_agent
+    io = Down::Httpx.open(uri, rewindable:, **down_kw)
     if io.data[:headers].fetch("Content-Encoding", "").include?("gzip")
       # If the response is gzipped, Down doesn't handle it properly.
       # Wrap it with gzip reader, and force the encoding to binary
@@ -111,10 +117,13 @@ module Webhookdb::Http
     end
     return io
   end
+end
 
-  def self.gzipped?(string)
-    return false if string.length < 3
-    b = string[..2].bytes
-    return b[0] == 0x1f && b[1] == 0x8b
+class Down::Httpx
+  alias _original_response_error! response_error!
+  def response_error!(response)
+    # For some reason, Down's httpx backend uses TooManyRedirects for every status code...
+    raise Down::NotModified if response.status == 304
+    return self._original_response_error!(response)
   end
 end

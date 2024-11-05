@@ -26,6 +26,7 @@ PATH
       grape-swagger (~> 2.0.0)
       grape_logging (~> 1.8.4)
       httparty (~> 0.21)
+      httpx (~> 1.3)
       ice_cube
       jwt (~> 2.7)
       liquid (~> 5.4)
@@ -183,10 +184,13 @@ GEM
       multi_json (>= 1.9.2)
       webrick
     htmlentities (4.3.4)
+    http-2 (1.0.2)
     httparty (0.22.0)
       csv
       mini_mime (>= 1.0.0)
       multi_xml (>= 0.5.2)
+    httpx (1.3.3)
+      http-2 (>= 1.0.0)
     i18n (1.14.4)
       concurrent-ruby (~> 1.0)
     inflecto (0.0.2)

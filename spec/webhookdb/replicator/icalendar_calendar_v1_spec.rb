@@ -1556,7 +1556,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         body: ActiveSupport::Gzip.compress(body),
       }
       req = stub_request(:get, "https://feed.me").
-        with { |r| ["", "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"].include?(r.headers["Accept-Encoding"]) }.
+        with(
+          headers: {
+            "Accept" => "text/calendar,*/*",
+            "Accept-Encoding" => "gzip, deflate",
+          },
+        ).
         and_return(resp, resp)
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)

@@ -205,9 +205,16 @@ The secret to use for signing is:
 
   def _sync_row(row, dep, now:)
     calendar_external_id = row.fetch(:external_id)
+    # Some servers require a VERY explicit accept header,
+    # so tell them we prefer icalendar here.
+    # Using Httpx, Accept-Encoding is gzip,deflate
+    # which seems fine (server should use identity as worst case).
+    headers = {
+      "Accept" => "text/calendar,*/*",
+    }
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
+      io = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
     rescue Down::Error, URI::InvalidURIError => e
       self._handle_down_error(e, request_url:, calendar_external_id:)
       return
@@ -272,7 +279,7 @@ The secret to use for signing is:
         response_body = e.to_s
       when Down::ClientError
         raise e if e.response.nil?
-        response_status = e.response.code.to_i
+        response_status = e.response.status.to_i
         self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if
           self._retryable_client_error?(e, request_url:)
         # These are all the errors we've seen, we can't do anything about.
@@ -294,7 +301,7 @@ The secret to use for signing is:
         raise e unless expected_errors.include?(response_status)
         response_body = e.response.body.to_s
       when Down::ServerError
-        response_status = e.response.code.to_i
+        response_status = e.response.status.to_i
         response_body = e.response.body.to_s
       else
         response_body = nil
@@ -316,7 +323,7 @@ The secret to use for signing is:
   end
 
   def _retryable_client_error?(e, request_url:)
-    code = e.response.code.to_i
+    code = e.response.status.to_i
     # This is a bad domain that returns 429 for most requests.
     # Tell the org admins it won't sync.
     return false if code == 429 && request_url.start_with?("https://ical.schedulestar.com")
@@ -333,7 +340,7 @@ The secret to use for signing is:
     retry_in = rand(4..60).minutes
     self.logger.debug(
       "icalendar_fetch_error_retry",
-      response_status: e.respond_to?(:response) ? e.response&.code : 0,
+      response_status: e.respond_to?(:response) ? e.response&.status : 0,
       request_url:,
       calendar_external_id:,
       retry_at: Time.now + retry_in,
