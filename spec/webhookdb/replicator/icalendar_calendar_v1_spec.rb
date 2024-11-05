@@ -741,6 +741,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(Webhookdb::Message::Delivery.all).to be_empty
       end
 
+      it "alerts on redirect without a Location header" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 307, headers: {})
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
       it "raises on unhandled Down http errors" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").
