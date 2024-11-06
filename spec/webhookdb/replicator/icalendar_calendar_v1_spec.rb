@@ -717,7 +717,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      [400, 404, 417, 500, 503].each do |httpstatus|
+      [400, 404, 417, 422, 500, 503].each do |httpstatus|
         it "alerts on Down HTTP #{httpstatus} errors" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
           req = stub_request(:get, "https://feed.me").
@@ -739,6 +739,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         svc.sync_row(row)
         expect(req).to have_been_made
         expect(Webhookdb::Message::Delivery.all).to be_empty
+      end
+
+      it "alerts on redirect without a Location header" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 307, headers: {})
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
       end
 
       it "raises on unhandled Down http errors" do
@@ -1426,14 +1438,14 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           EXDATE;TZID=America/Indianapolis:20231220T110000
           EXDATE;TZID=America/Indianapolis:20231225T110000
           LAST-MODIFIED:20231214T143742Z
-          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          RRULE:FREQ=WEEKLY;BYDAY=SA
           SEQUENCE:0
           SUMMARY:Abe Lincoln
           UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
           END:VEVENT
         ICAL
         got = sync(body)
-        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-6881", start_at: match_time("1990-01-01 16:00:00Z"))
+        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-3962", start_at: match_time("2000-01-01 16:00:00Z"))
         expect(got.last).to include(start_at: be > 1.month.ago)
       end
 
@@ -1523,34 +1535,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         include(uid: "multibymonthday-with-freq-weekly-0", start_date: Date.new(2023, 9, 6)),
         include(uid: "multibymonthday-with-freq-weekly-1", start_date: Date.new(2023, 9, 20)),
       )
-    end
-
-    it "handles when the server sends gzip even though we do not want it" do
-      body = <<~ICAL
-        BEGIN:VCALENDAR
-        BEGIN:VEVENT
-        SUMMARY:Abraham Lincoln
-        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
-        STATUS:CONFIRMED
-        DTSTART:20080212
-        DTEND:20080213
-        DTSTAMP:20150421T141403
-        END:VEVENT
-        END:VCALENDAR
-      ICAL
-      resp = {
-        status: 200,
-        headers: {"Content-Type" => "text/calendar; charset=UTF-8", "Content-Encoding" => "gzip"},
-        body: ActiveSupport::Gzip.compress(body),
-      }
-      req = stub_request(:get, "https://feed.me").
-        with { |r| ["", "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"].include?(r.headers["Accept-Encoding"]) }.
-        and_return(resp, resp)
-      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-      svc.sync_row(row)
-      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
-      expect(req).to have_been_made # .times(2)
-      expect(event_svc.admin_dataset(&:all)).to have_length(1)
     end
 
     it "does not get caught in an endless loop for impossible rrules" do

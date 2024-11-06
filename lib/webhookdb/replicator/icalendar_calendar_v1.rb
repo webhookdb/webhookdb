@@ -205,10 +205,17 @@ The secret to use for signing is:
 
   def _sync_row(row, dep, now:)
     calendar_external_id = row.fetch(:external_id)
+    # Some servers require a VERY explicit accept header,
+    # so tell them we prefer icalendar here.
+    # Using Httpx, Accept-Encoding is gzip,deflate
+    # which seems fine (server should use identity as worst case).
+    headers = {
+      "Accept" => "text/calendar,*/*",
+    }
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = Webhookdb::Http.chunked_download(request_url, rewindable: false)
-    rescue Down::Error, URI::InvalidURIError => e
+      io = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
+    rescue Down::Error, URI::InvalidURIError, HTTPX::NativeResolveError, HTTPX::InsecureRedirectError => e
       self._handle_down_error(e, request_url:, calendar_external_id:)
       return
     end
@@ -267,12 +274,14 @@ The secret to use for signing is:
         else
           self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
         end
-      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl, URI::InvalidURIError
+      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl,
+        URI::InvalidURIError,
+        HTTPX::NativeResolveError, HTTPX::InsecureRedirectError
         response_status = 0
         response_body = e.to_s
       when Down::ClientError
         raise e if e.response.nil?
-        response_status = e.response.code.to_i
+        response_status = e.response.status.to_i
         self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if
           self._retryable_client_error?(e, request_url:)
         # These are all the errors we've seen, we can't do anything about.
@@ -284,6 +293,7 @@ The secret to use for signing is:
           404, 405, # Fundamental issues with the URL given
           409, 410, # More access problems
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
+          422, # Sometimes used instead of 404
           429, # Usually 429s are retried (as above), but in some cases they're not.
         ]
         # For most client errors, we can't do anything about it. For example,
@@ -292,10 +302,10 @@ The secret to use for signing is:
         # in case it's something we can fix/work around.
         # For example, it's possible something like a 415 is a WebhookDB issue.
         raise e unless expected_errors.include?(response_status)
-        response_body = e.response.body.to_s
+        response_body = self._safe_read_body(e)
       when Down::ServerError
-        response_status = e.response.code.to_i
-        response_body = e.response.body.to_s
+        response_status = e.response.status.to_i
+        response_body = self._safe_read_body(e)
       else
         response_body = nil
         response_status = nil
@@ -315,8 +325,16 @@ The secret to use for signing is:
     self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: false)
   end
 
+  # We can hit an error while reading the error body, since it was opened as a stream.
+  # Ignore those errors.
+  def _safe_read_body(e)
+    return e.response.body.to_s
+  rescue OpenSSL::SSL::SSLError, HTTPX::Error
+    return "<error reading body>"
+  end
+
   def _retryable_client_error?(e, request_url:)
-    code = e.response.code.to_i
+    code = e.response.status.to_i
     # This is a bad domain that returns 429 for most requests.
     # Tell the org admins it won't sync.
     return false if code == 429 && request_url.start_with?("https://ical.schedulestar.com")
@@ -333,7 +351,7 @@ The secret to use for signing is:
     retry_in = rand(4..60).minutes
     self.logger.debug(
       "icalendar_fetch_error_retry",
-      response_status: e.respond_to?(:response) ? e.response&.code : 0,
+      response_status: e.respond_to?(:response) ? e.response&.status : 0,
       request_url:,
       calendar_external_id:,
       retry_at: Time.now + retry_in,

@@ -177,6 +177,40 @@ RSpec.describe Webhookdb::Http do
     end
   end
 
+  describe "chunked_download" do
+    it "opens a stream" do
+      req = stub_request(:get, "https://a.b").
+        with(headers: {
+               "Accept" => "*/*",
+               "Accept-Encoding" => "gzip, deflate",
+               "User-Agent" => %r{WebhookDB/},
+             }).
+        to_return(status: 200, body: "abc")
+      io = described_class.chunked_download("https://a.b", rewindable: false)
+      expect(req).to have_been_made
+      expect(io).to be_a(Down::ChunkedIO)
+      expect(io.read).to eq("abc")
+    end
+
+    it "raises without an http url" do
+      expect do
+        described_class.chunked_download("webcal://a.b")
+      end.to raise_error(URI::InvalidURIError, "webcal://a.b must be an http/s url")
+
+      expect do
+        described_class.chunked_download("httpss://a.b")
+      end.to raise_error(URI::InvalidURIError, "httpss://a.b must be an http/s url")
+    end
+
+    it "patches httpx to handle bad encodings" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 200, body: "abc", headers: {"Content-Type" => "text/html;charset=utf8"})
+      io = described_class.chunked_download("https://a.b", rewindable: false)
+      expect(req).to have_been_made
+      expect(io.read).to eq("abc")
+    end
+  end
+
   describe "Error" do
     it "is rendered nicely" do
       stub_request(:get, "https://a.b/").
@@ -234,5 +268,20 @@ RSpec.describe Webhookdb::Http do
         include("message" => "httparty_request", "context" => include("http_method" => "POST"), "level" => "debug"),
       )
     end
+  end
+
+  it "patches down https to handle more status codes correctly" do
+    req = stub_request(:get, "https://a.b").to_return(status: 304)
+    expect do
+      Down::Httpx.download("https://a.b")
+    end.to raise_error(Down::NotModified)
+    expect(req).to have_been_made.times(1)
+
+    # Make sure original errors work
+    req = stub_request(:get, "https://a.b").to_return(status: 400)
+    expect do
+      Down::Httpx.download("https://a.b")
+    end.to raise_error(Down::ClientError)
+    expect(req).to have_been_made.times(2)
   end
 end
