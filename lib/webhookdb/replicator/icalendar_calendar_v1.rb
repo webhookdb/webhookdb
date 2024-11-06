@@ -215,7 +215,7 @@ The secret to use for signing is:
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
       io = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
-    rescue Down::Error, URI::InvalidURIError => e
+    rescue Down::Error, URI::InvalidURIError, HTTPX::NativeResolveError, HTTPX::InsecureRedirectError => e
       self._handle_down_error(e, request_url:, calendar_external_id:)
       return
     end
@@ -274,7 +274,9 @@ The secret to use for signing is:
         else
           self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
         end
-      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl, URI::InvalidURIError
+      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl,
+        URI::InvalidURIError,
+        HTTPX::NativeResolveError, HTTPX::InsecureRedirectError
         response_status = 0
         response_body = e.to_s
       when Down::ClientError

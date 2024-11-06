@@ -201,6 +201,14 @@ RSpec.describe Webhookdb::Http do
         described_class.chunked_download("httpss://a.b")
       end.to raise_error(URI::InvalidURIError, "httpss://a.b must be an http/s url")
     end
+
+    it "patches httpx to handle bad encodings" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 200, body: "abc", headers: {"Content-Type" => "text/html;charset=utf8"})
+      io = described_class.chunked_download("https://a.b", rewindable: false)
+      expect(req).to have_been_made
+      expect(io.read).to eq("abc")
+    end
   end
 
   describe "Error" do

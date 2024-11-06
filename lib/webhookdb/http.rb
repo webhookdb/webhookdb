@@ -118,3 +118,14 @@ class Down::Httpx
     return self._original_response_error!(response)
   end
 end
+
+class HTTPX::Response::Body
+  alias _original_initialize initialize
+  def initialize(*)
+    _original_initialize(*)
+    # If the encoding is an invalid one like 'utf8' vs 'utf-8', modify what's was in the charset.
+    # See https://github.com/HoneyryderChuck/httpx/issues/66
+    return unless @encoding.is_a?(String) && (md = @encoding.match(/^(utf)(\d+)$/))
+    @encoding = "#{md[1]}-#{md[2]}"
+  end
+end
