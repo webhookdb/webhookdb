@@ -116,7 +116,6 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       :compound_identity,
       TEXT,
       data_key: "<compound key, see converter>",
-      index: true,
       converter: CONV_REMOTE_KEY,
       optional: true, # This is done via the converter, data_key never exists
     )

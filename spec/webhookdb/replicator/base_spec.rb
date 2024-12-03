@@ -92,6 +92,17 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
     end
   end
 
+  describe "remote_key_column" do
+    it "warns if index:true is specified" do
+      r = Webhookdb::Fixtures.service_integration.create.replicator
+      expect(r).to receive(:_remote_key_column).
+        and_return(Webhookdb::Replicator::Column.new(:my_id, :text, index: true))
+      expect(Kernel).to receive(:warn).with(/_remote_key_column index:true/)
+      c = r.remote_key_column
+      expect(c).to_not be_index
+    end
+  end
+
   describe "_prepare_for_insert" do
     svc_cls = Class.new(described_class) do
       def _remote_key_column

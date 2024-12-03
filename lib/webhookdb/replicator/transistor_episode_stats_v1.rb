@@ -40,7 +40,6 @@ class Webhookdb::Replicator::TransistorEpisodeStatsV1 < Webhookdb::Replicator::B
       :compound_identity,
       TEXT,
       data_key: "<compound key, see converter>",
-      index: true,
       optional: true,
       converter: CONV_REMOTE_KEY,
     )
