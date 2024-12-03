@@ -406,7 +406,12 @@ for information on how to refresh data.)
 
   # @return [Webhookdb::DBAdapter::Column]
   def remote_key_column
-    return self._remote_key_column.to_dbadapter(unique: true, nullable: false)
+    c = self._remote_key_column
+    if c.index?
+      msg = "_remote_key_column index:true should not be set, since it automatically gets a unique index"
+      Kernel.warn msg
+    end
+    return c.to_dbadapter(unique: true, nullable: false, index: false)
   end
 
   # @return [Webhookdb::DBAdapter::Column]
@@ -464,6 +469,9 @@ for information on how to refresh data.)
 
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
   # or sid for Twilio resources. This column must be unique for the table, like a primary key.
+  #
+  # NOTE: Do not set index:true. The remote key column always must be unique,
+  # so it gets a unique index automatically.
   #
   # @abstract
   # @return [Webhookdb::Replicator::Column]
