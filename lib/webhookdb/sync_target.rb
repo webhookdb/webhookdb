@@ -4,6 +4,7 @@ require "sequel/advisory_lock"
 require "sequel/database"
 
 require "webhookdb/concurrent"
+require "webhookdb/jobs/sync_target_run_sync"
 
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
@@ -55,6 +56,12 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # we must allow sync targets to use http urls. This should only
     # be used internally, and never in production.
     setting :allow_http, false
+    # Syncing may require serverside cursors, which open a transaction.
+    # To avoid long-lived transactions, any sync which has a transaction,
+    # and goes on longer than +max_transaction_seconds+,
+    # will 'soft abort' the sync and reschedule itself to continue
+    # using a new transaction.
+    setting :max_transaction_seconds, 10.minutes.to_i
 
     after_configured do
       if Webhookdb::RACK_ENV == "test"
@@ -442,7 +449,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     end
 
     def run
+      timeout_at = Time.now + Webhookdb::SyncTarget.max_transaction_seconds
       page_size = self.sync_target.page_size
+      sync_result = :complete
       self.dataset_to_sync do |ds|
         chunk = []
         ds.paged_each(rows_per_fetch: page_size, cursor_name: "synctarget_#{self.sync_target.id}_cursor") do |row|
@@ -451,13 +460,27 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
             # Do not share chunks across threads
             self._flush_http_chunk(chunk.dup)
             chunk.clear
+            if Time.now >= timeout_at && Thread.current[:sidekiq_context]
+              # If we've hit the timeout, stop any further syncing
+              sync_result = :timeout
+              break
+            end
           end
         end
         self._flush_http_chunk(chunk) unless chunk.empty?
         @threadpool.join
-        # We should save 'now' as the timestamp, rather than the last updated row.
-        # This is important because other we'd keep trying to sync the last row synced.
-        self.record(self.now)
+        case sync_result
+          when :timeout
+            # If the sync timed out, use the last recorded sync timestamp,
+            # and re-enqueue the job, so the sync will pick up where it left off.
+            self.sync_target.logger.info("sync_target_transaction_timeout", self.sync_target.log_tags)
+            Webhookdb::Jobs::SyncTargetRunSync.perform_async(self.sync_target.id)
+          else
+            # The sync completed normally.
+            # Save 'now' as the timestamp, rather than the last updated row.
+            # This is important because other we'd keep trying to sync the last row synced.
+            self.record(self.now)
+        end
       end
     rescue Webhookdb::Concurrent::Timeout => e
       # This should never really happen, but it does, so record it while we debug it.
