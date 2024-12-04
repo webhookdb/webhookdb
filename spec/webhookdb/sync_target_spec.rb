@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::SyncTarget", :db do
+RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::SyncTarget do
   let(:described_class) { Webhookdb::SyncTarget }
   let(:sint) { Webhookdb::Fixtures.service_integration.create }
 
@@ -64,8 +64,6 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(st.schema_and_table_string).to eq("foo.xyz")
       st.table = "bar"
       expect(st.schema_and_table_string).to eq("foo.bar")
-    ensure
-      described_class.reset_configuration
     end
   end
 
@@ -87,7 +85,6 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       Timecop.freeze do
         example.run
       end
-      described_class.reset_configuration
     end
 
     it "returns now if the sync has not run" do
@@ -585,6 +582,41 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: Time.now)
         expect(req).to have_been_made.times(23) # new rows, plus the 3 original
         expect(sync_tgt.refresh.sync_stats).to have_length(13)
+      end
+
+      describe "when the max transaction timeout is reached" do
+        before(:each) do
+          described_class.max_transaction_seconds = 0
+          sync_tgt.update(page_size: 1)
+        end
+
+        final_synced_row_ts = Time.parse("Thu, 30 Jul 2016 21:12:33 +0000")
+        now = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
+
+        it "has no special behavior if not already in a job" do
+          Thread.current[:sidekiq_context] = nil
+          sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+            to_return(status: 200, body: "", headers: {})
+          expect(Webhookdb::Jobs::SyncTargetRunSync).to_not receive(:perform_async)
+
+          sync_tgt.run_sync(now:)
+          expect(sync_tgt).to have_attributes(last_synced_at: match_time(now))
+          expect(sync1_req).to have_been_made.times(2)
+        end
+
+        it "stops and reschedules itself if there is a sidekiq context" do
+          Thread.current[:sidekiq_context] = {}
+          sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+            to_return(status: 200, body: "", headers: {})
+          expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_async).with(sync_tgt.id)
+
+          sync_tgt.run_sync(now:)
+          # Last synced should be the row timestamp, not 'now', since we stopped early.
+          expect(sync_tgt).to have_attributes(last_synced_at: match_time(final_synced_row_ts))
+          expect(sync1_req).to have_been_made
+        ensure
+          Thread.current[:sidekiq_context] = nil
+        end
       end
     end
 
