@@ -133,4 +133,19 @@ module Webhookdb::Replicator::IntercomV1Mixin
     end
     return data, starting_after
   end
+
+  def _backfillers
+    return [Backfiller.new(self)]
+  end
+
+  class Backfiller < Webhookdb::Replicator::Base::ServiceBackfiller
+    include Webhookdb::Backfiller::Bulk
+
+    # Upsert for each API call
+    def upsert_page_size = Webhookdb::Intercom.page_size
+    def prepare_body(_body) = nil
+    def upserting_replicator = self.svc
+    # We don't want to override newer items from webhooks, so use conditional upsert.
+    def conditional_upsert? = true
+  end
 end
