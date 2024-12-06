@@ -482,51 +482,51 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
               "data": [],
               "url": "/contacts/64d14668156d93e1e18f6a14/notes",
               "total_count": 0,
-                  "has_more": false
-                },
-                "companies": {
-                  "type": "list",
-                  "data": [],
-                  "url": "/contacts/64d14668156d93e1e18f6a14/companies",
-                  "total_count": 0,
-                  "has_more": false
-                },
-                "opted_out_subscription_types": {
-                  "type": "list",
-                  "data": [],
-                  "url": "/contacts/64d14668156d93e1e18f6a14/subscriptions",
-                  "total_count": 0,
-                  "has_more": false
-                },
-                "opted_in_subscription_types": {
-                  "type": "list",
-                  "data": [],
-                  "url": "/contacts/64d14668156d93e1e18f6a14/subscriptions",
-                  "total_count": 0,
-                  "has_more": false
-                },
-                "utm_campaign": null,
-                "utm_content": null,
-                "utm_medium": null,
-                "utm_source": null,
-                "utm_term": null,
-                "referrer": null,
-                "sms_consent": false,
-                "unsubscribed_from_sms": false
-              }
-            ],
-            "total_count": 3,
-            "pages": {
-              "type": "pages",
-              "next": {
-                "page": 2,
-                "starting_after": "intercom_pagination_token"
-              },
-              "page": 1,
-              "per_page": 2,
-              "total_pages": 2
-            }
+              "has_more": false
+            },
+            "companies": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14668156d93e1e18f6a14/companies",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_out_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14668156d93e1e18f6a14/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "opted_in_subscription_types": {
+              "type": "list",
+              "data": [],
+              "url": "/contacts/64d14668156d93e1e18f6a14/subscriptions",
+              "total_count": 0,
+              "has_more": false
+            },
+            "utm_campaign": null,
+            "utm_content": null,
+            "utm_medium": null,
+            "utm_source": null,
+            "utm_term": null,
+            "referrer": null,
+            "sms_consent": false,
+            "unsubscribed_from_sms": false
           }
+        ],
+        "total_count": 3,
+        "pages": {
+          "type": "pages",
+          "next": {
+            "page": 2,
+            "starting_after": "intercom_pagination_token"
+          },
+          "page": 1,
+          "per_page": 2,
+          "total_pages": 2
+        }
+      }
     JSON
     let(:page2_response) { <<~JSON }
       {
@@ -685,6 +685,173 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
     def stub_service_request_error
       return stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
           to_return(status: 400, body: "uhh")
+    end
+  end
+
+  it_behaves_like "a replicator that can backfill incrementally" do
+    before(:each) { Webhookdb::Intercom.page_size = 2 }
+
+    let(:page1_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "contact",
+            "id": "64d14668156d93e1e18f6a13",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "aria@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": 1000000,
+            "updated_at": 1000009
+          },
+          {
+            "type": "contact",
+            "id": "64d14668156d93e1e18f6a14",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "damian@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": 1000000,
+            "updated_at": 1000008
+          }
+        ],
+        "total_count": 5,
+        "pages": {
+          "type": "pages",
+          "next": {
+            "page": 2,
+            "starting_after": "token1"
+          },
+          "page": 1,
+          "per_page": 2,
+          "total_pages": 3
+        }
+      }
+    JSON
+    let(:page2_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "contact",
+            "id": "64d14668156d93e1e18f6a13",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "aria@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": 1000000,
+            "updated_at": 1000007
+          },
+          {
+            "type": "contact",
+            "id": "64d14668156d93e1e18f6a14",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "damian@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "has_hard_bounced": false,
+            "marked_email_as_spam": false,
+            "unsubscribed_from_emails": false,
+            "created_at": 1000000,
+            "updated_at": 1000006
+          }
+        ],
+        "total_count": 5,
+        "pages": {
+          "type": "pages",
+          "next": {
+            "page": 3,
+            "starting_after": "token2"
+          },
+          "page": 2,
+          "per_page": 2,
+          "total_pages": 3
+        }
+      }
+    JSON
+    let(:page3_response) { <<~JSON }
+      {
+        "type": "list",
+        "data": [
+          {
+            "type": "contact",
+            "id": "64d14669156d93e1e18f6a17",
+            "workspace_id": "vne310wv",
+            "external_id": null,
+            "role": "user",
+            "email": "alivia@example.com",
+            "phone": null,
+            "name": null,
+            "avatar": null,
+            "owner_id": null,
+            "created_at": 1000000,
+            "updated_at": 1000002
+          }
+        ],
+        "total_count": 3,
+        "pages": {
+          "type": "pages",
+          "page": 3,
+          "per_page": 2,
+          "total_pages": 2
+        }
+      }
+    JSON
+
+    def insert_required_data_callback
+      return lambda do |auth_svc|
+        auth_svc.service_integration.update(backfill_key: "intercom_auth_token")
+      end
+    end
+
+    let(:expected_new_items_count) { 2 }
+    let(:expected_old_items_count) { 1 }
+    # Last item of page 2 is updated older than this
+    let(:last_backfilled) { Time.at(1_000_007) }
+
+    def stub_service_requests(partial:)
+      if partial
+        return [
+          stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
+              to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+          stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=token1").
+              to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+        ]
+      end
+      return [
+        stub_request(:get, "https://api.intercom.io/contacts?per_page=2").
+            to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
+        stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=token1").
+            to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
+        stub_request(:get, "https://api.intercom.io/contacts?per_page=2&starting_after=token2").
+            to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
+      ]
     end
   end
 

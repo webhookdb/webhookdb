@@ -74,7 +74,7 @@ module Webhookdb::Replicator::IntercomV1Mixin
 
   def _mixin_backfill_url = raise NotImplementedError
 
-  def _fetch_backfill_page(pagination_token, **_kwargs)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     unless self.auth_credentials?
       raise Webhookdb::Replicator::CredentialsMissing,
             "This integration requires that the Intercom Auth integration has a valid Auth Token"
@@ -125,6 +125,12 @@ module Webhookdb::Replicator::IntercomV1Mixin
     end
     data = response.parsed_response.fetch("data", [])
     starting_after = response.parsed_response.dig("pages", "next", "starting_after")
+    # Intercom pagination sorts by updated_at newest. So if we are doing an incremental sync (last_backfilled set),
+    # and we last backfilled after the latest updated_at, we can stop paginating.
+    if last_backfilled && data.last && data.last["updated_at"]
+      oldest_update = Time.at(data.last["updated_at"])
+      starting_after = nil if oldest_update < last_backfilled
+    end
     return data, starting_after
   end
 end
