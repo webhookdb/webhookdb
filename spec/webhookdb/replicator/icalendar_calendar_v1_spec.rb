@@ -691,6 +691,42 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made.times(3)
     end
 
+    it "does a best attempt if DTSTART is a time and DTEND is a date" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        DTEND;VALUE=DATE:20241102
+        DTSTAMP:20241101T233000Z
+        DTSTART;TZID=America/Los_Angeles:20241101T163000
+        STATUS:CONFIRMED
+        RRULE;TZID=UTC:FREQ=WEEKLY;UNTIL=20241115T075959Z
+        UID:81DAC1F1-E948-486C-B3BF-2904F591FBA3
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          data: hash_including(
+            "DTEND" => {"VALUE" => "DATE", "v" => "20241102"},
+            "DTSTART" => {"TZID" => "America/Los_Angeles", "v" => "20241101T163000"},
+          ),
+          start_at: match_time("2024-11-01T23:30:00Z"),
+          end_at: match_time("2024-11-01T23:30:00Z"),
+          end_date: Date.new(2024, 11, 2),
+          start_date: nil,
+        ),
+        include(
+          start_at: match_time("2024-11-09T00:30:00Z"),
+          end_at: match_time("2024-11-09T00:30:00Z"),
+          end_date: Date.new(2024, 11, 2),
+          start_date: nil,
+        ),
+      )
+    end
+
     describe "alerting", :no_transaction_check do
       it "raises on unexpected errors" do
         err = RuntimeError.new("hi")

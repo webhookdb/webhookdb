@@ -527,7 +527,14 @@ The secret to use for signing is:
           # The new UID has the sequence number.
           e["UID"] = {"v" => "#{uid}-#{idx}"}
           e["DTSTART"] = self._ical_entry_from_ruby(occ.start_time, start_entry, is_date)
-          e["DTEND"] = self._ical_entry_from_ruby(occ.end_time, end_entry, is_date) if has_end_time
+          if has_end_time
+            if !is_date && end_entry["VALUE"] == "DATE"
+              # It's possible that DTSTART is a time, but DTEND is a date. This makes no sense,
+              # so skip setting an end date. It will be in the :data column at least.
+            else
+              e["DTEND"] = self._ical_entry_from_ruby(occ.end_time, end_entry, is_date)
+            end
+          end
           yield e
           final_sequence = idx
           break if occ.start_time > dont_project_after
