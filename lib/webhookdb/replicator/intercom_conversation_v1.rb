@@ -40,6 +40,7 @@ class Webhookdb::Replicator::IntercomConversationV1 < Webhookdb::Replicator::Bas
   end
 
   def _mixin_backfill_url = "https://api.intercom.io/conversations"
+  def _mixin_backfill_hashkey = "conversations"
 
   def _resource_and_event(request)
     resource, event = super

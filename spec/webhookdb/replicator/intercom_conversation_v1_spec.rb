@@ -387,7 +387,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:page1_response) { <<~JSON }
       {
         "type": "list",
-        "data": [
+        "conversations": [
           {
             "type": "conversation",
             "id": "123",
@@ -665,7 +665,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:page2_response) { <<~JSON }
       {
         "type": "list",
-        "data": [
+        "conversations": [
           {
             "type": "conversation",
             "id": "789",
@@ -811,7 +811,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:empty_response) { <<~JSON }
       {
         "type": "list",
-        "data": [],
+        "conversations": [],
         "total_count": 0,
         "pages": {
           "type": "pages",
