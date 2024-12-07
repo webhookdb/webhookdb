@@ -73,8 +73,9 @@ module Webhookdb::Replicator::IntercomV1Mixin
   end
 
   def _mixin_backfill_url = raise NotImplementedError
+  def _mixin_backfill_hashkey = raise NotImplementedError
 
-  def _fetch_backfill_page(pagination_token, **_kwargs)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     unless self.auth_credentials?
       raise Webhookdb::Replicator::CredentialsMissing,
             "This integration requires that the Intercom Auth integration has a valid Auth Token"
@@ -123,8 +124,29 @@ module Webhookdb::Replicator::IntercomV1Mixin
       # a TypeError in the backfiller.
       return [], nil
     end
-    data = response.parsed_response.fetch("data", [])
+    data = response.parsed_response.fetch(self._mixin_backfill_hashkey)
     starting_after = response.parsed_response.dig("pages", "next", "starting_after")
+    # Intercom pagination sorts by updated_at newest. So if we are doing an incremental sync (last_backfilled set),
+    # and we last backfilled after the latest updated_at, we can stop paginating.
+    if last_backfilled && data.last && data.last["updated_at"]
+      oldest_update = Time.at(data.last["updated_at"])
+      starting_after = nil if oldest_update < last_backfilled
+    end
     return data, starting_after
+  end
+
+  def _backfillers
+    return [Backfiller.new(self)]
+  end
+
+  class Backfiller < Webhookdb::Replicator::Base::ServiceBackfiller
+    include Webhookdb::Backfiller::Bulk
+
+    # Upsert for each API call
+    def upsert_page_size = Webhookdb::Intercom.page_size
+    def prepare_body(_body) = nil
+    def upserting_replicator = self.svc
+    # We don't want to override newer items from webhooks, so use conditional upsert.
+    def conditional_upsert? = true
   end
 end

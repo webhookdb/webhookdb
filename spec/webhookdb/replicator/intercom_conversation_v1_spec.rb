@@ -387,7 +387,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:page1_response) { <<~JSON }
       {
         "type": "list",
-        "data": [
+        "conversations": [
           {
             "type": "conversation",
             "id": "123",
@@ -665,7 +665,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:page2_response) { <<~JSON }
       {
         "type": "list",
-        "data": [
+        "conversations": [
           {
             "type": "conversation",
             "id": "789",
@@ -811,7 +811,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
     let(:empty_response) { <<~JSON }
       {
         "type": "list",
-        "data": [],
+        "conversations": [],
         "total_count": 0,
         "pages": {
           "type": "pages",
@@ -1105,7 +1105,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
       stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20").
         to_return(status: 403, body: error_body, headers: {"Content-Type" => "application/json"})
 
-      page, pagination_token = svc._fetch_backfill_page(nil)
+      page, pagination_token = svc._fetch_backfill_page(nil, last_backfilled: nil)
       expect(page).to eq([])
       expect(pagination_token).to be_nil
       expect(stub_error_request).to have_been_made
@@ -1121,7 +1121,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
         to_return(status: 401, body: error_body, headers: {"Content-Type" => "application/json"})
 
       expect do
-        page, pagination_token = svc._fetch_backfill_page(nil)
+        page, pagination_token = svc._fetch_backfill_page(nil, last_backfilled: nil)
         expect(page).to eq([])
         expect(pagination_token).to be_nil
         expect(stub_error_request).to have_been_made
@@ -1146,7 +1146,9 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
       stub_error_request = stub_request(:get, "https://api.intercom.io/conversations?per_page=20").
         to_return(status: [401, 404].sample, body: error_body, headers: {"Content-Type" => "application/json"})
 
-      expect { svc._fetch_backfill_page(nil) }.to raise_error(Webhookdb::Http::Error, /"request_id":"abc123"/)
+      expect do
+        svc._fetch_backfill_page(nil, last_backfilled: nil)
+      end.to raise_error(Webhookdb::Http::Error, /"request_id":"abc123"/)
       expect(stub_error_request).to have_been_made
     end
   end

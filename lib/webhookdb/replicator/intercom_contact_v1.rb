@@ -43,6 +43,7 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
   end
 
   def _mixin_backfill_url = "https://api.intercom.io/contacts"
+  def _mixin_backfill_hashkey = "data"
 
   def _resource_and_event(request)
     resource, event = super

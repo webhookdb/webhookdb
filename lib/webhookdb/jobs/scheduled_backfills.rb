@@ -51,9 +51,9 @@ module Webhookdb::Jobs
         Webhookdb::Github.activity_cron_expression, 30.seconds, false,
       ),
       Spec.new(
-        # I think we can get rid of this once we're more confident webhooks are working reliably.
+        # This incremental sync is a backstop for any missed webhooks.
         "IntercomScheduledBackfill", "intercom_marketplace_root_v1",
-        "46 4 * * *", 0, false, true,
+        "46 4 * * *", 0, true, true,
       ),
       Spec.new(
         "AtomSingleFeedPoller", "atom_single_feed_v1",
