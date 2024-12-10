@@ -46,7 +46,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         body: "I'll get back to you as soon as possible.",
         direction: "outbound",
         external_conversation_id: "+19998887777",
-        external_id: "msg_1ab23cd4_autoreply",
+        external_id: "msg_1ab23cd4_autoreply-+19998887777",
         front_message_id: "msg_1ab23cd4_autoreply",
       )
     end
@@ -189,7 +189,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       svc.upsert_webhook_body({type: "message", payload:}.as_json)
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(
-          external_id: "msg_55c8c149",
+          external_id: "msg_55c8c149-+19998887777",
           signalwire_sid: nil,
           front_message_id: "msg_55c8c149",
           external_conversation_id: "+19998887777",
@@ -230,7 +230,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       svc.upsert_webhook_body({type: "message_autoreply", payload:}.as_json)
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(
-          external_id: "msg_1ab23cd4_autoreply",
+          external_id: "msg_1ab23cd4_autoreply-+19998887777",
           signalwire_sid: nil,
           front_message_id: "msg_1ab23cd4_autoreply",
           external_conversation_id: "+19998887777",
@@ -244,7 +244,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
   end
 
   describe "synchronous_processing_response_body" do
-    def doit(body, upserted={})
+    def doit(body, upserted=[])
       return svc.synchronous_processing_response_body(
         upserted:,
         request: Webhookdb::Replicator::WebhookRequest.new(body: body.as_json),
@@ -278,8 +278,19 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     end
 
     it "returns the external and convo ids for message and autoreply types" do
-      got = doit({type: "message"}, {external_id: "eid", external_conversation_id: "convoid"})
+      got = doit({type: "message"}, [{external_id: "eid", external_conversation_id: "convoid"}])
       expect(got).to eq('{"type":"success","external_id":"eid","external_conversation_id":"convoid"}')
+    end
+
+    it "handles multiple upserted convos" do
+      got = doit(
+        {type: "message"},
+        [
+          {external_id: "e1", external_conversation_id: "ec1"},
+          {external_id: "e2", external_conversation_id: "ec2"},
+        ],
+      )
+      expect(got).to eq('{"type":"success","external_id":"e1,e2","external_conversation_id":"ec1,ec2"}')
     end
   end
 

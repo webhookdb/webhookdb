@@ -154,8 +154,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       when "message", "message_autoreply"
         return {
           type: "success",
-          external_id: upserted.fetch(:external_id),
-          external_conversation_id: upserted.fetch(:external_conversation_id),
+          external_id: upserted.map { |r| r.fetch(:external_id) }.join(","),
+          external_conversation_id: upserted.map { |r| r.fetch(:external_conversation_id) }.join(","),
         }.to_json
       else
         return "{}"
@@ -191,21 +191,27 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         "#{replied_to_id}_autoreply"
     end
     resource["front_message_id"] = mid
-    # Use the Front ID to identify this outbound message.
-    resource["external_id"] = mid
     resource["direction"] = "outbound"
     resource["body"] = payload.fetch("text")
     resource["sender"] = self.support_phone
-    resource["recipient"] = self._front_recipient_phone(payload)
-    # All messages get the same conversation with SMS/chat, unlike email.
-    resource["external_conversation_id"] = resource["recipient"]
-    return resource, nil
+    resources = self._front_recipient_phones(payload).map do |recipient|
+      r = resource.dup
+      r["recipient"] = recipient
+      # The same message can go to multiple recipients, but we want to treat them as separate conversations.
+      # That is, we CANNOT use signalwire/front to do 'group chats' since we don't want to
+      # allow one user to send a message that is sent to other users (would be a spam vector).
+      r["external_id"] = "#{mid}-#{recipient}"
+      # Thread this message into the recipient's specific conversation, unlike email.
+      r["external_conversation_id"] = recipient
+      r
+    end
+    return resources, nil
   end
 
-  def _front_recipient_phone(payload)
-    recipient = payload["recipients"].find { |r| r.fetch("role") == "to" }
-    raise Webhookdb::InvariantViolation, "no recipient found in #{payload}" if recipient.nil?
-    return self.format_phone(recipient.fetch("handle"))
+  def _front_recipient_phones(payload)
+    recipients = payload["recipients"].select { |r| r.fetch("role") == "to" }
+    raise Webhookdb::InvariantViolation, "no recipient found in #{payload}" if recipients.empty?
+    return recipients.map { |r| self.format_phone(r.fetch("handle")) }
   end
 
   def on_dependency_webhook_upsert(_replicator, payload, changed:)

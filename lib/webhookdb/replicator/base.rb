@@ -62,7 +62,7 @@ class Webhookdb::Replicator::Base
   # and the arguments used to upsert it (arguments to upsert_webhook),
   # and should return the body string to respond back with.
   #
-  # @param [Hash] upserted
+  # @param [Hash,Array] upserted
   # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [String]
   def synchronous_processing_response_body(upserted:, request:)
