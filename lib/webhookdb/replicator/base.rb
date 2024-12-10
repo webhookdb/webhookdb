@@ -673,8 +673,30 @@ for information on how to refresh data.)
   # @param request [Webhookdb::Replicator::WebhookRequest]
   # @param upsert [Boolean] If false, just return what would be upserted.
   def _upsert_webhook(request, upsert: true)
-    resource, event = self._resource_and_event(request)
-    return nil if resource.nil?
+    resource_or_list, event = self._resource_and_event(request)
+    return nil if resource_or_list.nil?
+    if resource_or_list.is_a?(Array)
+      unless upsert
+        # In the future, we could make it possible to support
+        # multiple rows with upsert:false, but since upsert:false
+        # assumes we use the returned value, and an array of resources
+        # changes the return type from a hash to an array,
+        # this seems risky and hard to program against.
+        msg = "resource_and_event cannot return multiple events if upsert is false"
+        raise Webhookdb::InvalidPostcondition, msg
+      end
+      unless event.nil?
+        msg = "resource_and_event cannot return an array of resources with a non-nil event"
+        raise Webhookdb::InvalidPostcondition, msg
+      end
+      return resource_or_list.map do |resource|
+        self._upsert_webhook_single_resource(request, resource:, event:, upsert:)
+      end
+    end
+    return self._upsert_webhook_single_resource(request, resource: resource_or_list, event:, upsert:)
+  end
+
+  def _upsert_webhook_single_resource(request, resource:, event:, upsert:)
     enrichment = self._fetch_enrichment(resource, event, request)
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
@@ -804,7 +826,7 @@ for information on how to refresh data.)
   #
   # @abstract
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  # @return [Array<Hash>,nil]
+  # @return [Array<Hash,Array>,nil]
   def _resource_and_event(request)
     raise NotImplementedError
   end
