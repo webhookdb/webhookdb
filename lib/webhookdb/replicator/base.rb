@@ -649,6 +649,7 @@ for information on how to refresh data.)
   # like when we have to take different action based on a request method.
   #
   # @param body [Hash]
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook_body(body, **kw)
     return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:), **kw)
   end
@@ -657,6 +658,7 @@ for information on how to refresh data.)
   # NOT a Rack::Request.
   #
   # @param [Webhookdb::Replicator::WebhookRequest] request
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook(request, **kw)
     return self._upsert_webhook(request, **kw)
   rescue Amigo::Retry::Error
@@ -672,19 +674,11 @@ for information on how to refresh data.)
   #
   # @param request [Webhookdb::Replicator::WebhookRequest]
   # @param upsert [Boolean] If false, just return what would be upserted.
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def _upsert_webhook(request, upsert: true)
     resource_or_list, event = self._resource_and_event(request)
     return nil if resource_or_list.nil?
     if resource_or_list.is_a?(Array)
-      unless upsert
-        # In the future, we could make it possible to support
-        # multiple rows with upsert:false, but since upsert:false
-        # assumes we use the returned value, and an array of resources
-        # changes the return type from a hash to an array,
-        # this seems risky and hard to program against.
-        msg = "resource_and_event cannot return multiple events if upsert is false"
-        raise Webhookdb::InvalidPostcondition, msg
-      end
       unless event.nil?
         msg = "resource_and_event cannot return an array of resources with a non-nil event"
         raise Webhookdb::InvalidPostcondition, msg

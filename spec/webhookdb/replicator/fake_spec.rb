@@ -712,7 +712,7 @@ or leave blank to choose the first option.
 
       it "noops if resource_and_event returns nil" do
         Webhookdb::Replicator::Fake.resource_and_event_hook = ->(_) { [nil, nil] }
-        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"}, upsert: false)
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"})
         expect(got).to be_nil
         expect(fake.readonly_dataset(&:all)).to be_empty
       end
@@ -767,15 +767,6 @@ or leave blank to choose the first option.
             include(my_id: "def"),
             include(my_id: "xyz"),
           )
-        end
-
-        it "errors if upsert is false" do
-          Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |_|
-            [[], nil]
-          }
-          expect do
-            fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s}, upsert: false)
-          end.to raise_error(Webhookdb::InvalidPostcondition, /multiple events if upsert is false/)
         end
 
         it "errors if the returned event is not nil" do
