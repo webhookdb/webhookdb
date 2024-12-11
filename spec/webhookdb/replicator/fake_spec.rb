@@ -686,14 +686,43 @@ or leave blank to choose the first option.
     end
 
     describe "upsert_webhook" do
+      Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+      before(:each) do
+        sint.organization.prepare_database_connections
+        fake.create_table
+        Webhookdb::Replicator::Fake.reset
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      it "returns the upserted value" do
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"})
+        expect(got).to include(my_id: "abc", at: match_time("2024-01-15T12:00:00Z"))
+        expect(fake.readonly_dataset(&:all)).to contain_exactly(include(my_id: "abc"))
+      end
+
+      it "returns nil and does no insert if upsert is false" do
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"}, upsert: false)
+        expect(got).to include(my_id: "abc", at: match_time("2024-01-15T12:00:00Z"))
+        expect(fake.readonly_dataset(&:all)).to be_empty
+      end
+
+      it "noops if resource_and_event returns nil" do
+        Webhookdb::Replicator::Fake.resource_and_event_hook = ->(_) { [nil, nil] }
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"})
+        expect(got).to be_nil
+        expect(fake.readonly_dataset(&:all)).to be_empty
+      end
+
       it "logs errors" do
         err = RuntimeError.new("hi")
         expect(fake).to receive(:_upsert_webhook).and_raise(err)
         logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
           expect do
-            fake.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(
-                                  body: {"a" => 1}, headers: {"X" => "1"}, path: "/hi", method: "POST",
-                                ))
+            upsert_webhook(fake, body: {"a" => 1}, headers: {"X" => "1"}, path: "/hi", method: "POST")
           end.to raise_error(err)
         end
         expect(logs).to contain_exactly(
@@ -713,28 +742,40 @@ or leave blank to choose the first option.
         expect(fake).to receive(:_upsert_webhook).and_raise(err)
         logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
           expect do
-            fake.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body: {"a" => 1}))
+            upsert_webhook(fake, body: {"a" => 1})
           end.to raise_error(err)
         end
         expect(logs).to be_empty
       end
 
-      describe "" do
-        before(:each) do
-          sint.organization.prepare_database_connections
+      it "strips null unicode codepoints from JSON" do
+        # See \u0000 in base.rb for more info
+        fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u0000\u00004\u0000\\u0000 u"})
+        expect(fake.readonly_dataset(&:all)).to contain_exactly(
+          include(data: hash_including("has_u0" => "b4\\u0000 u")),
+        )
+      end
+
+      describe "when the _resource_and_event returns an array" do
+        it "upserts multiple rows" do
+          Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |r|
+            [[r.body.merge("my_id" => "def"), r.body.merge("my_id" => "xyz")], nil]
+          }
+          got = fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s})
+          expect(got).to be_an(Array).and(have_length(2))
+          expect(fake.readonly_dataset(&:all)).to contain_exactly(
+            include(my_id: "def"),
+            include(my_id: "xyz"),
+          )
         end
 
-        after(:each) do
-          sint.organization.remove_related_database
-        end
-
-        it "strips null unicode codepoints from JSON" do
-          fake.create_table
-          # See \u0000 in base.rb for more info
-          fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u0000\u00004\u0000\\u0000 u"})
-          fake.readonly_dataset do |ds|
-            expect(ds.first).to include(data: hash_including("has_u0" => "b4\\u0000 u"))
-          end
+        it "errors if the returned event is not nil" do
+          Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |_|
+            [[], {}]
+          }
+          expect do
+            fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s})
+          end.to raise_error(Webhookdb::InvalidPostcondition, /array of resources with a non-nil event/)
         end
       end
     end

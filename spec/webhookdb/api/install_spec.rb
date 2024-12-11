@@ -594,7 +594,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
           expect(last_response).to have_status(200)
           expect(last_response).to have_json_body.that_includes(
             type: "success",
-            external_id: "msg_55c8c149",
+            external_id: "msg_55c8c149-+13334445555",
             external_conversation_id: "+13334445555",
           )
         end

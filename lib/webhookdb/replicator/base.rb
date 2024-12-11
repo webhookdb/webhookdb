@@ -62,7 +62,7 @@ class Webhookdb::Replicator::Base
   # and the arguments used to upsert it (arguments to upsert_webhook),
   # and should return the body string to respond back with.
   #
-  # @param [Hash] upserted
+  # @param [Hash,Array] upserted
   # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [String]
   def synchronous_processing_response_body(upserted:, request:)
@@ -649,6 +649,7 @@ for information on how to refresh data.)
   # like when we have to take different action based on a request method.
   #
   # @param body [Hash]
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook_body(body, **kw)
     return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:), **kw)
   end
@@ -657,6 +658,7 @@ for information on how to refresh data.)
   # NOT a Rack::Request.
   #
   # @param [Webhookdb::Replicator::WebhookRequest] request
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook(request, **kw)
     return self._upsert_webhook(request, **kw)
   rescue Amigo::Retry::Error
@@ -672,9 +674,23 @@ for information on how to refresh data.)
   #
   # @param request [Webhookdb::Replicator::WebhookRequest]
   # @param upsert [Boolean] If false, just return what would be upserted.
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def _upsert_webhook(request, upsert: true)
-    resource, event = self._resource_and_event(request)
-    return nil if resource.nil?
+    resource_or_list, event = self._resource_and_event(request)
+    return nil if resource_or_list.nil?
+    if resource_or_list.is_a?(Array)
+      unless event.nil?
+        msg = "resource_and_event cannot return an array of resources with a non-nil event"
+        raise Webhookdb::InvalidPostcondition, msg
+      end
+      return resource_or_list.map do |resource|
+        self._upsert_webhook_single_resource(request, resource:, event:, upsert:)
+      end
+    end
+    return self._upsert_webhook_single_resource(request, resource: resource_or_list, event:, upsert:)
+  end
+
+  def _upsert_webhook_single_resource(request, resource:, event:, upsert:)
     enrichment = self._fetch_enrichment(resource, event, request)
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
@@ -804,7 +820,7 @@ for information on how to refresh data.)
   #
   # @abstract
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  # @return [Array<Hash>,nil]
+  # @return [Array<Hash,Array>,nil]
   def _resource_and_event(request)
     raise NotImplementedError
   end
