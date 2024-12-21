@@ -10,6 +10,8 @@ require "webhookdb/messages/error_icalendar_fetch"
 class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
+  class FeedUnchanged < StandardError; end
+
   RECURRENCE_PROJECTION = 5.years
 
   def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
@@ -77,6 +79,7 @@ The secret to use for signing is:
       col.new(:event_count, INTEGER, optional: true),
       col.new(:feed_bytes, INTEGER, optional: true),
       col.new(:last_sync_duration_ms, INTEGER, optional: true),
+      col.new(:last_fetch_context, OBJECT, optional: true),
     ]
   end
 
@@ -178,17 +181,28 @@ The secret to use for signing is:
       end
       self.with_advisory_lock(row.fetch(:pk)) do
         start = Time.now
-        if (dep = self.find_dependent("icalendar_event_v1"))
-          if dep.replicator.avoid_writes?
-            # Check if this table is being vacuumed/etc. We use this instead of a semaphore job,
-            # since it's a better fit for icalendar, which is pre-scheduled, rather than reactive.
-            # That is, when we receive webhooks, a semaphore job gives us a more predictable rate;
-            # but icalendar rate is negotiated in advance (when enqueing jobs),
-            # and we can be more 'helpful' to something like a vacuum by not running any jobs at all.
-            self.logger.info("skip_sync_table_locked")
-            raise Amigo::Retry::Retry, 60.seconds + (rand * 10.seconds)
+        begin
+          if (dep = self.find_dependent("icalendar_event_v1"))
+            if dep.replicator.avoid_writes?
+              # Check if this table is being vacuumed/etc. We use this instead of a semaphore job,
+              # since it's a better fit for icalendar, which is pre-scheduled, rather than reactive.
+              # That is, when we receive webhooks, a semaphore job gives us a more predictable rate;
+              # but icalendar rate is negotiated in advance (when enqueing jobs),
+              # and we can be more 'helpful' to something like a vacuum by not running any jobs at all.
+              self.logger.info("skip_sync_table_locked")
+              raise Amigo::Retry::Retry, 60.seconds + (rand * 10.seconds)
+            end
+            processor = self._sync_row(row, dep, now:)
           end
-          processor = self._sync_row(row, dep, now:)
+        rescue FeedUnchanged
+          self.admin_dataset do |ds|
+            ds.where(pk: row.fetch(:pk)).
+              update(
+                last_synced_at: now,
+                last_fetch_context: Sequel.lit('last_fetch_context || \'{"was_cached":true}\'::jsonb'),
+              )
+          end
+          return
         end
         self.admin_dataset do |ds|
           ds.where(pk: row.fetch(:pk)).
@@ -197,6 +211,11 @@ The secret to use for signing is:
               event_count: processor&.upserted_identities&.count,
               feed_bytes: processor&.read_bytes,
               last_sync_duration_ms: (Time.now - start).in_milliseconds,
+              last_fetch_context: {
+                "hash" => processor&.feed_hash,
+                "content_type" => processor&.headers&.fetch("Content-Type", nil),
+                "content_length" => processor&.headers&.fetch("Content-Length", nil),
+              }.to_json,
             )
         end
       end
@@ -213,8 +232,9 @@ The secret to use for signing is:
       "Accept" => "text/calendar,*/*",
     }
     begin
+      request_url = "https://calendar.google.com/calendar/ical/natalie.madaj%40warnerchappell.com/private-b66563094cebc03e4fa8b604a827b430/basic.ics"
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
+      dl_resp = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
     rescue Down::Error,
            URI::InvalidURIError,
            HTTPX::NativeResolveError,
@@ -225,8 +245,12 @@ The secret to use for signing is:
       return
     end
 
+    if (io, can_skip = self.skip_sync?(row, dl_resp)) && can_skip
+      raise FeedUnchanged
+    end
+
     upserter = Upserter.new(dep.replicator, calendar_external_id, now:)
-    processor = EventProcessor.new(io, upserter)
+    processor = EventProcessor.new(io:, upserter:, headers: dl_resp.data[:headers])
     processor.process
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
     dep.replicator.admin_dataset do |ds|
@@ -332,6 +356,36 @@ The secret to use for signing is:
     self.service_integration.organization.alerting.dispatch_alert(message, separate_connection: false)
   end
 
+  # Return a tuple of <StringIO, false> if the feed must be synced,
+  # or <nil, true> if the sync can be skipped.
+  # We try to avoid syncing whenever we know the feed hasn't changed.
+  # But we're also careful to avoid additional work or member where possible.
+  # So we do the following:
+  # - If we have no previous fetch context, we sync.
+  # - If the last fetch's content type and length is different from the current, we sync.
+  # - Download the bytes. If the hash of the bytes is different from what was last processed,
+  #   sync. Since this involves reading the streaming body, we must return a copy of the body (a StringIO).
+  def skip_sync?(row, dl_resp)
+    last_fetch = row[:last_fetch_context]
+    return dl_resp, false if last_fetch.nil?
+    headers = dl_resp.data[:headers] || {}
+    content_type_match = headers["Content-Type"] == last_fetch["content_type"] &&
+      headers["Content-Length"] == last_fetch["content_length"]
+    return dl_resp, false unless content_type_match
+    last_hash = last_fetch["hash"]
+    return dl_resp, false if last_hash.nil?
+
+    hash = Digest::MD5.new
+    io = StringIO.new
+    while (line = dl_resp.gets)
+      io << line
+      hash.update(line)
+    end
+    return nil, true if hash.hexdigest == last_hash
+    io.seek(0)
+    return io, false
+  end
+
   # We can hit an error while reading the error body, since it was opened as a stream.
   # Ignore those errors.
   def _safe_read_body(e)
@@ -367,11 +421,12 @@ The secret to use for signing is:
   end
 
   class EventProcessor
-    attr_reader :upserted_identities, :read_bytes
+    attr_reader :upserted_identities, :read_bytes, :headers
 
-    def initialize(io, upserter)
+    def initialize(io:, upserter:, headers:)
       @io = io
       @upserter = upserter
+      @headers = headers
       # Keep track of everything we upsert. For any rows we aren't upserting,
       # delete them if they're recurring, or cancel them if they're not recurring.
       # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
@@ -387,7 +442,10 @@ The secret to use for signing is:
       # Keep track of the bytes we've read from the file.
       # Never trust Content-Length headers for ical feeds.
       @read_bytes = 0
+      @feed_md5 = Digest::MD5.new
     end
+
+    def feed_hash = @feed_md5.hexdigest
 
     def delete_condition
       return nil if @max_sequence_num_by_uid.empty?
@@ -603,6 +661,7 @@ The secret to use for signing is:
       in_vevent = false
       while (line = @io.gets)
         @read_bytes += line.size
+        @feed_md5.update(line)
         begin
           line.rstrip!
         rescue Encoding::CompatibilityError

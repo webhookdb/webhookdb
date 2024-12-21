@@ -71,6 +71,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_count: nil,
         feed_bytes: nil,
         last_sync_duration_ms: nil,
+        last_fetch_context: nil,
       }
     end
   end
@@ -1630,6 +1631,159 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made
       expect(event_svc.admin_dataset(&:all)).to have_length(1)
     end
+
+    describe "caching", reset_configuration: Webhookdb::Icalendar do
+      before(:each) do
+        Webhookdb::Icalendar.sync_period_hours = 0
+      end
+
+      def run_between_syncs(row)
+        svc.admin_dataset do |ds|
+          ds.where(pk: row[:pk]).update(event_count: 100)
+        end
+      end
+
+      def assert_resynced(row)
+        r = refetch_row(row)
+        expect(r).to include(event_count: 1)
+        expect(r[:last_fetch_context]).to_not include("was_cached")
+      end
+
+      def assert_not_resynced(row)
+        r = refetch_row(row)
+        expect(r).to include(event_count: 100, last_fetch_context: hash_including("was_cached" => true))
+      end
+
+      def refetch_row(row)
+        return svc.admin_dataset { |ds| ds[pk: row.fetch(:pk)] }
+      end
+
+      it "does not sync if the content headers, and feed hash, match the previous sync" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          BEGIN:VEVENT
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          STATUS:CONFIRMED
+          DTSTART:20080212
+          DTEND:20080213
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            status: 200,
+            headers: {"Content-Type" => "text/calendar", "Content-Length" => body.size.to_s},
+            body:,
+          )
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        run_between_syncs(row)
+        svc.sync_row(refetch_row(row))
+        expect(req).to have_been_made.times(2)
+        assert_not_resynced(row)
+      end
+
+      it "syncs if the body is different" do
+        body1 = <<~ICAL
+          BEGIN:VCALENDAR
+          BEGIN:VEVENT
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          STATUS:CONFIRMED
+          DTSTART:20080212
+          DTEND:20080213
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        body2 = body1.gsub("c76", "ddd")
+        expect(body1.size).to eq(body2.size)
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar", "Content-Length" => body1.size.to_s},
+              body: body1,
+            },
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar", "Content-Length" => body2.size.to_s},
+              body: body2,
+            },
+          )
+
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        run_between_syncs(row)
+        svc.sync_row(refetch_row(row))
+        expect(req).to have_been_made.times(2)
+        assert_resynced(row)
+      end
+
+      it "syncs if the content type is different" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          BEGIN:VEVENT
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          STATUS:CONFIRMED
+          DTSTART:20080212
+          DTEND:20080213
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar", "Content-Length" => body.size.to_s},
+              body:,
+            },
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar; charset=utf-8", "Content-Length" => body.size.to_s},
+              body:,
+            },
+          )
+
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        run_between_syncs(row)
+        svc.sync_row(refetch_row(row))
+        expect(req).to have_been_made.times(2)
+        assert_resynced(row)
+      end
+
+      it "syncs if the content length is different" do
+        body = <<~ICAL
+          BEGIN:VCALENDAR
+          BEGIN:VEVENT
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          STATUS:CONFIRMED
+          DTSTART:20080212
+          DTEND:20080213
+          END:VEVENT
+          END:VCALENDAR
+        ICAL
+        req = stub_request(:get, "https://feed.me").
+          and_return(
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar", "Content-Length" => body.size.to_s},
+              body:,
+            },
+            {
+              status: 200,
+              headers: {"Content-Type" => "text/calendar", "Content-Length" => (body.size + 1).to_s},
+              body:,
+            },
+          )
+
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        run_between_syncs(row)
+        svc.sync_row(refetch_row(row))
+        expect(req).to have_been_made.times(2)
+        assert_resynced(row)
+      end
+    end
   end
 
   # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
@@ -1637,16 +1791,17 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
     let(:replicator) { described_class.new(nil) }
     let(:upserter) { described_class::Upserter.new(replicator, "1", now: Time.now) }
+    let(:headers) { {} }
 
     def feed_events
       arr = []
-      described_class::EventProcessor.new(source, upserter).each_feed_event { |a| arr << a }
+      described_class::EventProcessor.new(io: source, upserter:, headers:).each_feed_event { |a| arr << a }
       arr
     end
 
     def all_events
       arr = []
-      pr = described_class::EventProcessor.new(source, upserter)
+      pr = described_class::EventProcessor.new(io: source, upserter:, headers:)
       pr.each_feed_event do |a|
         pr.each_projected_event(a) do |b|
           arr << b
