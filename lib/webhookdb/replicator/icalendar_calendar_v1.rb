@@ -158,7 +158,7 @@ The secret to use for signing is:
       @now = now
     end
 
-    def upsert_page_size = 500
+    def upsert_page_size = 2000
     def conditional_upsert? = true
 
     def prepare_body(body)
