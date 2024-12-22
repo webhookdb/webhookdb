@@ -19,11 +19,6 @@ class Webhookdb::Jobs::IcalendarSync
       self.set_job_tags(result: "icalendar_sync_row_miss")
       return
     end
-    cutoff = Time.now - Webhookdb::Icalendar.sync_period_hours.hours
-    if (last_synced = row.fetch(:last_synced_at)) && last_synced > cutoff
-      self.set_job_tags(result: "icalendar_sync_already_synced")
-      return
-    end
     self.logger.debug("icalendar_sync_start")
     sint.replicator.sync_row(row)
     self.set_job_tags(result: "icalendar_synced")
