@@ -71,6 +71,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_count: nil,
         feed_bytes: nil,
         last_sync_duration_ms: nil,
+        last_fetch_context: nil,
       }
     end
   end
@@ -1637,16 +1638,17 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
     let(:replicator) { described_class.new(nil) }
     let(:upserter) { described_class::Upserter.new(replicator, "1", now: Time.now) }
+    let(:headers) { {} }
 
     def feed_events
       arr = []
-      described_class::EventProcessor.new(source, upserter).each_feed_event { |a| arr << a }
+      described_class::EventProcessor.new(io: source, upserter:, headers:).each_feed_event { |a| arr << a }
       arr
     end
 
     def all_events
       arr = []
-      pr = described_class::EventProcessor.new(source, upserter)
+      pr = described_class::EventProcessor.new(io: source, upserter:, headers:)
       pr.each_feed_event do |a|
         pr.each_projected_event(a) do |b|
           arr << b
@@ -1655,7 +1657,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       arr
     end
 
-    context "single_event.ics" do
+    describe "single_event.ics" do
       let(:fn) { "single_event.ics" }
 
       it "returns an array of calendars" do
@@ -1679,7 +1681,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "with busted, incorrect encoding" do
+    describe "with busted, incorrect encoding" do
       # This was generated with the following:
       # iconv -f utf-8 -t iso-8859-1 < spec/data/icalendar/single_event.ics > spec/data/icalendar/single_event_wrong_encoding.ics
       # See code for explanation.
@@ -1693,7 +1695,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "event.ics" do
+    describe "event.ics" do
       let(:fn) { "event.ics" }
 
       it "returns an array of events" do
@@ -1717,7 +1719,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "events.ics" do
+    describe "events.ics" do
       let(:fn) { "two_events.ics" }
 
       it "returns an array of events" do
@@ -1740,7 +1742,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "tzid_search.ics" do
+    describe "tzid_search.ics" do
       let(:fn) { "tzid_search.ics" }
 
       it "correctly sets the weird tzid" do
@@ -1757,7 +1759,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "missing_required.ics" do
+    describe "missing_required.ics" do
       let(:fn) { "missing_required.ics" }
 
       it "skips and warns about invalid items" do
@@ -1804,7 +1806,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "with an invalid bymonthyear/day/frequency combination" do
+    describe "with an invalid bymonthyear/day/frequency combination" do
       let(:fn) { "invalid_bymonthyearday.ics" }
 
       it "returns an array of calendars" do
@@ -1824,6 +1826,137 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           hash_including("DTSTART" => {"v" => "20220214"}),
         )
       end
+    end
+  end
+
+  describe "feed_changed?" do
+    before(:each) do
+      org.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    let(:body) { <<~ICAL }
+      BEGIN:VCALENDAR
+      END:VCALENDAR
+    ICAL
+    let(:content_length) { body.size.to_s }
+    let(:content_type) { "text/calendar" }
+
+    it "is false if the content headers and feed hash match the previous sync" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: Digest::MD5.hexdigest(body),
+          content_type:,
+          content_length:,
+        }.to_json,
+      )
+      expect(svc).to_not be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the body has a different hash" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: "abc",
+          content_type:,
+          content_length:,
+        }.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content type is different" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: Digest::MD5.hexdigest(body),
+          content_type: "text/calendar; charset=utf-8",
+          content_length:,
+        }.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content length is different" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: "abc",
+          content_type:,
+          content_length: "10",
+        }.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true (and does not fetch) with a nil fetch context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
+    it "is true (and does not fetch) with an empty fetch context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {}.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
+    it "is true if the fetch errors" do
+      req = stub_request(:get, "https://feed.me").
+        and_raise(RuntimeError)
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: "abc",
+          content_type:,
+          content_length:,
+        }.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
     end
   end
 end

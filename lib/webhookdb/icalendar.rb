@@ -19,6 +19,10 @@ module Webhookdb::Icalendar
     # or two threads for 7 hours. The resyncs are spread out across the sync period
     # (ie, no thundering herd every 8 hours), but it is still a good idea to sync as infrequently as possible.
     setting :sync_period_hours, 10
+    # Number of threads for the 'precheck' threadpool, used when enqueing icalendar sync jobs.
+    # Since the precheck process uses many threads, but each check is resource-light and not latency-sensitive,
+    # we use a shared threadpool for it.
+    setting :precheck_feed_change_pool_size, 100
 
     # Cancelled events that were last updated this long ago are deleted from the database.
     setting :stale_cancelled_event_threshold_days, 20

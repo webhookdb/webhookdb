@@ -262,6 +262,27 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "xyz"], at: be > Time.now.to_f),
       )
     end
+
+    it "skips unchanged feeds", sidekiq: :fake do
+      req = stub_request(:get, "https://feed.me/").
+        to_return(status: 200, body: "", headers: {})
+
+      sint.replicator.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          external_id: "abc",
+          ics_url: "https://feed.me",
+          last_fetch_context: {
+            content_type: nil,
+            content_length: nil,
+            hash: "d41d8cd98f00b204e9800998ecf8427e",
+          }.to_json,
+        )
+      end
+      Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
+      expect(Sidekiq::Queues["netout"]).to have_attributes(size: 0)
+      expect(req).to have_been_made
+    end
   end
 
   describe "IcalendarSync" do

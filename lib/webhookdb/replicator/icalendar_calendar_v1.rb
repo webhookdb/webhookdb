@@ -77,6 +77,7 @@ The secret to use for signing is:
       col.new(:event_count, INTEGER, optional: true),
       col.new(:feed_bytes, INTEGER, optional: true),
       col.new(:last_sync_duration_ms, INTEGER, optional: true),
+      col.new(:last_fetch_context, OBJECT, optional: true),
     ]
   end
 
@@ -197,6 +198,11 @@ The secret to use for signing is:
               event_count: processor&.upserted_identities&.count,
               feed_bytes: processor&.read_bytes,
               last_sync_duration_ms: (Time.now - start).in_milliseconds,
+              last_fetch_context: {
+                "hash" => processor&.feed_hash,
+                "content_type" => processor&.headers&.fetch("Content-Type", nil),
+                "content_length" => processor&.headers&.fetch("Content-Length", nil),
+              }.to_json,
             )
         end
       end
@@ -205,16 +211,9 @@ The secret to use for signing is:
 
   def _sync_row(row, dep, now:)
     calendar_external_id = row.fetch(:external_id)
-    # Some servers require a VERY explicit accept header,
-    # so tell them we prefer icalendar here.
-    # Using Httpx, Accept-Encoding is gzip,deflate
-    # which seems fine (server should use identity as worst case).
-    headers = {
-      "Accept" => "text/calendar,*/*",
-    }
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
+      io = self._make_ics_request(request_url)
     rescue Down::Error,
            URI::InvalidURIError,
            HTTPX::NativeResolveError,
@@ -226,7 +225,7 @@ The secret to use for signing is:
     end
 
     upserter = Upserter.new(dep.replicator, calendar_external_id, now:)
-    processor = EventProcessor.new(io, upserter)
+    processor = EventProcessor.new(io:, upserter:, headers: io.data[:headers])
     processor.process
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
     dep.replicator.admin_dataset do |ds|
@@ -245,6 +244,18 @@ The secret to use for signing is:
       )
     end
     return processor
+  end
+
+  def _make_ics_request(request_url)
+    # Some servers require a VERY explicit accept header,
+    # so tell them we prefer icalendar here.
+    # Using Httpx, Accept-Encoding is gzip,deflate
+    # which seems fine (server should use identity as worst case).
+    headers = {
+      "Accept" => "text/calendar,*/*",
+    }
+    resp = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
+    return resp
   end
 
   # We get all sorts of strange urls, fix up what we can.
@@ -367,11 +378,12 @@ The secret to use for signing is:
   end
 
   class EventProcessor
-    attr_reader :upserted_identities, :read_bytes
+    attr_reader :upserted_identities, :read_bytes, :headers
 
-    def initialize(io, upserter)
+    def initialize(io:, upserter:, headers:)
       @io = io
       @upserter = upserter
+      @headers = headers
       # Keep track of everything we upsert. For any rows we aren't upserting,
       # delete them if they're recurring, or cancel them if they're not recurring.
       # If doing it this way is slow, we could invert this (pull down all IDs and pop from the set).
@@ -387,7 +399,10 @@ The secret to use for signing is:
       # Keep track of the bytes we've read from the file.
       # Never trust Content-Length headers for ical feeds.
       @read_bytes = 0
+      @feed_md5 = Digest::MD5.new
     end
+
+    def feed_hash = @feed_md5.hexdigest
 
     def delete_condition
       return nil if @max_sequence_num_by_uid.empty?
@@ -603,6 +618,7 @@ The secret to use for signing is:
       in_vevent = false
       while (line = @io.gets)
         @read_bytes += line.size
+        @feed_md5.update(line)
         begin
           line.rstrip!
         rescue Encoding::CompatibilityError
@@ -641,4 +657,42 @@ The secret to use for signing is:
       @upserter.upserting_replicator.logger.warn("invalid_vevent_hash", vevent_uids: bad_event_uids.sort)
     end
   end
+
+  # Return true if the data in the feed has changed from what was last synced,
+  # or false if it has not so the sync can be skipped.
+  # This operation is meant to be resource-light (most of the work is the HTTP request),
+  # so should be done in a threadpool.
+  #
+  # - If we have no previous fetch context, we sync.
+  # - If the fetch errors, sync, because we want the normal error handler to figure it out
+  #   (alert admins, etc).
+  # - If the last fetch's content type and length is different from the current, we sync.
+  # - Download the bytes. If the hash of the bytes is different from what was last processed,
+  #   sync. Since this involves reading the streaming body, we must return a copy of the body (a StringIO).
+  def feed_changed?(row)
+    last_fetch = row.fetch(:last_fetch_context)
+    return true if last_fetch.nil?
+    return true unless LAST_FETCH_KEYS.all? { |k| last_fetch.include?(k) }
+
+    begin
+      url = self._clean_ics_url(row.fetch(:ics_url))
+      resp = self._make_ics_request(url)
+    rescue StandardError
+      return true
+    end
+    headers = resp.data[:headers] || {}
+    content_type_match = headers["Content-Type"] == last_fetch["content_type"] &&
+      headers["Content-Length"] == last_fetch["content_length"]
+    return true unless content_type_match
+    last_hash = last_fetch["hash"]
+    return true if last_hash.nil?
+
+    hash = Digest::MD5.new
+    while (line = resp.gets)
+      hash.update(line)
+    end
+    return hash.hexdigest != last_hash
+  end
+
+  LAST_FETCH_KEYS = ["content_type", "content_length", "hash"].freeze
 end
