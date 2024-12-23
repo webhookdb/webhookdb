@@ -11,21 +11,18 @@ require "webhookdb/jobs"
 # and especially avoid saturating workers with syncs.
 # We also have to handle workers running behind, the app being slow, etc.
 #
-# - This job runs every 60 minutes.
+# - This job runs every 30 minutes.
 # - It finds rows never synced,
 #   or haven't been synced in 8 hours (see +Webhookdb::Icalendar.sync_period_hours+
 #   for the actual value, we'll assume 8 hours for this doc).
-# - Enqueue a row sync sync job for between 1 second and 60 minutes from now.
+# - Enqueue a row sync sync job for between 1 second and 60 minutes from now
+#   (see +Webhookdb::Icalendar.sync_period_splay_hours+ for actual upper bound value).
 # - When the sync job runs, if the row has been synced less than 8 hours ago, the job noops.
 #
-# In the best case scenario, all the enqueued rows are synced in the 60 minutes
-# since the job ran last, and none are found.
-#
-# In the worse scenarios, many of the calendar rows didn't get processed in time,
-# and show up on the next run.
-# In this case, the same row could be enqueued multiple times,
-# but will only run once, because the actual sync job will noop
-# if the row is recently synced.
+# This design will lead to the same calendar being enqueued for a sync multiple times
+# (for a splay of 1 hour, and running this job every 30 minutes, about half the jobs in the queue will be duplicate).
+# This isn't a problem however, since the first sync will run but the duplicates will noop
+# since the row will be seen as recently synced.
 #
 # Importantly, if there is a thundering herd situation,
 # because there is a massive traunch of rows that need to be synced,
@@ -38,30 +35,43 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
   extend Webhookdb::Async::ScheduledJob
 
   # See docs for explanation of why we run this often.
-  cron "*/60 * * * *"
+  cron "*/30 * * * *"
   splay 30
 
   def _perform
-    # See job doc for why we project out to 1/4 of the sync period,
-    # rather than the whole period.
-    max_projected_out_seconds = Webhookdb::Icalendar.sync_period_hours.hours.to_i / 4
+    max_projected_out_seconds = Webhookdb::Icalendar.sync_period_splay_hours.hours.to_i
     total_count = 0
+    threadpool = Concurrent::CachedThreadPool.new(
+      name: "ical-precheck",
+      max_queue: Webhookdb::Icalendar.precheck_feed_change_pool_size,
+      fallback_policy: :caller_runs,
+    )
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "icalendar_calendar_v1") do |sint|
       sint_count = 0
-      sint.replicator.admin_dataset do |ds|
-        sint.replicator.rows_needing_sync(ds).select(:external_id, :last_synced_at).each do |row|
-          self.with_log_tags(sint.log_tags) do
-            calendar_external_id = row.fetch(:external_id)
-            perform_in = rand(1..max_projected_out_seconds)
-            enqueued_job_id = Webhookdb::Jobs::IcalendarSync.perform_in(perform_in, sint.id, calendar_external_id)
-            self.logger.debug("enqueued_icalendar_sync", calendar_external_id:, enqueued_job_id:, perform_in:)
-            sint_count += 1
+      self.with_log_tags(sint.log_tags) do
+        repl = sint.replicator
+        repl.admin_dataset do |ds|
+          row_ds = repl.
+            rows_needing_sync(ds).
+            order(:pk).
+            select(:external_id, :ics_url, :last_fetch_context)
+          row_ds.each do |row|
+            threadpool.post do
+              break unless repl.feed_changed?(row)
+              calendar_external_id = row.fetch(:external_id)
+              perform_in = rand(1..max_projected_out_seconds)
+              enqueued_job_id = Webhookdb::Jobs::IcalendarSync.perform_in(perform_in, sint.id, calendar_external_id)
+              self.logger.debug("enqueued_icalendar_sync", calendar_external_id:, enqueued_job_id:, perform_in:)
+              sint_count += 1
+            end
           end
         end
       end
       total_count += sint_count
       self.set_job_tags("#{sint.organization.key}_#{sint.table_name}" => sint_count)
     end
+    threadpool.shutdown
+    threadpool.wait_for_termination
     self.set_job_tags(total_enqueued: total_count)
   end
 end
