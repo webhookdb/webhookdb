@@ -9,7 +9,7 @@ require "webhookdb/postgres"
 module Webhookdb::Tasks
   class DB < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :db do
         desc "Drop all tables in the public schema."
         task :drop_tables do

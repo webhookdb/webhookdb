@@ -7,7 +7,7 @@ require "webhookdb"
 module Webhookdb::Tasks
   class Release < Rake::TaskLib
     def initialize
-      super()
+      super
       desc "Migrate replication tables for each integration, ensure all columns and backfill new columns."
       task :migrate_replication_tables do
         Webhookdb.load_app

@@ -95,7 +95,7 @@ RSpec.describe Webhookdb::Http do
       expect(qreq).to have_been_made
     end
 
-    it "will not to_json string body" do
+    it "does not to_json string body" do
       req = stub_request(:post, "https://a.b").
         with(body: "xyz").
         to_return(status: 200, body: "")
@@ -103,7 +103,7 @@ RSpec.describe Webhookdb::Http do
       expect(req).to have_been_made
     end
 
-    it "will not to_json if content type is not json" do
+    it "does not to_json if content type is not json" do
       req = stub_request(:post, "https://a.b").
         with(body: "x=1").
         to_return(status: 200, body: "")

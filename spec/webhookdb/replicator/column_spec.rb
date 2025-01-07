@@ -100,7 +100,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
-    it "will use nil if an intermediate key is missing and optional" do
+    it "uses nil if an intermediate key is missing and optional" do
       col = described_class.new(
         :end_date,
         described_class::DATE,

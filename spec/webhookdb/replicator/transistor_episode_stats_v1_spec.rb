@@ -210,7 +210,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeStatsV1, :db do
       }
     end
 
-    it "will upsert based on episode and date_id" do
+    it "upserts based on episode and date_id" do
       episode_svc.create_table
       insert_episode_rows(episode_svc)
       svc.create_table

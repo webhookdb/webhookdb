@@ -789,7 +789,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       expect(sint3.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "new")
     end
 
-    it "will call run_initial if initial=true" do
+    it "calls run_initial if initial=true" do
       sints.each do |s|
         s.replicator.upsert_webhook_body({my_id: "stale", at: 7.days.ago, textcol: "cancelled"}.stringify_keys)
         s.replicator.upsert_webhook_body({my_id: "old", at: 100.days.ago, textcol: "cancelled"}.stringify_keys)

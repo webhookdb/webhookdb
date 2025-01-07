@@ -8,7 +8,7 @@ require "webhookdb"
 module Webhookdb::Tasks
   class Specs < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :specs do
         desc "Run API integration tests in the 'integration' folder of this gem. " \
              "To run your own tests, create a task similar to this one, " \

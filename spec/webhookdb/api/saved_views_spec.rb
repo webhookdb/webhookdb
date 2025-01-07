@@ -20,7 +20,7 @@ RSpec.describe Webhookdb::API::SavedViews, :db do
 
       get "/v1/organizations/#{org.key}/saved_views"
 
-      expect(last_response.status).to eq(200)
+      expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.
         that_includes(items: contain_exactly(include(name: sv.name)))
     end

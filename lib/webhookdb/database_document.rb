@@ -10,7 +10,7 @@ class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documen
   include Appydays::Configurable
   configurable(:database_document) do
     setting :skip_authentication, false
-    setting :skip_authentication_allowlist, [], convert: ->(s) { s.split }
+    setting :skip_authentication_allowlist, [], convert: lambda(&:split)
   end
 
   plugin :column_encryption do |enc|

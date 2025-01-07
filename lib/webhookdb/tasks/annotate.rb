@@ -9,7 +9,7 @@ require "webhookdb/postgres"
 module Webhookdb::Tasks
   class Annotate < Rake::TaskLib
     def initialize
-      super()
+      super
       desc "Update model annotations"
       task :annotate do
         unless `git diff`.blank?

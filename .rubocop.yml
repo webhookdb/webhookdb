@@ -123,8 +123,6 @@ RSpec/NotToNot:
 RSpec/StubbedMock:
   Enabled: false
 
-Sequel/ColumnDefault:
-  Enabled: false
 Sequel/ConcurrentIndex:
   Enabled: false
 

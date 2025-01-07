@@ -917,7 +917,7 @@ RSpec.describe Webhookdb::Replicator::IntercomConversationV1, :db do
         org.remove_related_database
       end
 
-      it "will merge the delete info into an existing row" do
+      it "merges the delete info into an existing row" do
         svc.upsert_webhook_body(full_body)
         expect(svc.admin_dataset(&:first)).to include(
           intercom_id: "123",

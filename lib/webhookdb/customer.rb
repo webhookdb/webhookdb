@@ -16,9 +16,9 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   class SignupDisabled < Webhookdb::WebhookdbError; end
 
   configurable(:customer) do
-    setting :signup_email_allowlist, ["*"], convert: ->(s) { s.split }
+    setting :signup_email_allowlist, ["*"], convert: lambda(&:split)
     setting :skip_authentication, false
-    setting :skip_authentication_allowlist, [], convert: ->(s) { s.split }
+    setting :skip_authentication_allowlist, [], convert: lambda(&:split)
   end
 
   # The bcrypt hash cost. Changing this would invalidate all passwords!

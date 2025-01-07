@@ -139,7 +139,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
       expect(stgt.jitter).to eq(15)
     end
 
-    it "will never use a jitter greater than 1/4 of the period" do
+    it "nevers use a jitter greater than 1/4 of the period" do
       stgt = Webhookdb::Fixtures.sync_target(period_seconds: 0).instance
       expect(stgt.jitter).to eq(1)
       stgt.period_seconds = 1
