@@ -37,6 +37,11 @@ class Webhookdb::API::System < Webhookdb::Service
     }
   end
 
+  post :sink do
+    status 204
+    body ""
+  end
+
   if ["development", "test"].include?(Webhookdb::RACK_ENV)
     resource :debug do
       resource :echo do

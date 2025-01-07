@@ -38,4 +38,11 @@ RSpec.describe Webhookdb::API::System do
       expect(last_response).to have_status(200)
     end
   end
+
+  describe "POST /sink" do
+    it "204s" do
+      post "/sink"
+      expect(last_response).to have_status(204)
+    end
+  end
 end
