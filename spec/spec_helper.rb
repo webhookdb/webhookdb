@@ -54,6 +54,8 @@ RSpec.configure do |config|
   config.disable_monkey_patching!
   config.default_formatter = "doc" if config.files_to_run.one?
 
+  # Used in match_time matcher
+  ActiveSupport.to_time_preserves_timezone = true
   config.include(Appydays::SpecHelpers)
   config.include(Appydays::Configurable::SpecHelpers)
   config.include(Appydays::Loggable::SpecHelpers)

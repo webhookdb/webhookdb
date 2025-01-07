@@ -13,4 +13,4 @@ module Webhookdb::Liquid::Filters
   end
 end
 
-Liquid::Template.register_filter(Webhookdb::Liquid::Filters)
+Liquid::Environment.default.register_filter(Webhookdb::Liquid::Filters)

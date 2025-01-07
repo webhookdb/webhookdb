@@ -9,4 +9,4 @@ class Webhookdb::Liquid::Partial < Liquid::Include
     super
   end
 end
-Liquid::Template.register_tag("partial", Webhookdb::Liquid::Partial)
+Liquid::Environment.default.register_tag("partial", Webhookdb::Liquid::Partial)
