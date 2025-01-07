@@ -37,6 +37,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
               adder: ->(om) { om.update(organization_id: id, verified: false) },
               order: :id
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration", order: :id
+  one_to_many :error_handlers, class: "Webhookdb::Organization::ErrorHandler", order: :id
   one_to_many :saved_queries, class: "Webhookdb::SavedQuery", order: :id
   one_to_many :saved_views, class: "Webhookdb::SavedView", order: :id
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription", order: :id

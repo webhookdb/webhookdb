@@ -4,18 +4,68 @@ require "webhookdb/messages/specs"
 
 RSpec.describe Webhookdb::Organization::Alerting, :db do
   let(:org) { Webhookdb::Fixtures.organization.create }
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(organization: org) }
   let(:alerting) { org.alerting }
   let(:membership_fac) { Webhookdb::Fixtures.organization_membership.org(org) }
 
-  describe "dispatch_alert", :no_transaction_check, reset_configuration: described_class do
+  let(:tmpl) do
+    tmpl = Webhookdb::Messages::Testers::Basic.new
+    tmpl.define_singleton_method(:signature) { "tester" }
+    si = sint
+    tmpl.define_singleton_method(:service_integration) { si }
+    tmpl
+  end
+
+  describe "dispatch_alert" do
+    it "requires #signature and #service_integration on the template" do
+      t = Webhookdb::Messages::Testers::Basic.new
+      expect do
+        alerting.dispatch_alert(t)
+      end.to raise_error(Webhookdb::InvalidPrecondition, /define a #signature/)
+
+      t.define_singleton_method(:signature) { "x" }
+      expect do
+        alerting.dispatch_alert(t)
+      end.to raise_error(Webhookdb::InvalidPrecondition, /basic must return its ServiceIntegration/)
+    end
+
+    describe "without any registered error handlers" do
+      it "runs the default dispatch" do
+        admin = membership_fac.verified.admin.create
+        alerting.dispatch_alert(tmpl)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "specs/basic", recipient: be === admin.customer),
+        )
+      end
+    end
+
+    describe "with registered error handlers" do
+      it "performs an async job to alert about the error", sidekiq: :fake do
+        eh1 = Webhookdb::Fixtures.organization_error_handler(organization: org).create
+        eh2 = Webhookdb::Fixtures.organization_error_handler(organization: org).create
+        Webhookdb::Fixtures.organization_error_handler.create
+        alerting.dispatch_alert(tmpl)
+        expect(Sidekiq).to have_queue("netout").consisting_of(
+          job_hash(
+            Webhookdb::Jobs::OrganizationErrorHandlerDispatch,
+            args: contain_exactly(eh1.id, include("signature" => "tester", "service_integration_name" => "fake_v1")),
+          ),
+          job_hash(
+            Webhookdb::Jobs::OrganizationErrorHandlerDispatch,
+            args: contain_exactly(eh2.id, include("signature" => "tester", "service_integration_name" => "fake_v1")),
+          ),
+        )
+      end
+    end
+  end
+
+  describe "dispatch_alert_default", :no_transaction_check, reset_configuration: described_class do
     it "sends the message to all verified admins" do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
       invited_admin = membership_fac.invite.admin.create
       member = membership_fac.verified.create
 
-      tmpl = Webhookdb::Messages::Testers::Basic.new
-      tmpl.define_singleton_method(:signature) { "tester" }
       alerting.dispatch_alert(tmpl)
       expect(Webhookdb::Message::Delivery.all).to contain_exactly(
         have_attributes(template: "specs/basic", recipient: be === admin1.customer),
@@ -23,18 +73,9 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
       )
     end
 
-    it "requires a #signature field on the template" do
-      expect do
-        alerting.dispatch_alert(Webhookdb::Messages::Testers::Basic.new)
-      end.to raise_error(Webhookdb::InvalidPrecondition, /define a #signature/)
-    end
-
     it "alerts only for the configured interval for a given signature" do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
-
-      tmpl = Webhookdb::Messages::Testers::Basic.new
-      tmpl.define_singleton_method(:signature) { "tester" }
 
       # Messages initially sent
       described_class.interval = 60
@@ -61,9 +102,6 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
 
-      tmpl = Webhookdb::Messages::Testers::Basic.new
-      tmpl.define_singleton_method(:signature) { "tester" }
-
       # Messages initially sent
       described_class.interval = 0
       described_class.max_alerts_per_customer_per_day = 20
@@ -83,8 +121,6 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
 
     it "can alert on a separate connection to get around idempotency", no_transaction_check: false do
       admin = membership_fac.verified.admin.create
-      tmpl = Webhookdb::Messages::Testers::Basic.new
-      tmpl.define_singleton_method(:signature) { "tester" }
       admin.db.transaction do
         alerting.dispatch_alert(tmpl, separate_connection: true)
       end

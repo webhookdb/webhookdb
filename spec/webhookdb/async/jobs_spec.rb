@@ -628,6 +628,26 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "OrganizationErrorHandlerDispatch" do
+    let(:eh) { Webhookdb::Fixtures.organization_error_handler.create(url: "https://fake.webhookdb.com/error") }
+
+    it "dispatches the payload" do
+      req = stub_request(:post, "https://fake.webhookdb.com/error").
+        to_return(status: 200, body: "", headers: {})
+      Webhookdb::Jobs::OrganizationErrorHandlerDispatch.new.perform(eh.id, {"x" => 1})
+      expect(req).to have_been_made
+    end
+
+    it "raises a retry or die on any error" do
+      req = stub_request(:post, "https://fake.webhookdb.com/error").
+        and_raise(Errno::ECONNRESET)
+      expect do
+        Webhookdb::Jobs::OrganizationErrorHandlerDispatch.new.perform(eh.id, {"x" => 1})
+      end.to raise_error(Amigo::Retry::OrDie)
+      expect(req).to have_been_made
+    end
+  end
+
   describe "RenewWatchChannel", :fake_replicator do
     it "renews the watch using the given criteria" do
       sint = Webhookdb::Fixtures.service_integration.create(service_name: "fake_with_watch_channel_v1")

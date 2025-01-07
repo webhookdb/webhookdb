@@ -19,6 +19,8 @@ class Webhookdb::Messages::ErrorSignalwireSendSms < Webhookdb::Message::Template
     )
   end
 
+  attr_accessor :service_integration
+
   def initialize(service_integration, request_url:, request_method:, response_status:, response_body:)
     @service_integration = service_integration
     @request_url = request_url

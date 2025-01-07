@@ -9,6 +9,8 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
                     response_status: 403, request_url: "/foo", request_method: "GET", response_body: "hi",)
   end
 
+  attr_accessor :service_integration
+
   def initialize(service_integration, external_calendar_id, request_url:, request_method:, response_status:,
     response_body:)
     @service_integration = service_integration

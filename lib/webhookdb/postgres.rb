@@ -59,6 +59,7 @@ module Webhookdb::Postgres
     "webhookdb/oauth/session",
     "webhookdb/organization",
     "webhookdb/organization/database_migration",
+    "webhookdb/organization/error_handler",
     "webhookdb/organization_membership",
     "webhookdb/role",
     "webhookdb/saved_query",
