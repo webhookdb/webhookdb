@@ -5,6 +5,8 @@ require "premailer"
 class Webhookdb::Organization::ErrorHandler < Webhookdb::Postgres::Model(:organization_error_handlers)
   include Webhookdb::Dbutil
 
+  DOCS_URL = "https://docs.webhookdb.com/docs/integrating/error-handlers.html"
+
   plugin :timestamps
 
   many_to_one :organization, class: "Webhookdb::Organization"
