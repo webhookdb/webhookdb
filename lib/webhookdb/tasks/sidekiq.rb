@@ -7,7 +7,7 @@ require "webhookdb"
 module Webhookdb::Tasks
   class Sidekiq < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :sidekiq do
         desc "Clear the Sidekiq redis DB (flushdb). " \
              "Only use on local, and only for legit reasons, " \

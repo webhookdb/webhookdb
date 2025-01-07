@@ -141,7 +141,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
   describe "#find_or_create_or_find" do
     let(:model_class) { Webhookdb::Postgres::TestingPixie }
 
-    it "will find again if the create fails due to a race condition (UniqueConstraintViolation)" do
+    it "finds again if the create fails due to a race condition (UniqueConstraintViolation)" do
       name = "foo"
       placeholder = model_class.create(name: "not-" + name)
       expect(model_class).to receive(:find).with({name:}).twice do

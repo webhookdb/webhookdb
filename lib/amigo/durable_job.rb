@@ -351,8 +351,8 @@ module Amigo::DurableJob
     # Space-separate multiple env vars.
     setting :server_env_vars, ["DATABASE_URL"], convert: ->(s) { s.split.map(&:strip) }
 
-    setting :schema_name, :public, convert: ->(s) { s.to_sym }
-    setting :table_name, :durable_jobs, convert: ->(s) { s.to_sym }
+    setting :schema_name, :public, convert: lambda(&:to_sym)
+    setting :table_name, :durable_jobs, convert: lambda(&:to_sym)
 
     after_configured do
       self.storage_database_urls = self.server_urls.dup

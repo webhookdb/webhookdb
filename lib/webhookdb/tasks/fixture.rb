@@ -8,7 +8,7 @@ require "webhookdb/postgres"
 module Webhookdb::Tasks
   class Fixture < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :fixture do
         desc "Create a bunch of fake integrations and fill them with data."
         task :full do

@@ -899,7 +899,7 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
         }
       JSON
 
-      it "will merge the delete info into an existing row" do
+      it "merges the delete info into an existing row" do
         org.prepare_database_connections
         svc.create_table
         svc.upsert_webhook_body(full_body)
@@ -955,7 +955,7 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
         }
       JSON
 
-      it "will merge the archived info into an existing row" do
+      it "merges the archived info into an existing row" do
         org.prepare_database_connections
         svc.create_table
         svc.upsert_webhook_body(full_body)

@@ -9,7 +9,7 @@ module Webhookdb::Signalwire
 
   configurable(:signalwire) do
     setting :http_timeout, 30
-    setting :sms_allowlist, [], convert: ->(s) { s.split }
+    setting :sms_allowlist, [], convert: lambda(&:split)
   end
 
   def self.send_sms(from:, to:, body:, project_id:, **kw)

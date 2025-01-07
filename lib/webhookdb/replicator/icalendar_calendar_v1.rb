@@ -112,7 +112,7 @@ The secret to use for signing is:
     external_id = request.body.fetch("external_id")
     case request_type
       when "SYNC"
-        super(request)
+        super
         Webhookdb::Jobs::IcalendarSync.perform_async(self.service_integration.id, external_id)
         return
       when "DELETE"
@@ -122,7 +122,7 @@ The secret to use for signing is:
         unless Webhookdb::RACK_ENV == "test"
           raise "someone tried to use the special unit test google event type outside of unit tests"
         end
-        return super(request)
+        return super
       else
         raise ArgumentError, "Unknown request type: #{request_type}"
     end

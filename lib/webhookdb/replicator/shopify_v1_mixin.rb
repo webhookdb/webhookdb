@@ -45,7 +45,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
       field = "api_url"
       value = "https://#{value}.myshopify.com"
     end
-    return super(field, value)
+    return super
   end
 
   def calculate_webhook_state_machine

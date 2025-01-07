@@ -52,7 +52,7 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
       h = u.host.gsub(/\.signalwire\.com$/, "")
       value = h
     end
-    return super(field, value, attr:)
+    return super
   end
 
   def calculate_backfill_state_machine

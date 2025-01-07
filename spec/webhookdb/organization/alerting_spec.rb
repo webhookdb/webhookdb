@@ -29,7 +29,7 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
       end.to raise_error(Webhookdb::InvalidPrecondition, /define a #signature/)
     end
 
-    it "will only alert for the configured interval for a given signature" do
+    it "alerts only for the configured interval for a given signature" do
       admin1 = membership_fac.verified.admin.create
       admin2 = membership_fac.verified.admin.create
 

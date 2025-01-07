@@ -277,8 +277,7 @@ RSpec.describe Amigo::DurableJob do
 
   describe "poll_jobs" do
     def all_jobs(q)
-      a = []
-      q.each { |j| a << j }
+      a = q.map { |j| j }
       return a
     end
 

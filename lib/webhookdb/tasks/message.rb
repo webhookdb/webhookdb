@@ -5,7 +5,7 @@ require "rake/tasklib"
 module Webhookdb::Tasks
   class Message < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :message do
         desc "Render the specified message"
         task :render, [:template_class, :out] do |_t, args|

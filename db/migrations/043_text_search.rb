@@ -19,10 +19,12 @@ Sequel.migration do
       :webhook_subscription_deliveries,
       :webhook_subscriptions,
     ]
+    # rubocop:disable Sequel/IrreversibleMigration
     searchable.each do |tbl|
       alter_table(tbl) do
         add_column :text_search, :tsvector
       end
     end
+    # rubocop:enable Sequel/IrreversibleMigration
   end
 end
