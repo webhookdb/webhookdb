@@ -214,18 +214,29 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     return recipients.map { |r| self.format_phone(r.fetch("handle")) }
   end
 
-  def on_dependency_webhook_upsert(_replicator, payload, changed:)
+  def on_dependency_webhook_upsert(_sw_replicator, sw_payload, changed:)
     return unless changed
-    return unless payload.fetch(:direction) == "inbound"
-    return unless payload.fetch(:to) == self.support_phone
-    body = JSON.parse(payload.fetch(:data))
+
+    # If the signalwire message is failed, update the Front convo with a notification that the send failed
+    failed_notifier_cutoff = Time.now - 4.days
+    signalwire_send_failed = sw_payload.fetch(:date_updated) > failed_notifier_cutoff &&
+      ["failed", "undelivered"].include?(sw_payload.fetch(:status)) &&
+      sw_payload.fetch(:from) == self.support_phone
+    self.alert_async_failed_signalwire_send(sw_payload) if signalwire_send_failed
+
+    # If a message has come in from a user, insert a row so it'll be imported into Front
+    signalwire_payload_inbound_to_support = sw_payload.fetch(:direction) == "inbound" &&
+      sw_payload.fetch(:to) == self.support_phone
+    return unless signalwire_payload_inbound_to_support
+
+    body = JSON.parse(sw_payload.fetch(:data))
     body.merge!(
-      "external_id" => payload.fetch(:signalwire_id),
-      "signalwire_sid" => payload.fetch(:signalwire_id),
+      "external_id" => sw_payload.fetch(:signalwire_id),
+      "signalwire_sid" => sw_payload.fetch(:signalwire_id),
       "direction" => "inbound",
-      "sender" => payload.fetch(:from),
+      "sender" => sw_payload.fetch(:from),
       "recipient" => self.support_phone,
-      "external_conversation_id" => payload.fetch(:from),
+      "external_conversation_id" => sw_payload.fetch(:from),
     )
     self.upsert_webhook_body(body)
   end
@@ -234,6 +245,50 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     super
     return unless changed
     Webhookdb::BackfillJob.create_recursive(service_integration: self.service_integration, incremental: true).enqueue
+  end
+
+  # Send alerts for any undelivered or failed messages.
+  # The (outbound) message is already created in Front, but if the Signalwire message fails to send,
+  # we need to import a new message into Front as a reply explaining why the message failed to send.
+  def alert_async_failed_signalwire_send(sw_row)
+    idempotency_key = "fsmca-swfail-#{sw_row.fetch(:signalwire_id)}"
+    idempotency = Webhookdb::Idempotency.once_ever.stored.using_seperate_connection.under_key(idempotency_key)
+    idempotency.execute do
+      # The 'sender' of this message is who the failed message is sent **to**
+      sender = sw_row.fetch(:to)
+      data = JSON.parse(sw_row.fetch(:data))
+      external_id = sw_row.fetch(:signalwire_id)
+      external_conversation_id = sender
+      trunc_body = data.fetch("body", "")[..25]
+      body = "SMS failed to send. Error (#{data['error_code'] || '-'}): #{data['error_message'] || '-'}\n#{trunc_body}"
+      self._sync_front_inbound_message(sender:, delivered_at: Time.now, body:, external_id:, external_conversation_id:)
+    end
+  end
+
+  def _sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:)
+    body = {
+      sender: {handle: sender},
+      body:,
+      delivered_at: delivered_at.to_i,
+      metadata: {external_id:, external_conversation_id:},
+    }
+    token = JWT.encode(
+      {
+        iss: Webhookdb::Front.signalwire_channel_app_id,
+        jti: Webhookdb::Front.channel_jwt_jti,
+        sub: self.front_channel_id,
+        exp: 10.seconds.from_now.to_i,
+      },
+      Webhookdb::Front.signalwire_channel_app_secret,
+    )
+    resp = Webhookdb::Http.post(
+      "https://api2.frontapp.com/channels/#{self.front_channel_id}/inbound_messages",
+      body,
+      headers: {"Authorization" => "Bearer #{token}"},
+      timeout: Webhookdb::Front.http_timeout,
+      logger: self.logger,
+    )
+    return resp.parsed_response
   end
 
   def _backfillers = [Backfiller.new(self)]
@@ -325,6 +380,14 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       # https://developer.signalwire.com/guides/how-to-troubleshoot-common-messaging-issues
       raise e if code.nil?
 
+      # Error handling note as of Jan 2025:
+      # We are choosing to handle synchronous 'send sms' errors through the org alert system,
+      # which will tell developers (not support agents) about the failure.
+      # This is because, if this send fails, it will be retried later.
+      # For example, if we sent a bulk message to 1000 customers,
+      # and Signalwire was down and failed 500 sends, we would just retry the 500 sends.
+      # We do NOT want to update the 500 failed conversations, and force support agents
+      # to deal with the fallout of retrying a send only to those 500 people.
       message = Webhookdb::Messages::ErrorSignalwireSendSms.new(
         @replicator.service_integration,
         response_status:,
@@ -337,32 +400,14 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
 
     def _sync_front_inbound(sender:, texted_at:, db_row:, body:)
-      body = {
-        sender: {handle: sender},
-        body: body || "<no body>",
-        delivered_at: texted_at.to_i,
-        metadata: {
-          external_id: db_row.fetch(:external_id),
-          external_conversation_id: db_row.fetch(:external_conversation_id),
-        },
-      }
-      token = JWT.encode(
-        {
-          iss: Webhookdb::Front.signalwire_channel_app_id,
-          jti: Webhookdb::Front.channel_jwt_jti,
-          sub: @replicator.front_channel_id,
-          exp: 10.seconds.from_now.to_i,
-        },
-        Webhookdb::Front.signalwire_channel_app_secret,
+      body ||= "<no body>"
+      return @replicator._sync_front_inbound_message(
+        sender:,
+        delivered_at: texted_at,
+        body:,
+        external_id: db_row.fetch(:external_id),
+        external_conversation_id: db_row.fetch(:external_conversation_id),
       )
-      resp = Webhookdb::Http.post(
-        "https://api2.frontapp.com/channels/#{@replicator.front_channel_id}/inbound_messages",
-        body,
-        headers: {"Authorization" => "Bearer #{token}"},
-        timeout: Webhookdb::Front.http_timeout,
-        logger: @replicator.logger,
-      )
-      resp.parsed_response
     end
 
     def fetch_backfill_page(*)
