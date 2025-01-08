@@ -368,6 +368,107 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
       end.to_not raise_error
     end
+
+    describe "when the message status is failed/undelivered", truncate: Webhookdb::Idempotency do
+      before(:each) do
+        sint.organization.prepare_database_connections
+        sint.update(backfill_key: "chanid1")
+        svc.create_table
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      def signalwire_row(sid:, at:, from:, to:, status:, **more)
+        return {
+          account_sid: "AC123",
+          sid:,
+          api_version: "2010-04-01",
+          body: "body",
+          date_created: at.iso8601,
+          date_sent: at.iso8601,
+          date_updated: at.iso8601,
+          direction: "outbound-api",
+          error_code: nil,
+          error_message: nil,
+          from:,
+          status:,
+          to:,
+        }.merge(more).as_json
+      end
+
+      it "imports a message about the failed signalwire send into Front" do
+        Timecop.freeze(Time.at(1_736_362_887)) do
+          failed_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_row(
+              sid: "failedrow",
+              at: Time.now,
+              from: support_phone,
+              to: customer_phone,
+              status: "failed",
+              error_code: "30008",
+              error_message: "Unknown error",
+            ),
+            upsert: false,
+          )
+          undel_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_row(
+              sid: "undeliveredrow",
+              at: Time.now,
+              from: support_phone,
+              to: "+15559998881",
+              status: "undelivered",
+              body: "a" * 250,
+            ),
+            upsert: false,
+          )
+          del_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_row(sid: "delivrow", at: Time.now, from: support_phone, to: customer_phone, status: "delivered"),
+            upsert: false,
+          )
+          old_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_row(sid: "oldrow", at: 20.days.ago, from: support_phone, to: customer_phone, status: "failed"),
+            upsert: false,
+          )
+          alt_num_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_row(sid: "othernum", at: Time.now, from: "19992223333", to: customer_phone, status: "failed"),
+            upsert: false,
+          )
+
+          failrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
+            with(
+              body: {
+                sender: {handle: "+15017122661"},
+                body: "SMS failed to send. Error (30008): Unknown error\nbody",
+                delivered_at: 1_736_362_887,
+                metadata: {
+                  external_id: "failedrow",
+                  external_conversation_id: "+15017122661",
+                },
+              }.to_json,
+            ).to_return(status: 200, body: "", headers: {})
+          undelrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
+            with(
+              body: {
+                sender: {handle: "+15559998881"},
+                body: "SMS failed to send. Error (-): -\naaaaaaaaaaaaaaaaaaaaaaaaaa",
+                delivered_at: 1_736_362_887,
+                metadata: {
+                  external_id: "undeliveredrow",
+                  external_conversation_id: "+15559998881",
+                },
+              }.to_json,
+            ).to_return(status: 200, body: "", headers: {})
+
+          [failed_row, undel_row, del_row, old_row, alt_num_row].each do |row|
+            svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
+          end
+          expect(failrow_req).to have_been_made
+          expect(undelrow_req).to have_been_made
+        end
+      end
+    end
   end
 
   describe "state machine calculation" do
