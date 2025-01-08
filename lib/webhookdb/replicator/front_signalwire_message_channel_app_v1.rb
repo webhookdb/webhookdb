@@ -4,6 +4,7 @@ require "jwt"
 
 require "webhookdb/messages/error_signalwire_send_sms"
 require "webhookdb/replicator/front_v1_mixin"
+require "webhookdb/jobs/front_signalwire_message_channel_sync_inbound"
 
 # Front has a system of 'channels' but it is a challenge to use.
 # This replicator leverages WebhookDB (and our existing Front app)
@@ -261,15 +262,24 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       external_conversation_id = sender
       trunc_body = data.fetch("body", "")[..25]
       body = "SMS failed to send. Error (#{data['error_code'] || '-'}): #{data['error_message'] || '-'}\n#{trunc_body}"
-      self._sync_front_inbound_message(sender:, delivered_at: Time.now, body:, external_id:, external_conversation_id:)
+      kwargs = {sender:, delivered_at: Time.now.to_i, body:, external_id:, external_conversation_id:}
+      # The call to Front MUST be done in a job, since if it fails, we would not be able to retry.
+      # The code is called after the signalwire payload is upserted and changes;
+      # but if this fails, the row won't change again in the future,
+      # so this code wouldn't be called again.
+      # This is a general problem and should probably have a general solution,
+      # but because of the external call, it is important to guard against it.
+      Webhookdb::Jobs::FrontSignalwireMessageChannelSyncInbound.perform_async(
+        self.service_integration.id, kwargs.as_json,
+      )
     end
   end
 
-  def _sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:)
+  def sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:)
     body = {
       sender: {handle: sender},
       body:,
-      delivered_at: delivered_at.to_i,
+      delivered_at:,
       metadata: {external_id:, external_conversation_id:},
     }
     token = JWT.encode(
@@ -401,9 +411,9 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
 
     def _sync_front_inbound(sender:, texted_at:, db_row:, body:)
       body ||= "<no body>"
-      return @replicator._sync_front_inbound_message(
+      return @replicator.sync_front_inbound_message(
         sender:,
-        delivered_at: texted_at,
+        delivered_at: texted_at.to_i,
         body:,
         external_id: db_row.fetch(:external_id),
         external_conversation_id: db_row.fetch(:external_conversation_id),
