@@ -27,7 +27,7 @@ module Webhookdb::Icalendar
     # Number of threads for the 'precheck' threadpool, used when enqueing icalendar sync jobs.
     # Since the precheck process uses many threads, but each check is resource-light and not latency-sensitive,
     # we use a shared threadpool for it.
-    setting :precheck_feed_change_pool_size, 100
+    setting :precheck_feed_change_pool_size, 12
 
     # Cancelled events that were last updated this long ago are deleted from the database.
     setting :stale_cancelled_event_threshold_days, 20
