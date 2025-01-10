@@ -56,6 +56,16 @@ RSpec.describe Webhookdb::Organization::Alerting, :db do
           ),
         )
       end
+
+      it "serializes job args without bothering sidekiq" do
+        eh1 = Webhookdb::Fixtures.organization_error_handler(organization: org).create
+        req = stub_request(:post, eh1.url).and_return(status: 200)
+        tmpl.define_singleton_method(:liquid_drops) do
+          {msg: (+"not encoded \xC2\xA9 copyright").force_encoding("ASCII-8BIT")}
+        end
+        alerting.dispatch_alert(tmpl)
+        expect(req).to have_been_made
+      end
     end
   end
 

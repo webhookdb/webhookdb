@@ -52,6 +52,12 @@ class Webhookdb::Organization::Alerting
     end
     self.org.error_handlers.each do |eh|
       payload = eh.payload_for_template(message_template)
+      # It's possible that the template includes caller-provided values including improperly-encoded strings.
+      # Sidekiq's strict job args will do a dump/parse to check for valid args,
+      # which will potentially fail if valid utf-8 bytes are in a string that's encoded as ascii.
+      # Really hard to explain, so see the specs, but there's nothing we can do about invalid content
+      # other than not error.
+      payload = JSON.parse(JSON.dump(payload))
       Webhookdb::Jobs::OrganizationErrorHandlerDispatch.perform_async(eh.id, payload.as_json)
     end
   end
