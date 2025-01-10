@@ -767,7 +767,7 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     sint.organization.remove_related_database
   end
 
-  it "dispatches an alert and returns true for handled errors" do
+  it "dispatches an alert and returns true for handled errors (using default alert)" do
     create_all_dependencies(sint)
     setup_dependencies(sint, insert_required_data_callback)
     Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
@@ -780,6 +780,21 @@ RSpec.shared_examples "a replicator that alerts on backfill auth errors" do
     expect(Webhookdb::Message::Delivery.all).to contain_exactly(
       have_attributes(template: template_name),
     )
+  end
+
+  it "dispatches an alert and returns true for handled errors (using error handler)" do
+    create_all_dependencies(sint)
+    setup_dependencies(sint, insert_required_data_callback)
+    Webhookdb::Fixtures.organization_membership.org(sint.organization).verified.admin.create
+    req = stub_service_request
+    eh = Webhookdb::Fixtures.organization_error_handler(organization: sint.organization).create
+    error_handle_req = stub_request(:post, eh.url).and_return(status: 204)
+    handled_responses.each { |(m, arg)| req.send(m, arg) }
+    handled_responses.count.times do
+      backfill(sint)
+    end
+    expect(req).to have_been_made.times(handled_responses.count)
+    expect(error_handle_req).to have_been_made.times(handled_responses.count)
   end
 
   it "does not dispatch an alert, and raises the original error, if unhandled" do

@@ -200,7 +200,6 @@ Press 'Show' next to the newly-created API token, and copy it.)
       request_url = e.uri.to_s
       request_method = e.http_method
     end
-    self.logger.warn("signalwire_backfill_error", response_body:, response_status:, request_url:)
     message = Webhookdb::Messages::ErrorGenericBackfill.new(
       self.service_integration,
       response_status:,

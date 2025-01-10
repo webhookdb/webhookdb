@@ -314,6 +314,25 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
     end
   end
 
+  it_behaves_like "a replicator that alerts on backfill auth errors" do
+    let(:sint_params) { {api_url: "my/code"} }
+    let(:template_name) { "errors/generic_backfill" }
+
+    def stub_service_request
+      return stub_request(:get, "https://api.github.com/repos/my/code/events?per_page=100")
+    end
+
+    def handled_responses
+      return [
+        [:and_return, {status: 401, body: "Unauthorized"}],
+      ]
+    end
+
+    def unhandled_response
+      return [:and_return, {status: 500, body: "Error"}]
+    end
+  end
+
   # Tested through github_issue
   # describe "webhook validation"
   # describe "state machine calculation"
