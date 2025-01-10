@@ -55,7 +55,7 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
             rows_needing_sync(ds).
             order(:pk).
             select(:external_id, :ics_url, :last_fetch_context)
-          row_ds.each do |row|
+          row_ds.paged_each(rows_per_fetch: 500, cursor_name: "ical_enqueue_#{sint.id}_cursor") do |row|
             threadpool.post do
               break unless repl.feed_changed?(row)
               calendar_external_id = row.fetch(:external_id)
