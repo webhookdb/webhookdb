@@ -291,6 +291,7 @@ The secret to use for signing is:
           self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
         end
       when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl,
+        Errno::ECONNRESET,
         URI::InvalidURIError,
         HTTPX::NativeResolveError, HTTPX::InsecureRedirectError,
         HTTPX::Connection::HTTP2::Error,

@@ -19,6 +19,8 @@ Money.locale_backend = :i18n
 Money.default_currency = "USD"
 Money.rounding_mode = BigDecimal::ROUND_HALF_UP
 
+ActiveSupport.to_time_preserves_timezone = true
+
 module Appydays::Configurable
   def self.fetch_env(keys, default=:__keyerror, env: ENV)
     keys = [keys] unless keys.respond_to?(:to_ary)

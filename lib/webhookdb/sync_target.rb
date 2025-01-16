@@ -487,7 +487,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       self.perform_db_op do
         self.sync_target.save_changes
       end
-      self.sync_target.logger.error("sync_target_pool_timeout_error", e, self.sync_target.log_tags)
+      self.sync_target.logger.error("sync_target_pool_timeout_error", self.sync_target.log_tags, e)
     rescue Webhookdb::Http::Error, Errno::ECONNRESET, Net::ReadTimeout, Net::OpenTimeout, OpenSSL::SSL::SSLError => e
       # This is handled well so no need to re-raise.
       # We already committed the last page that was successful,
@@ -499,7 +499,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       # Don't spam our logs with downstream errors
       idem_key = "sync_target_http_error-#{self.sync_target.id}-#{e.class.name}"
       Webhookdb::Idempotency.every(1.hour).in_memory.under_key(idem_key) do
-        self.sync_target.logger.warn("sync_target_http_error", e, self.sync_target.log_tags)
+        self.sync_target.logger.warn("sync_target_http_error", self.sync_target.log_tags, e)
       end
     end
 

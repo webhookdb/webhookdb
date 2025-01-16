@@ -41,10 +41,14 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
   def _perform
     max_projected_out_seconds = Webhookdb::Icalendar.sync_period_splay_hours.hours.to_i
     total_count = 0
-    threadpool = Concurrent::CachedThreadPool.new(
+    threadpool = Concurrent::ThreadPoolExecutor.new(
       name: "ical-precheck",
-      max_queue: Webhookdb::Icalendar.precheck_feed_change_pool_size,
+      max_threads: Webhookdb::Icalendar.precheck_feed_change_pool_size,
+      min_threads: 1,
+      idletime: 40,
+      max_queue: 0,
       fallback_policy: :caller_runs,
+      synchronous: false,
     )
     Webhookdb::ServiceIntegration.dataset.where_each(service_name: "icalendar_calendar_v1") do |sint|
       sint_count = 0
@@ -55,7 +59,7 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
             rows_needing_sync(ds).
             order(:pk).
             select(:external_id, :ics_url, :last_fetch_context)
-          row_ds.each do |row|
+          row_ds.paged_each(rows_per_fetch: 500, cursor_name: "ical_enqueue_#{sint.id}_cursor") do |row|
             threadpool.post do
               break unless repl.feed_changed?(row)
               calendar_external_id = row.fetch(:external_id)
