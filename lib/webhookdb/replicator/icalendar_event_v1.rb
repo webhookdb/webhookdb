@@ -220,12 +220,12 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   end
 
   def _update_where_expr
-    # last_modified_at is set to either the LAST-MODIFIED value, OR the row_updated_at timestamp.
-    # Many feeds do not have LAST-MODIFIED, so all rows get updated.
     # Compare against data to avoid the constant writes. JSONB != operations are very fast,
     # so this should not be any real performance issue.
-    return (self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]) &
-        (self.qualified_table_sequel_identifier[:last_modified_at] < Sequel[:excluded][:last_modified_at])
+    # last_modified_at is unreliable because LAST-MODIFIED is unreliable,
+    # even in feeds it is set. There are cases, such as adding an EXDATE to an RRULE,
+    # that do not trigger LAST-MODIFIED changes.
+    return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
   # @param [Array<String>] lines

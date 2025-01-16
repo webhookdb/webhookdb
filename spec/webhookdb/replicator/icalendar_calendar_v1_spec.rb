@@ -362,51 +362,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         UID:c7614cff-3549-4a00-9152-d25cc1fe077d
         DTSTART:20080212
         DTEND:20080213
-        LAST-MODIFIED:20150421T141403Z
-        END:VEVENT
-        END:VCALENDAR
-      ICAL
-      updated1 = v1.gsub("Version1", "Version2")
-      updated2 = v1.gsub("Version1", "Version3").gsub("20150421T141403Z", "20160421T141403Z")
-      updated3 = v1.gsub("Version1", "Version4").gsub("\nLAST-MODIFIED:20150421T141403Z", "")
-      req = stub_request(:get, "https://feed.me").
-        and_return(
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: v1},
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated1},
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated2},
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated3},
-        )
-      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version1"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version1"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version3"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version4"})),
-      )
-      expect(req).to have_been_made.times(4)
-    end
-
-    it "skips rows that have not been modified, which do not have a LAST-MODIFIED timestamp" do
-      v1 = <<~ICAL
-        BEGIN:VCALENDAR
-        VERSION:2.0
-        PRODID:-//ZContent.net//Zap Calendar 1.0//EN
-        CALSCALE:GREGORIAN
-        BEGIN:VEVENT
-        SUMMARY:Version1
-        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
-        DTSTART:20080212
-        DTEND:20080213
         END:VEVENT
         END:VCALENDAR
       ICAL
@@ -429,7 +384,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made.times(3)
     end
 
-    it "uses UTC for unregonized timezones" do
+    it "uses UTC for unrecognized timezones" do
       body = <<~ICAL
         BEGIN:VCALENDAR
         BEGIN:VEVENT
