@@ -1609,6 +1609,39 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made
       expect(event_svc.admin_dataset(&:all)).to have_length(1)
     end
+
+    describe "with a proxy configured", reset_configuration: Webhookdb::Icalendar do
+      before(:each) do
+        Webhookdb::Icalendar.proxy_url = "https://icalproxy.webhookdb.com" + (rand < 0.5 ? "" : "/")
+      end
+
+      it "calls the proxy server" do
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          and_return(
+            status: 200,
+            headers: {"Content-Type" => "text/calendar"},
+            body: "BEGIN:VCALENDAR\nEND:VCALENDAR",
+          )
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+      end
+
+      it "sets the authorization header if an api key is configured" do
+        Webhookdb::Icalendar.proxy_api_key = "sekret"
+
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          with(headers: {"Authorization" => "Apikey sekret"}).
+          and_return(
+            status: 200,
+            headers: {"Content-Type" => "text/calendar"},
+            body: "BEGIN:VCALENDAR\nEND:VCALENDAR",
+          )
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+      end
+    end
   end
 
   # Based on https://github.com/icalendar/icalendar/blob/main/spec/parser_spec.rb
