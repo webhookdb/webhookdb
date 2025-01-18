@@ -202,6 +202,7 @@ The secret to use for signing is:
                 "hash" => processor&.feed_hash,
                 "content_type" => processor&.headers&.fetch("Content-Type", nil),
                 "content_length" => processor&.headers&.fetch("Content-Length", nil),
+                "etag" => processor&.headers&.fetch("Etag", nil),
               }.to_json,
             )
         end
@@ -213,7 +214,7 @@ The secret to use for signing is:
     calendar_external_id = row.fetch(:external_id)
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = self._make_ics_request(request_url)
+      io = self._make_ics_request(request_url, row.fetch(:last_fetch_context))
     rescue Down::Error,
            URI::InvalidURIError,
            HTTPX::NativeResolveError,
@@ -246,7 +247,7 @@ The secret to use for signing is:
     return processor
   end
 
-  def _make_ics_request(request_url)
+  def _make_ics_request(request_url, last_fetch_context)
     # Some servers require a VERY explicit accept header,
     # so tell them we prefer icalendar here.
     # Using Httpx, Accept-Encoding is gzip,deflate
@@ -254,6 +255,7 @@ The secret to use for signing is:
     headers = {
       "Accept" => "text/calendar,*/*",
     }
+    headers["If-None-Match"] = last_fetch_context["etag"] if last_fetch_context & ["etag"]
     resp = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
     return resp
   end
@@ -672,12 +674,13 @@ The secret to use for signing is:
   #   sync. Since this involves reading the streaming body, we must return a copy of the body (a StringIO).
   def feed_changed?(row)
     last_fetch = row.fetch(:last_fetch_context)
-    return true if last_fetch.nil?
-    return true unless LAST_FETCH_KEYS.all? { |k| last_fetch.include?(k) }
+    return true if last_fetch.nil? || last_fetch.empty?
 
     begin
       url = self._clean_ics_url(row.fetch(:ics_url))
-      resp = self._make_ics_request(url)
+      resp = self._make_ics_request(url, last_fetch)
+    rescue Down::NotModified
+      return false
     rescue StandardError
       return true
     end
@@ -694,6 +697,4 @@ The secret to use for signing is:
     end
     return hash.hexdigest != last_hash
   end
-
-  LAST_FETCH_KEYS = ["content_type", "content_length", "hash"].freeze
 end

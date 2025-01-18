@@ -248,7 +248,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       org.remove_related_database
     end
 
-    it "upserts each vevent in the url" do
+    it "upserts each vevent in the url, and stores meta about the fetch" do
       literal = '\n\r\n\t\n'
       body = <<~ICAL
         BEGIN:VCALENDAR
@@ -276,13 +276,27 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         END:VCALENDAR
       ICAL
       req = stub_request(:get, "https://feed.me").
-        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        and_return(
+          status: 200,
+          headers: {
+            "Content-Type" => "text/calendar",
+            "Content-Length" => body.size.to_s,
+            "Etag" => "somevalue",
+          },
+          body:,
+        )
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
       expect(req).to have_been_made
       expect(svc.admin_dataset(&:first)).to include(
         last_synced_at: match_time(:now),
         last_sync_duration_ms: be_positive,
+        last_fetch_context: {
+          "content_length" => body.size.to_s,
+          "content_type" => "text/calendar",
+          "hash" => "b816a713f55ce89a441a16a72367f5ca",
+          "etag" => "somevalue",
+        },
       )
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
         include(
@@ -348,6 +362,15 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       event_sint.destroy
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
+      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
+    end
+
+    it "noops if the server 304s" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 304)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
       expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
     end
 
@@ -1821,6 +1844,21 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(req).to have_been_made
     end
 
+    it "is false if the server returns a 304" do
+      req = stub_request(:get, "https://feed.me").
+        with(headers: {"If-None-Match" => "somevalue"}).
+        and_return(status: 304)
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          etag: "somevalue",
+        }.to_json,
+      )
+      expect(svc).to_not be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
     it "is true if the body has a different hash" do
       req = stub_request(:get, "https://feed.me").
         and_return(
@@ -1875,6 +1913,26 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           hash: "abc",
           content_type:,
           content_length: "10",
+        }.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content length is nil" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {
+          hash: "abc",
+          content_type:,
+          content_length: nil,
         }.to_json,
       )
       expect(svc).to be_feed_changed(row)
