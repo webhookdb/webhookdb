@@ -746,6 +746,23 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         end
       end
 
+      it "unwraps an Ical-Proxy-Origin-Error header into a status code", reset_configuration: Webhookdb::Icalendar do
+        Webhookdb::Icalendar.proxy_url = "https://proxy"
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://proxy?url=https://feed.me").
+          and_return(status: 421, headers: {"Ical-Proxy-Origin-Error" => 599}, body: "whoops")
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+        # Ensure the proxy fields aren't in the email
+        body = Webhookdb::Message::Body.where(mediatype: "text/plain").first.content
+        expect(body).to include("Request: GET https://feed.me")
+        expect(body).to include("Response Status: 599")
+      end
+
       it "noops on Down 304 responses" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").

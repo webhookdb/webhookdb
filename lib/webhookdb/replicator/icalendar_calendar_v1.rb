@@ -326,12 +326,17 @@ The secret to use for signing is:
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
           422, # Sometimes used instead of 404
           429, # Usually 429s are retried (as above), but in some cases they're not.
+          500, 503, 504, # Intermittent server issues, usually
+          599, # Represents a timeout in icalproxy
         ]
         # For most client errors, we can't do anything about it. For example,
         # and 'unshared' URL could result in a 401, 403, 404, or even a 405.
         # For now, other client errors, we can raise on,
         # in case it's something we can fix/work around.
         # For example, it's possible something like a 415 is a WebhookDB issue.
+        if response_status == 421 && (origin_err = e.response.headers["Ical-Proxy-Origin-Error"])
+          response_status = origin_err.to_i
+        end
         raise e unless expected_errors.include?(response_status)
         response_body = self._safe_read_body(e)
       when Down::ServerError
