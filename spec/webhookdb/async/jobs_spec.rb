@@ -285,6 +285,48 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "IcalendarEnqueueSyncsForUrls" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint1) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+    let(:sint2) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+
+    before(:each) do
+      org.prepare_database_connections
+      sint1.replicator.create_table
+      sint2.replicator.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "enqueues a sync for rows in any service integration that use the given url", sidekiq: :fake do
+      urls = ["url1", "url2", "url3"]
+      [sint1, sint2].each_with_index do |sint, sint_idx|
+        sint.replicator.admin_dataset do |ds|
+          urls.each_with_index do |url, url_idx|
+            ds.insert(
+              data: "{}",
+              row_created_at: Time.now,
+              row_updated_at: Time.now,
+              ics_url: url,
+              external_id: "row-#{sint_idx + 1}-#{url_idx + 1}",
+            )
+          end
+        end
+      end
+      Webhookdb::Jobs::IcalendarEnqueueSyncsForUrls.new.perform(["url2"])
+      expect(Sidekiq).to have_queue("netout").consisting_of(
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint1.id, "row-1-2"]),
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint2.id, "row-2-2"]),
+      )
+    end
+  end
+
   describe "IcalendarSync" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:sint) do

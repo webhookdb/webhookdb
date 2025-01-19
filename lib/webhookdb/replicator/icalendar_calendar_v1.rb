@@ -172,6 +172,11 @@ The secret to use for signing is:
       last_synced_at = row.fetch(:last_synced_at)
       should_sync = force ||
         last_synced_at.nil? ||
+        # If a proxy is configured, we always want to try to sync,
+        # since this could have come from a webhook, but also the proxy feed refresh TTL
+        # is likely much lower than ICALENDAR_SYNC_PERIOD_HOURS so it's good to check on it.
+        # The check is very fast (should 304) so is safe to do relatively often.
+        Webhookdb::Icalendar.proxy_url.present? ||
         last_synced_at < (now - Webhookdb::Icalendar.sync_period_hours.hours)
       unless should_sync
         self.logger.info("skip_sync_recently_synced", last_synced_at:)

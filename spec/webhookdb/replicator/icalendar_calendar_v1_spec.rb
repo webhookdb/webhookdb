@@ -1641,6 +1641,24 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         svc.sync_row(row)
         expect(req).to have_been_made
       end
+
+      it "does not skip the sync even if the row has been recently modified" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20080212
+          DTEND:20080213
+          DTSTAMP:20150421T141403
+          END:VEVENT
+        ICAL
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc", last_synced_at: 1.minute.ago)
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(event_svc.admin_dataset(&:all)).to have_length(1)
+      end
     end
   end
 

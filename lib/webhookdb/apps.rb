@@ -16,6 +16,7 @@ require "webhookdb/api/auth"
 require "webhookdb/api/db"
 require "webhookdb/api/demo"
 require "webhookdb/api/error_handlers"
+require "webhookdb/api/icalproxy"
 require "webhookdb/api/install"
 require "webhookdb/api/me"
 require "webhookdb/api/organizations"
@@ -79,6 +80,7 @@ module Webhookdb::Apps
     mount Webhookdb::API::Db
     mount Webhookdb::API::Demo
     mount Webhookdb::API::ErrorHandlers
+    mount Webhookdb::API::Icalproxy
     mount Webhookdb::API::Install
     mount Webhookdb::API::Me
     mount Webhookdb::API::Organizations
