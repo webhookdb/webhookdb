@@ -24,12 +24,17 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
   end
 
   describe "truncate_dataset" do
-    it "truncates what is in the dataset" do
+    it "truncates what is in the dataset, and not already truncated" do
       lw1 = Webhookdb::Fixtures.logged_webhook.create
       lw2 = Webhookdb::Fixtures.logged_webhook.create
-      described_class.truncate_dataset(described_class.where(id: lw2.id))
+      t = trunc_time(5.days.ago)
+      trunc = Webhookdb::Fixtures.logged_webhook.create(truncated_at: t)
+      described_class.truncate_dataset(described_class.where(id: [lw2.id, trunc.id]))
       expect(lw1.refresh).to_not be_truncated
-      expect(lw2.refresh).to be_truncated
+      expect(lw2.refresh).to have_attributes(
+        request_body: "", request_headers: {}, truncated_at: match_time(:now).within(1),
+      )
+      expect(trunc.refresh).to have_attributes(truncated_at: t)
     end
   end
 
@@ -118,11 +123,13 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
       ofac = fac.with_organization
       success_newer = ofac.success.create
       success_older = ofac.success.create(inserted_at: 20.days.ago)
-      success_ancient = ofac.success.ancient.create
+      t = trunc_time(5.days.ago)
+      success_truncated = ofac.success.truncated(t).create(inserted_at: 20.days.ago)
+      success_ancient = ofac.success.truncated.ancient.create
       failure_newer = ofac.failure.create
       failure_mid = ofac.failure.create(inserted_at: 20.days.ago)
       failure_older = ofac.failure.create(inserted_at: 40.days.ago)
-      failure_ancient = ofac.failure.ancient.create
+      failure_ancient = ofac.failure.ancient.truncated.create
 
       described_class.trim
 
@@ -130,6 +137,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
         orphan_newer,
         success_newer,
         success_older,
+        success_truncated,
         failure_newer,
         failure_mid,
         failure_older,
@@ -138,6 +146,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
       expect(orphan_newer.refresh).to_not be_truncated
       expect(success_newer.refresh).to_not be_truncated
       expect(success_older.refresh).to be_truncated
+      expect(success_truncated.refresh).to have_attributes(truncated_at: t)
       expect(failure_newer.refresh).to_not be_truncated
       expect(failure_mid.refresh).to_not be_truncated
       expect(failure_older.refresh).to be_truncated
