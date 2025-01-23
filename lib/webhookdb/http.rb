@@ -129,3 +129,6 @@ class HTTPX::Response::Body
     @encoding = "#{md[1]}-#{md[2]}"
   end
 end
+
+# Not sure why, but Down uses this, loads the plugin, but the constant isn't defined.
+require "httpx/plugins/follow_redirects"

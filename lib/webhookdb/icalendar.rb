@@ -10,7 +10,7 @@ module Webhookdb::Icalendar
   include Appydays::Configurable
 
   configurable(:icalendar) do
-    # Do not store events older then this when syncing recurring events.
+    # Do not store events older than this when syncing recurring events.
     # Many icalendar feeds are misconfigured and this prevents enumerating 2000+ years of recurrence.
     setting :oldest_recurring_event, "2000-01-01", convert: ->(s) { Date.parse(s) }
     # Calendars feeds are considered 'fresh' if they have been synced this long ago or less.
@@ -33,5 +33,13 @@ module Webhookdb::Icalendar
     setting :stale_cancelled_event_threshold_days, 20
     # The stale row deleter job will look for rows this far before the threshold.
     setting :stale_cancelled_event_lookback_days, 3
+
+    # The URL of the icalproxy server, if using one.
+    # See https://github.com/webhookdb/icalproxy for more info.
+    # Used to get property HTTP semantics for any icalendar feed, like Etag and HEAD requests.
+    setting :proxy_url, ""
+    # Api key of the icalproxy server, if using one.
+    # See https://github.com/webhookdb/icalproxy
+    setting :proxy_api_key, ""
   end
 end

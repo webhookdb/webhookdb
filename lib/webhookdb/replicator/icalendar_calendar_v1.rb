@@ -172,6 +172,11 @@ The secret to use for signing is:
       last_synced_at = row.fetch(:last_synced_at)
       should_sync = force ||
         last_synced_at.nil? ||
+        # If a proxy is configured, we always want to try to sync,
+        # since this could have come from a webhook, but also the proxy feed refresh TTL
+        # is likely much lower than ICALENDAR_SYNC_PERIOD_HOURS so it's good to check on it.
+        # The check is very fast (should 304) so is safe to do relatively often.
+        Webhookdb::Icalendar.proxy_url.present? ||
         last_synced_at < (now - Webhookdb::Icalendar.sync_period_hours.hours)
       unless should_sync
         self.logger.info("skip_sync_recently_synced", last_synced_at:)
@@ -202,6 +207,7 @@ The secret to use for signing is:
                 "hash" => processor&.feed_hash,
                 "content_type" => processor&.headers&.fetch("Content-Type", nil),
                 "content_length" => processor&.headers&.fetch("Content-Length", nil),
+                "etag" => processor&.headers&.fetch("Etag", nil),
               }.to_json,
             )
         end
@@ -213,7 +219,7 @@ The secret to use for signing is:
     calendar_external_id = row.fetch(:external_id)
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = self._make_ics_request(request_url)
+      io = self._make_ics_request(request_url, row.fetch(:last_fetch_context))
     rescue Down::Error,
            URI::InvalidURIError,
            HTTPX::NativeResolveError,
@@ -246,7 +252,7 @@ The secret to use for signing is:
     return processor
   end
 
-  def _make_ics_request(request_url)
+  def _make_ics_request(request_url, last_fetch_context)
     # Some servers require a VERY explicit accept header,
     # so tell them we prefer icalendar here.
     # Using Httpx, Accept-Encoding is gzip,deflate
@@ -254,6 +260,12 @@ The secret to use for signing is:
     headers = {
       "Accept" => "text/calendar,*/*",
     }
+    headers["If-None-Match"] = last_fetch_context["etag"] if last_fetch_context & ["etag"]
+    if (proxy_url = Webhookdb::Icalendar.proxy_url).present?
+      request_url = "#{proxy_url.delete_suffix('/')}/?url=#{URI.encode_www_form_component(request_url)}"
+      headers["Authorization"] = "Apikey #{Webhookdb::Icalendar.proxy_api_key}" if
+        Webhookdb::Icalendar.proxy_api_key.present?
+    end
     resp = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
     return resp
   end
@@ -314,12 +326,17 @@ The secret to use for signing is:
           417, # If someone uses an Outlook HTML calendar, fetch gives us a 417
           422, # Sometimes used instead of 404
           429, # Usually 429s are retried (as above), but in some cases they're not.
+          500, 503, 504, # Intermittent server issues, usually
+          599, # Represents a timeout in icalproxy
         ]
         # For most client errors, we can't do anything about it. For example,
         # and 'unshared' URL could result in a 401, 403, 404, or even a 405.
         # For now, other client errors, we can raise on,
         # in case it's something we can fix/work around.
         # For example, it's possible something like a 415 is a WebhookDB issue.
+        if response_status == 421 && (origin_err = e.response.headers["Ical-Proxy-Origin-Error"])
+          response_status = origin_err.to_i
+        end
         raise e unless expected_errors.include?(response_status)
         response_body = self._safe_read_body(e)
       when Down::ServerError
@@ -672,12 +689,13 @@ The secret to use for signing is:
   #   sync. Since this involves reading the streaming body, we must return a copy of the body (a StringIO).
   def feed_changed?(row)
     last_fetch = row.fetch(:last_fetch_context)
-    return true if last_fetch.nil?
-    return true unless LAST_FETCH_KEYS.all? { |k| last_fetch.include?(k) }
+    return true if last_fetch.nil? || last_fetch.empty?
 
     begin
       url = self._clean_ics_url(row.fetch(:ics_url))
-      resp = self._make_ics_request(url)
+      resp = self._make_ics_request(url, last_fetch)
+    rescue Down::NotModified
+      return false
     rescue StandardError
       return true
     end
@@ -694,6 +712,4 @@ The secret to use for signing is:
     end
     return hash.hexdigest != last_hash
   end
-
-  LAST_FETCH_KEYS = ["content_type", "content_length", "hash"].freeze
 end
