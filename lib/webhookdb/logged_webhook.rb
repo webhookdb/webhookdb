@@ -88,13 +88,29 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     unowned = self.where(organization_id: nil)
     successes = owned.where { response_status < 400 }
     failures = owned.where { response_status >= 400 }
+    # NOTE: This code is tightly coupled with indices created in 050_logged_webhooks_indices.rb
+    # We create a separate index for each operation; the indices (5 in total) cover the full combination of:
+    # - rows without an organization (idx 1)
+    # - rows with an organization
+    #   - rows already truncated
+    #     - rows with status < 400 (idx 2)
+    #     - rows with status >= 400 (idx 3)
+    #   - rows not truncated
+    #     - rows with status < 400 (idx 4)
+    #     - rows with status >= 400 (idx 5)
+    # Note that we only delete already-truncated rows so we can keep our indices smaller;
+    # since deletion ages are always older than truncation ages, this should not be a problem.
+
     # Delete old unowned
     unowned.where { inserted_at < now - DELETE_UNOWNED }.delete
+    puts unowned.where { inserted_at < now - DELETE_UNOWNED }.sql
     # Delete successes first so they don't have to be truncated
-    successes.where { inserted_at < now - DELETE_SUCCESSES }.delete
+    successes.where { inserted_at < now - DELETE_SUCCESSES }.exclude(truncated_at: nil).delete
+    puts successes.where { inserted_at < now - DELETE_SUCCESSES }.exclude(truncated_at: nil).sql
     self.truncate_dataset(successes.where { inserted_at < now - TRUNCATE_SUCCESSES })
     # Delete failures
-    failures.where { inserted_at < now - DELETE_FAILURES }.delete
+    failures.where { inserted_at < now - DELETE_FAILURES }.exclude(truncated_at: nil).delete
+    puts failures.where { inserted_at < now - DELETE_FAILURES }.exclude(truncated_at: nil).sql
     self.truncate_dataset(failures.where { inserted_at < now - TRUNCATE_FAILURES })
   end
 
@@ -145,6 +161,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   end
 
   def self.truncate_dataset(ds)
+    ds = ds.where(truncated_at: nil)
+    puts ds.sql
     return ds.update(request_body: "", request_headers: "{}", truncated_at: Time.now)
   end
 
