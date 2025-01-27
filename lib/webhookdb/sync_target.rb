@@ -182,7 +182,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       )
     rescue Timeout::Error => e
       raise InvalidConnection, "POST to #{cleanurl} timed out: #{e.message}"
-    rescue Webhookdb::Http::Error => e
+    rescue Webhookdb::Http::Error, SocketError => e
       raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
     end
   end
