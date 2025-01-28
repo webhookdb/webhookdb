@@ -31,7 +31,18 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     raise NotImplementedError, "Snowflake does not support indices"
   end
 
-  def column_create_sql(column)
+  def create_table_sql(table, columns, if_not_exists: false, **)
+    createtable = +"CREATE TABLE "
+    createtable << "IF NOT EXISTS " if if_not_exists
+    createtable << self.qualify_table(table)
+    lines = ["#{createtable} ("]
+    columns[0...-1]&.each { |c| lines << "  #{self.create_column_sql(c)}," }
+    lines << "  #{self.create_column_sql(columns.last)}"
+    lines << ")"
+    return lines.join("\n")
+  end
+
+  def create_column_sql(column)
     modifiers = +""
     if column.unique?
       modifiers << " UNIQUE NOT NULL"
@@ -44,7 +55,7 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
   end
 
   def add_column_sql(table, column, if_not_exists: false)
-    c = self.column_create_sql(column)
+    c = self.create_column_sql(column)
     # Snowflake has no 'ADD COLUMN IF NOT EXISTS' so we need to query the long way around
     add_sql = "ALTER TABLE #{self.qualify_table(table)} ADD COLUMN #{c}"
     return add_sql unless if_not_exists

@@ -8,17 +8,6 @@ module Webhookdb::DBAdapter::DefaultSql
     return s
   end
 
-  def create_table_sql(table, columns, if_not_exists: false)
-    createtable = +"CREATE TABLE "
-    createtable << "IF NOT EXISTS " if if_not_exists
-    createtable << self.qualify_table(table)
-    lines = ["#{createtable} ("]
-    columns[0...-1]&.each { |c| lines << "  #{self.column_create_sql(c)}," }
-    lines << "  #{self.column_create_sql(columns.last)}"
-    lines << ")"
-    return lines.join("\n")
-  end
-
   def identifier_quote_char
     raise NotImplementedError
   end

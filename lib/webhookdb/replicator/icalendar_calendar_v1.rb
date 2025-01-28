@@ -128,8 +128,6 @@ The secret to use for signing is:
     end
   end
 
-  CLEANUP_SERVICE_NAMES = ["icalendar_event_v1"].freeze
-
   def rows_needing_sync(dataset, now: Time.now)
     cutoff = now - Webhookdb::Icalendar.sync_period_hours.hours
     return dataset.where(Sequel[last_synced_at: nil] | Sequel.expr { last_synced_at < cutoff })
@@ -137,7 +135,7 @@ The secret to use for signing is:
 
   def delete_data_for_external_id(external_id)
     relevant_integrations = self.service_integration.recursive_dependents.
-      filter { |d| CLEANUP_SERVICE_NAMES.include?(d.service_name) }
+      filter { |d| Webhookdb::Icalendar::EVENT_REPLICATORS.include?(d.service_name) }
     self.admin_dataset do |ds|
       ds.db.transaction do
         ds.where(external_id:).delete
@@ -184,7 +182,7 @@ The secret to use for signing is:
       end
       self.with_advisory_lock(row.fetch(:pk)) do
         start = Time.now
-        if (dep = self.find_dependent("icalendar_event_v1"))
+        if (dep = self.find_dependent(Webhookdb::Icalendar::EVENT_REPLICATORS))
           if dep.replicator.avoid_writes?
             # Check if this table is being vacuumed/etc. We use this instead of a semaphore job,
             # since it's a better fit for icalendar, which is pre-scheduled, rather than reactive.

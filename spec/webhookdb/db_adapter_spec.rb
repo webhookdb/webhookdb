@@ -98,33 +98,33 @@ RSpec.describe Webhookdb::DBAdapter do
       end
     end
 
-    describe "column_create_sql" do
+    describe "create_column_sql" do
       it "returns the query" do
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::TEXT))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::TEXT))
         expect(sql).to eq("c1 text")
       end
 
       it "works for primary keys" do
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::BIGINT, pk: true))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::BIGINT, pk: true))
         expect(sql).to eq("c1 bigserial PRIMARY KEY")
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::INTEGER, pk: true))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::INTEGER, pk: true))
         expect(sql).to eq("c1 serial PRIMARY KEY")
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::TEXT, pk: true))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::TEXT, pk: true))
         expect(sql).to eq("c1 text PRIMARY KEY")
       end
 
       it "works for unique" do
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::TEXT, unique: true))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::TEXT, unique: true))
         expect(sql).to eq("c1 text UNIQUE NOT NULL")
       end
 
       it "works for non-null" do
-        sql = ad.column_create_sql(col.new(name: :c1, type: coltype::TEXT, nullable: false))
+        sql = ad.create_column_sql(col.new(name: :c1, type: coltype::TEXT, nullable: false))
         expect(sql).to eq("c1 text NOT NULL")
       end
 
       it "escapes identifiers" do
-        sql = ad.column_create_sql(col.new(name: :from, type: coltype::TEXT))
+        sql = ad.create_column_sql(col.new(name: :from, type: coltype::TEXT))
         expect(sql).to eq("\"from\" text")
       end
     end

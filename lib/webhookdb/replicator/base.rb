@@ -318,10 +318,12 @@ for information on how to refresh data.)
   # Find a dependent service integration with the given service name.
   # If none are found, return nil. If multiple are found, raise,
   # as this should only be used for automatically managed integrations.
+  # @param service_name [String,Array<String>]
   # @return [Webhookdb::ServiceIntegration,nil]
   def find_dependent(service_name)
-    sints = self.service_integration.dependents.filter { |si| si.service_name == service_name }
-    raise Webhookdb::InvalidPrecondition, "there are multiple #{service_name} integrations in dependents" if
+    names = service_name.respond_to?(:to_ary) ? service_name : [service_name]
+    sints = self.service_integration.dependents.filter { |si| names.include?(si.service_name) }
+    raise Webhookdb::InvalidPrecondition, "there are multiple #{names.join('/')} integrations in dependents" if
       sints.length > 1
     return sints.first
   end
@@ -356,12 +358,34 @@ for information on how to refresh data.)
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Replicator::SchemaModification.new
-    result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
+    create_table = adapter.create_table_sql(table, columns, if_not_exists:, partition: self.partitioning)
+    result.transaction_statements << create_table
+    result.transaction_statements.concat(self.create_table_partitions(adapter))
     self.indices(table).each do |dbindex|
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
     return result
+  end
+
+  # True if the replicator uses partitioning.
+  def partition? = false
+  # Non-nil only if +partition?+ is true.
+  # @return [Webhookdb::DBAdapter::Partitioning,nil]
+  def partitioning = nil
+
+  def create_table_partitions(adapter)
+    return [] unless self.partition?
+    # We only need create_table partitions when we create the table.
+    # Range partitions would be created on demand, when inserting rows and the partition doesn't exist.
+    return [] unless self.partitioning.by == Webhookdb::DBAdapter::Partitioning::HASH
+
+    max_partition = self.service_integration.partition_value
+    raise Webhookdb::InvalidPrecondition, "partition value must be positive" unless max_partition.positive?
+    stmts = (0...max_partition).map do |i|
+      adapter.create_hash_partition_sql(self.dbadapter_table, max_partition, i)
+    end
+    return stmts
   end
 
   # We need to give indices a persistent name, unique across the schema,
@@ -700,12 +724,11 @@ for information on how to refresh data.)
     inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
     inserting.merge!(prepared)
     return inserting unless upsert
-    remote_key_col = self._remote_key_column
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
     upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
       ds.insert_conflict(
-        target: remote_key_col.name,
+        target: self._upsert_conflict_target,
         update: updating,
         update_where:,
       ).insert(inserting)
@@ -715,6 +738,12 @@ for information on how to refresh data.)
     self._publish_rowupsert(inserting) if row_changed
     return inserting
   end
+
+  # The target for ON CONFLICT. Usually the remote key column name,
+  # except if the remote id is a compound unique index, like for partitioned tables.
+  # Can be a symbol, array of symbols representing the column names, a +Sequel.lit+, etc.
+  # See +Sequel::Dataset.insert_conflict+ :target option for details.
+  def _upsert_conflict_target = self._remote_key_column.name
 
   # The NULL ASCII character (\u0000), when present in a string ("\u0000"),
   # and then encoded into JSON ("\\u0000") is invalid in PG JSONB- its strings cannot contain NULLs

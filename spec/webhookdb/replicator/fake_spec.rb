@@ -792,6 +792,13 @@ or leave blank to choose the first option.
         expect(result).to eq(child_sint)
       end
 
+      it "can search an array of names" do
+        child_sint = Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
+        expect(root_sint.dependents.first).to eq(child_sint)
+        result = root_sint.replicator.find_dependent(["abc", "fake_v1"])
+        expect(result).to eq(child_sint)
+      end
+
       it "errors if there is no dependent integration with given service name" do
         expect(root_sint.replicator.find_dependent("fake_v2")).to be_nil
         expect do
@@ -921,6 +928,36 @@ or leave blank to choose the first option.
           my_id: "x",
         ),
       )
+    end
+  end
+
+  describe "partitioning" do
+    describe Webhookdb::Replicator::FakeHashPartition do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_hash_partition_v1") }
+      let(:svc) { sint.replicator }
+
+      it_behaves_like "a replicator that supports hash partitioning" do
+        def body(i)
+          {
+            "my_id" => i.to_s,
+            "at" => "Thu, 30 Jul 2015 21:12:33 +0000",
+          }
+        end
+      end
+    end
+
+    describe Webhookdb::Replicator::FakeRangePartition do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_range_partition_v1") }
+      let(:svc) { sint.replicator }
+
+      it_behaves_like "a replicator that supports range partitioning" do
+        def body(i)
+          {
+            "my_id" => i.to_s,
+            "at" => "Thu, #{i + 1} Jul 2015 21:12:33 +0000",
+          }
+        end
+      end
     end
   end
 end

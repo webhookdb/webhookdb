@@ -7,6 +7,8 @@ module Webhookdb::Icalendar
   # If a manual backfill is attempted, direct customer to this url.
   DOCUMENTATION_URL = "https://docs.webhookdb.com/guides/icalendar/"
 
+  EVENT_REPLICATORS = ["icalendar_event_v1", "icalendar_event_v1_partitioned"].freeze
+
   include Appydays::Configurable
 
   configurable(:icalendar) do

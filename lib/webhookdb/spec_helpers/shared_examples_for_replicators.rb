@@ -1017,3 +1017,74 @@ RSpec.shared_examples "a replicator backfilling against the table of its depende
     expect(svc.readonly_dataset(&:all)).to have_length(3)
   end
 end
+
+# These shared examples test partitioning
+
+RSpec.shared_examples "a replicator that supports hash partitioning" do
+  let(:service_name) { described_class.descriptor.name }
+  let(:partitions) { 4 }
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:, partition_value: partitions) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  def body(_i) = raise NotImplementedError
+
+  it "creates and uses the specified number of hash partitions" do
+    expect(svc).to be_partition
+    expect(svc.partitioning).to be_a(Webhookdb::DBAdapter::Partitioning)
+    m = svc.create_table_modification
+    expect(m.transaction_statements).to include(
+      match(/CREATE TABLE .*_0 PARTITION OF .* FOR VALUES WITH \(MODULUS \d, REMAINDER 0\)/),
+      match(/CREATE TABLE .*_1 PARTITION OF .* FOR VALUES WITH \(MODULUS \d, REMAINDER 1\)/),
+      match(/CREATE TABLE .*_2 PARTITION OF .* FOR VALUES WITH \(MODULUS \d, REMAINDER 2\)/),
+      match(/CREATE TABLE .*_3 PARTITION OF .* FOR VALUES WITH \(MODULUS \d, REMAINDER 3\)/),
+    )
+    expect { svc.create_table }.to_not raise_error
+    rowcount = partitions + 2 # Make sure we hit all the remainders and extra
+    Array.new(2) do
+      (0...rowcount).each do |i|
+        upsert_webhook(svc, body: body(i))
+      end
+    end
+    svc.readonly_dataset do |ds|
+      expect(ds.all).to have_length(rowcount)
+    end
+  end
+end
+
+RSpec.shared_examples "a replicator that supports range partitioning" do
+  let(:service_name) { described_class.descriptor.name }
+  let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name:) }
+  let(:svc) { Webhookdb::Replicator.create(sint) }
+  Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+  before(:each) do
+    sint.organization.prepare_database_connections
+  end
+
+  after(:each) do
+    sint.organization.remove_related_database
+  end
+
+  def body(_i) = raise NotImplementedError
+
+  it "prepares partitions" do
+    expect(svc).to be_partition
+    expect(svc.partitioning).to be_a(Webhookdb::DBAdapter::Partitioning)
+    m = svc.create_table_modification
+    expect(m.transaction_statements).to include(
+      match(/PARTITION BY RANGE \(/),
+    )
+    expect { svc.create_table }.to_not raise_error
+    # Awaiting implementation
+    expect { upsert_webhook(svc, body: body(1)) }.to raise_error(/no partition of relation/)
+  end
+end
