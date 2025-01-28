@@ -103,14 +103,11 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
 
     # Delete old unowned
     unowned.where { inserted_at < now - DELETE_UNOWNED }.delete
-    puts unowned.where { inserted_at < now - DELETE_UNOWNED }.sql
     # Delete successes first so they don't have to be truncated
     successes.where { inserted_at < now - DELETE_SUCCESSES }.exclude(truncated_at: nil).delete
-    puts successes.where { inserted_at < now - DELETE_SUCCESSES }.exclude(truncated_at: nil).sql
     self.truncate_dataset(successes.where { inserted_at < now - TRUNCATE_SUCCESSES })
     # Delete failures
     failures.where { inserted_at < now - DELETE_FAILURES }.exclude(truncated_at: nil).delete
-    puts failures.where { inserted_at < now - DELETE_FAILURES }.exclude(truncated_at: nil).sql
     self.truncate_dataset(failures.where { inserted_at < now - TRUNCATE_FAILURES })
   end
 
@@ -162,7 +159,6 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
 
   def self.truncate_dataset(ds)
     ds = ds.where(truncated_at: nil)
-    puts ds.sql
     return ds.update(request_body: "", request_headers: "{}", truncated_at: Time.now)
   end
 
