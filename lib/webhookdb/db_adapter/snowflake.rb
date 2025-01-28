@@ -28,7 +28,7 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
   end
 
   def create_index_sql(*)
-    raise NotImplementedError, "Snowflake does not support indices"
+    raise Webhookdb::InvalidPrecondition, "Snowflake does not support indices"
   end
 
   def create_table_sql(table, columns, if_not_exists: false, **)
@@ -129,9 +129,7 @@ class Webhookdb::DBAdapter::Snowflake < Webhookdb::DBAdapter
     conn.execute(statement)
   end
 
-  def identifier_quote_char
-    return ""
-  end
+  def identifier_quote_char = ""
 
   COLTYPE_MAP = {
     BIGINT => "bigint",

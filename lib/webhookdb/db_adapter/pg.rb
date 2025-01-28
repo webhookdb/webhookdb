@@ -11,9 +11,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   VERIFY_TIMEOUT = 2
   VERIFY_STATEMENT = "SELECT 1"
 
-  def identifier_quote_char
-    return '"'
-  end
+  def identifier_quote_char = '"'
 
   def create_index_sql(index, concurrently:)
     tgts = index.targets.map { |c| self.escape_identifier(c.name) }.join(", ")
@@ -57,7 +55,10 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
       end
     end
     tbl_lines = columns.map { |c| self.create_column_sql(c) }
-    tbl_lines.concat(partitioned_pks.map { |c| "PRIMARY KEY (#{partition.column}, #{c.name})" })
+    tbl_lines.concat(partitioned_pks.map do |c|
+      pkcols = [partition.column, c.name].uniq.join(", ")
+      "PRIMARY KEY (#{pkcols})"
+    end)
     tbl_lines.concat(partitioned_uniques.map { |c| "UNIQUE (#{partition.column}, #{c.name})" })
     lines = ["#{createtable} ("]
     lines << ("  " + tbl_lines.join(",\n  "))

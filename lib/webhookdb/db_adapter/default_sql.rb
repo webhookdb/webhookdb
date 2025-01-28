@@ -8,9 +8,7 @@ module Webhookdb::DBAdapter::DefaultSql
     return s
   end
 
-  def identifier_quote_char
-    raise NotImplementedError
-  end
+  def identifier_quote_char = raise NotImplementedError
 
   # We write our own escaper because we want to only escape what's needed;
   # otherwise we want to avoid quoting identifiers.
