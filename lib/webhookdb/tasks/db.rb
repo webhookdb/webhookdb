@@ -41,6 +41,18 @@ module Webhookdb::Tasks
         desc "Re-create the database tables. Drop tables and migrate."
         task reset: ["db:drop_tables", "db:migrate"]
 
+        desc "Set all model tables to UNLOGGED. Do this after test migrating. NEVER PROD."
+        task :unlogged do
+          raise "Unly run under RACK_ENV=test" unless Webhookdb::RACK_ENV == "test"
+          require "webhookdb/postgres"
+          Webhookdb::Postgres.load_superclasses
+          Webhookdb::Postgres.each_model_superclass do |sc|
+            sc.tsort.reverse_each do |m|
+              self.exec(sc.db, "ALTER TABLE #{m.tablename} SET UNLOGGED")
+            end
+          end
+        end
+
         task :drop_replication_databases do
           require "webhookdb/postgres"
           Webhookdb::Postgres.load_superclasses
