@@ -140,20 +140,41 @@ class Webhookdb::ConnectionCache
       conn ||= take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
       db_loans[:loaned][t] = conn
     end
-    conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
-    conn << "BEGIN;" if transaction
+    trash_conn = false
     begin
-      result = yield conn
-      conn << "COMMIT;" if transaction
-    rescue Sequel::DatabaseError
-      conn << "ROLLBACK;" if transaction
+      # All database operations need global handling to ensure property pool management.
+      conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
+      conn << "BEGIN;" if transaction
+      begin
+        result = yield conn
+        conn << "COMMIT;" if transaction
+      rescue Sequel::DatabaseError => e
+        # Roll back on any database error; but if we're disconnected, don't bother
+        # since we know the rollback won't reach the database.
+        conn << "ROLLBACK;" if transaction && !e.is_a?(Sequel::DatabaseDisconnectError)
+        raise
+      end
+    rescue Sequel::DatabaseDisconnectError
+      # If we're disconnected, trash this connection rather than re-adding it back to the pool.
+      trash_conn = true
       raise
     ensure
-      conn << "SET statement_timeout TO 0" if timeout.present?
+      reraise = nil
+      if timeout.present?
+        begin
+          # If the timeout fails for whatever reason, assume the connection is toast
+          # and don't return it to the pool.
+          conn << "SET statement_timeout TO 0"
+        rescue Sequel::DatabaseError => e
+          reraise = e
+          trash_conn = true
+        end
+      end
       @mutex.synchronize do
         @dbs_for_urls[url][:loaned].delete(t)
-        @dbs_for_urls[url][:available] << Available.new(conn, Time.now)
+        @dbs_for_urls[url][:available] << Available.new(conn, Time.now) unless trash_conn
       end
+      raise reraise if reraise
     end
     self.prune(url) if now > self.next_prune_at
     return result

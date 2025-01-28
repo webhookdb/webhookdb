@@ -213,6 +213,46 @@ RSpec.describe Webhookdb::ConnectionCache do
       end
     end
 
+    it "returns the connection to the pool after a normal error" do
+      expect do
+        instance.borrow(db1_url) do
+          raise ArgumentError, "test error"
+        end
+      end.to raise_error(/test error/)
+      expect(instance.summarize).to include(
+        db1_url => {available: 1, loaned: 0},
+      )
+    end
+
+    it "trashes the connection after a database disconnect error" do
+      expect do
+        instance.borrow(db1_url) do |c|
+          c << "SELECT pg_terminate_backend(pg_backend_pid())"
+        end
+      end.to raise_error(Sequel::DatabaseDisconnectError)
+      expect(instance.summarize).to include(
+        db1_url => {available: 0, loaned: 0},
+      )
+    end
+
+    it "trashes the connection and reraises an error that occurs while restoring the timeout" do
+      # Kill the first connection so it dies when we restore the timeout
+      # (if the connection kills itself, we'll get an error even without the timeout restore,
+      # which we don't want).
+      expect do
+        instance.borrow(db1_url, timeout: 9) do |c1|
+          pid = c1.select(Sequel.function(:pg_backend_pid).as(:pid)).first[:pid]
+          instance.borrow(db2_url, timeout: 9) do |c2|
+            c2 << "SELECT pg_terminate_backend(#{pid})"
+          end
+        end
+      end.to raise_error(Sequel::DatabaseDisconnectError)
+      expect(instance.summarize).to include(
+        db1_url => {available: 0, loaned: 0},
+        db2_url => {available: 1, loaned: 0},
+      )
+    end
+
     describe "transaction handling" do
       it "does not issue transactions by default" do
         c = capture_conn(instance, db1_url)
