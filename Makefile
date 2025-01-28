@@ -52,6 +52,7 @@ testf:
 migrate-test:
 	RACK_ENV=test bundle exec rake db:drop_tables_and_replication_databases
 	RACK_ENV=test bundle exec rake db:migrate
+	RACK_ENV=test bundle exec rake db:unlogged
 wipe-test-db:
 	RACK_ENV=test bundle exec rake db:wipe_tables_and_drop_replication_databases
 recreate-test-db:
