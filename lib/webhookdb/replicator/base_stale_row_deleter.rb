@@ -99,7 +99,7 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
 
       # We must disable vacuuming for this sort of cleanup. Otherwise it will take a LONG time
       # since we use a series of short deletes.
-      ds.db << "ALTER TABLE #{self.replicator.schema_and_table_symbols.join('.')} SET (autovacuum_enabled='off')"
+      self.set_autovacuum(ds.db, false)
       base_ds = ds.where(self.stale_condition).limit(self.chunk_size).select(:pk)
       window_start = stale_window_early
       until window_start >= stale_window_late
@@ -134,8 +134,14 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
   ensure
     # Open a new connection in case the previous one is trashed for whatever reason.
     self.replicator.admin_dataset do |ds|
-      ds.db << "ALTER TABLE #{self.replicator.schema_and_table_symbols.join('.')} SET (autovacuum_enabled='on')"
+      self.set_autovacuum(ds.db, true)
     end
+  end
+
+  def set_autovacuum(db, on)
+    return if self.replicator.partition?
+    arg = on ? "on" : "off"
+    db << "ALTER TABLE #{self.replicator.schema_and_table_symbols.join('.')} SET (autovacuum_enabled='#{arg}')"
   end
 
   # Run with +lookback_window+ as +nil+, which does a full table scan.

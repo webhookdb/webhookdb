@@ -97,6 +97,14 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
     )
   end
 
+  it "does not set autovacuum on partitioned tables" do
+    expect(svc).to receive(:partition?).twice.and_return(true)
+    logs = capture_logs_from(Webhookdb.logger, level: :debug, formatter: :json) do
+      svc.stale_row_deleter.run
+    end
+    expect(logs).to_not have_a_line_matching(/autovacuum_enabled/)
+  end
+
   it "handles no rows (to delete, or at all)" do
     expect do
       svc.stale_row_deleter.run
