@@ -89,7 +89,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1Partitioned, :db do
         include(
           calendar_external_id: "abc",
           compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d",
-          external_calendar_hash: -2_146_104_957,
+          calendar_external_hash: -2_146_104_957,
         ),
       )
     end

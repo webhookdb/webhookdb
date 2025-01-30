@@ -23,11 +23,11 @@ class Webhookdb::Replicator::IcalendarEventV1Partitioned < Webhookdb::Replicator
 
   def _denormalized_columns
     d = super
-    d << Webhookdb::Replicator::Column.new(:external_calendar_hash, INTEGER, optional: true)
+    d << Webhookdb::Replicator::Column.new(:calendar_external_hash, INTEGER, optional: true)
     return d
   end
 
   def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
-  def partition_column_name = :external_calendar_hash
+  def partition_column_name = :calendar_external_hash
   def partition_value(resource) = self._str2inthash(resource.fetch("calendar_external_id"))
 end
