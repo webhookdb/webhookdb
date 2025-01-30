@@ -108,7 +108,7 @@ class Webhookdb::Backfiller
       update_expr = self.upserting_replicator._upsert_update_expr(rows_to_insert.first)
       self.upserting_replicator.admin_dataset(timeout: :fast) do |ds|
         insert_ds = ds.insert_conflict(
-          target: self.upserting_replicator._remote_key_column.name,
+          target: self.upserting_replicator._upsert_conflict_target,
           update: update_expr,
           update_where: update_where_expr,
         )
