@@ -342,6 +342,11 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # @!attribute skip_webhook_verification
   #   @return [Boolean] Set this to disable webhook verification on this integration.
   #                     Useful when replaying logged webhooks.
+
+  # @!attribute partition_value
+  #   @return [Integer] Value to control partitioning. For replicators that use hash partitioning,
+  #                     this defines the number of partitions. For other partition types, like range,
+  #                     the meaning of this value depends on the replicator itself.
 end
 
 # Table: service_integrations

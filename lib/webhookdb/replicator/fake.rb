@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "webhookdb/replicator/partitionable_mixin"
+
 class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   extend Webhookdb::MethodUtilities
 
@@ -11,16 +13,21 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   singleton_attr_accessor :obfuscate_headers_for_logging
   singleton_attr_accessor :requires_sequence
 
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::Fake.new(sint) },
+  def self._descriptor(**kw)
+    clsname = self.name.split("::").last
+    opts = {
+      name: clsname.underscore + "_v1",
+      ctor: ->(sint) { self.new(sint) },
       feature_roles: ["internal"],
-      resource_name_singular: "Fake",
+      resource_name_singular: clsname,
       supports_webhooks: true,
       supports_backfill: true,
-    )
+    }
+    opts.merge!(kw)
+    return Webhookdb::Replicator::Descriptor.new(**opts)
   end
+
+  def self.descriptor = self._descriptor
 
   def self.reset
     self.webhook_response = Webhookdb::WebhookResponse.ok
@@ -141,16 +148,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
 end
 
 class Webhookdb::Replicator::FakeWithEnrichments < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_with_enrichments_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeWithEnrichments.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "Enriched Fake",
-      supports_webhooks: true,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor(supports_webhooks: true, supports_backfill: true)
 
   def _denormalized_columns
     return super << Webhookdb::Replicator::Column.new(:extra, TEXT, from_enrichment: true)
@@ -169,17 +167,7 @@ end
 class Webhookdb::Replicator::FakeDependent < Webhookdb::Replicator::Fake
   singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_dependent_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeDependent.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "FakeDependent",
-      dependency_descriptor: Webhookdb::Replicator::Fake.descriptor,
-      supports_webhooks: true,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor(dependency_descriptor: Webhookdb::Replicator::Fake.descriptor)
 
   def on_dependency_webhook_upsert(replicator, payload, changed:)
     self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
@@ -197,17 +185,7 @@ end
 class Webhookdb::Replicator::FakeDependentDependent < Webhookdb::Replicator::Fake
   singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_dependent_dependent_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeDependentDependent.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "FakeDependentDependent",
-      dependency_descriptor: Webhookdb::Replicator::FakeDependent.descriptor,
-      supports_webhooks: true,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor(dependency_descriptor: Webhookdb::Replicator::FakeDependent.descriptor)
 
   def on_dependency_webhook_upsert(replicator, payload, changed:)
     self.class.on_dependency_webhook_upsert_callback&.call(replicator, payload, changed:)
@@ -225,16 +203,7 @@ end
 class Webhookdb::Replicator::FakeEnqueueBackfillOnCreate < Webhookdb::Replicator::Fake
   singleton_attr_accessor :on_dependency_webhook_upsert_callback
 
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_enqueue_backfill_on_create_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeEnqueueBackfillOnCreate.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "FakeEnqueueBackfillOnCreate",
-      supports_webhooks: true,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor
 
   def calculate_backfill_state_machine
     # To mimic situations where it is possible to enqueue a backfill job on create, this backfill machine does
@@ -249,16 +218,7 @@ class Webhookdb::Replicator::FakeEnqueueBackfillOnCreate < Webhookdb::Replicator
 end
 
 class Webhookdb::Replicator::FakeWebhooksOnly < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_webhooks_only_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeWebhooksOnly.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "Fake Webhooks Only (No Backfill)",
-      supports_webhooks: true,
-      supports_backfill: false,
-    )
-  end
+  def self.descriptor = self._descriptor(supports_backfill: false)
 
   def documentation_url = "https://abc.xyz"
 
@@ -266,31 +226,13 @@ class Webhookdb::Replicator::FakeWebhooksOnly < Webhookdb::Replicator::Fake
 end
 
 class Webhookdb::Replicator::FakeBackfillOnly < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_backfill_only_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeBackfillOnly.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "Fake Backfill Only (No Webhooks)",
-      supports_webhooks: false,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor(supports_webhooks: false)
 
   def calculate_webhook_state_machine = raise NotImplementedError
 end
 
 class Webhookdb::Replicator::FakeBackfillWithCriteria < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_backfill_with_criteria_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeBackfillWithCriteria.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "Fake Backfill with Criteria",
-      dependency_descriptor: Webhookdb::Replicator::Fake,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor(dependency_descriptor: Webhookdb::Replicator::Fake)
 
   def _denormalized_columns
     return super << Webhookdb::Replicator::Column.new(:backfill_kwargs, OBJECT, optional: true)
@@ -319,16 +261,7 @@ class Webhookdb::Replicator::FakeBackfillWithCriteria < Webhookdb::Replicator::F
 end
 
 class Webhookdb::Replicator::FakeExhaustiveConverter < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_exhaustive_converter_v1",
-      ctor: ->(sint) { Webhookdb::Replicator::FakeExhaustiveConverter.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "Fake with all converters",
-      supports_webhooks: true,
-      supports_backfill: false,
-    )
-  end
+  def self.descriptor = self._descriptor(supports_backfill: false)
 
   def requires_sequence? = true
 
@@ -461,16 +394,7 @@ class Webhookdb::Replicator::FakeExhaustiveConverter < Webhookdb::Replicator::Fa
 end
 
 class Webhookdb::Replicator::FakeStaleRow < Webhookdb::Replicator::Fake
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_stale_row_v1",
-      ctor: ->(sint) { self.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "FakeStaleRow",
-      supports_webhooks: true,
-      supports_backfill: true,
-    )
-  end
+  def self.descriptor = self._descriptor
 
   def _denormalized_columns
     return [
@@ -497,17 +421,35 @@ class Webhookdb::Replicator::FakeWithWatchChannel < Webhookdb::Replicator::Fake
     self.renew_calls = []
   end
 
-  def self.descriptor
-    return Webhookdb::Replicator::Descriptor.new(
-      name: "fake_with_watch_channel_v1",
-      ctor: ->(sint) { self.new(sint) },
-      feature_roles: ["internal"],
-      resource_name_singular: "FakeWithWatchChannel",
-      supports_webhooks: true,
-    )
-  end
+  def self.descriptor = self._descriptor
 
   def renew_watch_channel(row_pk:, expiring_before:)
     self.class.renew_calls << {row_pk:, expiring_before:}
   end
+end
+
+class Webhookdb::Replicator::FakeHashPartition < Webhookdb::Replicator::Fake
+  def self.descriptor = self._descriptor
+
+  include Webhookdb::Replicator::PartitionableMixin
+
+  def _denormalized_columns
+    d = super
+    d << Webhookdb::Replicator::Column.new(:hashkey, INTEGER, optional: true)
+    return d
+  end
+
+  def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
+  def partition_column_name = :hashkey
+  def partition_value(resource) = self._str2inthash(resource.fetch("my_id"))
+end
+
+class Webhookdb::Replicator::FakeRangePartition < Webhookdb::Replicator::Fake
+  def self.descriptor = self._descriptor
+
+  include Webhookdb::Replicator::PartitionableMixin
+
+  def partition_method = Webhookdb::DBAdapter::Partitioning::RANGE
+  def partition_column_name = :at
+  def partition_value(resource) = resource.fetch("at")
 end

@@ -2,6 +2,7 @@
 
 class Webhookdb::DBAdapter
   require "webhookdb/db_adapter/column_types"
+  require "webhookdb/db_adapter/partitioning"
 
   class UnsupportedAdapter < Webhookdb::ProgrammingError; end
 
@@ -149,20 +150,30 @@ class Webhookdb::DBAdapter
     raise NotImplementedError
   end
 
+  # Return the CREATE TABLE sql to create table with columns.
   # @param [Table] table
   # @param [Array<Column>] columns
   # @param [Schema] schema
-  # @param [Boolean] if_not_exists
+  # @param [TrueClass,FalseClass] if_not_exists If true, use CREATE TABLE IF NOT EXISTS.
+  # @param partition [Webhookdb::DBAdapter::Partitioning,nil] If provided,
+  #   adds a "PARTITION BY HASH (partition_column_name)" to the returned SQL.
   # @return [String]
-  def create_table_sql(table, columns, schema: nil, if_not_exists: false)
+  def create_table_sql(table, columns, schema: nil, if_not_exists: false, partition: nil)
     raise NotImplementedError
   end
+
+  # We write our own escaper because we want to only escape what's needed;
+  # otherwise we want to avoid quoting identifiers.
+  def escape_identifier(s) = raise NotImplementedError
 
   # @param [Index] index
   # @return [String]
   def create_index_sql(index, concurrently:)
     raise NotImplementedError
   end
+
+  # @param column [Column] The column to create SQL for.
+  def create_column_sql(column) = raise NotImplementedError
 
   # @param [Table] table
   # @param [Column] column

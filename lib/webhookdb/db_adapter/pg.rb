@@ -11,9 +11,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   VERIFY_TIMEOUT = 2
   VERIFY_STATEMENT = "SELECT 1"
 
-  def identifier_quote_char
-    return '"'
-  end
+  def identifier_quote_char = '"'
 
   def create_index_sql(index, concurrently:)
     tgts = index.targets.map { |c| self.escape_identifier(c.name) }.join(", ")
@@ -26,7 +24,60 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return "CREATE#{uniq} INDEX#{concurrent} IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})#{where}"
   end
 
-  def column_create_sql(column)
+  def create_table_sql(table, columns, if_not_exists: false, partition: nil)
+    columns = columns.to_a
+    createtable = +"CREATE TABLE "
+    createtable << "IF NOT EXISTS " if if_not_exists
+    createtable << self.qualify_table(table)
+
+    partitioned_pks = []
+    partitioned_uniques = []
+    if partition
+      # We cannot use PRIMARY KEY or UNIQUE when partitioning,
+      # so set those columns as if they're not
+      columns.each_with_index do |c, i|
+        if c.pk?
+          # Set the type to the serial type as if it's a normal PK
+          type = case c.type
+            when BIGINT
+              :bigserial
+            when INTEGER
+              :serial
+            else
+              c.type
+          end
+          columns[i] = c.change(pk: false, type:)
+          partitioned_pks << c
+        elsif c.unique?
+          columns[i] = c.change(unique: false)
+          partitioned_uniques << c
+        end
+      end
+    end
+    tbl_lines = columns.map { |c| self.create_column_sql(c) }
+    tbl_lines.concat(partitioned_pks.map do |c|
+      pkcols = [partition.column, c.name].uniq.join(", ")
+      "PRIMARY KEY (#{pkcols})"
+    end)
+    tbl_lines.concat(partitioned_uniques.map { |c| "UNIQUE (#{partition.column}, #{c.name})" })
+    lines = ["#{createtable} ("]
+    lines << ("  " + tbl_lines.join(",\n  "))
+    lines << ")"
+    if partition
+      m = case partition.by
+        when Webhookdb::DBAdapter::Partitioning::HASH
+          "HASH"
+        when Webhookdb::DBAdapter::Partitioning::RANGE
+          "RANGE"
+        else
+          raise ArgumentError, "unknown partition method: #{partition.by}"
+      end
+      lines << "PARTITION BY #{m} (#{partition.column})"
+    end
+    return lines.join("\n")
+  end
+
+  def create_column_sql(column)
     modifiers = +""
     coltype = COLTYPE_MAP.fetch(column.type)
     if column.pk?
@@ -42,8 +93,15 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return "#{colname} #{coltype}#{modifiers}"
   end
 
+  def create_hash_partition_sql(table, partition_count, remainder)
+    tbl = self.qualify_table(table)
+    s = "CREATE TABLE #{tbl}_#{remainder} PARTITION OF #{tbl} " \
+        "FOR VALUES WITH (MODULUS #{partition_count}, REMAINDER #{remainder})"
+    return s
+  end
+
   def add_column_sql(table, column, if_not_exists: false)
-    c = self.column_create_sql(column)
+    c = self.create_column_sql(column)
     ifne = if_not_exists ? " IF NOT EXISTS" : ""
     return "ALTER TABLE #{self.qualify_table(table)} ADD COLUMN#{ifne} #{c}"
   end
@@ -92,5 +150,7 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     TEXT_ARRAY => "text[]",
     TIMESTAMP => "timestamptz",
     UUID => "uuid",
+    :serial => "serial",
+    :bigserial => "bigserial",
   }.freeze
 end

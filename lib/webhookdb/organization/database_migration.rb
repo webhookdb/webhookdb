@@ -112,7 +112,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
     tscol = svc.timestamp_column.name
     dstdb[svc.qualified_table_sequel_identifier].
       insert_conflict(
-        target: svc.remote_key_column.name,
+        target: svc._upsert_conflict_target,
         update_where: svc._update_where_expr,
       ).multi_insert(chunk)
     self.update(last_migrated_timestamp: chunk.last[tscol])
