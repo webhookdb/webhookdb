@@ -39,6 +39,19 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
   splay 30
 
   def _perform
+    self.advisory_lock.with_lock? do
+      self.__perform
+    end
+  end
+
+  # Just a random big number
+  LOCK_ID = 2_161_457_251_202_716_167
+
+  def advisory_lock
+    return Sequel::AdvisoryLock.new(Webhookdb::Customer.db, LOCK_ID)
+  end
+
+  def __perform
     max_projected_out_seconds = Webhookdb::Icalendar.sync_period_splay_hours.hours.to_i
     total_count = 0
     threadpool = Concurrent::ThreadPoolExecutor.new(
