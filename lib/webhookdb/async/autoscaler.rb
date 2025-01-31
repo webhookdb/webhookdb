@@ -28,6 +28,7 @@ module Webhookdb::Async::Autoscaler
     setting :hostname_regex, /^web\.1$/, convert: ->(s) { Regexp.new(s) }
     setting :heroku_app_id_or_app_name, "", key: "HEROKU_APP_NAME"
     setting :heroku_formation_id_or_formation_type, "worker"
+    setting :sentry_alert_interval, 180
 
     after_configured do
       self._check_provider!
@@ -78,10 +79,18 @@ module Webhookdb::Async::Autoscaler
       scale_action = @impl.scale_up(names_and_latencies, depth:, duration:, **)
       kw = {queues: names_and_latencies, depth:, duration:, scale_action:}
       self.logger.warn("high_latency_queues_event", **kw)
+      self._alert_sentry_latency
+    end
+
+    def _alert_sentry_latency
+      call_sentry = @last_called_sentry.nil? ||
+        @last_called_sentry < (Time.now - self.sentry_alert_interval)
+      return unless call_sentry
       Sentry.with_scope do |scope|
         scope&.set_extras(**kw)
         Sentry.capture_message("Some queues have a high latency")
       end
+      @last_called_sentry = Time.now
     end
 
     def scale_down(depth:, duration:, **)

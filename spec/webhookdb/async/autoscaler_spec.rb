@@ -56,4 +56,33 @@ RSpec.describe Webhookdb::Async::Autoscaler do
       )
     end
   end
+
+  describe "scale_up" do
+    after(:each) do
+      described_class.instance_variable_set(:@impl, nil)
+    end
+
+    it "only alerts sentry every configured interval" do
+      described_class.provider = "fake"
+      impl = described_class.build_implementation
+      described_class.instance_variable_set(:@impl, impl)
+      expect(Sentry).to receive(:with_scope).twice
+
+      # One call
+      described_class.scale_up({}, depth: 1, duration: 1)
+      described_class.scale_up({}, depth: 1, duration: 1)
+
+      # No additional calls
+      Timecop.travel(30.seconds.from_now) do
+        described_class.scale_up({}, depth: 1, duration: 1)
+        described_class.scale_up({}, depth: 1, duration: 1)
+      end
+
+      # One additional call since it's been 3 minutes
+      Timecop.travel(4.minutes.from_now) do
+        described_class.scale_up({}, depth: 1, duration: 1)
+        described_class.scale_up({}, depth: 1, duration: 1)
+      end
+    end
+  end
 end
