@@ -524,25 +524,7 @@ RSpec.describe Webhookdb::Service, :db do
     )
   end
 
-  describe "Sentry integration" do
-    before(:each) do
-      # We need to fake doing what Sentry would be doing for initialization,
-      # so we can assert it has the right data in its scope.
-      Webhookdb::Sentry.dsn = "foo"
-      hub = Sentry::Hub.new(
-        Sentry::Client.new(Sentry::Configuration.new),
-        Sentry::Scope.new,
-      )
-      expect(Sentry).to_not be_initialized
-      Sentry.instance_variable_set(:@main_hub, hub)
-      expect(Sentry).to be_initialized
-    end
-
-    after(:each) do
-      Webhookdb::Sentry.reset_configuration
-      expect(Sentry).to_not be_initialized
-    end
-
+  describe "Sentry integration", :sentry do
     it "reports errors to Sentry if devmode is off and Sentry is enabled" do
       described_class.devmode = false
       expect(Sentry).to receive(:capture_exception).

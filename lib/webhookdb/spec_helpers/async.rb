@@ -22,10 +22,6 @@ module Webhookdb::SpecHelpers::Async
         Webhookdb::Slack.http_client = Webhookdb::Slack::NoOpHttpClient.new
         Webhookdb::Slack.suppress_all = false
       end
-      if example.metadata[:sentry]
-        Webhookdb::Sentry.dsn = "http://public:secret@not-really-sentry.nope/someproject"
-        Webhookdb::Sentry.run_after_configured_hooks
-      end
     end
 
     context.after(:each) do |example|

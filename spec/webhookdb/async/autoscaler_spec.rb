@@ -57,7 +57,23 @@ RSpec.describe Webhookdb::Async::Autoscaler do
     end
   end
 
-  describe "scale_up" do
+  it "alerts Sentry if the autoscaler check errors", :sentry, reset_configuration: described_class do
+    err = RuntimeError.new("hi")
+    described_class.provider = "fake"
+    described_class.poll_interval = 0
+    described_class.hostname_regex = /.*/
+    expect(Sentry).to receive(:capture_exception).with(err)
+    described_class.start
+    calls = []
+    expect(described_class.instance_variable_get(:@instance)).to receive(:_check) do
+      Thread.current.report_on_exception = false
+      calls << 1
+      raise err
+    end
+    expect { calls }.to eventually(have_length(1))
+  end
+
+  describe "scale_up", :sentry do
     after(:each) do
       described_class.instance_variable_set(:@impl, nil)
     end
@@ -66,7 +82,7 @@ RSpec.describe Webhookdb::Async::Autoscaler do
       described_class.provider = "fake"
       impl = described_class.build_implementation
       described_class.instance_variable_set(:@impl, impl)
-      expect(Sentry).to receive(:with_scope).twice
+      expect(Sentry).to receive(:capture_message).twice
 
       # One call
       described_class.scale_up({}, depth: 1, duration: 1)
