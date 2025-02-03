@@ -27,7 +27,6 @@ require "appydays/loggable/spec_helpers"
 
 require "webhookdb"
 require "webhookdb/spec_helpers"
-require "webhookdb/spec_helpers/postgres"
 require "webhookdb/fixtures"
 
 Webhookdb.load_app
@@ -74,7 +73,10 @@ RSpec.configure do |config|
     config.include(Webhookdb::SpecHelpers::Async)
     require "webhookdb/spec_helpers/message"
     config.include(Webhookdb::SpecHelpers::Message)
+    require "webhookdb/spec_helpers/postgres"
     config.include(Webhookdb::SpecHelpers::Postgres)
+    require "webhookdb/spec_helpers/sentry"
+    config.include(Webhookdb::SpecHelpers::Sentry)
     require "webhookdb/spec_helpers/service"
     config.include(Webhookdb::SpecHelpers::Service)
     require "webhookdb/spec_helpers/whdb"

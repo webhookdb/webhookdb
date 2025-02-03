@@ -60,7 +60,7 @@ PATH
       sequel_pg (~> 1.17)
       sequel_postgresql_triggers (~> 1.6)
       sidekiq (~> 6)
-      sidekiq-amigo (~> 1.8)
+      sidekiq-amigo (~> 1.9)
       sidekiq-cron (~> 1.12)
       slack-notifier (~> 2.4)
       stripe (~> 10.15)
@@ -118,8 +118,8 @@ GEM
     clavius (1.0.4)
     clipboard (1.4.1)
     coderay (1.1.3)
-    concurrent-ruby (1.3.4)
-    connection_pool (2.4.1)
+    concurrent-ruby (1.3.5)
+    connection_pool (2.5.0)
     crack (1.0.0)
       bigdecimal
       rexml
@@ -198,7 +198,7 @@ GEM
       multi_xml (>= 0.5.2)
     httpx (1.4.0)
       http-2 (>= 1.0.0)
-    i18n (1.14.6)
+    i18n (1.14.7)
       concurrent-ruby (~> 1.0)
     inflecto (0.0.2)
     jmespath (1.6.2)
@@ -210,7 +210,7 @@ GEM
       bigdecimal
       strscan
     loggability (0.18.2)
-    logger (1.6.4)
+    logger (1.6.5)
     mail (2.8.1)
       mini_mime (>= 0.1.1)
       net-imap
@@ -377,7 +377,7 @@ GEM
       connection_pool (>= 2.2.5, < 3)
       rack (~> 2.0)
       redis (>= 4.5.0, < 5)
-    sidekiq-amigo (1.8.0)
+    sidekiq-amigo (1.9.0)
       sidekiq (~> 6)
       sidekiq-cron (~> 1)
     sidekiq-cron (1.12.0)

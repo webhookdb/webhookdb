@@ -66,6 +66,7 @@ module Webhookdb::Async::Autoscaler
         latency_restored_threshold: self.latency_restored_threshold,
         latency_restored_handlers: [self.method(:scale_down)],
         log: ->(level, msg, kw={}) { self.logger.send(level, msg, kw) },
+        on_unhandled_exception: ->(e) { Sentry.capture_exception(e) },
       )
       return @instance.start
     end
@@ -79,10 +80,10 @@ module Webhookdb::Async::Autoscaler
       scale_action = @impl.scale_up(names_and_latencies, depth:, duration:, **)
       kw = {queues: names_and_latencies, depth:, duration:, scale_action:}
       self.logger.warn("high_latency_queues_event", **kw)
-      self._alert_sentry_latency
+      self._alert_sentry_latency(kw)
     end
 
-    def _alert_sentry_latency
+    def _alert_sentry_latency(kw)
       call_sentry = @last_called_sentry.nil? ||
         @last_called_sentry < (Time.now - self.sentry_alert_interval)
       return unless call_sentry
