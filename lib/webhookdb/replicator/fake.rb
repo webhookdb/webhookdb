@@ -12,6 +12,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   singleton_attr_accessor :process_webhooks_synchronously
   singleton_attr_accessor :obfuscate_headers_for_logging
   singleton_attr_accessor :requires_sequence
+  singleton_attr_accessor :extra_index_specs
 
   def self._descriptor(**kw)
     clsname = self.name.split("::").last
@@ -40,6 +41,8 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
     self.descendants&.each do |d|
       d.reset if d.respond_to?(:reset)
     end
+    self.extra_index_specs = nil
+    self.descendants&.each(&:reset)
   end
 
   def self.stub_backfill_request(items, status: 200)
@@ -130,6 +133,8 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   def requires_sequence?
     return self.class.requires_sequence
   end
+
+  def _extra_index_specs = super + (self.class.extra_index_specs || [])
 
   def dispatch_request_to(request)
     return self.class.dispatch_request_to_hook.call(request) if self.class.dispatch_request_to_hook

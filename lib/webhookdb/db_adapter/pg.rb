@@ -24,6 +24,18 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return "CREATE#{uniq} INDEX#{concurrent} IF NOT EXISTS #{idxname} ON #{tblname} (#{tgts})#{where}"
   end
 
+  def create_index_sqls(index, concurrently:, partitions: [])
+    return super if partitions.empty?
+    result = []
+    result << self.create_index_sql(index, concurrently: false).gsub(" ON ", " ON ONLY ")
+    partitions.each do |partition|
+      partition_idx = index.change(table: partition.partition_table, name: "#{index.name}#{partition.suffix}")
+      result << self.create_index_sql(partition_idx, concurrently:)
+      result << "ALTER INDEX #{index.name} ATTACH PARTITION #{partition_idx.name}"
+    end
+    return result
+  end
+
   def create_table_sql(table, columns, if_not_exists: false, partition: nil)
     columns = columns.to_a
     createtable = +"CREATE TABLE "

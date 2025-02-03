@@ -75,4 +75,43 @@ module Webhookdb::Replicator::PartitionableMixin
   end
 
   MAX_16BIT_INT = 2**31
+
+  # Return the partitions belonging to the table.
+  # @return [Array<Webhookdb::DBAdapter::Partition>]
+  def existing_partitions
+    # SELECT inhrelid::regclass AS child
+    # FROM   pg_catalog.pg_inherits
+    # WHERE  inhparent = 'my_schema.foo'::regclass;
+    parent = self.schema_and_table_symbols.map(&:to_s).join(".")
+    partnames = self.service_integration.organization.admin_connection do |db|
+      db[Sequel[:pg_catalog][:pg_inherits]].
+        where(inhparent: Sequel[parent].cast(:regclass)).
+        select_map(Sequel[:inhrelid].cast(:regclass))
+    end
+    parent_table = self.dbadapter_table
+    result = partnames.map do |part|
+      suffix = self.partition_suffix(part)
+      Webhookdb::DBAdapter::Partition.new(parent_table:, partition_name: part.to_sym, suffix:)
+    end
+    return result
+  end
+
+  def partition_suffix(partname)
+    return partname[/_[a-zA-Z\d]+$/].to_sym
+  end
+
+  def partition_align_name
+    tblname = self.service_integration.table_name
+    partitions = self.existing_partitions
+    self.service_integration.organization.admin_connection do |db|
+      db.transaction do
+        partitions.each do |partition|
+          next if partition.partition_name.to_s.start_with?(tblname)
+          schema = partition.parent_table.schema.name
+          new_partname = "#{tblname}#{partition.suffix}"
+          db << "ALTER TABLE #{schema}.#{partition.partition_name} RENAME TO #{new_partname}"
+        end
+      end
+    end
+  end
 end

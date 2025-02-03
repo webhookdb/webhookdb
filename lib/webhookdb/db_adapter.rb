@@ -2,6 +2,7 @@
 
 class Webhookdb::DBAdapter
   require "webhookdb/db_adapter/column_types"
+  require "webhookdb/db_adapter/partition"
   require "webhookdb/db_adapter/partitioning"
 
   class UnsupportedAdapter < Webhookdb::ProgrammingError; end
@@ -170,6 +171,16 @@ class Webhookdb::DBAdapter
   # @return [String]
   def create_index_sql(index, concurrently:)
     raise NotImplementedError
+  end
+
+  # Create indices, including for partitions.
+  # By default, just call create_index_sql and return it in a single-item array.
+  # Override if creating indices while using partitions requires extra logic.
+  # @param partitions [Array<Webhookdb::DBAdapter::Partition>]
+  # @return [Array<String>]
+  def create_index_sqls(index, concurrently:, partitions: [])
+    _ = partitions
+    return [self.create_index_sql(index, concurrently:)]
   end
 
   # @param column [Column] The column to create SQL for.
