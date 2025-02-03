@@ -374,6 +374,14 @@ for information on how to refresh data.)
   # @return [Webhookdb::DBAdapter::Partitioning,nil]
   def partitioning = nil
 
+  # Return the partitions belonging to the table.
+  # Return an empty array if this replicator is not partitioned.
+  # @return [Array<Webhookdb::DBAdapter::Partition>]
+  def existing_partitions
+    raise NotImplementedError if self.partition?
+    return []
+  end
+
   def create_table_partitions(adapter)
     return [] unless self.partition?
     # We only need create_table partitions when we create the table.
@@ -609,7 +617,9 @@ for information on how to refresh data.)
     # Add missing indices. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indices.
     self.indices(table).map do |index|
       next if existing_indices.include?(index.name.to_s)
-      result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
+      result.nontransaction_statements.concat(
+        adapter.create_index_sqls(index, concurrently: true, partitions: self.existing_partitions),
+      )
     end
 
     result.application_database_statements << sint.ensure_sequence_sql if self.requires_sequence?

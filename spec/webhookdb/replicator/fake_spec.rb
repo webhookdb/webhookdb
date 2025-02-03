@@ -959,6 +959,40 @@ or leave blank to choose the first option.
         end
       end
     end
+
+    describe "utilities" do
+      let(:sint) do
+        Webhookdb::Fixtures.service_integration.create(service_name: "fake_hash_partition_v1", partition_value: 2)
+      end
+
+      before(:each) do
+        sint.organization.prepare_database_connections
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      it "can align partition names to a different parent table name" do
+        sint.update(table_name: "original")
+        sint.replicator.create_table
+        # rubocop:disable Naming/VariableNumber
+        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:original_0, :original_1)
+        sint.rename_table(to: "other")
+        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:original_0, :original_1)
+        sint.replicator.partition_align_name
+        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:other_0, :other_1)
+        # rubocop:enable Naming/VariableNumber
+      end
+
+      it "can add indices to existing table and partitions" do
+        sint.replicator.create_table
+        Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [
+          Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id]),
+        ]
+        expect { sint.organization.migrate_replication_tables }.to_not raise_error
+      end
+    end
   end
 end
 
