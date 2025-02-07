@@ -180,11 +180,27 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         timeout: HTTP_VERIFY_TIMEOUT,
         follow_redirects: true,
       )
-    rescue Timeout::Error => e
-      raise InvalidConnection, "POST to #{cleanurl} timed out: #{e.message}"
-    rescue Webhookdb::Http::Error, SocketError => e
-      raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
+    rescue StandardError => e
+      raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}" if
+        e.is_a?(Webhookdb::Http::Error) || self.transport_error?(e)
+      raise
     end
+  end
+
+  # Return true if the given error is considered a 'transport' error,
+  # like a timeout, socket error, dns error, etc.
+  # This isn't a consistent class type.
+  def self.transport_error?(e)
+    return true if e.is_a?(Timeout::Error)
+    return true if e.is_a?(SocketError)
+    return true if e.is_a?(OpenSSL::SSL::SSLError)
+    # SystemCallError are Errno errors, we can get them when the url no longer resolves.
+    return true if e.is_a?(SystemCallError)
+    # Socket::ResolutionError is an error but I guess it's defined in C and we can't raise it in tests.
+    # Anything with an error_code assume is some transport-level issue and treat it as a connection issue,
+    # not a coding issue.
+    return true if e.respond_to?(:error_code)
+    return false
   end
 
   def next_scheduled_sync(now:)
@@ -488,10 +504,11 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         self.sync_target.save_changes
       end
       self.sync_target.logger.error("sync_target_pool_timeout_error", self.sync_target.log_tags, e)
-    rescue Webhookdb::Http::Error, Errno::ECONNRESET, Net::ReadTimeout, Net::OpenTimeout, OpenSSL::SSL::SSLError => e
-      # This is handled well so no need to re-raise.
+    rescue StandardError => e
+      # Errors talking to the http server are handled well so no need to re-raise.
       # We already committed the last page that was successful,
       # so we can just stop syncing at this point to try again later.
+      raise e unless e.is_a?(Webhookdb::Http::Error) || Webhookdb::SyncTarget.transport_error?(e)
       self.perform_db_op do
         # Save any outstanding stats.
         self.sync_target.save_changes
