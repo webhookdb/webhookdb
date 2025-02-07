@@ -4,6 +4,20 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
   let(:described_class) { Webhookdb::SyncTarget }
   let(:sint) { Webhookdb::Fixtures.service_integration.create }
 
+  transport_errors = [
+    # These errors happen when DNS can't resolve, but the error isn't consistent.
+    SocketError.new(
+      "Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: nodename nor servname provided, or not known",
+    ),
+    Class.new(StandardError) do
+      def self.name = "Socket::ResolutionError"
+      def error_code = "123"
+    end.new("Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: Name or service not known)"),
+    Errno::ENETUNREACH.new("Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: blah)"),
+    # This is a really common transport error, sort of like an http timeout but not raised by http
+    Errno::ECONNRESET.new("Connection reset", 2),
+  ]
+
   describe "association" do
     it "returns its associated type and id" do
       st = Webhookdb::Fixtures.sync_target(service_integration: sint).create
@@ -265,7 +279,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
       expect(req).to have_been_made
     end
 
-    it "raises error if http connection is invalid" do
+    it "raises invalid connection on http error" do
       req = stub_request(:post, "https://a.b/").
         to_return(status: 403, body: "", headers: {})
 
@@ -278,35 +292,38 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
       expect(req).to have_been_made
     end
 
-    it "raises error if http times out" do
+    it "raises invalid connection on http timeout" do
       req = stub_request(:post, "https://a.b/").to_timeout
 
       expect do
         described_class.verify_http_connection("https://u:p@a.b")
       end.to raise_error(
         described_class::InvalidConnection,
-        include("POST to https://a.b timed out: execution expired"),
+        include("POST to https://a.b failed: execution expired"),
       )
       expect(req).to have_been_made
     end
 
-    it "returns an error if the address cannot be resolved" do
-      # To make sure this works as expected, you can allow_net_connect and comment out the request stubs.
-      # Socket errors are raised much lower down than webmock, so we can't use normal rspec stubs.
-      # WebMock.allow_net_connect!
-      req = stub_request(:post, "https://a.b.zyxw").
-        and_raise(
-          SocketError.new(
-            "Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: nodename nor servname provided, or not known",
-          ),
-        )
+    transport_errors.each do |e|
+      it "raises invalid connection for transport errors (#{e.class.name})" do
+        # To make sure this works as expected, you can allow_net_connect and comment out the request stubs.
+        # Socket errors are raised much lower down than webmock, so we can't use normal rspec stubs.
+        # WebMock.allow_net_connect!
+        req = stub_request(:post, "https://a.b.zyxw").and_raise(e)
+        expect do
+          described_class.verify_http_connection("https://a.b.zyxw")
+        end.to raise_error(described_class::InvalidConnection, include("POST to https://a.b.zyxw failed: "))
+        expect(req).to have_been_made
+      end
+    end
+
+    it "reraises unhandled errors" do
+      err = ArgumentError.new("hello")
+      req = stub_request(:post, "https://a.b/").and_raise(err)
 
       expect do
-        described_class.verify_http_connection("https://a.b.zyxw")
-      end.to raise_error(
-        described_class::InvalidConnection,
-        include("failed: Failed to open TCP"),
-      )
+        described_class.verify_http_connection("https://u:p@a.b")
+      end.to raise_error(err)
       expect(req).to have_been_made
     end
   end
@@ -559,12 +576,14 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
         )
       end
 
-      it "logs and does not reraise ECONNRESET" do
-        sync_tgt.update(page_size: 2)
-        reqs = stub_request(:post, "https://sync-target-webhook/xyz").and_raise(Errno::ECONNRESET)
-        sync_tgt.run_sync(now: Time.now)
-        expect(reqs).to have_been_made
-        expect(sync_tgt).to have_attributes(last_synced_at: be_nil)
+      transport_errors.each do |e|
+        it "logs and does not reraise transport errors (#{e.class.name})" do
+          sync_tgt.update(page_size: 2)
+          reqs = stub_request(:post, "https://sync-target-webhook/xyz").and_raise(e)
+          sync_tgt.run_sync(now: Time.now)
+          expect(reqs).to have_been_made
+          expect(sync_tgt).to have_attributes(last_synced_at: be_nil)
+        end
       end
 
       it "records timestamp of last successful synced item and raises if a non-http error occurs" do
