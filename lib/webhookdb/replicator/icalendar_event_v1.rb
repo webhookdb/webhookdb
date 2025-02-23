@@ -219,6 +219,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       Webhookdb::Replicator::IndexSpec.new(
         columns: [:row_updated_at],
         where: Sequel[status: "CANCELLED"],
+        identifier: "cancelled_row_updated_at",
       ),
     ]
   end

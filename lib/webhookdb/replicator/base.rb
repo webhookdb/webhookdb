@@ -401,28 +401,36 @@ for information on how to refresh data.)
   #
   # Note that in certain RDBMS (Postgres) index names cannot exceed a certian length;
   # Postgres will silently truncate them. This can result in an index not being created
-  # if it shares the same name as another index and we use 'CREATE INDEX IF NOT EXISTS.'
+  # if it shares the same name as another index, and we use 'CREATE INDEX IF NOT EXISTS.'
   #
   # To avoid this, if the generated name exceeds a certain size, an md5 hash of the column names is used.
   #
   # @param columns [Array<Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column>] Must respond to :name.
+  # @param identifier [String,nil] Use this instead of a combination of column names.
+  #   Only use this where multiple indices are needed for the same columns, but something like the 'where'
+  #   condition is different.
   # @return [String]
-  protected def index_name(columns)
+  protected def index_name(columns, identifier: nil)
     raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
     colnames = columns.map(&:name).join("_")
     opaque_id = self.service_integration.opaque_id
     # Handle old IDs without the leading 'svi_'.
     opaque_id = "idx#{opaque_id}" if /\d/.match?(opaque_id[0])
-    name = "#{opaque_id}_#{colnames}_idx"
-    if name.size > MAX_INDEX_NAME_LENGTH
-      # We don't have the 32 extra chars for a full md5 hash.
-      # We can't convert to Base64 or whatever, since we don't want to depend on case sensitivity.
-      # So just lop off a few characters (normally 2) from the end of the md5.
-      # The collision space is so small (some combination of column names would need to have the
-      # same md5, which is unfathomable), we're not really worried about it.
-      colnames_md5 = Digest::MD5.hexdigest(colnames)
-      available_chars = MAX_INDEX_NAME_LENGTH - "#{opaque_id}__idx".size
-      name = "#{opaque_id}_#{colnames_md5[...available_chars]}_idx"
+
+    if identifier
+      name = "#{opaque_id}_#{identifier}_idx"
+    else
+      name = "#{opaque_id}_#{colnames}_idx"
+      if name.size > MAX_INDEX_NAME_LENGTH
+        # We don't have the 32 extra chars for a full md5 hash.
+        # We can't convert to Base64 or whatever, since we don't want to depend on case sensitivity.
+        # So just lop off a few characters (normally 2) from the end of the md5.
+        # The collision space is so small (some combination of column names would need to have the
+        # same md5, which is unfathomable), we're not really worried about it.
+        colnames_md5 = Digest::MD5.hexdigest(colnames)
+        available_chars = MAX_INDEX_NAME_LENGTH - "#{opaque_id}__idx".size
+        name = "#{opaque_id}_#{colnames_md5[...available_chars]}_idx"
+      end
     end
     raise Webhookdb::InvariantViolation, "index names cannot exceed 63 chars, got #{name.size} in '#{name}'" if
       name.size > 63
@@ -535,9 +543,16 @@ for information on how to refresh data.)
     end
     self._extra_index_specs.each do |spec|
       targets = spec.columns.map { |n| dba_cols_by_name.fetch(n) }
-      idx_name = self.index_name(targets)
+      idx_name = self.index_name(targets, identifier: spec.identifier)
       result << Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:, where: spec.where)
     end
+    index_names = result.map(&:name)
+    if (dupes = index_names.find_all.with_index { |n, idx| idx != index_names.rindex(n) }).any?
+      msg = "Duplicate index names detected. Use the 'name' attribute to differentiate: " +
+        dupes.map(&:to_s).join(", ")
+      raise Webhookdb::Replicator::BrokenSpecification, msg
+    end
+
     return result
   end
 
