@@ -429,12 +429,12 @@ RSpec.describe "fake implementations", :db do
         end
       end
 
-      it "can use more index options,such as :where" do
+      it "can use more index options, such as :where" do
         fake.service_integration.opaque_id = "svi_xyz"
         fake.define_singleton_method(:_extra_index_specs) do
           [
             Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at] > nil),
-            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at].is_distinct_from(nil)),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id], where: Sequel[:at].is_distinct_from(nil)),
           ]
         end
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
@@ -448,7 +448,46 @@ RSpec.describe "fake implementations", :db do
           );
           CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
           CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" > NULL);
-          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" IS DISTINCT FROM NULL);
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_my_id_idx ON #{table_str} (at, my_id) WHERE ("at" IS DISTINCT FROM NULL);
+        SQL
+
+        fake.create_table
+      end
+
+      it "errors if multiple indices have the same name" do
+        fake.service_integration.opaque_id = "svi_xyz"
+        fake.define_singleton_method(:_extra_index_specs) do
+          [
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at] > nil),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at].is_distinct_from(nil)),
+          ]
+        end
+
+        expect do
+          fake.ensure_all_columns_modification
+        end.to raise_error(Webhookdb::Replicator::BrokenSpecification, /to differentiate: svi_xyz_my_id_idx/)
+      end
+
+      it "can use explicit index spec name suffixes" do
+        fake.service_integration.opaque_id = "svi_xyz"
+        fake.define_singleton_method(:_extra_index_specs) do
+          [
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id]),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], identifier: "v2"),
+          ]
+        end
+        table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
+
+        expect(fake.ensure_all_columns_modification.to_s.strip).to eq(<<~SQL.strip)
+          CREATE TABLE #{table_str} (
+            pk bigserial PRIMARY KEY,
+            my_id text UNIQUE NOT NULL,
+            at timestamptz,
+            data jsonb NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
+          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id);
+          CREATE INDEX IF NOT EXISTS svi_xyz_v2_idx ON #{table_str} (my_id);
         SQL
 
         fake.create_table

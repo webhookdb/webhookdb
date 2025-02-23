@@ -21,6 +21,9 @@ class Webhookdb::Replicator
   # Usually this is due to a missing dependency.
   class CredentialsMissing < Webhookdb::WebhookdbError; end
 
+  # Raised when the columns or indices for a replicator are invalid.
+  class BrokenSpecification < Webhookdb::WebhookdbError; end
+
   # Statically describe a replicator.
   class Descriptor < Webhookdb::TypedStruct
     # @!attribute name
@@ -142,7 +145,7 @@ class Webhookdb::Replicator
   end
 
   class IndexSpec < Webhookdb::TypedStruct
-    attr_reader :columns, :where
+    attr_reader :columns, :where, :identifier
   end
 
   class << self
