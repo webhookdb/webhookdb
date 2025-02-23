@@ -1856,13 +1856,15 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "invalid_bymonthyearday.ics" }
 
       it "returns an array of calendars" do
-        parsed = all_events
-        # Because we project '5 years' into the future, we can end up with 36 or more events
+        # Because we project '5 years' into the future, we can end up with more than 36 events at times
         # (3102AFB1-1FE8-49A1-BBB2-20965DFD44C9-30 is the extra event).
         # Use Timecop.travel('2024-08-10') to see 36,
         # Timecop.travel('2024-08-16') to see 37,
         # Timecop.travel('2024-12-03') to see 38.
-        expect(parsed).to have_length(be_between(36, 38))
+        # Timecop.travel('2025-12-03') to see 39.
+        # Rather than having a flaky or imprecise spec, we use timecop to get a consistent result.
+        parsed = Timecop.travel(Date.new(2024, 8, 1)) { all_events }
+        expect(parsed).to have_length(36)
         expect(parsed).to include(
           hash_including("DTSTART" => {"v" => "20220514"}),
           hash_including("DTSTART" => {"v" => "20220814"}),
