@@ -969,10 +969,10 @@ for information on how to refresh data.)
   # - The table OID for this replicator
   # - The given key
   #
-  # Note this this establishes a new DB connection for the advisory lock;
+  # Note this establishes a new DB connection for the advisory lock;
   # we have had issues with advisory locks on reused connections,
   # and this is safer than having a lock that is never released.
-  protected def with_advisory_lock(key, &)
+  def with_advisory_lock(key, &)
     url = self.service_integration.organization.admin_connection_url_raw
     got = nil
     Webhookdb::Dbutil.borrow_conn(url) do |conn|
