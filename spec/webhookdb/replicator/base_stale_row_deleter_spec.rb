@@ -97,14 +97,6 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
     )
   end
 
-  it "does not set autovacuum on partitioned tables" do
-    expect(svc).to receive(:partition?).twice.and_return(true)
-    logs = capture_logs_from(Webhookdb.logger, level: :debug, formatter: :json) do
-      svc.stale_row_deleter.run
-    end
-    expect(logs).to_not have_a_line_matching(/autovacuum_enabled/)
-  end
-
   it "handles no rows (to delete, or at all)" do
     expect do
       svc.stale_row_deleter.run
@@ -113,5 +105,22 @@ RSpec.describe Webhookdb::Replicator::BaseStaleRowDeleter, :db do
       svc.stale_row_deleter.run
       svc.stale_row_deleter.run_initial
     end.to_not raise_error
+  end
+
+  describe "with a partitioned replicator" do
+    let(:sint) { super().update(service_name: "fake_stale_row_partitioned_v1", partition_value: 5) }
+
+    it "deletes rows in individual partitions" do
+      upsert("stale", 7.days.ago, "cancelled")
+      svc.stale_row_deleter.run
+      expect(svc.admin_dataset { |ds| ds.select(:my_id).all }).to be_empty
+    end
+
+    it "does not set autovacuum" do
+      logs = capture_logs_from(Webhookdb.logger, level: :debug, formatter: :json) do
+        svc.stale_row_deleter.run
+      end
+      expect(logs).to_not have_a_line_matching(/autovacuum_enabled/)
+    end
   end
 end

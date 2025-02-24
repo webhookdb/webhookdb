@@ -419,6 +419,16 @@ class Webhookdb::Replicator::FakeStaleRow < Webhookdb::Replicator::Fake
   def stale_row_deleter = StaleRowDeleter.new(self)
 end
 
+class Webhookdb::Replicator::FakeStaleRowPartitioned < Webhookdb::Replicator::FakeStaleRow
+  include Webhookdb::Replicator::PartitionableMixin
+
+  def self.descriptor = self._descriptor
+
+  def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
+  def partition_column_name = :textcol
+  def partition_value(r) = r.fetch("textcol")
+end
+
 class Webhookdb::Replicator::FakeWithWatchChannel < Webhookdb::Replicator::Fake
   singleton_attr_accessor :renew_calls
 

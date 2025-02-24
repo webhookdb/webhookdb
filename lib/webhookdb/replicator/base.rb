@@ -377,7 +377,7 @@ for information on how to refresh data.)
   # Return the partitions belonging to the table.
   # Return an empty array if this replicator is not partitioned.
   # @return [Array<Webhookdb::DBAdapter::Partition>]
-  def existing_partitions
+  def existing_partitions(_db)
     raise NotImplementedError if self.partition?
     return []
   end
@@ -575,7 +575,7 @@ for information on how to refresh data.)
 
   # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
-    existing_cols, existing_indices = nil
+    existing_cols, existing_indices, existing_partitions = nil
     max_pk = 0
     sint = self.service_integration
     self.admin_dataset do |ds|
@@ -586,6 +586,7 @@ for information on how to refresh data.)
         tablename: sint.table_name,
       ).select_map(:indexname).to_set
       max_pk = ds.max(:pk) || 0
+      existing_partitions = self.existing_partitions(ds.db)
     end
     adapter = Webhookdb::DBAdapter::PG.new
     table = self.dbadapter_table
@@ -633,7 +634,7 @@ for information on how to refresh data.)
     self.indices(table).map do |index|
       next if existing_indices.include?(index.name.to_s)
       result.nontransaction_statements.concat(
-        adapter.create_index_sqls(index, concurrently: true, partitions: self.existing_partitions),
+        adapter.create_index_sqls(index, concurrently: true, partitions: existing_partitions),
       )
     end
 
