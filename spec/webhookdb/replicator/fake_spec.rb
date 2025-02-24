@@ -1015,12 +1015,15 @@ or leave blank to choose the first option.
       it "can align partition names to a different parent table name" do
         sint.update(table_name: "original")
         sint.replicator.create_table
+        getnames = lambda do
+          sint.replicator.admin_dataset { |ds| sint.replicator.existing_partitions(ds.db).map(&:partition_name) }
+        end
         # rubocop:disable Naming/VariableNumber
-        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:original_0, :original_1)
+        expect(getnames.call).to contain_exactly(:original_0, :original_1)
         sint.rename_table(to: "other")
-        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:original_0, :original_1)
+        expect(getnames.call).to contain_exactly(:original_0, :original_1)
         sint.replicator.partition_align_name
-        expect(sint.replicator.existing_partitions.map(&:partition_name)).to contain_exactly(:other_0, :other_1)
+        expect(getnames.call).to contain_exactly(:other_0, :other_1)
         # rubocop:enable Naming/VariableNumber
       end
 

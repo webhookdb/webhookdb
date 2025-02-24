@@ -26,7 +26,7 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
   # would look to delete rows 20 to 27 days old.
   #
   # If the stale row deleter is run daily, a good lookback window would be 2-3 days,
-  # since as long as the job is running we shouldn't rows that aren't cleaned up.
+  # since as long as the job is running we shouldn't find rows that aren't cleaned up.
   #
   # Use +run_initial+ to do a full table scan,
   # which may be necessary when running this feature for a table for the first time.
@@ -61,7 +61,7 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
   # @param lookback_window [nil,ActiveSupport::Duration] The lookback window
   #   (how many days before +stale_cutoff+ to look for rows). Use +nil+ to look for all rows.
   def run(lookback_window: self.lookback_window)
-    # The algorithm to delete stale rows is complex for a couple reasons.
+    # The algorithm to delete stale rows is complex for a couple of reasons.
     # The native solution is "delete rows where updated_at > (stale_at - lookback_window) AND updated_at < stale_at"
     # However, this would cause a single massive query over the entire candidate row space,
     # which has problems:
@@ -97,44 +97,60 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
       # there's nothing to clean up.
       break if stale_window_early.nil?
 
-      # We must disable vacuuming for this sort of cleanup. Otherwise it will take a LONG time
-      # since we use a series of short deletes.
+      # We must disable vacuuming for this sort of cleanup.
+      # Otherwise, it will take a LONG time since we use a series of short deletes.
       self.set_autovacuum(ds.db, false)
-      base_ds = ds.where(self.stale_condition).limit(self.chunk_size).select(:pk)
-      window_start = stale_window_early
-      until window_start >= stale_window_late
-        window_end = window_start + self.incremental_lookback_size
-        inner_ds = base_ds.where(self.updated_at_column => window_start..window_end)
-        loop do
-          # Due to conflicts where a feed is being inserted while the delete is happening,
-          # this may raise an error like:
-          #   deadlock detected
-          #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
-          #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
-          #   HINT:  See server log for query details.
-          #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
-          # So we don't explicitly handle deadlocks, but could if it becomes an issue.
-          delete_ds = ds.where(pk: inner_ds)
-          # Disable seqscan for the delete. We can end up with seqscans if the planner decides
-          # it's a better choice given the 'updated at' index, but for our purposes we know
-          # we never want to use it (the impact is negligible on small tables,
-          # and catastrophic on large tables).
-          sql_lines = [
-            "BEGIN",
-            "SET LOCAL enable_seqscan='off'",
-            delete_ds.delete_sql,
-            "COMMIT",
-          ]
-          deleted = ds.db << sql_lines.join(";\n")
-          break if deleted != self.chunk_size
+      if self.replicator.partition?
+        # If the replicator is partitioned, we need to delete stale rows on partition separately.
+        # We DELETE with a LIMIT in chunks, but when we run this on the main table, it'll run the query
+        # on every partition BEFORE applying the limit. You'll see this manifest with speed,
+        # but also the planner using a sequential scan for the delete, rather than hitting an index.
+        # Instead, DELETE from each partition in chunks, which will use the indices, and apply the limit properly.
+        self.replicator.existing_partitions(ds.db).each do |p|
+          pdb = ds.db[self.replicator.qualified_table_sequel_identifier(table: p.partition_name)]
+          self._run_delete(pdb, stale_window_early:, stale_window_late:)
         end
-        window_start = window_end
+      else
+        self._run_delete(ds, stale_window_early:, stale_window_late:)
       end
     end
   ensure
     # Open a new connection in case the previous one is trashed for whatever reason.
     self.replicator.admin_dataset do |ds|
       self.set_autovacuum(ds.db, true)
+    end
+  end
+
+  def _run_delete(ds, stale_window_early:, stale_window_late:)
+    base_ds = ds.where(self.stale_condition).limit(self.chunk_size).select(:pk)
+    window_start = stale_window_early
+    until window_start >= stale_window_late
+      window_end = window_start + self.incremental_lookback_size
+      inner_ds = base_ds.where(self.updated_at_column => window_start..window_end)
+      loop do
+        # Due to conflicts where a feed is being inserted while the delete is happening,
+        # this may raise an error like:
+        #   deadlock detected
+        #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
+        #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
+        #   HINT:  See server log for query details.
+        #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
+        # So we don't explicitly handle deadlocks, but could if it becomes an issue.
+        delete_ds = ds.where(pk: inner_ds)
+        # Disable seqscan for the delete. We can end up with seqscans if the planner decides
+        # it's a better choice given the 'updated at' index, but for our purposes we know
+        # we never want to use it (the impact is negligible on small tables,
+        # and catastrophic on large tables).
+        sql_lines = [
+          "BEGIN",
+          "SET LOCAL enable_seqscan='off'",
+          delete_ds.delete_sql,
+          "COMMIT",
+        ]
+        deleted = ds.db << sql_lines.join(";\n")
+        break if deleted != self.chunk_size
+      end
+      window_start = window_end
     end
   end
 

@@ -77,17 +77,16 @@ module Webhookdb::Replicator::PartitionableMixin
   MAX_16BIT_INT = 2**31
 
   # Return the partitions belonging to the table.
+  # @param db The organization connection.
   # @return [Array<Webhookdb::DBAdapter::Partition>]
-  def existing_partitions
+  def existing_partitions(db)
     # SELECT inhrelid::regclass AS child
     # FROM   pg_catalog.pg_inherits
     # WHERE  inhparent = 'my_schema.foo'::regclass;
     parent = self.schema_and_table_symbols.map(&:to_s).join(".")
-    partnames = self.service_integration.organization.admin_connection do |db|
-      db[Sequel[:pg_catalog][:pg_inherits]].
-        where(inhparent: Sequel[parent].cast(:regclass)).
-        select_map(Sequel[:inhrelid].cast(:regclass))
-    end
+    partnames = db[Sequel[:pg_catalog][:pg_inherits]].
+      where(inhparent: Sequel[parent].cast(:regclass)).
+      select_map(Sequel[:inhrelid].cast(:regclass))
     parent_table = self.dbadapter_table
     result = partnames.map do |part|
       suffix = self.partition_suffix(part)
@@ -102,8 +101,8 @@ module Webhookdb::Replicator::PartitionableMixin
 
   def partition_align_name
     tblname = self.service_integration.table_name
-    partitions = self.existing_partitions
     self.service_integration.organization.admin_connection do |db|
+      partitions = self.existing_partitions(db)
       db.transaction do
         partitions.each do |partition|
           next if partition.partition_name.to_s.start_with?(tblname)
