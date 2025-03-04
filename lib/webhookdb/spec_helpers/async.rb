@@ -13,7 +13,8 @@ module Webhookdb::SpecHelpers::Async
 
     context.before(:each) do |example|
       if (sidekiq_mode = example.metadata[:sidekiq])
-        Sidekiq::Testing.send(:"#{sidekiq_mode}!")
+        # Set the mode if a value like 'sidekiq: :fake'. treat ':sidekiq' as 'sidekiq: inline'.
+        Sidekiq::Testing.send(:"#{sidekiq_mode}!") unless sidekiq_mode == true
       else
         Sidekiq::Testing.inline!
       end
@@ -46,8 +47,8 @@ module Webhookdb::SpecHelpers::Async
     match do |sk|
       raise "Sidekiq::Testing must be in fake mode" unless Sidekiq::Testing.fake?
       raise ArgumentError, "argument must be Sidekiq, got #{sk.inspect}" unless sk == Sidekiq
-      @name = passed_name || "default"
-      q = Sidekiq::Queues[@name]
+      @qname = passed_name || @qname || "default"
+      q = Sidekiq::Queues[@qname]
       if @size
         break true if @size.zero? && q.empty?
         if q.size != @size
@@ -65,7 +66,7 @@ module Webhookdb::SpecHelpers::Async
     end
 
     failure_message do |*|
-      msg = "failed to match Sidekiq queue %s:" % @name
+      msg = "failed to match Sidekiq queue %s:" % @qname
       msg += " " + @_err if @_err
       lines = [msg]
       Sidekiq::Queues.jobs_by_queue.each do |n, jobs|
@@ -78,12 +79,12 @@ module Webhookdb::SpecHelpers::Async
     end
 
     chain :named do |n|
-      @name = n
+      @qname = n
     end
 
     chain :including do |*matchers|
       @matchers ||= []
-      @matchers.concat(*matchers)
+      @matchers.concat(matchers)
     end
 
     chain :consisting_of do |*matchers|
