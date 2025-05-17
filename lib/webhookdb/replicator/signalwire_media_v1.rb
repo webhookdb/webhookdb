@@ -6,6 +6,7 @@ require "webhookdb/messages/error_generic_backfill"
 
 class Webhookdb::Replicator::SignalwireMediaV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
+  extend Webhookdb::MethodUtilities
 
   # @return [Webhookdb::Replicator::Descriptor]
   def self.descriptor
@@ -71,9 +72,17 @@ class Webhookdb::Replicator::SignalwireMediaV1 < Webhookdb::Replicator::Base
     return step.completed
   end
 
-  def on_dependency_webhook_upsert(_replicator, _payload, *)
-    # Since signalwire is always a backfill integration, we can depend on the backfill job itself
-    # to cascade to the media and run another backfill. We do not need to do it as part of the message upsert.
+  singleton_attr_accessor :dependency_upsert_disabled
+
+  def on_dependency_webhook_upsert(_replicator, payload, *)
+    # Need a way to bypass this for tests.
+    return if self.class.dependency_upsert_disabled
+    # We need to synchronously upsert the media for this row to make sure it's there when the upsert returns,
+    # like for dependencies.
+    # If the upsert fails, that's ok, the signalwire message backfill is recursive, so will run the media backfill,
+    # which will upsert the missing media.
+    bf = Backfiller.new(service: self, message_sid: payload.fetch(:signalwire_id))
+    bf.backfill(nil)
     return
   end
 
@@ -97,6 +106,7 @@ class Webhookdb::Replicator::SignalwireMediaV1 < Webhookdb::Replicator::Base
     def initialize(service:, message_sid:)
       @service = service
       @sint = service.service_integration
+      @message_sint = @sint.depends_on
       @message_sid = message_sid
       super()
     end
@@ -107,13 +117,13 @@ class Webhookdb::Replicator::SignalwireMediaV1 < Webhookdb::Replicator::Base
 
     def fetch_backfill_page(pagination_token, **)
       urltail = pagination_token ||
-        "/api/laml/2010-04-01/Accounts/#{@sint.backfill_key}/Messages/#{@message_sid}/Media"
+        "/api/laml/2010-04-01/Accounts/#{@message_sint.backfill_key}/Messages/#{@message_sid}/Media"
       data = Webhookdb::Signalwire.http_request(
         :get,
         urltail,
-        space_url: @sint.api_url,
-        project_id: @sint.backfill_key,
-        api_key: @sint.backfill_secret,
+        space_url: @message_sint.api_url,
+        project_id: @message_sint.backfill_key,
+        api_key: @message_sint.backfill_secret,
         logger: @sint.logger,
       )
       media = data["media_list"]

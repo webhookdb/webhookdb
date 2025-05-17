@@ -79,8 +79,6 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
   end
 
   it_behaves_like "a replicator that can backfill" do
-    let(:api_url) { "whdbtestfake" }
-    let(:backfill_key) { "AC123" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~JSON
@@ -176,8 +174,19 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
           to_return(status: 402, body: "woah")
     end
 
+    def setup_auth(message_sint)
+      sint.update(api_url: "" , backfill_key: "", backfill_secret: "" )
+      message_sint.update(api_url: "whdbtestfake" , backfill_key: "AC123", backfill_secret: "bfsek" )
+    end
+
     def insert_required_data_callback
-      ->(dep) { dep.upsert_webhook_body(message_with_media(1)) }
+      lambda do |dep|
+        setup_auth(dep.service_integration)
+        described_class.dependency_upsert_disabled = true
+        dep.upsert_webhook_body(message_with_media(1))
+      ensure
+        described_class.dependency_upsert_disabled = false
+      end
     end
 
     it "does not alert on backfill auth errors" do
@@ -204,7 +213,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
     it "backfills for messages with media created after the latest media row was created" do
       create_all_dependencies(sint)
       cb = lambda do |dep|
-        dep.admin_dataset(&:delete)
+        described_class.dependency_upsert_disabled = true
         dep.upsert_webhook_body(message_with_media(1, sid: "old", date_created: "Fri, 24 May 2019 17:44:46 +0000"))
         dep.upsert_webhook_body(message_with_media(1, sid: "mid", date_created: "Fri, 24 May 2020 17:44:46 +0000"))
         dep.upsert_webhook_body(message_with_media(1, sid: "new1", date_created: "Fri, 24 May 2021 17:44:46 +0000"))
@@ -212,8 +221,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
         dep.upsert_webhook_body(
           message_with_media(0, sid: "new-nomedia", date_created: "Fri, 24 May 2024 17:44:46 +0000"),
         )
+      ensure
+        described_class.dependency_upsert_disabled = false
       end
       setup_dependencies(sint, cb)
+      setup_auth(sint.depends_on)
       sint.replicator.upsert_webhook_body(
         {
           sid: "existing",
@@ -261,7 +273,42 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
       ]
       backfill(sint)
       expect(reqs).to all(have_been_made)
-      svc.readonly_dataset { |ds| expect(ds.all).to have_length(expected_items_count) }
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(signalwire_id: "existing"),
+        include(signalwire_id: "new1-media1"),
+        include(signalwire_id: "new2-media1"),
+      )
+    end
+
+    it "synchronously upserts media when a message row is upserted" do
+      create_all_dependencies(sint)
+      setup_dependencies(sint)
+      reqs = [
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/new1/Media").
+          to_return(status: 200, body: <<~JSON, headers: {"Content-Type" => "application/json"}),
+            {
+              "media_list": [
+                {
+                  "sid": "new1-media1",
+                  "date_created": "Sat, 17 May 2025 05:07:56 +0000",
+                  "date_updated": "Sat, 17 May 2025 05:07:57 +0000",
+                  "account_sid": "AC123",
+                  "parent_sid": "new1",
+                  "content_type": "image/jpeg",
+                  "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/new1/Media/new1-media1.json"
+                }
+              ]
+            }
+          JSON
+      ]
+      setup_auth(sint.depends_on)
+      sint.depends_on.replicator.upsert_webhook_body(
+        message_with_media(1, sid: "new1", date_created: "Fri, 24 May 2019 17:44:46 +0000"),
+      )
+      expect(reqs).to all(have_been_made)
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(signalwire_id: "new1-media1"),
+      )
     end
   end
 
