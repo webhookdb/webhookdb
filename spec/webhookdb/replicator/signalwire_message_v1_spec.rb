@@ -129,6 +129,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
         }
       R
     end
+
+    let(:failed_step_matchers) do
+      {output: include("Something is wrong with your configuration"), prompt_is_secret: false}
+    end
+
     def stub_service_request
       return stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).

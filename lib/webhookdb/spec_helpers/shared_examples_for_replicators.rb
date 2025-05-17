@@ -824,7 +824,7 @@ RSpec.shared_examples "a replicator that verifies backfill secrets" do
     svc = Webhookdb::Replicator.create(correct_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to have_attributes(verified: true, message: "")
+    expect(result).to have_attributes(verified: true, http_error_status: nil)
   end
 
   it "if backfill info is incorrect for some other reason, return the a negative result and error message" do
@@ -832,7 +832,7 @@ RSpec.shared_examples "a replicator that verifies backfill secrets" do
     svc = Webhookdb::Replicator.create(incorrect_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to have_attributes(verified: false, message: be_a(String).and(be_present))
+    expect(result).to have_attributes(verified: false, http_error_status: be_positive)
   end
 
   let(:failed_step_matchers) do

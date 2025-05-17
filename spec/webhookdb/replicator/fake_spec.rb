@@ -221,31 +221,16 @@ RSpec.describe "fake implementations", :db do
     let(:fake) { sint.replicator }
 
     describe "verify_backfill_credentials" do
-      before(:each) do
-        fake.define_singleton_method(:_verify_backfill_408_err_msg) do
-          "custom 408 message"
-        end
-        fake.define_singleton_method(:_verify_backfill_err_msg) do
-          "default message"
-        end
-      end
-
       it "verifies on success" do
         Webhookdb::Replicator::Fake.stub_backfill_request([])
         result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: true, message: "")
+        expect(result).to have_attributes(verified: true, http_error_status: nil)
       end
 
-      it "uses a default error message" do
-        Webhookdb::Replicator::Fake.stub_backfill_request([], status: 401)
-        result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: false, message: "default message")
-      end
-
-      it "can use code-specific error messages" do
+      it "sets the http error status" do
         Webhookdb::Replicator::Fake.stub_backfill_request([], status: 408)
         result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: false, message: "custom 408 message")
+        expect(result).to have_attributes(verified: false, http_error_status: 408)
       end
     end
 

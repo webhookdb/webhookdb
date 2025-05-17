@@ -108,33 +108,33 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
     end
 
     # we check backfill credentials *after* entering the api_url because it is required to establish the auth connection
-    unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
+    unless (result = self.verify_backfill_credentials).verified?
+      msg = case result.http_error_status
+        when 401
+          # For a 401, reset the whole thing and try again.
+          self.service_integration.replicator.clear_backfill_information
+          "It looks like that API Key/Access Token combination is invalid. " \
+            "Please check over instructions and try again."
+        when 403
+          # For a 403, we just need a new access token with better permissions.
+          self.service_integration.update(backfill_key: nil)
+          "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
+            "Please check the permissions by going to your private app page and " \
+            "looking at the list of active permissions. " \
+            "Once you've verified or corrected the permissions for this key, " \
+            "please reenter the API Key you just created."
+        else
+          # For an unhandled error, ask them to try again.
+          self.service_integration.update(backfill_key: nil)
+          "An error occurred. Please reenter the API Key you just created and try again."
+      end
+      return self.calculate_backfill_state_machine.with_output(msg)
     end
 
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._mixin_backfill_warning}
 #{self._query_help_output})
     return step.completed
-  end
-
-  def _verify_backfill_403_err_msg
-    return "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
-           "Please check the permissions by going to your private app page and " \
-           "looking at the list of active permissions. " \
-           "Once you've verified or corrected the permissions for this key, " \
-           "please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Key/Access Token combination is invalid. " \
-           "Please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)

@@ -24,10 +24,6 @@ module Webhookdb::Replicator::SponsyV1Mixin
     ]
   end
 
-  def _verify_backfill_err_msg
-    return "Looks like your API key is invalid."
-  end
-
   def api_url
     return "https://api.getsponsy.com"
   end

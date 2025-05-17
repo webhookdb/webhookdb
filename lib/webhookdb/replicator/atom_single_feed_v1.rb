@@ -64,10 +64,6 @@ class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base
     return feed_obj.fetch("entries"), nil
   end
 
-  def _verify_backfill_err_msg
-    return "Sorry, we can't reach that URL. Please double check it and try again."
-  end
-
   def _backfillers
     return [Backfiller.new(self)]
   end
@@ -102,10 +98,10 @@ and insert/update new rows periodically.
 Paste in the URL to sync, and press Enter.)
       return step.prompting("URL").api_url(self.service_integration)
     end
-    unless (result = self.verify_backfill_credentials).verified
+    unless self.verify_backfill_credentials.verified?
       self.service_integration.update(api_url: "")
-      step.output = result.message
-      return step.prompting("URL").api_url(self.service_integration)
+      return self.calculate_backfill_state_machine.
+          with_output("Sorry, we can't reach that URL. Please double check it and try again.")
     end
     step.output = %(
 All set! Your feed will be synced momentarily and then every few hours after that.
