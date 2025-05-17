@@ -73,11 +73,11 @@ module Webhookdb::Jobs
       ),
       Spec.new(
         "TwilioSmsBackfill", "twilio_sms_v1",
-        "*/1 * * * *", 0, true, false,
+        "*/1 * * * *", 0, true, true,
       ),
       Spec.new(
         "SignalwireMessageBackfill", "signalwire_message_v1",
-        "*/1 * * * *", 0, true, false,
+        "*/1 * * * *", 0, true, true,
       ),
     ].each { |sp| self.install(sp) }
   end

@@ -325,13 +325,15 @@ RSpec.shared_examples "a replicator that prevents overwriting new data with old"
 end
 
 RSpec.shared_examples "a replicator that can backfill" do
-  let(:api_url) { "https://fake-url.com" }
   let(:service_name) { described_class.descriptor.name }
+  let(:backfill_key) { "bfkey" }
+  let(:backfill_secret) { "bfsek" }
+  let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name:,
-      backfill_key: "bfkey",
-      backfill_secret: "bfsek",
+      backfill_key:,
+      backfill_secret:,
       api_url:,
     )
   end
