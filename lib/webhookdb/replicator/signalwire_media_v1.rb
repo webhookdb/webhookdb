@@ -118,14 +118,7 @@ class Webhookdb::Replicator::SignalwireMediaV1 < Webhookdb::Replicator::Base
     def fetch_backfill_page(pagination_token, **)
       urltail = pagination_token ||
         "/api/laml/2010-04-01/Accounts/#{@message_sint.backfill_key}/Messages/#{@message_sid}/Media"
-      data = Webhookdb::Signalwire.http_request(
-        :get,
-        urltail,
-        space_url: @message_sint.api_url,
-        project_id: @message_sint.backfill_key,
-        api_key: @message_sint.backfill_secret,
-        logger: @sint.logger,
-      )
+      data = @message_sint.replicator.signalwire_http_request(:get, urltail)
       media = data["media_list"]
       return media, data["next_page_uri"]
     end

@@ -146,6 +146,17 @@ Press 'Show' next to the newly-created API token, and copy it.)
     return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
   end
 
+  def signalwire_http_request(method, url)
+    return Webhookdb::Signalwire.http_request(
+      method,
+      url,
+      space_url: self.service_integration.api_url,
+      project_id: self.service_integration.backfill_key,
+      api_key: self.service_integration.backfill_secret,
+      logger: self.logger,
+    )
+  end
+
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     urltail = pagination_token
     if pagination_token.blank?
@@ -155,14 +166,7 @@ Press 'Show' next to the newly-created API token, and copy it.)
       urltail = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
                 "?PageSize=100&DateSend%3C=#{date_send_max}"
     end
-    data = Webhookdb::Signalwire.http_request(
-      :get,
-      urltail,
-      space_url: self.service_integration.api_url,
-      project_id: self.service_integration.backfill_key,
-      api_key: self.service_integration.backfill_secret,
-      logger: self.logger,
-    )
+    data = self.signalwire_http_request(:get, urltail)
     messages = data["messages"]
 
     if last_backfilled.present?

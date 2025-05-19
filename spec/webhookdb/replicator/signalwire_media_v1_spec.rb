@@ -175,8 +175,8 @@ RSpec.describe Webhookdb::Replicator::SignalwireMediaV1, :db do
     end
 
     def setup_auth(message_sint)
-      sint.update(api_url: "" , backfill_key: "", backfill_secret: "" )
-      message_sint.update(api_url: "whdbtestfake" , backfill_key: "AC123", backfill_secret: "bfsek" )
+      sint.update(api_url: "", backfill_key: "", backfill_secret: "")
+      message_sint.update(api_url: "whdbtestfake", backfill_key: "AC123", backfill_secret: "bfsek")
     end
 
     def insert_required_data_callback
