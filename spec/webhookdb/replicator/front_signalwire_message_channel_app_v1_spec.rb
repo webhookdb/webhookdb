@@ -863,7 +863,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     end
 
     describe "when the Front message contains attachments", :no_transaction_check do
-      it "creates temporary database documents and sends them to Signalwire" do
+      it "creates temporary database documents and sends them to Signalwire", truncate: Webhookdb::DatabaseDocument do
         svc.admin_dataset do |ds|
           ds.insert(
             external_id: "front_id_only",
@@ -909,7 +909,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         )
         expect(Webhookdb::DatabaseDocument.all).to contain_exactly(
           have_attributes(
-            key: "front_signalwire_message_channel_app_v1/fil_50jy51ep/SomeFile.png",
+            key: match(%r{^front_signalwire_message_channel_app_v1/fil_50jy51ep/[a-z0-9]{8}/SomeFile\.png$}),
             content: "myimage",
             content_type: "image/png",
             delete_at: be > (now + 15.minutes),

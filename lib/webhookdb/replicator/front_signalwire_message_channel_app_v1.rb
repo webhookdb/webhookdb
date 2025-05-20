@@ -393,7 +393,13 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         )
         content = resp.parsed_response
         Webhookdb::DatabaseDocument.create(
-          key: "front_signalwire_message_channel_app_v1/#{attachment.fetch('id')}/#{attachment.fetch('filename')}",
+          key: [
+            "front_signalwire_message_channel_app_v1",
+            attachment.fetch("id"),
+            # Always use a new database document in case the last attempt failed.
+            SecureRandom.hex(4),
+            attachment.fetch("filename"),
+          ].join("/"),
           content:,
           content_type: attachment.fetch("content_type"),
           delete_at: now + FRONT_ATTACHMENT_TTL,
