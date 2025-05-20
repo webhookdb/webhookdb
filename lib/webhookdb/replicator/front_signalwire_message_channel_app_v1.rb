@@ -376,28 +376,31 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
 
   def _create_signalwire_media_urls_from_front(front_attachments, now:)
     return if front_attachments.blank?
-    docs = front_attachments.map do |attachment|
-      token = self._generate_front_jwt # New token each time since it's so short-lived.
-      resp = Webhookdb::Http.get(
-        attachment.fetch("url"),
-        headers: {
-          "Authorization" => "Bearer #{token}",
-        },
-        timeout: Webhookdb::Front.http_timeout,
-        logger: self.logger,
-      )
-      content = resp.parsed_response
-      Webhookdb::Postgres.check_transaction(
-        Webhookdb::DatabaseDocument.db,
-        "Signalwire must download attachments from Front before they are deleted.",
-      )
-      Webhookdb::DatabaseDocument.create(
-        key: "front_signalwire_message_channel_app_v1/#{attachment.fetch('id')}/#{attachment.fetch('filename')}",
-        content:,
-        content_type: attachment.fetch("content_type"),
-        delete_at: now + FRONT_ATTACHMENT_TTL,
-      )
+    docs = []
+    # We must create the DatabaseDocuments in a new thread, so we're outside any existing transaction.
+    # Since this code runs as part of a backfill, we're in a transaction, due to the job lock.
+    # It's okay if the code later fails and is retried; the documents will get cleaned up as normal.
+    t = Thread.new do
+      docs = front_attachments.map do |attachment|
+        token = self._generate_front_jwt # New token each time since it's so short-lived.
+        resp = Webhookdb::Http.get(
+          attachment.fetch("url"),
+          headers: {
+            "Authorization" => "Bearer #{token}",
+          },
+          timeout: Webhookdb::Front.http_timeout,
+          logger: self.logger,
+        )
+        content = resp.parsed_response
+        Webhookdb::DatabaseDocument.create(
+          key: "front_signalwire_message_channel_app_v1/#{attachment.fetch('id')}/#{attachment.fetch('filename')}",
+          content:,
+          content_type: attachment.fetch("content_type"),
+          delete_at: now + FRONT_ATTACHMENT_TTL,
+        )
+      end
     end
+    t.join
     urls = docs.map { |d| d.presigned_admin_view_url(expire_at: 30.minutes.from_now) }
     return urls
   end
