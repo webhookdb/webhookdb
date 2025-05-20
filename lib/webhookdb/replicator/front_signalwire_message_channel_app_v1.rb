@@ -387,6 +387,10 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         logger: self.logger,
       )
       content = resp.parsed_response
+      Webhookdb::Postgres.check_transaction(
+        Webhookdb::DatabaseDocument.db,
+        "Signalwire must download attachments from Front before they are deleted.",
+      )
       Webhookdb::DatabaseDocument.create(
         key: "front_signalwire_message_channel_app_v1/#{attachment.fetch('id')}/#{attachment.fetch('filename')}",
         content:,
