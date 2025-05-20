@@ -764,6 +764,38 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       )
     end
 
+    it "syncs a Front message using a default body if the signalwire body is blank" do
+      t = Time.now
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          external_conversation_id: "convoid",
+          sender: "12223334444",
+          recipient: "4445556666",
+          body: ["", " "].sample,
+          data: {date_created: t.rfc2822}.to_json,
+        )
+      end
+      signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2"))
+      req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+        with(
+          body: {
+            sender: {handle: "+12223334444"},
+            body: "<no body>",
+            delivered_at: t.to_i,
+            metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
+          }.as_json,
+        ).
+        to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+      backfill(sint)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+      )
+    end
+
     describe "when the Signalwire message contains media" do
       it "fetches and includes plain/text media as the body and image media as attachments" do
         svc.admin_dataset do |ds|
@@ -829,6 +861,44 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         expect(front_req).to have_been_made
         expect(media_list_req).to have_been_made
         expect([media1_req, media2_req, media4_req]).to all(have_been_made)
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+        )
+      end
+
+      it "uses a default body if there is no text attachment" do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "sw_id_only",
+            signalwire_sid: "swid2",
+            external_conversation_id: "convoid",
+            sender: "12223334444",
+            recipient: "4445556666",
+            body: nil,
+            data: signalwire_message_simple("swid2").to_json,
+          )
+        end
+        signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2", num_media: 4))
+
+        media_list_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/swid2/Media.json").
+          to_return(json_response(
+                      {
+                        media_list: [
+                          {
+                            sid: "media3",
+                            content_type: "text/html",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media3.json",
+                          },
+                        ],
+                      },
+                    ))
+
+        front_req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+          with(body: hash_including(body: "<no body>")).to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+        backfill(sint)
+        expect(front_req).to have_been_made
+        expect(media_list_req).to have_been_made
         expect(svc.admin_dataset(&:all)).to contain_exactly(
           include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
         )

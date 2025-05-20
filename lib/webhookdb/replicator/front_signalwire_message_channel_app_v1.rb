@@ -291,10 +291,10 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       row&.fetch(:data)
     end
     if signalwire_payload.nil?
-      body ||= "<no body>"
+      body = "<no body>" if body.blank?
       body += "\nError: No replicated row for SMS #{signalwire_id} found in database, attachments not found."
     elsif signalwire_payload.fetch("num_media").zero?
-      body ||= "<no body>"
+      body = "<no body>" if body.blank?
     elsif signalwire_payload.fetch("num_media").positive?
       media_url = signalwire_payload.fetch("subresource_uris").fetch("media")
       media_resp = msg_repl.signalwire_http_request(:get, media_url)
@@ -305,6 +305,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         bodyparts << body_resp
         body = bodyparts.join("\n")
       end
+      # Front always needs a body
+      body = "<no body>" if body.blank?
       # For image attachments, we need to save them to a temporary directory with the 'sid' as the filename.
       # The filename is used in the form-data, so it should be 'pure', without tempdir characters.
       tempdir = Dir.mktmpdir("whdb-fscma")
