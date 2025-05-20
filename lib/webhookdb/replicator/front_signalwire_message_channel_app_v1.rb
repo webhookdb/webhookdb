@@ -351,7 +351,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         iss: Webhookdb::Front.signalwire_channel_app_id,
         jti: Webhookdb::Front.channel_jwt_jti,
         sub: self.front_channel_id,
-        exp: 120.seconds.from_now.to_i,
+        # According to Front, token must expire within 30 seconds
+        exp: 30.seconds.from_now.to_i,
       },
       Webhookdb::Front.signalwire_channel_app_secret,
     )
@@ -363,8 +364,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
 
   def _create_signalwire_media_urls_from_front(front_attachments, now:)
     return if front_attachments.blank?
-    token = self._generate_front_jwt
     docs = front_attachments.map do |attachment|
+      token = self._generate_front_jwt # New token each time since it's so short-lived.
       resp = Webhookdb::Http.get(
         attachment.fetch("url"),
         headers: {
