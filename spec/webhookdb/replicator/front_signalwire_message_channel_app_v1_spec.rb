@@ -889,12 +889,12 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           )
         end
         attachment_req = stub_request(:get, "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep").
-          to_return(status: 200, body: "myimage", headers: {'Content-Type' => 'image/png'})
+          to_return(status: 200, body: "myimage", headers: {"Content-Type" => "image/png"})
         sms_req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
           with(
             body: hash_including(
               "Body" => "hi",
-              'MediaUrl' => include('admin_api'),
+              "MediaUrl" => include("admin_api"),
             ),
           ).to_return(json_response({sid: "SWID123"}))
         Timecop.freeze(now) do
@@ -907,10 +907,10 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         )
         expect(Webhookdb::DatabaseDocument.all).to contain_exactly(
           have_attributes(
-            key: 'front_signalwire_message_channel_app_v1/fil_50jy51ep/SomeFile.png',
-            content: 'myimage',
+            key: "front_signalwire_message_channel_app_v1/fil_50jy51ep/SomeFile.png",
+            content: "myimage",
             content_type: "image/png",
-            delete_at: be > (now + 15.minutes)
+            delete_at: be > (now + 15.minutes),
           ),
         )
       end
