@@ -135,6 +135,16 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "DatabaseDocumentCleaner" do
+    it "sends unsent messages" do
+      d1 = Webhookdb::Fixtures.database_document.create
+      d2 = Webhookdb::Fixtures.database_document.create(delete_at: 3.minutes.ago)
+      d3 = Webhookdb::Fixtures.database_document.create(delete_at: 3.hours.from_now)
+      Webhookdb::Jobs::DatabaseDocumentCleaner.new.perform
+      expect(Webhookdb::DatabaseDocument.all).to contain_exactly(be === d1, be === d3)
+    end
+  end
+
   describe "DemoModeSyncData", reset_configuration: Webhookdb::DemoMode do
     let(:org) { Webhookdb::Fixtures.organization.create }
 

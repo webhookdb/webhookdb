@@ -163,19 +163,15 @@ Then click 'Generate token'.)
       return step.secret_prompt("Personal access token").backfill_secret(self.service_integration)
     end
 
-    unless (result = self.verify_backfill_credentials).verified
+    unless self.verify_backfill_credentials.verified?
       self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("Personal access token").backfill_secret(self.service_integration)
+      return self.calculate_backfill_state_machine.
+          with_output("That access token didn't seem to work. Please look over the instructions and try again.")
     end
 
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._query_help_output})
     return step.completed
-  end
-
-  def _verify_backfill_err_msg
-    return "That access token didn't seem to work. Please look over the instructions and try again."
   end
 
   JSON_CONTENT_TYPE = "application/vnd.github+json"

@@ -8,6 +8,45 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
   let(:signalwire_sint) { fac.create(service_name: "signalwire_message_v1") }
   let(:sint) { fac.depending_on(signalwire_sint).create(service_name: "front_signalwire_message_channel_app_v1") }
   let(:svc) { sint.replicator }
+  let(:now) { Time.now }
+
+  def signalwire_message(sid, at:, from:, to:, status:, **more)
+    return {
+      account_sid: "AC123",
+      api_version: "2010-04-01",
+      body: "body",
+      date_created: at.iso8601,
+      date_sent: at.iso8601,
+      date_updated: at.iso8601,
+      direction: "outbound-api",
+      error_code: nil,
+      error_message: nil,
+      from:,
+      messaging_service_sid: nil,
+      num_media: 0,
+      num_segments: 1,
+      price: -0.00750,
+      price_unit: "USD",
+      sid:,
+      status:,
+      subresource_uris: {
+        media: "/api/laml/2010-04-01/Accounts/AC123/Messages/#{sid}/Media.json",
+      },
+      to:,
+      uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/#{sid}.json",
+    }.merge(more).as_json
+  end
+
+  def signalwire_message_simple(sid, **more)
+    kw = {
+      at: now,
+      from: "+15559235161",
+      status: "sent",
+      to: "+15552008801",
+    }
+    kw.merge!(**more)
+    return signalwire_message(sid, **kw)
+  end
 
   it_behaves_like "a replicator", supports_row_diff: false do
     let(:sint) { super().update(api_url: "2223334444") }
@@ -295,9 +334,9 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
   end
 
   describe "on_dependency_webhook_upsert" do
-    let(:customer_phone) { "+15017122661" }
-    let(:support_phone) { "+15558675310" }
-    let(:data) { JSON.parse(<<~J) }
+    let(:customer_phone) { data.fetch("from") }
+    let(:support_phone) { data.fetch("to") }
+    let(:data) { JSON.parse(<<~JSON) }
       {
         "account_sid": "AC123",
         "api_version": "2010-04-01",
@@ -308,9 +347,9 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         "direction": "inbound",
         "error_code": null,
         "error_message": null,
-        "from": "#{customer_phone}",
+        "from": "+15017122661",
         "messaging_service_sid": "MGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        "num_media": "0",
+        "num_media": 0,
         "num_segments": "1",
         "price": null,
         "price_unit": null,
@@ -319,10 +358,10 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         "subresource_uris": {
           "media": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
         },
-        "to": "#{support_phone}",
+        "to": "+15558675310",
         "uri": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
       }
-    J
+    JSON
     let(:row) { signalwire_sint.replicator.upsert_webhook_body(data, upsert: false) }
 
     before(:each) do
@@ -372,6 +411,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
     describe "when the message status is failed/undelivered", truncate: Webhookdb::Idempotency do
       before(:each) do
         sint.organization.prepare_database_connections
+        signalwire_sint.replicator.create_table
         sint.update(backfill_key: "chanid1")
         svc.create_table
       end
@@ -380,90 +420,66 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         sint.organization.remove_related_database
       end
 
-      def signalwire_row(sid:, at:, from:, to:, status:, **more)
-        return {
-          account_sid: "AC123",
-          sid:,
-          api_version: "2010-04-01",
-          body: "body",
-          date_created: at.iso8601,
-          date_sent: at.iso8601,
-          date_updated: at.iso8601,
-          direction: "outbound-api",
-          error_code: nil,
-          error_message: nil,
-          from:,
-          status:,
-          to:,
-        }.merge(more).as_json
-      end
-
       it "imports a message about the failed signalwire send into Front" do
-        Timecop.freeze(Time.at(1_736_362_887)) do
-          failed_row = signalwire_sint.replicator.upsert_webhook_body(
-            signalwire_row(
-              sid: "failedrow",
-              at: Time.now,
-              from: support_phone,
-              to: customer_phone,
-              status: "failed",
-              error_code: "30008",
-              error_message: "Unknown error",
-            ),
-            upsert: false,
-          )
-          undel_row = signalwire_sint.replicator.upsert_webhook_body(
-            signalwire_row(
-              sid: "undeliveredrow",
-              at: Time.now,
-              from: support_phone,
-              to: "+15559998881",
-              status: "undelivered",
-              body: "a" * 250,
-            ),
-            upsert: false,
-          )
-          del_row = signalwire_sint.replicator.upsert_webhook_body(
-            signalwire_row(sid: "delivrow", at: Time.now, from: support_phone, to: customer_phone, status: "delivered"),
-            upsert: false,
-          )
-          old_row = signalwire_sint.replicator.upsert_webhook_body(
-            signalwire_row(sid: "oldrow", at: 20.days.ago, from: support_phone, to: customer_phone, status: "failed"),
-            upsert: false,
-          )
-          alt_num_row = signalwire_sint.replicator.upsert_webhook_body(
-            signalwire_row(sid: "othernum", at: Time.now, from: "19992223333", to: customer_phone, status: "failed"),
-            upsert: false,
-          )
-
+        Timecop.freeze(now) do
           failrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
             with(
               body: {
                 sender: {handle: "+15017122661"},
                 body: "SMS failed to send. Error (30008): Unknown error\nbody",
-                delivered_at: 1_736_362_887,
+                delivered_at: now.to_i,
                 metadata: {
                   external_id: "failedrow",
                   external_conversation_id: "+15017122661",
                 },
               }.to_json,
             ).to_return(status: 200, body: "", headers: {})
+          failed_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_message(
+              "failedrow",
+              at: now,
+              from: support_phone,
+              to: customer_phone,
+              status: "failed",
+              error_code: "30008",
+              error_message: "Unknown error",
+            ),
+          )
           undelrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
             with(
               body: {
                 sender: {handle: "+15559998881"},
                 body: "SMS failed to send. Error (-): -\naaaaaaaaaaaaaaaaaaaaaaaaaa",
-                delivered_at: 1_736_362_887,
+                delivered_at: now.to_i,
                 metadata: {
                   external_id: "undeliveredrow",
                   external_conversation_id: "+15559998881",
                 },
               }.to_json,
             ).to_return(status: 200, body: "", headers: {})
-
-          [failed_row, undel_row, del_row, old_row, alt_num_row].each do |row|
-            svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
-          end
+          undel_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_message(
+              "undeliveredrow",
+              at: now,
+              from: support_phone,
+              to: "+15559998881",
+              status: "undelivered",
+              body: "a" * 250,
+            ),
+          )
+          # These rows do not trigger imports into Front.
+          # Row is already delivered, so it's not a failure.
+          del_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_message("delivrow", at: now, from: support_phone, to: customer_phone, status: "delivered"),
+          )
+          # Row is too old to notify about.
+          old_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_message("oldrow", at: 20.days.ago, from: support_phone, to: customer_phone, status: "failed"),
+          )
+          # Row is not from the configured support number.
+          alt_num_row = signalwire_sint.replicator.upsert_webhook_body(
+            signalwire_message("othernum", at: now, from: "19992223333", to: customer_phone, status: "failed"),
+          )
           expect(failrow_req).to have_been_made
           expect(undelrow_req).to have_been_made
         end
@@ -533,6 +549,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       sint.replicator.front_channel_id = "fchan1"
       sint.update(api_url: support_phone)
       sint.organization.prepare_database_connections
+      signalwire_sint.replicator.create_table
       svc.create_table
       Webhookdb::Signalwire.sms_allowlist = ["*"]
     end
@@ -668,6 +685,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           data: {date_created: Time.parse("2023-01-05T11:00:00Z").rfc2822}.to_json,
         )
       end
+      signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2"))
       expect(Webhookdb::Front).to receive(:channel_jwt_jti).and_return("abcd")
       # rubocop:disable Layout/LineLength
       req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
@@ -679,7 +697,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
             metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
           }.as_json,
           headers: {
-            "Authorization" => "Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJmcm9udF9zd2NoYW5fYXBwX2lkIiwianRpIjoiYWJjZCIsInN1YiI6ImZjaGFuMSIsImV4cCI6MTY3MzM1MjAxMH0._arrm-SXOiTPDz_43Iek_JlyfOD0KfTgYjJN27bIFxQ",
+            "Authorization" => "Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJmcm9udF9zd2NoYW5fYXBwX2lkIiwianRpIjoiYWJjZCIsInN1YiI6ImZjaGFuMSIsImV4cCI6MTY3MzM1MjAzMH0.zPfFtC15CUEJeLpjcP2xU9Wdorzn2JcLLziA6th5TBc",
             "Content-Type" => "application/json",
           },
         ).
@@ -727,6 +745,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           data: {date_created: t.rfc2822}.to_json,
         )
       end
+      signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2"))
       req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
         with(
           body: {
@@ -743,6 +762,230 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       expect(svc.admin_dataset(&:all)).to contain_exactly(
         include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
       )
+    end
+
+    it "syncs a Front message using a default body if the signalwire body is blank" do
+      t = Time.now
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          external_conversation_id: "convoid",
+          sender: "12223334444",
+          recipient: "4445556666",
+          body: ["", " "].sample,
+          data: {date_created: t.rfc2822}.to_json,
+        )
+      end
+      signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2"))
+      req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+        with(
+          body: {
+            sender: {handle: "+12223334444"},
+            body: "<no body>",
+            delivered_at: t.to_i,
+            metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
+          }.as_json,
+        ).
+        to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+      backfill(sint)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+      )
+    end
+
+    describe "when the Signalwire message contains media" do
+      it "fetches and includes plain/text media as the body and image media as attachments" do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "sw_id_only",
+            signalwire_sid: "swid2",
+            external_conversation_id: "convoid",
+            sender: "12223334444",
+            recipient: "4445556666",
+            body: nil,
+            data: signalwire_message_simple("swid2").to_json,
+          )
+        end
+        signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2", num_media: 4))
+
+        media_list_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/swid2/Media.json").
+          to_return(json_response(
+                      {
+                        media_list: [
+                          {
+                            sid: "media1",
+                            content_type: "text/plain",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media1.json",
+                          },
+                          {
+                            sid: "media2",
+                            content_type: "image/jpeg",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media2.json",
+                          },
+                          {
+                            sid: "media3",
+                            content_type: "text/html",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media3.json",
+                          },
+                          {
+                            sid: "media4",
+                            # Unrecognized content type should have .unrek extension but octet-stream mimetype
+                            content_type: "image/unrek",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media4.json",
+                          },
+                        ],
+                      },
+                    ))
+        media1_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media1").
+          to_return(status: 200, body: "media1 body", headers: {"Content-Type" => "text/plain"})
+        media2_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media2").
+          to_return(status: 200, body: "media2 body", headers: {"Content-Type" => "image/jpeg"})
+        media4_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media4").
+          to_return(status: 200, body: "media4 body", headers: {"Content-Type" => "image/unrek"})
+
+        # rubocop:disable Layout/LineLength
+        front_req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+          with do |req|
+          expect(req.body).to include("Content-Disposition: form-data; name=\"sender[handle]\"\r\n\r\n+12223334444")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"body\"\r\n\r\nmedia1 body")
+          ts = now.strftime("%Y%m%d")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[0]\"; filename=\"#{ts}-attachment1.jpeg\"\r\nContent-Type: image/jpeg\r\n\r\nmedia2 body")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[1]\"; filename=\"#{ts}-attachment2.unrek\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia4 body")
+        end.to_return(json_response({message_uid: "FMID2"}, status: 202))
+        # rubocop:enable Layout/LineLength
+
+        backfill(sint)
+        expect(front_req).to have_been_made
+        expect(media_list_req).to have_been_made
+        expect([media1_req, media2_req, media4_req]).to all(have_been_made)
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+        )
+      end
+
+      it "uses a default body if there is no text attachment" do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "sw_id_only",
+            signalwire_sid: "swid2",
+            external_conversation_id: "convoid",
+            sender: "12223334444",
+            recipient: "4445556666",
+            body: nil,
+            data: signalwire_message_simple("swid2").to_json,
+          )
+        end
+        signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2", num_media: 4))
+
+        media_list_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/swid2/Media.json").
+          to_return(json_response(
+                      {
+                        media_list: [
+                          {
+                            sid: "media3",
+                            content_type: "text/html",
+                            uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media3.json",
+                          },
+                        ],
+                      },
+                    ))
+
+        front_req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+          with(body: hash_including(body: "<no body>")).to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+        backfill(sint)
+        expect(front_req).to have_been_made
+        expect(media_list_req).to have_been_made
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "sw_id_only", signalwire_sid: "swid2", front_message_id: "FMID2"),
+        )
+      end
+
+      it "includes information about the issue if the row is not in the parent replicator" do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "inbound1",
+            signalwire_sid: "swid",
+            external_conversation_id: "convoid",
+            sender: "12223334444",
+            recipient: "4445556666",
+            body: nil,
+            data: signalwire_message_simple("swid", num_media: 1).to_json,
+          )
+        end
+        req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
+          with(
+            body: hash_including(
+              body: "<no body>\nError: No replicated row for SMS swid found in database, attachments not found.",
+            ),
+          ).
+          to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+        backfill(sint)
+        expect(req).to have_been_made
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "inbound1", signalwire_sid: "swid", front_message_id: "FMID2"),
+        )
+      end
+    end
+
+    describe "when the Front message contains attachments", :no_transaction_check do
+      it "creates temporary database documents and sends them to Signalwire", truncate: Webhookdb::DatabaseDocument do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "front_id_only",
+            front_message_id: "fmid1",
+            sender: support_phone,
+            recipient: customer_phone,
+            body: "hi",
+            data: {
+              payload: {
+                created_at: now.to_i,
+                attachments: [
+                  {
+                    id: "fil_50jy51ep",
+                    url: "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep",
+                    size: 166_482,
+                    filename: "SomeFile.png",
+                    metadata: {
+                      is_inline: false,
+                    },
+                    content_type: "image/png",
+                  },
+                ],
+              },
+            }.to_json,
+          )
+        end
+        attachment_req = stub_request(:get, "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep").
+          to_return(status: 200, body: "myimage", headers: {"Content-Type" => "image/png"})
+        sms_req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+          with(
+            body: hash_including(
+              "Body" => "hi",
+              "MediaUrl" => include("admin_api"),
+            ),
+          ).to_return(json_response({sid: "SWID123"}))
+        Timecop.freeze(now) do
+          backfill(sint)
+        end
+        expect(sms_req).to have_been_made
+        expect(attachment_req).to have_been_made
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "front_id_only", front_message_id: "fmid1", signalwire_sid: "SWID123"),
+        )
+        expect(Webhookdb::DatabaseDocument.all).to contain_exactly(
+          have_attributes(
+            key: match(%r{^front_signalwire_message_channel_app_v1/fil_50jy51ep/[a-z0-9]{8}/SomeFile\.png$}),
+            content: "myimage",
+            content_type: "image/png",
+            delete_at: be > (now + 15.minutes),
+          ),
+        )
+      end
     end
   end
 end

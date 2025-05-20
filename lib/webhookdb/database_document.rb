@@ -8,13 +8,18 @@ require "webhookdb/postgres/model"
 # we may as well do this over pulling in an S3 or GCS dependeency.
 class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documents)
   include Appydays::Configurable
-  configurable(:database_document) do
-    setting :skip_authentication, false
-    setting :skip_authentication_allowlist, [], convert: lambda(&:split)
-  end
+
+  no_async_events # Disable async events due to bytea/binary fields.
 
   plugin :column_encryption do |enc|
     enc.column :encryption_secret
+  end
+
+  class << self
+    # Delete documents that have a +delete_at+ earlier than +now+.
+    def clean_old_documents(now:)
+      return self.where { delete_at < now }.delete
+    end
   end
 
   def initialize(*)
@@ -51,7 +56,7 @@ class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documen
     return b
   end
 
-  def presigned_view_url(expire_at:, **kw)
+  def presigned_admin_view_url(expire_at:, **kw)
     url = "#{Webhookdb.api_url}/admin_api/v1/database_documents/#{self.id}/view"
     return self.sign_url(url, expire_at:, **kw)
   end

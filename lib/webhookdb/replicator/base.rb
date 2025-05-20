@@ -1015,16 +1015,16 @@ for information on how to refresh data.)
   end
 
   class CredentialVerificationResult < Webhookdb::TypedStruct
-    attr_reader :verified, :message
+    attr_reader :verified, :http_error_status
+
+    def verified? = self.verified
   end
 
   # Try to verify backfill credentials, by fetching the first page of items.
   # Only relevant for integrations supporting backfilling.
   #
-  # If an error is received, return `_verify_backfill_<http status>_err_msg`
-  # as the error message, if defined. So for example, a 401 will call the method
-  # +_verify_backfill_401_err_msg+ if defined. If such a method is not defined,
-  # call and return +_verify_backfill_err_msg+.
+  # If an error is received, return the result with +http_error_status+ set.
+  # Callers can use this error status to figure out the message to display to the user.
   #
   # @return [Webhookdb::CredentialVerificationResult]
   def verify_backfill_credentials
@@ -1039,23 +1039,14 @@ for information on how to refresh data.)
       # begin backfill attempt but do not return backfill result
       backfiller.fetch_backfill_page(nil, last_backfilled: nil)
     rescue Webhookdb::Http::Error => e
-      msg = if self.respond_to?(:"_verify_backfill_#{e.status}_err_msg")
-              self.send(:"_verify_backfill_#{e.status}_err_msg")
-      else
-        self._verify_backfill_err_msg
-      end
-      return CredentialVerificationResult.new(verified: false, message: msg)
+      return CredentialVerificationResult.new(verified: false, http_error_status: e.status)
     rescue TypeError, NoMethodError => e
       # if we don't incur an HTTP error, but do incur an Error due to differences in the shapes of anticipated
       # response data in the `fetch_backfill_page` function, we can assume that the credentials are okay
       self.logger.info "verify_backfill_credentials_expected_failure", e
-      return CredentialVerificationResult.new(verified: true, message: "")
+      return CredentialVerificationResult.new(verified: true)
     end
-    return CredentialVerificationResult.new(verified: true, message: "")
-  end
-
-  def _verify_backfill_err_msg
-    raise NotImplementedError, "each integration must provide an error message for unanticipated errors"
+    return CredentialVerificationResult.new(verified: true)
   end
 
   def documentation_url = nil

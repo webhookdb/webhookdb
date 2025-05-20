@@ -252,7 +252,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
   # The (outbound) message is already created in Front, but if the Signalwire message fails to send,
   # we need to import a new message into Front as a reply explaining why the message failed to send.
   def alert_async_failed_signalwire_send(sw_row)
-    idempotency_key = "fsmca-swfail-#{sw_row.fetch(:signalwire_id)}"
+    signalwire_id = sw_row.fetch(:signalwire_id)
+    idempotency_key = "fsmca-swfail-#{signalwire_id}"
     idempotency = Webhookdb::Idempotency.once_ever.stored.using_seperate_connection.under_key(idempotency_key)
     idempotency.execute do
       # The 'sender' of this message is who the failed message is sent **to**
@@ -262,7 +263,14 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       external_conversation_id = sender
       trunc_body = data.fetch("body", "")[..25]
       body = "SMS failed to send. Error (#{data['error_code'] || '-'}): #{data['error_message'] || '-'}\n#{trunc_body}"
-      kwargs = {sender:, delivered_at: Time.now.to_i, body:, external_id:, external_conversation_id:}
+      kwargs = {
+        sender:,
+        delivered_at: Time.now.to_i,
+        body:,
+        external_id:,
+        external_conversation_id:,
+        signalwire_id:,
+      }
       # The call to Front MUST be done in a job, since if it fails, we would not be able to retry.
       # The code is called after the signalwire payload is upserted and changes;
       # but if this fails, the row won't change again in the future,
@@ -275,30 +283,134 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
   end
 
-  def sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:)
-    body = {
+  def sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:, signalwire_id:)
+    attachments = []
+    msg_repl = self.service_integration.depends_on.replicator
+    signalwire_payload = msg_repl.admin_dataset do |msg_ds|
+      row = msg_ds[signalwire_id:]
+      row&.fetch(:data)
+    end
+    if signalwire_payload.nil?
+      body = "<no body>" if body.blank?
+      body += "\nError: No replicated row for SMS #{signalwire_id} found in database, attachments not found."
+    elsif signalwire_payload.fetch("num_media").zero?
+      body = "<no body>" if body.blank?
+    elsif signalwire_payload.fetch("num_media").positive?
+      media_url = signalwire_payload.fetch("subresource_uris").fetch("media")
+      media_resp = msg_repl.signalwire_http_request(:get, media_url)
+      if (body_media = media_resp.fetch("media_list").find { |m| m.fetch("content_type") == "text/plain" })
+        body_resp = self._download_signalwire_media(body_media.fetch("uri"))
+        bodyparts = []
+        bodyparts << body if body
+        bodyparts << body_resp
+        body = bodyparts.join("\n")
+      end
+      # Front always needs a body
+      body = "<no body>" if body.blank?
+      # For image attachments, we need to save them to a temporary directory with the 'sid' as the filename.
+      # The filename is used in the form-data, so it should be 'pure', without tempdir characters.
+      tempdir = Dir.mktmpdir("whdb-fscma")
+      images = media_resp.fetch("media_list").select { |m| m.fetch("content_type").start_with?("image/") }
+      images.each_with_index do |image, i|
+        body_resp = self._download_signalwire_media(image.fetch("uri"))
+        tempdir = Dir.mktmpdir
+        filename = delivered_at.strftime("%Y%m%d")
+        filename += "-attachment#{i + 1}"
+        filename += "." + image.fetch("content_type").split("/").last
+        attachment = File.open(Pathname(tempdir) + filename, "wb+")
+        attachment.write(body_resp)
+        attachment.rewind
+        attachments << attachment
+      end
+    end
+    req_body = {
       sender: {handle: sender},
       body:,
-      delivered_at:,
+      delivered_at: delivered_at.to_i,
       metadata: {external_id:, external_conversation_id:},
     }
+    if attachments.any?
+      # Turn an array ['x', 'y'] into a Hash {0=>'x', 1=>'y'} so we get 'attachments[0]' in form-data.
+      assoc_array = attachments.each_with_index.to_h { |a, i| [i, a] }
+      req_body[:attachments] = assoc_array
+    end
+    token = self._generate_front_jwt
+    resp = Webhookdb::Http.post(
+      "https://api2.frontapp.com/channels/#{self.front_channel_id}/inbound_messages",
+      req_body,
+      headers: {
+        "Authorization" => "Bearer #{token}",
+        "Content-Type" => attachments.empty? ? "application/json" : "multipart/form-data",
+      },
+      timeout: Webhookdb::Front.http_timeout,
+      logger: self.logger,
+    )
+    return resp.parsed_response
+  ensure
+    FileUtils.remove_entry(tempdir) if tempdir
+  end
+
+  def _download_signalwire_media(url)
+    bod = self.service_integration.depends_on.replicator.signalwire_http_request(
+      :get,
+      url.delete_suffix(".json"),
+      headers: {"Accept" => "*/*"}, # Needed to download non-JSON
+    )
+    return bod
+  end
+
+  def _generate_front_jwt
     token = JWT.encode(
       {
         iss: Webhookdb::Front.signalwire_channel_app_id,
         jti: Webhookdb::Front.channel_jwt_jti,
         sub: self.front_channel_id,
-        exp: 10.seconds.from_now.to_i,
+        # According to Front, token must expire within 30 seconds
+        exp: 30.seconds.from_now.to_i,
       },
       Webhookdb::Front.signalwire_channel_app_secret,
     )
-    resp = Webhookdb::Http.post(
-      "https://api2.frontapp.com/channels/#{self.front_channel_id}/inbound_messages",
-      body,
-      headers: {"Authorization" => "Bearer #{token}"},
-      timeout: Webhookdb::Front.http_timeout,
-      logger: self.logger,
-    )
-    return resp.parsed_response
+    return token
+  end
+
+  # How long does Signalwire have to download attachments before the image is deleted.
+  FRONT_ATTACHMENT_TTL = 60.minutes
+
+  def _create_signalwire_media_urls_from_front(front_attachments, now:)
+    return if front_attachments.blank?
+    docs = []
+    # We must create the DatabaseDocuments in a new thread, so we're outside any existing transaction.
+    # Since this code runs as part of a backfill, we're in a transaction, due to the job lock.
+    # It's okay if the code later fails and is retried; the documents will get cleaned up as normal.
+    t = Thread.new do
+      docs = front_attachments.map do |attachment|
+        token = self._generate_front_jwt # New token each time since it's so short-lived.
+        resp = Webhookdb::Http.get(
+          attachment.fetch("url"),
+          headers: {
+            "Authorization" => "Bearer #{token}",
+          },
+          timeout: Webhookdb::Front.http_timeout,
+          logger: self.logger,
+        )
+        content = resp.parsed_response
+        Webhookdb::DatabaseDocument.create(
+          key: [
+            "front_signalwire_message_channel_app_v1",
+            attachment.fetch("id"),
+            # Always use a new database document in case the last attempt failed.
+            SecureRandom.hex(4),
+            attachment.fetch("filename"),
+          ].join("/"),
+          content:,
+          content_type: attachment.fetch("content_type"),
+          delete_at: now + FRONT_ATTACHMENT_TTL,
+        )
+      end
+    end
+    t.join
+    urls = docs.map { |d| d.presigned_admin_view_url(expire_at: 30.minutes.from_now) }
+    return urls
   end
 
   def _backfillers = [Backfiller.new(self)]
@@ -311,6 +423,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
 
     def handle_item(db_row)
+      now = Time.now
       front_id = db_row.fetch(:front_message_id)
       sw_id = db_row.fetch(:signalwire_sid)
       # This is sort of gross- we get the db row here, and need to re-update it with certain fields
@@ -332,29 +445,42 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       idempotency_key = "fsmca-fims-#{db_row.fetch(:external_id)}"
       idempotency = Webhookdb::Idempotency.once_ever.stored.using_seperate_connection.under_key(idempotency_key)
       if front_id.nil?
+        # Sync the SMS into Front
         texted_at = Time.parse(db_row.fetch(:data).fetch("date_created"))
         if texted_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
           upserting_data[:front_message_id] = "skipped_due_to_age"
         else
-          # sync the message into Front
           front_response_body = idempotency.execute do
-            self._sync_front_inbound(sender:, texted_at:, db_row:, body:)
+            @replicator.sync_front_inbound_message(
+              signalwire_id: sw_id,
+              sender:,
+              delivered_at: texted_at,
+              body:,
+              external_id: db_row.fetch(:external_id),
+              external_conversation_id: db_row.fetch(:external_conversation_id),
+            )
           end
           upserting_data[:front_message_id] = front_response_body.fetch("message_uid")
         end
       else
-        messaged_at = Time.at(db_row.fetch(:data).fetch("payload").fetch("created_at"))
+        # Send the Front message to SMS
+        front_payload = db_row.fetch(:data).fetch("payload")
+        messaged_at = Time.at(front_payload.fetch("created_at"))
         if messaged_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
           upserting_data[:signalwire_sid] = "skipped_due_to_age"
         else
-          # send the SMS via signalwire
-          signalwire_resp = _send_sms(
+          media_urls = @replicator._create_signalwire_media_urls_from_front(
+            front_payload.fetch("attachments", []),
+            now:,
+          )
+          signalwire_resp = self._send_sms(
             idempotency,
             from: sender,
             to: recipient,
             body:,
+            media_urls:,
           )
           upserting_data[:signalwire_sid] = signalwire_resp.fetch("sid") if signalwire_resp
         end
@@ -362,12 +488,13 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       @replicator.upsert_webhook_body(upserting_data.deep_stringify_keys)
     end
 
-    def _send_sms(idempotency, from:, to:, body:)
+    def _send_sms(idempotency, from:, to:, body:, media_urls:)
       return idempotency.execute do
         Webhookdb::Signalwire.send_sms(
           from:,
           to:,
           body:,
+          media_urls:,
           space_url: @signalwire_sint.api_url,
           project_id: @signalwire_sint.backfill_key,
           api_key: @signalwire_sint.backfill_secret,
@@ -407,17 +534,6 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       )
       @replicator.service_integration.organization.alerting.dispatch_alert(message)
       return nil
-    end
-
-    def _sync_front_inbound(sender:, texted_at:, db_row:, body:)
-      body ||= "<no body>"
-      return @replicator.sync_front_inbound_message(
-        sender:,
-        delivered_at: texted_at.to_i,
-        body:,
-        external_id: db_row.fetch(:external_id),
-        external_conversation_id: db_row.fetch(:external_conversation_id),
-      )
     end
 
     def fetch_backfill_page(*)

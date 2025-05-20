@@ -4779,17 +4779,17 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
 
     describe "calculate_backfill_state_machine" do
       let(:success_body) do
-        <<~R
+        <<~JSON
           {
-            "orders": [],
+            "orders": []
           }
-        R
+        JSON
       end
 
-      def stub_service_request
+      def stub_service_request(status: 200)
         return stub_request(:get, "https://shopify_test.myshopify.com/admin/api/2021-04/orders.json?status=any").
             with(headers: {"Authorization" => "Basic a2V5X2doamtsOndoc2VjX2FiY2FzZGY="}).
-            to_return(status: 200, body: success_body, headers: {})
+            to_return(status:, body: success_body, headers: {})
       end
 
       it "asks for backfill key" do
@@ -4845,6 +4845,42 @@ RSpec.describe Webhookdb::Replicator::ShopifyOrderV1, :db do
           post_to_url: "",
           complete: true,
           output: match("Great! We are going to start backfilling your Shopify Orders."),
+        )
+      end
+
+      it "shows a custom message for a 401 error" do
+        sint.backfill_key = "key_ghjkl"
+        sint.backfill_secret = "whsec_abcasdf"
+        sint.api_url = "https://shopify_test.myshopify.com"
+        res = stub_service_request(status: 401)
+        sm = sint.replicator.calculate_backfill_state_machine
+        expect(res).to have_been_made
+        expect(sm).to have_attributes(
+          output: include("It looks like that API Key/Access Token combination is invalid"),
+        )
+      end
+
+      it "shows a custom message for a 403 error" do
+        sint.backfill_key = "key_ghjkl"
+        sint.backfill_secret = "whsec_abcasdf"
+        sint.api_url = "https://shopify_test.myshopify.com"
+        res = stub_service_request(status: 403)
+        sm = sint.replicator.calculate_backfill_state_machine
+        expect(res).to have_been_made
+        expect(sm).to have_attributes(
+          output: include("It looks like that API Key does not have permission to access Shopify Order Records"),
+        )
+      end
+
+      it "shows a fallback message for an unhandled error" do
+        sint.backfill_key = "key_ghjkl"
+        sint.backfill_secret = "whsec_abcasdf"
+        sint.api_url = "https://shopify_test.myshopify.com"
+        res = stub_service_request(status: 400)
+        sm = sint.replicator.calculate_backfill_state_machine
+        expect(res).to have_been_made
+        expect(sm).to have_attributes(
+          output: include("An error occurred. Please reenter"),
         )
       end
     end

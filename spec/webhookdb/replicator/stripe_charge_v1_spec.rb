@@ -586,6 +586,10 @@ RSpec.describe Webhookdb::Replicator::StripeChargeV1, :db do
       )
     end
 
+    let(:failed_step_matchers) do
+      {output: include("Something is wrong with your configuration"), prompt_is_secret: true}
+    end
+
     let(:success_body) do
       <<~R
         {

@@ -325,13 +325,15 @@ RSpec.shared_examples "a replicator that prevents overwriting new data with old"
 end
 
 RSpec.shared_examples "a replicator that can backfill" do
-  let(:api_url) { "https://fake-url.com" }
   let(:service_name) { described_class.descriptor.name }
+  let(:backfill_key) { "bfkey" }
+  let(:backfill_secret) { "bfsek" }
+  let(:api_url) { "https://fake-url.com" }
   let(:sint) do
     Webhookdb::Fixtures.service_integration.create(
       service_name:,
-      backfill_key: "bfkey",
-      backfill_secret: "bfsek",
+      backfill_key:,
+      backfill_secret:,
       api_url:,
     )
   end
@@ -824,7 +826,7 @@ RSpec.shared_examples "a replicator that verifies backfill secrets" do
     svc = Webhookdb::Replicator.create(correct_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to have_attributes(verified: true, message: "")
+    expect(result).to have_attributes(verified: true, http_error_status: nil)
   end
 
   it "if backfill info is incorrect for some other reason, return the a negative result and error message" do
@@ -832,7 +834,7 @@ RSpec.shared_examples "a replicator that verifies backfill secrets" do
     svc = Webhookdb::Replicator.create(incorrect_creds_sint)
     result = svc.verify_backfill_credentials
     expect(res).to have_been_made
-    expect(result).to have_attributes(verified: false, message: be_a(String).and(be_present))
+    expect(result).to have_attributes(verified: false, http_error_status: be_positive)
   end
 
   let(:failed_step_matchers) do

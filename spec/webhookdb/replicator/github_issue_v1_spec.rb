@@ -381,7 +381,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueV1, :db do
     end
     let(:success_body) { "[]" }
     let(:failed_step_matchers) do
-      {output: include("That access token "), prompt_is_secret: true}
+      {output: include("That access token didn't seem to work"), prompt_is_secret: false}
     end
 
     def stub_service_request

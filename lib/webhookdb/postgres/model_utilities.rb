@@ -183,6 +183,14 @@ module Webhookdb::Postgres::ModelUtilities
         end
       end
     end
+
+    # Disable async publishing for this model. Use for models that have binary content
+    # and cannot be converted natively into JSON, or would be larger than we want to put into Redis and/or audit.
+    def no_async_events
+      @no_async_events = true
+    end
+
+    def no_async_events? = @no_async_events
   end
 
   # Like +find_or_create+, but will +find+ again if the +create+
@@ -266,6 +274,7 @@ module Webhookdb::Postgres::ModelUtilities
     # any model changes in the database. You probably want to use published_deferred.
     def publish_immediate(type, *payload)
       prefix = self.event_prefix or return
+      return nil if self.class.no_async_events?
       Amigo.publish(prefix + "." + type.to_s, *payload)
     end
 
