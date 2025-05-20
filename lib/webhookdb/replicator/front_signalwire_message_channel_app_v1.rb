@@ -309,10 +309,12 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       # The filename is used in the form-data, so it should be 'pure', without tempdir characters.
       tempdir = Dir.mktmpdir("whdb-fscma")
       images = media_resp.fetch("media_list").select { |m| m.fetch("content_type").start_with?("image/") }
-      images.each do |image|
+      images.each_with_index do |image, i|
         body_resp = self._download_signalwire_media(image.fetch("uri"))
         tempdir = Dir.mktmpdir
-        filename = image.fetch("sid") + "." + image.fetch("content_type").split("/").last
+        filename = delivered_at.strftime("%Y%m%d")
+        filename += "-attachment#{i + 1}"
+        filename += "." + image.fetch("content_type").split("/").last
         attachment = File.open(Pathname(tempdir) + filename, "wb+")
         attachment.write(body_resp)
         attachment.rewind

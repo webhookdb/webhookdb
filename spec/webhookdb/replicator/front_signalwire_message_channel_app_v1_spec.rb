@@ -819,8 +819,9 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           with do |req|
           expect(req.body).to include("Content-Disposition: form-data; name=\"sender[handle]\"\r\n\r\n+12223334444")
           expect(req.body).to include("Content-Disposition: form-data; name=\"body\"\r\n\r\nmedia1 body")
-          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[0]\"; filename=\"media2.jpeg\"\r\nContent-Type: image/jpeg\r\n\r\nmedia2 body")
-          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[1]\"; filename=\"media4.unrek\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia4 body")
+          ts = now.strftime("%Y%m%d")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[0]\"; filename=\"#{ts}-attachment1.jpeg\"\r\nContent-Type: image/jpeg\r\n\r\nmedia2 body")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[1]\"; filename=\"#{ts}-attachment2.unrek\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia4 body")
         end.to_return(json_response({message_uid: "FMID2"}, status: 202))
         # rubocop:enable Layout/LineLength
 
