@@ -859,5 +859,61 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         )
       end
     end
+
+    describe "when the Front message contains attachments", :no_transaction_check do
+      it "creates temporary database documents and sends them to Signalwire" do
+        svc.admin_dataset do |ds|
+          ds.insert(
+            external_id: "front_id_only",
+            front_message_id: "fmid1",
+            sender: support_phone,
+            recipient: customer_phone,
+            body: "hi",
+            data: {
+              payload: {
+                created_at: now.to_i,
+                attachments: [
+                  {
+                    id: "fil_50jy51ep",
+                    url: "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep",
+                    size: 166_482,
+                    filename: "SomeFile.png",
+                    metadata: {
+                      is_inline: false,
+                    },
+                    content_type: "image/png",
+                  },
+                ],
+              },
+            }.to_json,
+          )
+        end
+        attachment_req = stub_request(:get, "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep").
+          to_return(status: 200, body: "myimage", headers: {'Content-Type' => 'image/png'})
+        sms_req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+          with(
+            body: hash_including(
+              "Body" => "hi",
+              'MediaUrl' => include('admin_api'),
+            ),
+          ).to_return(json_response({sid: "SWID123"}))
+        Timecop.freeze(now) do
+          backfill(sint)
+        end
+        expect(sms_req).to have_been_made
+        expect(attachment_req).to have_been_made
+        expect(svc.admin_dataset(&:all)).to contain_exactly(
+          include(external_id: "front_id_only", front_message_id: "fmid1", signalwire_sid: "SWID123"),
+        )
+        expect(Webhookdb::DatabaseDocument.all).to contain_exactly(
+          have_attributes(
+            key: 'front_signalwire_message_channel_app_v1/fil_50jy51ep/SomeFile.png',
+            content: 'myimage',
+            content_type: "image/png",
+            delete_at: be > (now + 15.minutes)
+          ),
+        )
+      end
+    end
   end
 end

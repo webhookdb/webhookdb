@@ -12,20 +12,22 @@ module Webhookdb::Signalwire
     setting :sms_allowlist, [], convert: lambda(&:split)
   end
 
-  def self.send_sms(from:, to:, body:, project_id:, **kw)
+  def self.send_sms(from:, to:, body:, project_id:, media_urls: [], **kw)
     sms_allowed = self.sms_allowlist.any? { |pattern| File.fnmatch(pattern, to) }
     unless sms_allowed
       self.logger.warn("signalwire_sms_not_allowed", to:)
       return {"sid" => "skipped"}
     end
+    req_body = {
+      From: from,
+      To: to,
+      Body: body,
+    }
+    req_body[:MediaUrl] = media_urls if media_urls.present?
     return self.http_request(
       :post,
       "/2010-04-01/Accounts/#{project_id}/Messages.json",
-      body: {
-        From: from,
-        To: to,
-        Body: body,
-      },
+      body: req_body,
       project_id:,
       **kw,
     )

@@ -329,15 +329,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       assoc_array = attachments.each_with_index.to_h { |a, i| [i, a] }
       req_body[:attachments] = assoc_array
     end
-    token = JWT.encode(
-      {
-        iss: Webhookdb::Front.signalwire_channel_app_id,
-        jti: Webhookdb::Front.channel_jwt_jti,
-        sub: self.front_channel_id,
-        exp: 120.seconds.from_now.to_i,
-      },
-      Webhookdb::Front.signalwire_channel_app_secret,
-    )
+    token = self._generate_front_jwt
     resp = Webhookdb::Http.post(
       "https://api2.frontapp.com/channels/#{self.front_channel_id}/inbound_messages",
       req_body,
@@ -353,6 +345,46 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     FileUtils.remove_entry(tempdir) if tempdir
   end
 
+  def _generate_front_jwt
+    token = JWT.encode(
+      {
+        iss: Webhookdb::Front.signalwire_channel_app_id,
+        jti: Webhookdb::Front.channel_jwt_jti,
+        sub: self.front_channel_id,
+        exp: 120.seconds.from_now.to_i,
+      },
+      Webhookdb::Front.signalwire_channel_app_secret,
+    )
+    return token
+  end
+
+  # How long does Signalwire have to download attachments before the image is deleted.
+  FRONT_ATTACHMENT_TTL = 60.minutes
+
+  def _create_signalwire_media_urls_from_front(front_attachments, now:)
+    return if front_attachments.blank?
+    token = self._generate_front_jwt
+    docs = front_attachments.map do |attachment|
+      resp = Webhookdb::Http.get(
+        attachment.fetch("url"),
+        headers: {
+          "Authorization" => "Bearer #{token}",
+        },
+        timeout: Webhookdb::Front.http_timeout,
+        logger: self.logger,
+      )
+      content = resp.parsed_response
+      Webhookdb::DatabaseDocument.create(
+        key: "front_signalwire_message_channel_app_v1/#{attachment.fetch('id')}/#{attachment.fetch('filename')}",
+        content:,
+        content_type: attachment.fetch("content_type"),
+        delete_at: now + FRONT_ATTACHMENT_TTL,
+      )
+    end
+    urls = docs.map { |d| d.presigned_admin_view_url(expire_at: 30.minutes.from_now) }
+    return urls
+  end
+
   def _backfillers = [Backfiller.new(self)]
 
   class Backfiller < Webhookdb::Backfiller
@@ -363,6 +395,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
 
     def handle_item(db_row)
+      now = Time.now
       front_id = db_row.fetch(:front_message_id)
       sw_id = db_row.fetch(:signalwire_sid)
       # This is sort of gross- we get the db row here, and need to re-update it with certain fields
@@ -404,16 +437,22 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
         end
       else
         # Send the Front message to SMS
-        messaged_at = Time.at(db_row.fetch(:data).fetch("payload").fetch("created_at"))
+        front_payload = db_row.fetch(:data).fetch("payload")
+        messaged_at = Time.at(front_payload.fetch("created_at"))
         if messaged_at < Webhookdb::Front.channel_sync_refreshness_cutoff.seconds.ago
           # Do not sync old rows, just mark them synced
           upserting_data[:signalwire_sid] = "skipped_due_to_age"
         else
-          signalwire_resp = _send_sms(
+          media_urls = @replicator._create_signalwire_media_urls_from_front(
+            front_payload.fetch("attachments", []),
+            now:,
+          )
+          signalwire_resp = self._send_sms(
             idempotency,
             from: sender,
             to: recipient,
             body:,
+            media_urls:,
           )
           upserting_data[:signalwire_sid] = signalwire_resp.fetch("sid") if signalwire_resp
         end
@@ -421,12 +460,13 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       @replicator.upsert_webhook_body(upserting_data.deep_stringify_keys)
     end
 
-    def _send_sms(idempotency, from:, to:, body:)
+    def _send_sms(idempotency, from:, to:, body:, media_urls:)
       return idempotency.execute do
         Webhookdb::Signalwire.send_sms(
           from:,
           to:,
           body:,
+          media_urls:,
           space_url: @signalwire_sint.api_url,
           project_id: @signalwire_sint.backfill_key,
           api_key: @signalwire_sint.backfill_secret,
