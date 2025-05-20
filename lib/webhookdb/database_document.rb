@@ -9,6 +9,8 @@ require "webhookdb/postgres/model"
 class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documents)
   include Appydays::Configurable
 
+  no_async_events # Disable async events due to bytea/binary fields.
+
   plugin :column_encryption do |enc|
     enc.column :encryption_secret
   end

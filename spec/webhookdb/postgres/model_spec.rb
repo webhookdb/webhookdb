@@ -257,6 +257,17 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         ),
       )
     end
+
+    it "skips models which are marked as no_async_events" do
+      model_class = Class.new(Webhookdb::Postgres::Model(:testing_pixies)) do
+        no_async_events
+
+        def self.name = "noasync"
+      end
+      expect do
+        model_class.new.save_changes
+      end.to_not publish("noasync.created")
+    end
   end
 
   describe "inspect" do
