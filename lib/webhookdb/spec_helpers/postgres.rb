@@ -52,9 +52,10 @@ module Webhookdb::SpecHelpers::Postgres
   end
 
   module_function def _truncate(example)
-    tr = example.metadata[:truncate]
-    return unless tr
-    tr = [tr] unless tr.respond_to?(:to_ary)
+    tr = Webhookdb::SpecHelpers.gather_nested_metadata(example, :truncate)
+    return if tr.empty?
+    tr.flatten!
+    tr.uniq!
     tr.each(&:truncate)
   end
 

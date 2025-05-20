@@ -61,4 +61,17 @@ module Webhookdb::SpecHelpers
         rawdata
     end
   end
+
+  # Return the values of the given metadata key, on the example and all parent groups,
+  # into an array. Use for metadata that should accumulate rather than replace.
+  # Allows you to do things like `myfield: 1` and `myfield: 2` on nested scopes,
+  # and read it into an array of `[1, 2]`.
+  module_function def gather_nested_metadata(example, key)
+    result = []
+    result << example.metadata[key] if example.metadata.key?(key)
+    example.example_group&.parent_groups&.each do |group|
+      result << group.metadata[key] if group.metadata.key?(key)
+    end
+    return result
+  end
 end
