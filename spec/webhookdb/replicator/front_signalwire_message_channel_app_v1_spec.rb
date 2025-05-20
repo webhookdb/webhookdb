@@ -800,7 +800,8 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
                           },
                           {
                             sid: "media4",
-                            content_type: "image/png",
+                            # Unrecognized content type should have .unrek extension but octet-stream mimetype
+                            content_type: "image/unrek",
                             uri: "/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media4.json",
                           },
                         ],
@@ -811,15 +812,15 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         media2_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media2").
           to_return(status: 200, body: "media2 body", headers: {"Content-Type" => "image/jpeg"})
         media4_req = stub_request(:get, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages/SMabcxyz/Media/media4").
-          to_return(status: 200, body: "media4 body", headers: {"Content-Type" => "image/jpeg"})
+          to_return(status: 200, body: "media4 body", headers: {"Content-Type" => "image/unrek"})
 
         # rubocop:disable Layout/LineLength
         front_req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/inbound_messages").
           with do |req|
           expect(req.body).to include("Content-Disposition: form-data; name=\"sender[handle]\"\r\n\r\n+12223334444")
           expect(req.body).to include("Content-Disposition: form-data; name=\"body\"\r\n\r\nmedia1 body")
-          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[0]\"; filename=\"media2\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia2 body")
-          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[1]\"; filename=\"media4\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia4 body")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[0]\"; filename=\"media2.jpeg\"\r\nContent-Type: image/jpeg\r\n\r\nmedia2 body")
+          expect(req.body).to include("Content-Disposition: form-data; name=\"attachments[1]\"; filename=\"media4.unrek\"\r\nContent-Type: application/octet-stream\r\n\r\nmedia4 body")
         end.to_return(json_response({message_uid: "FMID2"}, status: 202))
         # rubocop:enable Layout/LineLength
 

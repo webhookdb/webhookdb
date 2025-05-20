@@ -312,7 +312,8 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       images.each do |image|
         body_resp = self._download_signalwire_media(image.fetch("uri"))
         tempdir = Dir.mktmpdir
-        attachment = File.open(Pathname(tempdir) + image.fetch("sid"), "wb+")
+        filename = image.fetch("sid") + "." + image.fetch("content_type").split("/").last
+        attachment = File.open(Pathname(tempdir) + filename, "wb+")
         attachment.write(body_resp)
         attachment.rewind
         attachments << attachment
