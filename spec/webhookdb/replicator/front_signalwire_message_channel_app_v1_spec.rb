@@ -697,7 +697,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
             metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
           }.as_json,
           headers: {
-            "Authorization" => "Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJmcm9udF9zd2NoYW5fYXBwX2lkIiwianRpIjoiYWJjZCIsInN1YiI6ImZjaGFuMSIsImV4cCI6MTY3MzM1MjEyMH0.refDqR-9qZJlLaFSfuXk2xCi7duFzQiEubsrhMH75lk",
+            "Authorization" => "Bearer eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJmcm9udF9zd2NoYW5fYXBwX2lkIiwianRpIjoiYWJjZCIsInN1YiI6ImZjaGFuMSIsImV4cCI6MTY3MzM1MjAzMH0.zPfFtC15CUEJeLpjcP2xU9Wdorzn2JcLLziA6th5TBc",
             "Content-Type" => "application/json",
           },
         ).

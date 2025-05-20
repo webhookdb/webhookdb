@@ -35,8 +35,8 @@ module Webhookdb::Signalwire
 
   def self.http_request(method, tail, space_url:, project_id:, api_key:, logger:, headers: {}, body: nil, **kw)
     url = "https://#{space_url}.signalwire.com" + tail
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    headers["Accept"] = "application/json"
+    headers["Content-Type"] ||= "application/x-www-form-urlencoded"
+    headers["Accept"] ||= "application/json"
     kw[:body] = URI.encode_www_form(body) if body
     resp = Webhookdb::Http.send(
       method,

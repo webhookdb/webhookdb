@@ -146,7 +146,7 @@ Press 'Show' next to the newly-created API token, and copy it.)
     return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
   end
 
-  def signalwire_http_request(method, url)
+  def signalwire_http_request(method, url, **kw)
     return Webhookdb::Signalwire.http_request(
       method,
       url,
@@ -154,6 +154,7 @@ Press 'Show' next to the newly-created API token, and copy it.)
       project_id: self.service_integration.backfill_key,
       api_key: self.service_integration.backfill_secret,
       logger: self.logger,
+      **kw,
     )
   end
 

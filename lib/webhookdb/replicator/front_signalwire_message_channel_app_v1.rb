@@ -299,7 +299,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       media_url = signalwire_payload.fetch("subresource_uris").fetch("media")
       media_resp = msg_repl.signalwire_http_request(:get, media_url)
       if (body_media = media_resp.fetch("media_list").find { |m| m.fetch("content_type") == "text/plain" })
-        body_resp = msg_repl.signalwire_http_request(:get, body_media.fetch("uri").delete_suffix(".json"))
+        body_resp = self._download_signalwire_media(body_media.fetch("uri"))
         bodyparts = []
         bodyparts << body if body
         bodyparts << body_resp
@@ -310,7 +310,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       tempdir = Dir.mktmpdir("whdb-fscma")
       images = media_resp.fetch("media_list").select { |m| m.fetch("content_type").start_with?("image/") }
       images.each do |image|
-        body_resp = msg_repl.signalwire_http_request(:get, image.fetch("uri").delete_suffix(".json"))
+        body_resp = self._download_signalwire_media(image.fetch("uri"))
         tempdir = Dir.mktmpdir
         attachment = File.open(Pathname(tempdir) + image.fetch("sid"), "wb+")
         attachment.write(body_resp)
@@ -343,6 +343,15 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     return resp.parsed_response
   ensure
     FileUtils.remove_entry(tempdir) if tempdir
+  end
+
+  def _download_signalwire_media(url)
+    bod = self.service_integration.depends_on.replicator.signalwire_http_request(
+      :get,
+      url.delete_suffix(".json"),
+      headers: {"Accept" => "*/*"}, # Needed to download non-JSON
+    )
+    return bod
   end
 
   def _generate_front_jwt
