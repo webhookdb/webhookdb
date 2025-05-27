@@ -374,11 +374,29 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       end.to_not raise_error
     end
 
-    it "noops for outbound messages" do
+    it "upserts a row for outbound-api messages, and enqueues a backfill" do
+      # Swap from and to
+      row[:_from] = row[:from]
+      row[:from] = row[:to]
+      row[:to] = row.delete(:_from)
       row[:direction] = "outbound-api"
-      expect do
-        svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
-      end.to_not raise_error
+      sint.organization.prepare_database_connections
+      svc.create_table
+      svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          external_id: "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          signalwire_sid: "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          front_message_id: nil,
+          external_conversation_id: "+15017122661",
+          direction: "outbound",
+          body: "body",
+          sender: support_phone,
+          recipient: customer_phone,
+        ),
+      )
+    ensure
+      sint.organization.remove_related_database
     end
 
     it "upserts a row for inbound messages, and enqueues a backfill" do
@@ -663,15 +681,22 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       expect(req).to have_been_made
     end
 
-    it "syncs a Front message for rows without a Front id", :no_transaction_check do
+    it "syncs an inbound Front message for inbound rows without a Front id", :no_transaction_check do
       svc.admin_dataset do |ds|
-        ds.insert(external_id: "both_id", front_message_id: "fmid", signalwire_sid: "swid1", data: "{}")
+        ds.insert(
+          external_id: "both_id",
+          front_message_id: "fmid",
+          signalwire_sid: "swid1",
+          direction: "outbound",
+          data: "{}",
+        )
         ds.insert(
           external_id: "sw_id_only",
           signalwire_sid: "swid2",
           external_conversation_id: "convoid",
           sender: "12223334444",
           recipient: "4445556666",
+          direction: "inbound",
           body: "hi WHDB",
           data: {date_created: Time.parse("2023-01-10T11:00:00Z").rfc2822}.to_json,
         )
@@ -681,6 +706,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           external_conversation_id: "convoid",
           sender: "12223334444",
           recipient: "4445556666",
+          direction: "inbound",
           body: "hi WHDB",
           data: {date_created: Time.parse("2023-01-05T11:00:00Z").rfc2822}.to_json,
         )
@@ -728,6 +754,46 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           signalwire_sid: "OLD_swid2",
           front_message_id: "skipped_due_to_age",
           data: not_include("pk"),
+        ),
+      )
+    end
+
+    it "syncs an outbound Front message for outbound-api rows without a Front id", :no_transaction_check do
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          external_conversation_id: "convoid",
+          sender: "4445556666",
+          recipient: "12223334444",
+          body: "hi customer",
+          direction: "outbound",
+          data: {date_created: Time.parse("2023-01-10T11:00:00Z").rfc2822}.to_json,
+        )
+      end
+      signalwire_sint.replicator.upsert_webhook_body(signalwire_message_simple("swid2"))
+      expect(Webhookdb::Front).to receive(:channel_jwt_jti).and_return("abcd")
+      req = stub_request(:post, "https://api2.frontapp.com/channels/fchan1/outbound_messages").
+        with(
+          body: {
+            to: [{handle: "+12223334444"}],
+            body: "hi customer",
+            delivered_at: 1_673_348_400,
+            metadata: {external_id: "sw_id_only", external_conversation_id: "convoid"},
+          }.as_json,
+        ).
+        to_return(json_response({message_uid: "FMID2"}, status: 202))
+
+      # Freeze time for Front JWT expiry and age
+      Timecop.freeze("2023-01-10T12:00:00Z") do
+        backfill(sint)
+      end
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          external_id: "sw_id_only",
+          signalwire_sid: "swid2",
+          front_message_id: "FMID2",
         ),
       )
     end

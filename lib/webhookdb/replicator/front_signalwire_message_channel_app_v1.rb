@@ -228,18 +228,28 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     # If a message has come in from a user, insert a row so it'll be imported into Front
     signalwire_payload_inbound_to_support = sw_payload.fetch(:direction) == "inbound" &&
       sw_payload.fetch(:to) == self.support_phone
-    return unless signalwire_payload_inbound_to_support
-
-    body = JSON.parse(sw_payload.fetch(:data))
-    body.merge!(
+    # If the message was sent directly through Signalwire (like a bulk marketing blast),
+    # it will need to be imported into Front as an outbound message.
+    signalwire_payload_outbound_from_support = sw_payload.fetch(:direction) == "outbound-api" &&
+      sw_payload.fetch(:from) == self.support_phone
+    # This could be outbound but from a different number, or inbound to a different number.
+    # We only care about messages to/from our support number.
+    return unless signalwire_payload_inbound_to_support || signalwire_payload_outbound_from_support
+    chan_body = JSON.parse(sw_payload.fetch(:data))
+    chan_body.merge!(
       "external_id" => sw_payload.fetch(:signalwire_id),
       "signalwire_sid" => sw_payload.fetch(:signalwire_id),
-      "direction" => "inbound",
       "sender" => sw_payload.fetch(:from),
-      "recipient" => self.support_phone,
-      "external_conversation_id" => sw_payload.fetch(:from),
+      "recipient" => sw_payload.fetch(:to),
     )
-    self.upsert_webhook_body(body)
+    if signalwire_payload_inbound_to_support
+      chan_body["external_conversation_id"] = sw_payload.fetch(:from)
+      chan_body["direction"] = "inbound"
+    else
+      chan_body["external_conversation_id"] = sw_payload.fetch(:to)
+      chan_body["direction"] = "outbound"
+    end
+    self.upsert_webhook_body(chan_body)
   end
 
   def _notify_dependents(inserting, changed)
@@ -283,7 +293,16 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
   end
 
-  def sync_front_inbound_message(sender:, delivered_at:, body:, external_id:, external_conversation_id:, signalwire_id:)
+  def sync_sms_into_front(
+    sender:,
+    recipient:,
+    direction:,
+    delivered_at:,
+    body:,
+    external_id:,
+    external_conversation_id:,
+    signalwire_id:
+  )
     attachments = []
     msg_repl = self.service_integration.depends_on.replicator
     signalwire_payload = msg_repl.admin_dataset do |msg_ds|
@@ -324,11 +343,18 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       end
     end
     req_body = {
-      sender: {handle: sender},
       body:,
       delivered_at: delivered_at.to_i,
       metadata: {external_id:, external_conversation_id:},
     }
+    if direction == "inbound"
+      req_body[:sender] = {handle: sender}
+    else
+      raise Webhookdb::InvariantViolation, "direction must be 'outbound' or 'inbound'" unless
+        direction == "outbound"
+      req_body[:to] = [{handle: recipient}]
+    end
+
     if attachments.any?
       # Turn an array ['x', 'y'] into a Hash {0=>'x', 1=>'y'} so we get 'attachments[0]' in form-data.
       assoc_array = attachments.each_with_index.to_h { |a, i| [i, a] }
@@ -336,7 +362,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     end
     token = self._generate_front_jwt
     resp = Webhookdb::Http.post(
-      "https://api2.frontapp.com/channels/#{self.front_channel_id}/inbound_messages",
+      "https://api2.frontapp.com/channels/#{self.front_channel_id}/#{direction}_messages",
       req_body,
       headers: {
         "Authorization" => "Bearer #{token}",
@@ -426,6 +452,7 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
       now = Time.now
       front_id = db_row.fetch(:front_message_id)
       sw_id = db_row.fetch(:signalwire_sid)
+      direction = db_row.fetch(:direction)
       # This is sort of gross- we get the db row here, and need to re-update it with certain fields
       # as a result of the signalwire or front sync. To do that, we need to run the upsert on 'data',
       # but what's in 'data' is incomplete. So we use the db row to form a more fully complete 'data'.
@@ -452,9 +479,11 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
           upserting_data[:front_message_id] = "skipped_due_to_age"
         else
           front_response_body = idempotency.execute do
-            @replicator.sync_front_inbound_message(
+            @replicator.sync_sms_into_front(
               signalwire_id: sw_id,
+              direction:,
               sender:,
+              recipient:,
               delivered_at: texted_at,
               body:,
               external_id: db_row.fetch(:external_id),
