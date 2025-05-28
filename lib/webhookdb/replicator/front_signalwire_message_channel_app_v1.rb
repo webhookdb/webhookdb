@@ -266,15 +266,20 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     idempotency_key = "fsmca-swfail-#{signalwire_id}"
     idempotency = Webhookdb::Idempotency.once_ever.stored.using_seperate_connection.under_key(idempotency_key)
     idempotency.execute do
-      # The 'sender' of this message is who the failed message is sent **to**
+      # The 'sender' of this new message is who the failed message is sent **to**.
       sender = sw_row.fetch(:to)
+      recipient = sw_row.fetch(:from)
       data = JSON.parse(sw_row.fetch(:data))
       external_id = sw_row.fetch(:signalwire_id)
       external_conversation_id = sender
+      # The new message is coming into Front (the failed message was heading out).
+      direction = "inbound"
       trunc_body = data.fetch("body", "")[..25]
       body = "SMS failed to send. Error (#{data['error_code'] || '-'}): #{data['error_message'] || '-'}\n#{trunc_body}"
       kwargs = {
         sender:,
+        recipient:,
+        direction:,
         delivered_at: Time.now.to_i,
         body:,
         external_id:,

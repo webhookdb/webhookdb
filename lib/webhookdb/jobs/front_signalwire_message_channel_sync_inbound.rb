@@ -10,6 +10,6 @@ class Webhookdb::Jobs::FrontSignalwireMessageChannelSyncInbound
 
   def perform(service_integration_id, kwargs)
     sint = self.lookup_model(Webhookdb::ServiceIntegration, service_integration_id)
-    sint.replicator.sync_front_inbound_message(**kwargs.symbolize_keys)
+    sint.replicator.sync_sms_into_front(**kwargs.symbolize_keys)
   end
 end

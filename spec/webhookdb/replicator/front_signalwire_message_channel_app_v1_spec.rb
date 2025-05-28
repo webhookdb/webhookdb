@@ -443,13 +443,13 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           failrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
             with(
               body: {
-                sender: {handle: "+15017122661"},
                 body: "SMS failed to send. Error (30008): Unknown error\nbody",
                 delivered_at: now.to_i,
                 metadata: {
                   external_id: "failedrow",
                   external_conversation_id: "+15017122661",
                 },
+                sender: {handle: "+15017122661"},
               }.to_json,
             ).to_return(status: 200, body: "", headers: {})
           failed_row = signalwire_sint.replicator.upsert_webhook_body(
@@ -458,21 +458,24 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
               at: now,
               from: support_phone,
               to: customer_phone,
+              direction: "outbound",
               status: "failed",
               error_code: "30008",
               error_message: "Unknown error",
             ),
           )
+          expect(failrow_req).to have_been_made
+
           undelrow_req = stub_request(:post, "https://api2.frontapp.com/channels/chanid1/inbound_messages").
             with(
               body: {
-                sender: {handle: "+15559998881"},
                 body: "SMS failed to send. Error (-): -\naaaaaaaaaaaaaaaaaaaaaaaaaa",
                 delivered_at: now.to_i,
                 metadata: {
                   external_id: "undeliveredrow",
                   external_conversation_id: "+15559998881",
                 },
+                sender: {handle: "+15559998881"},
               }.to_json,
             ).to_return(status: 200, body: "", headers: {})
           undel_row = signalwire_sint.replicator.upsert_webhook_body(
@@ -481,10 +484,13 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
               at: now,
               from: support_phone,
               to: "+15559998881",
+              direction: "outbound",
               status: "undelivered",
               body: "a" * 250,
             ),
           )
+          expect(undelrow_req).to have_been_made
+
           # These rows do not trigger imports into Front.
           # Row is already delivered, so it's not a failure.
           del_row = signalwire_sint.replicator.upsert_webhook_body(
@@ -498,8 +504,6 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           alt_num_row = signalwire_sint.replicator.upsert_webhook_body(
             signalwire_message("othernum", at: now, from: "19992223333", to: customer_phone, status: "failed"),
           )
-          expect(failrow_req).to have_been_made
-          expect(undelrow_req).to have_been_made
         end
       end
     end
@@ -807,6 +811,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           external_conversation_id: "convoid",
           sender: "12223334444",
           recipient: "4445556666",
+          direction: "inbound",
           body: nil,
           data: {date_created: t.rfc2822}.to_json,
         )
@@ -839,6 +844,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           external_conversation_id: "convoid",
           sender: "12223334444",
           recipient: "4445556666",
+          direction: "inbound",
           body: ["", " "].sample,
           data: {date_created: t.rfc2822}.to_json,
         )
@@ -871,6 +877,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
             external_conversation_id: "convoid",
             sender: "12223334444",
             recipient: "4445556666",
+            direction: "inbound",
             body: nil,
             data: signalwire_message_simple("swid2").to_json,
           )
@@ -940,6 +947,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
             external_conversation_id: "convoid",
             sender: "12223334444",
             recipient: "4445556666",
+            direction: "inbound",
             body: nil,
             data: signalwire_message_simple("swid2").to_json,
           )
@@ -978,6 +986,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
             external_conversation_id: "convoid",
             sender: "12223334444",
             recipient: "4445556666",
+            direction: "inbound",
             body: nil,
             data: signalwire_message_simple("swid", num_media: 1).to_json,
           )
