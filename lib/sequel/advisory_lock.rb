@@ -3,6 +3,10 @@
 require "sequel"
 
 class Sequel::AdvisoryLock
+  MAX_INT = 2_147_483_647
+  MIN_INT = -2_147_483_648
+  MAX_UINT = 4_294_967_295
+
   def initialize(db, key_or_key1, key2=nil, shared: false, xact: false)
     @db = db
     xstr = xact ? "_xact" : ""

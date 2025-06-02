@@ -991,12 +991,28 @@ for information on how to refresh data.)
   def with_advisory_lock(key, &)
     url = self.service_integration.organization.admin_connection_url_raw
     got = nil
+
+    # We use the (int, int) version of advisory lock, with the table id as the 'namespace'.
+    # However, the second key is often a row PK, which can be a bigint on a very large table.
+    # In these cases, we can relatively safely turn that into an integer.
+    key2 = key
+    # If the key is greater than 4B (max unsigned integer), put it between 0 and 4B.
+    key2 %= Sequel::AdvisoryLock::MAX_UINT if
+      key2 > Sequel::AdvisoryLock::MAX_UINT
+    # If the key is greater than 2B (so between max signed and unsigned integers),
+    # we can bias it into a 'signed' integer. Use the ID space between -2B and 0 for this purpose,
+    # since it is otherwise likely unused.
+    key2 = (key2 - Sequel::AdvisoryLock::MAX_INT) * -1 if
+      key2 > Sequel::AdvisoryLock::MAX_INT
+    raise ArgumentError, "key #{key} cannot be less than MIN_INT, use something else or change this code" if
+      key2 < Sequel::AdvisoryLock::MIN_INT
+
     Webhookdb::Dbutil.borrow_conn(url) do |conn|
       table_oid = conn.select(
         Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
       ).first[:table_id]
-      self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key)
-      Sequel::AdvisoryLock.new(conn, table_oid, key).with_lock? do
+      self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key2)
+      Sequel::AdvisoryLock.new(conn, table_oid, key2).with_lock? do
         got = yield
       end
     end
