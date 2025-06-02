@@ -999,24 +999,36 @@ for information on how to refresh data.)
     # If the key is greater than 4B (max unsigned integer), put it between 0 and 4B.
     key2 %= Sequel::AdvisoryLock::MAX_UINT if
       key2 > Sequel::AdvisoryLock::MAX_UINT
-    # If the key is greater than 2B (so between max signed and unsigned integers),
-    # we can bias it into a 'signed' integer. Use the ID space between -2B and 0 for this purpose,
-    # since it is otherwise likely unused.
-    key2 = (key2 - Sequel::AdvisoryLock::MAX_INT) * -1 if
+    key2 = self._uint_to_intkey(key2) if
       key2 > Sequel::AdvisoryLock::MAX_INT
     raise ArgumentError, "key #{key} cannot be less than MIN_INT, use something else or change this code" if
       key2 < Sequel::AdvisoryLock::MIN_INT
 
     Webhookdb::Dbutil.borrow_conn(url) do |conn|
-      table_oid = conn.select(
-        Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
-      ).first[:table_id]
+      table_oid = self._select_table_oid(conn)
+      # oids are always a 4 byte uint, so if it's between 2B and 4B, move it to between -2B and 0.
+      table_oid = self._uint_to_intkey(table_oid) if
+        table_oid > Sequel::AdvisoryLock::MAX_INT
       self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key2)
       Sequel::AdvisoryLock.new(conn, table_oid, key2).with_lock? do
         got = yield
       end
     end
     return got
+  end
+
+  def _select_table_oid(conn)
+    table_oid = conn.select(
+      Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
+    ).first[:table_id]
+    return table_oid
+  end
+
+  # If the key is greater than 2B (so between max signed and unsigned integers),
+  # we can bias it into a 'signed' integer. Use the ID space between -2B and 0 for this purpose,
+  # since it is otherwise likely unused.
+  def _uint_to_intkey(key2)
+    (key2 - Sequel::AdvisoryLock::MAX_INT) * -1
   end
 
   # Some replicators support 'instant sync', because they are upserted en-masse

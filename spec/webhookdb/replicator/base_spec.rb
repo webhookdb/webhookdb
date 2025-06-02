@@ -383,23 +383,17 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
     end
 
     it "takes an advisory lock" do
-      x = sint.replicator.with_advisory_lock(123) do
-        1
-      end
+      x = sint.replicator.with_advisory_lock(123) { 1 }
       expect(x).to eq(1)
     end
 
     it "inverts the key if it is between max int and max uint" do
-      x = sint.replicator.with_advisory_lock(4_294_967_000) do
-        1
-      end
+      x = sint.replicator.with_advisory_lock(4_294_967_000) { 1 }
       expect(x).to eq(1)
     end
 
     it "modulos the key if it is larger than max uint" do
-      x = sint.replicator.with_advisory_lock(999_294_967_000) do
-        1
-      end
+      x = sint.replicator.with_advisory_lock(999_294_967_000) { 1 }
       expect(x).to eq(1)
     end
 
@@ -407,6 +401,13 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       expect do
         sint.replicator.with_advisory_lock(-4_294_967_000)
       end.to raise_error(ArgumentError, /cannot be less than/)
+    end
+
+    it "converts a non-integer table oid to an integer" do
+      repl = sint.replicator
+      expect(repl).to receive(:_select_table_oid).and_return(3_478_187_829)
+      x = repl.with_advisory_lock(5) { 1 }
+      expect(x).to eq(1)
     end
   end
 end
