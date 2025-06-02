@@ -2,8 +2,6 @@
 
 require "amigo/retry"
 require "amigo/durable_job"
-require "amigo/job_in_context"
-require "amigo/rate_limited_error_handler"
 require "appydays/configurable"
 require "appydays/loggable"
 require "sentry-sidekiq"
@@ -21,6 +19,36 @@ module Webhookdb::Async
 
   require "webhookdb/async/job_logger"
   require "webhookdb/async/audit_logger"
+
+  def self._configure_server(config, redis_params)
+    require "amigo/job_in_context"
+    require "amigo/rate_limited_error_handler"
+    require "webhookdb/async/extended_logging"
+    require "webhookdb/async/timeout_retry"
+    config.redis = redis_params
+    config[:job_logger] = Webhookdb::Async::JobLogger
+    # We do NOT want the unstructured default error handler
+    config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
+    # We must then replace the otherwise-automatically-added sentry middleware
+    config.error_handlers << Amigo::RateLimitedErrorHandler.new(
+      Sentry::Sidekiq::ErrorHandler.new,
+      sample_rate: self.error_reporting_sample_rate,
+      ttl: self.error_reporting_ttl,
+    )
+    config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
+    config.server_middleware.add(Webhookdb::Async::ExtendedLogging::ServerMiddleware)
+    config.server_middleware.add(Amigo::JobInContext::ServerMiddleware)
+    config.server_middleware.add(Amigo::DurableJob::ServerMiddleware)
+    # We use the dead set to move jobs that we need to retry manually
+    config[:dead_max_jobs] = 999_999_999
+    config.server_middleware.add(Amigo::Retry::ServerMiddleware)
+    config.server_middleware.add(Webhookdb::Async::TimeoutRetry::ServerMiddleware)
+  end
+
+  def self._configure_client(config, redis_params)
+    config.redis = redis_params
+    config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
+  end
 
   configurable(:async) do
     # The number of (Float) seconds that should be considered "slow" for a job.
@@ -43,7 +71,7 @@ module Webhookdb::Async
     setting :error_reporting_ttl, 120
 
     after_configured do
-      # Very hard to to test this, so it's not tested.
+      # Very hard to test this, so it's not tested.
       url = self.sidekiq_redis_provider.present? ? ENV.fetch(self.sidekiq_redis_provider, nil) : self.sidekiq_redis_url
       redis_params = {url:}
       if url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
@@ -51,31 +79,9 @@ module Webhookdb::Async
         # There is not a clear KB on this, you have to piece it together from Heroku and Sidekiq docs.
         redis_params[:ssl_params] = {verify_mode: OpenSSL::SSL::VERIFY_NONE}
       end
-      Sidekiq.configure_server do |config|
-        config.redis = redis_params
-        config.options[:job_logger] = Webhookdb::Async::JobLogger
-        # We do NOT want the unstructured default error handler
-        config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
-        # We must then replace the otherwise-automatically-added sentry middleware
-        config.error_handlers << Amigo::RateLimitedErrorHandler.new(
-          Sentry::Sidekiq::ErrorHandler.new,
-          sample_rate: self.error_reporting_sample_rate,
-          ttl: self.error_reporting_ttl,
-        )
-        config.death_handlers << Webhookdb::Async::JobLogger.method(:death_handler)
-        config.server_middleware.add(Amigo::JobInContext::ServerMiddleware)
-        config.server_middleware.add(Amigo::DurableJob::ServerMiddleware)
-        # We use the dead set to move jobs that we need to retry manually
-        config.options[:dead_max_jobs] = 999_999_999
-        config.server_middleware.add(Amigo::Retry::ServerMiddleware)
-      end
-
       Amigo::DurableJob.failure_notifier = Webhookdb::Async::JobLogger.method(:durable_job_failure_notifier)
-
-      Sidekiq.configure_client do |config|
-        config.redis = redis_params
-        config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
-      end
+      Sidekiq.configure_server { |config| self._configure_server(config, redis_params) }
+      Sidekiq.configure_client { |config| self._configure_client(config, redis_params) }
     end
   end
 
@@ -97,7 +103,7 @@ module Webhookdb::Async
   def self.setup_web
     self._setup_common
     Amigo.install_amigo_jobs
-    self._require_jobs
+    self.require_jobs
     return true
   end
 
@@ -109,7 +115,7 @@ module Webhookdb::Async
   def self.setup_workers
     self._setup_common
     Amigo.install_amigo_jobs
-    self._require_jobs
+    self.require_jobs
     Amigo.start_scheduler
     return true
   end
@@ -121,11 +127,11 @@ module Webhookdb::Async
   def self.setup_tests
     return if Amigo.structured_logging # assume we are set up
     self._setup_common
-    self._require_jobs
+    self.require_jobs
     return true
   end
 
-  def self._require_jobs
+  def self.require_jobs
     Amigo::DurableJob.replace_database_settings(
       loggers: [Webhookdb.logger],
       **Webhookdb::Dbutil.configured_connection_options,
