@@ -369,4 +369,44 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       expect(sint.replicator).to_not be_avoid_writes
     end
   end
+
+  describe "with_advisory_lock" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(backfill_key: "abc") }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "takes an advisory lock" do
+      x = sint.replicator.with_advisory_lock(123) do
+        1
+      end
+      expect(x).to eq(1)
+    end
+
+    it "inverts the key if it is between max int and max uint" do
+      x = sint.replicator.with_advisory_lock(4_294_967_000) do
+        1
+      end
+      expect(x).to eq(1)
+    end
+
+    it "modulos the key if it is larger than max uint" do
+      x = sint.replicator.with_advisory_lock(999_294_967_000) do
+        1
+      end
+      expect(x).to eq(1)
+    end
+
+    it "raises if key is less than min integer" do
+      expect do
+        sint.replicator.with_advisory_lock(-4_294_967_000)
+      end.to raise_error(ArgumentError, /cannot be less than/)
+    end
+  end
 end
