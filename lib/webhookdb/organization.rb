@@ -551,7 +551,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   # @!attribute replication_schema
   #   @return [String]
 
-  # @!attribute job_semaphore_size
+  # @!attribute organization_job_semaphore_size
   #   @return [Integer]
 
   # @!attribute minimum_sync_seconds
