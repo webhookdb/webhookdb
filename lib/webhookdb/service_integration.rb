@@ -116,6 +116,27 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return Webhookdb.api_url + self.unauthed_webhook_path
   end
 
+  # Return the semaphore size to use for +Amigo::SemaphoreBackoffJob+ jobs.
+  # By default, use the organization's job semaphore size (10 by default),
+  # to make sure a single organization does not saturate workers.
+  # This can be overridden on specific integrations to throttle it.
+  # For example, this can ensure that adding an integration which includes a massive backfill
+  # (like going from a non-partitioned to partitioned replicator) does not overload the database.
+  # Note: semaphore jobs should also use +job_semaphore_identifier+,
+  # which will include the integration id if +integration_job_semaphore_size+ is non-zero,
+  # or the organization id otherwise. This ensures the semaphore for the integration
+  # is scoped to the integration, or integration, as needed.
+  def job_semaphore_size
+    return self.integration_job_semaphore_size if self.integration_job_semaphore_size.nonzero?
+    return self.organization.organization_job_semaphore_size
+  end
+
+  # See +job_semaphore_size+.
+  def job_semaphore_identifier
+    return "sint-#{self.id}" if self.integration_job_semaphore_size.nonzero?
+    return "org-#{self.organization_id}"
+  end
+
   def plan_supports_integration?
     # if the sint's organization has an active subscription, return true
     return true if self.organization.active_subscription?
@@ -342,6 +363,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # @!attribute skip_webhook_verification
   #   @return [Boolean] Set this to disable webhook verification on this integration.
   #                     Useful when replaying logged webhooks.
+
+  # @!attribute integration_job_semaphore_size
+  #   @return [Integer]
 
   # @!attribute partition_value
   #   @return [Integer] Value to control partitioning. For replicators that use hash partitioning,

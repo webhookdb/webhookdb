@@ -14,8 +14,10 @@ class Webhookdb::Jobs::ProcessWebhook
   on "webhookdb.serviceintegration.webhook"
   sidekiq_options queue: "webhook" # This is usually overridden.
 
-  def semaphore_expiry = 5.minutes.to_i
   def dependent_queues = ["critical"]
+  def semaphore_expiry = 5.minutes.to_i
+  def semaphore_key = "semaphore-procwebhook-#{@sint.job_semaphore_identifier}"
+  def semaphore_size = @sint.job_semaphore_size
 
   def before_perform(*args)
     event = Amigo::Event.from_json(args[0])
@@ -34,13 +36,5 @@ class Webhookdb::Jobs::ProcessWebhook
       method: kw.fetch(:request_method),
     )
     svc.upsert_webhook(req)
-  end
-
-  def semaphore_key
-    return "semaphore-procwebhook-#{@sint.organization_id}"
-  end
-
-  def semaphore_size
-    return @sint.organization.job_semaphore_size
   end
 end

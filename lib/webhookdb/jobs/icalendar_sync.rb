@@ -28,8 +28,8 @@ class Webhookdb::Jobs::IcalendarSync
     @sint = self.lookup_model(Webhookdb::ServiceIntegration, sint_id)
   end
 
-  def semaphore_key = "semaphore-icalendarsync-#{@sint.organization_id}"
-  def semaphore_size = @sint.organization.job_semaphore_size
+  def semaphore_key = "semaphore-icalendarsync-#{@sint.job_semaphore_identifier}"
+  def semaphore_size = @sint.job_semaphore_size
   def semaphore_expiry = 15.minutes
   def semaphore_backoff = 60 + (rand * 30)
 end

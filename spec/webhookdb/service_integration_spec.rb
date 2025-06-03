@@ -271,4 +271,14 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       expect(a_a_a_a.recursive_dependencies).to have_same_ids_as(a_a_a, a_a, a).ordered
     end
   end
+
+  describe "job_semaphore_size" do
+    it "uses the service integration semaphore size if non-zero, and falls back to the organization" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      sint.organization.organization_job_semaphore_size = 9
+      expect(sint).to have_attributes(job_semaphore_size: 9, job_semaphore_identifier: "org-#{sint.organization_id}")
+      sint.integration_job_semaphore_size = 5
+      expect(sint).to have_attributes(job_semaphore_size: 5, job_semaphore_identifier: "sint-#{sint.id}")
+    end
+  end
 end
