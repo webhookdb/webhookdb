@@ -22,8 +22,8 @@ module Webhookdb::Sentry
         require "sentry-sidekiq"
         Sentry.init do |config|
           config.dsn = dsn
-          config.logger = self.logger
-          config.logger.level = self.log_level
+          config.sdk_logger = self.logger
+          config.sdk_logger.level = self.log_level
         end
       else
         Sentry.instance_variable_set(:@main_hub, nil)

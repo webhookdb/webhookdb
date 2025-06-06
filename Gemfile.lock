@@ -50,7 +50,7 @@ PATH
       redis (~> 4.8)
       redis-client (~> 0.23)
       semantic_logger (~> 4.16)
-      sentry-ruby (~> 5.22)
+      sentry-ruby (~> 5.24)
       sentry-sidekiq (~> 5.22)
       sequel (~> 5.88)
       sequel-annotate (~> 1.7)
@@ -346,11 +346,11 @@ GEM
     securerandom (0.4.1)
     semantic_logger (4.16.1)
       concurrent-ruby (~> 1.0)
-    sentry-ruby (5.22.3)
+    sentry-ruby (5.24.0)
       bigdecimal
       concurrent-ruby (~> 1.0, >= 1.0.2)
-    sentry-sidekiq (5.22.3)
-      sentry-ruby (~> 5.22.3)
+    sentry-sidekiq (5.24.0)
+      sentry-ruby (~> 5.24.0)
       sidekiq (>= 3.0)
     sequel (5.88.0)
       bigdecimal

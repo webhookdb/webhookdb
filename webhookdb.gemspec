@@ -72,7 +72,7 @@ Gem::Specification.new do |s|
   s.add_dependency("redis", "~> 4.8")
   s.add_dependency("redis-client", "~> 0.23")
   s.add_dependency("semantic_logger", "~> 4.16")
-  s.add_dependency("sentry-ruby", "~> 5.22")
+  s.add_dependency("sentry-ruby", "~> 5.24")
   s.add_dependency("sentry-sidekiq", "~> 5.22")
   s.add_dependency("sequel", "~> 5.88")
   s.add_dependency("sequel-annotate", "~> 1.7")
