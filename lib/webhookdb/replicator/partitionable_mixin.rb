@@ -60,7 +60,7 @@ module Webhookdb::Replicator::PartitionableMixin
 
   # Convert the given string into a stable MD5-derived hash
   # that can be stored in a (signed, 4 bit) INTEGER column.
-  def _str2inthash(s)
+  def self.str2inthash(s)
     # MD5 is 128 bits/16 bytes/32 hex chars (2 chars per byte).
     # Integers are 32 bits/4 bytes/8 hex chars.
     # Grab the first 8 chars and convert it to an integer.
@@ -73,6 +73,8 @@ module Webhookdb::Replicator::PartitionableMixin
     signed_md5int = unsigned_int32 - MAX_16BIT_INT
     return signed_md5int
   end
+
+  def _str2inthash(s) = Webhookdb::Replicator::PartitionableMixin.str2inthash(s)
 
   MAX_16BIT_INT = 2**31
 

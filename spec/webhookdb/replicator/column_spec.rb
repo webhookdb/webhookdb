@@ -684,6 +684,41 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "CONV_STR2HASH" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
+      it "converts the value" do
+        conv = described_class::CONV_STR2HASH
+        expect(conv.ruby.call("xyz")).to eq(-1_761_921_296)
+        expect(conv.ruby.call("a" * 200)).to eq(133_368_643)
+        expect(conv.ruby.call("")).to eq(-1_042_756_200)
+        expect(conv.ruby.call(nil)).to eq(-1_042_756_200)
+      end
+
+      it "converts SQL values" do
+        conv = described_class::CONV_STR2HASH
+        e = conv.sql.call("xyz")
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_761_921_296)
+        e = conv.sql.call("a" * 200)
+        expect(db.select(e).first.to_a[0][1]).to eq(133_368_643)
+        e = conv.sql.call("")
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_042_756_200)
+        e = conv.sql.call(nil)
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_042_756_200)
+      end
+
+      it "matches Ruby and SQL conversions" do
+        Array.new(100) do
+          words = Faker::Lorem.words(number: Faker::Number.between(from: 1, to: 200))
+          s = words.join
+          e = described_class::CONV_STR2HASH.sql.call(s)
+          dbval = db.select(e).first.to_a[0][1]
+          rubyval = described_class::CONV_STR2HASH.ruby.call(s)
+          expect(rubyval).to eq(dbval)
+        end
+      end
+    end
+
     describe "converter_array_element" do
       let(:db) { Webhookdb::Postgres::Model.db }
 
