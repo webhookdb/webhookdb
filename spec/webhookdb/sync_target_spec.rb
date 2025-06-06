@@ -47,8 +47,9 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
   end
 
   describe "sync_stats" do
+    let(:syt) { Webhookdb::Fixtures.sync_target.create(page_size: 100) }
+
     it "can summarize stats" do
-      syt = Webhookdb::Fixtures.sync_target.create(page_size: 100)
       expect(syt.sync_stat_summary).to eq({})
       Timecop.freeze("2024-10-21T13:27:29Z") do
         syt.add_sync_stat(12.seconds.ago)
@@ -64,6 +65,17 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
         )
         syt.parallelism = 2
         expect(syt.sync_stat_summary).to include(average_rows_minute: 1600)
+      end
+    end
+
+    it "includes calls per minute" do
+      Timecop.freeze("2024-10-10T00:00:00Z") do
+        syt.add_sync_stat(30.seconds.ago)
+        expect(syt.sync_stat_summary).to include(average_calls_minute: 2)
+        syt.add_sync_stat(30.seconds.ago)
+        expect(syt.sync_stat_summary).to include(average_calls_minute: 4)
+        syt.add_sync_stat(30.seconds.ago)
+        expect(syt.sync_stat_summary).to include(average_calls_minute: 6)
       end
     end
   end

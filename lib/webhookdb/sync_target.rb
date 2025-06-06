@@ -359,8 +359,20 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       earliest: Time.at(ms2s(earliest["t"]).to_i),
       average_latency: average_latency.round(2),
       average_rows_minute: rpm.to_i,
+      average_calls_minute: self._stat_average_calls_per_minute,
       errors:,
     }
+  end
+
+  # Rows per minute are speculative, based on latency and parallelism.
+  # See how many calls we've made over the lifetime of the sync stats,
+  # and average to a minute.
+  def _stat_average_calls_per_minute
+    start_timespan = Time.now.to_f - ms2s(self.sync_stats.last["t"])
+    return 0 if start_timespan.zero?
+    per_second = self.sync_stats.count / start_timespan.to_f
+    per_minute = per_second * 60
+    return per_minute
   end
 
   # @return [Webhookdb::Organization]
