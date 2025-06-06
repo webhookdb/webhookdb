@@ -48,7 +48,7 @@ Gem::Specification.new do |s|
   s.add_dependency("grape_logging", "~> 1.8.4")
   s.add_dependency("grape-swagger", "~> 2.0.0")
   s.add_dependency("httparty", "~> 0.22")
-  s.add_dependency("httpx", "~> 1.4")
+  s.add_dependency("httpx", "~> 1.5")
   s.add_dependency("ice_cube")
   s.add_dependency("jwt", "~> 2.10")
   s.add_dependency("liquid", "~> 5.6")
