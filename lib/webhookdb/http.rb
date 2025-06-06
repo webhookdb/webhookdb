@@ -105,7 +105,12 @@ module Webhookdb::Http
     raise URI::InvalidURIError, "#{request_url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
     down_kw[:headers] ||= {}
     down_kw[:headers]["User-Agent"] ||= self.user_agent
-    io = Down::Httpx.open(uri, rewindable:, **down_kw)
+    begin
+      io = Down::Httpx.open(uri, rewindable:, **down_kw)
+    rescue StopIteration => e
+      raise Down::NotModified if e.backtrace.first.include?("httpx/plugins/stream.rb")
+      raise e
+    end
     return io
   end
 end
@@ -116,17 +121,6 @@ class Down::Httpx
     # For some reason, Down's httpx backend uses TooManyRedirects for every status code...
     raise Down::NotModified if response.status == 304
     return self._original_response_error!(response)
-  end
-end
-
-class HTTPX::Response::Body
-  alias _original_initialize initialize
-  def initialize(*)
-    _original_initialize(*)
-    # If the encoding is an invalid one like 'utf8' vs 'utf-8', modify what's was in the charset.
-    # See https://github.com/HoneyryderChuck/httpx/issues/66
-    return unless @encoding.is_a?(String) && (md = @encoding.match(/^(utf)(\d+)$/))
-    @encoding = "#{md[1]}-#{md[2]}"
   end
 end
 
