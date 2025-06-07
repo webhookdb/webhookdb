@@ -105,12 +105,7 @@ module Webhookdb::Http
     raise URI::InvalidURIError, "#{request_url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
     down_kw[:headers] ||= {}
     down_kw[:headers]["User-Agent"] ||= self.user_agent
-    begin
-      io = Down::Httpx.open(uri, rewindable:, **down_kw)
-    rescue StopIteration => e
-      raise Down::NotModified if e.backtrace.first.include?("httpx/plugins/stream.rb")
-      raise e
-    end
+    io = Down::Httpx.open(uri, rewindable:, **down_kw)
     return io
   end
 end
@@ -121,6 +116,17 @@ class Down::Httpx
     # For some reason, Down's httpx backend uses TooManyRedirects for every status code...
     raise Down::NotModified if response.status == 304
     return self._original_response_error!(response)
+  end
+
+  alias _original_request_error! request_error!
+  def request_error!(exception)
+    # This is a strange one. If we're streaming the response, but it's a 304,
+    # we try to read the body even though there is not one. It raises a StopIteration.
+    # If this is a StopIteration from the stream plugin, assume it should have just been
+    # returned as a normal 304 response.
+    raise Down::NotModified if
+      exception.is_a?(StopIteration) && exception.backtrace&.first&.include?("httpx/plugins/stream.rb")
+    return self._original_request_error!(exception)
   end
 end
 
