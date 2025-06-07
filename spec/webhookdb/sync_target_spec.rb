@@ -403,6 +403,11 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
       expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
     end
 
+    it "noops if disabled" do
+      sync_tgt = Webhookdb::Fixtures.sync_target.create(disabled: true)
+      expect(sync_tgt.run_sync(now: Time.now)).to be(false)
+    end
+
     describe "with a postgres target" do
       let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create }
       let(:adapter_conn) { Webhookdb::DBAdapter.adapter(sync_tgt.connection_url).connection(sync_tgt.connection_url) }

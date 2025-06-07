@@ -266,6 +266,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
   # will be synced.
   def run_sync(now:)
+    return false if self.disabled
     ran = false
     # Take the advisory lock with a separate connection. This seems to be pretty important-
     # it's possible that (for reasons not clear at this time) using the standard connection pool
