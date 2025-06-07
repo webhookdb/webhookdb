@@ -15,7 +15,7 @@ RSpec.describe Webhookdb::Sentry do
     client = Sentry.get_current_client
     expect(client).to_not be_nil
     expect(client.configuration).to have_attributes(
-      logger: described_class.logger,
+      sdk_logger: described_class.logger,
       dsn: have_attributes(
         server: "http://not-really-sentry.nope",
         public_key: "public",

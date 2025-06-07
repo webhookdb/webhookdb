@@ -66,6 +66,22 @@ class Webhookdb::Replicator::Column
     end,
   )
 
+  # Converter using +Webhookdb::Replicator::PartitionableMixin.str2inthash+ logic in Ruby and the DB.
+  CONV_STR2HASH = IsomorphicProc.new(
+    ruby: ->(value, **_) { Webhookdb::Replicator::PartitionableMixin.str2inthash(value || "") },
+    sql: lambda do |i|
+      makestr = Sequel.function(:coalesce, i, "")
+      digest = Sequel.function(:md5, makestr)
+      hex_str = Sequel.function(:concat, "x", digest)
+      bit36_str = Sequel.function(:substring, hex_str, 1, 10)
+      bigint = bit36_str.cast(Sequel.lit("bit(36)")).cast(:bigint)
+      masked_bigint = bigint & 4_294_967_295
+      biased_bigint = masked_bigint - 2_147_483_648
+      hash_int = biased_bigint.cast(:int)
+      return hash_int
+    end,
+  )
+
   # Return a converter that parses a value using the given regex,
   # and returns the capture group at index.
   # The 'coerce' function can be applied to, for example,

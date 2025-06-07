@@ -266,6 +266,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
   # will be synced.
   def run_sync(now:)
+    return false if self.disabled
     ran = false
     # Take the advisory lock with a separate connection. This seems to be pretty important-
     # it's possible that (for reasons not clear at this time) using the standard connection pool
@@ -332,8 +333,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   # :section: Stats
 
-  def add_sync_stat(start, exception: nil, response_status: nil)
-    stat = {"t" => s2ms(start), "d" => s2ms(Time.now - start)}
+  def add_sync_stat(call_start:, remote_start:, exception: nil, response_status: nil)
+    now = Time.now
+    stat = {
+      "t" => s2ms(now),
+      "dr" => s2ms(now - remote_start),
+      "dc" => s2ms(now - call_start),
+    }
     stat["e"] = exception.class.name if exception
     stat["rs"] = response_status unless response_status.nil?
     stats = self.sync_stats
@@ -349,18 +355,38 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     return {} if self.sync_stats.empty?
     earliest = self.sync_stats.last
     latest = self.sync_stats.first
-    average_latency = (self.sync_stats.sum { |st| ms2s(st["d"]) }) / self.sync_stats.size
-    errors = self.sync_stats.count { |st| st["e"] || st["rs"] }
-    calls_per_minute = 60 / average_latency
-    rpm = self.page_size * calls_per_minute
-    rpm *= self.parallelism if self.parallelism.positive?
+
+    avg_remote_latency = 0
+    avg_call_latency = 0
+    errors = 0
+    self.sync_stats.each do |st|
+      avg_remote_latency += st["dr"] if st["dr"]
+      avg_call_latency += st["dc"] if st["dc"]
+      errors += 1 if st["e"] || st["rs"]
+    end
+    avg_remote_latency = ms2s(avg_remote_latency / self.sync_stats.size).round(2)
+    avg_call_latency = ms2s(avg_call_latency / self.sync_stats.size).round(2)
+    avg_calls_minute = self._stat_average_calls_per_minute.round(2)
+    avg_rows_minute = (avg_calls_minute * self.page_size).to_i
     return {
-      latest: Time.at(ms2s(latest["t"]).to_i),
-      earliest: Time.at(ms2s(earliest["t"]).to_i),
-      average_latency: average_latency.round(2),
-      average_rows_minute: rpm.to_i,
+      earliest: earliest["t"] ? Time.at(ms2s(earliest["t"]).to_i) : Time.at(0),
+      latest: latest["t"] ? Time.at(ms2s(latest["t"]).to_i) : Time.at(0),
+      avg_remote_latency:,
+      avg_call_latency:,
+      avg_rows_minute:,
+      avg_calls_minute:,
       errors:,
     }
+  end
+
+  # See how many calls we've made over the lifetime of the sync stats,
+  # and average to a minute.
+  def _stat_average_calls_per_minute
+    start_timespan = Time.now.to_f - ms2s(self.sync_stats.last["t"])
+    return 0 if start_timespan.zero?
+    per_second = self.sync_stats.count / start_timespan.to_f
+    per_minute = per_second * 60
+    return per_minute
   end
 
   # @return [Webhookdb::Organization]
@@ -432,16 +458,19 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
     end
 
-    def with_stat(&)
-      start = Time.now
+    # Wrap a remote call and record a stat on finish.
+    # +call_start+ should be when the current call/page began syncing.
+    # The block is assumed to be a DB or HTTP callout.
+    def with_stat(call_start, &)
+      remote_start = Time.now
       begin
         yield
-        self.sync_target.add_sync_stat(start)
+        self.sync_target.add_sync_stat(call_start:, remote_start:)
       rescue Webhookdb::Http::Error => e
-        self.sync_target.add_sync_stat(start, response_status: e.status)
+        self.sync_target.add_sync_stat(call_start:, remote_start:, response_status: e.status)
         raise
       rescue StandardError => e
-        self.sync_target.add_sync_stat(start, exception: e)
+        self.sync_target.add_sync_stat(call_start:, remote_start:, exception: e)
         raise
       end
     end
@@ -470,12 +499,15 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       sync_result = :complete
       self.dataset_to_sync do |ds|
         chunk = []
-        ds.paged_each(rows_per_fetch: page_size, cursor_name: "synctarget_#{self.sync_target.id}_cursor") do |row|
+        cursor_name = "synctarget_#{self.sync_target.service_integration.service_name}_#{self.sync_target.id}_cursor"
+        chunk_start = Time.now
+        ds.paged_each(rows_per_fetch: page_size, cursor_name:) do |row|
           chunk << row
           if chunk.size >= page_size
             # Do not share chunks across threads
-            self._flush_http_chunk(chunk.dup)
+            self._flush_http_chunk(chunk_start, chunk.dup)
             chunk.clear
+            chunk_start = Time.now
             if Time.now >= timeout_at && Thread.current[:sidekiq_context]
               # If we've hit the timeout, stop any further syncing
               sync_result = :timeout
@@ -483,7 +515,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
             end
           end
         end
-        self._flush_http_chunk(chunk) unless chunk.empty?
+        self._flush_http_chunk(chunk_start, chunk) unless chunk.empty?
         @threadpool.join
         case sync_result
           when :timeout
@@ -520,7 +552,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
     end
 
-    def _flush_http_chunk(chunk)
+    def _flush_http_chunk(chunk_started, chunk)
       chunk_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
       @mutex.synchronize do
         @inflight_timestamps << chunk_ts
@@ -535,7 +567,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         sync_timestamp: self.now,
       }
       @threadpool.post do
-        self.with_stat do
+        self.with_stat(chunk_started) do
           Webhookdb::Http.post(
             @cleanurl,
             body,

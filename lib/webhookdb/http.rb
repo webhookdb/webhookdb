@@ -117,16 +117,16 @@ class Down::Httpx
     raise Down::NotModified if response.status == 304
     return self._original_response_error!(response)
   end
-end
 
-class HTTPX::Response::Body
-  alias _original_initialize initialize
-  def initialize(*)
-    _original_initialize(*)
-    # If the encoding is an invalid one like 'utf8' vs 'utf-8', modify what's was in the charset.
-    # See https://github.com/HoneyryderChuck/httpx/issues/66
-    return unless @encoding.is_a?(String) && (md = @encoding.match(/^(utf)(\d+)$/))
-    @encoding = "#{md[1]}-#{md[2]}"
+  alias _original_request_error! request_error!
+  def request_error!(exception)
+    # This is a strange one. If we're streaming the response, but it's a 304,
+    # we try to read the body even though there is not one. It raises a StopIteration.
+    # If this is a StopIteration from the stream plugin, assume it should have just been
+    # returned as a normal 304 response.
+    raise Down::NotModified if
+      exception.is_a?(StopIteration) && exception.backtrace&.first&.include?("httpx/plugins/stream.rb")
+    return self._original_request_error!(exception)
   end
 end
 
