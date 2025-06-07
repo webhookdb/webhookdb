@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "rack/handler/thin"
+
 require "webhookdb/http"
 
 RSpec.describe Webhookdb::Http do
@@ -178,18 +180,27 @@ RSpec.describe Webhookdb::Http do
   end
 
   describe "chunked_download" do
+    def readbody(resp)
+      body = +""
+      resp.body.each { |ch| body << ch }
+      return body
+    end
+
     it "opens a stream" do
+      body = "abc" * 3000
       req = stub_request(:get, "https://a.b").
-        with(headers: {
-               "Accept" => "*/*",
-               "Accept-Encoding" => "gzip, deflate",
-               "User-Agent" => %r{WebhookDB/},
-             }).
-        to_return(status: 200, body: "abc")
-      io = described_class.chunked_download("https://a.b", rewindable: false)
+        with(
+          headers: {
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip, deflate",
+            "User-Agent" => %r{WebhookDB/},
+          },
+        ).to_return(status: 200, body:)
+      resp = described_class.chunked_download("https://a.b")
       expect(req).to have_been_made
-      expect(io).to be_a(Down::ChunkedIO)
-      expect(io.read).to eq("abc")
+      expect(resp).to be_a(HTTP::Response)
+      expect { resp.body.to_s }.to raise_error(HTTP::StateError)
+      expect(readbody(resp)).to eq(body)
     end
 
     it "raises without an http url" do
@@ -202,12 +213,112 @@ RSpec.describe Webhookdb::Http do
       end.to raise_error(URI::InvalidURIError, "httpss://a.b must be an http/s url")
     end
 
-    it "patches httpx to handle bad encodings" do
+    it "follows redirects" do
+      req1 = stub_request(:get, "https://a.b").
+        to_return(status: 301, headers: {"Location" => "https://a.b2"})
+      req2 = stub_request(:get, "https://a.b2").
+        to_return(status: 200)
+      described_class.chunked_download("https://a.b")
+      expect(req1).to have_been_made
+      expect(req2).to have_been_made
+    end
+
+    it "raises for too many redirects" do
       req = stub_request(:get, "https://a.b").
-        to_return(status: 200, body: "abc", headers: {"Content-Type" => "text/html;charset=utf8"})
-      io = described_class.chunked_download("https://a.b", rewindable: false)
+        to_return({status: 301, headers: {"Location" => "https://a.b"}})
+      expect do
+        described_class.chunked_download("https://a.b")
+      end.to raise_error(described_class::TooManyRedirects)
+      expect(req).to have_been_made.times(2)
+    end
+
+    it "raises NotModified for a 304" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 304)
+      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::NotModified)
       expect(req).to have_been_made
-      expect(io.read).to eq("abc")
+    end
+
+    it "raises for 4xx errors" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 400)
+      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::ClientError)
+      expect(req).to have_been_made
+    end
+
+    it "raises for 5xx errors" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 500)
+      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::ServerError)
+      expect(req).to have_been_made
+    end
+
+    it "patches headers with #fetch" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 200, headers: [["Single", "a"], ["Double", "x"], ["Double", "y"]])
+      resp = described_class.chunked_download("https://a.b")
+      expect(req).to have_been_made
+      expect(resp.headers.fetch("Single")).to eq("a")
+      expect(resp.headers.fetch("Single", 5)).to eq("a")
+      expect(resp.headers.fetch("Double")).to eq("y")
+      expect { resp.headers.fetch("Nope") }.to raise_error(KeyError)
+      expect(resp.headers.fetch("Nope", 5)).to eq(5)
+    end
+
+    describe "body encoding" do
+      responses = []
+      server_calls = []
+
+      before(:all) do
+        # We must test encoding behavior outside of webmock, since for the HTTP adapter it just uses
+        # the encoding of the body, while the native HTTP response creation
+        # will grab the encoding from the headers.
+        server = Class.new do
+          define_method(:call) do |env|
+            resp = responses.pop
+            raise "must push to responses" if resp.nil?
+            server_calls << env
+            return resp
+          end
+        end
+        Thin::Logging.silent = true
+        @server_thread = Thread.new do
+          Rack::Handler::Thin.run server.new, Port: 18_013
+        end
+        sleep(1)
+      end
+
+      after(:all) do
+        @server_thread&.kill
+      end
+
+      before(:each) do
+        WebMock.allow_net_connect!
+        responses.clear
+        server_calls.clear
+      end
+
+      after(:each) do
+        WebMock.disable_net_connect!
+      end
+
+      [
+        ["explicit charset", "fakecontenttype;charset=utf-32", Encoding::UTF_32],
+        ["explicit (malformed) charset", "fakecontenttype;charset=utf8", Encoding::UTF_8],
+        ["implicit utf8 charset", "text/plain", Encoding::UTF_8],
+        ["implicit binary charset", "image/jpeg", Encoding::BINARY],
+        ["unknown content type", "fakecontenttype", Encoding::BINARY],
+        ["unknown charset (text content)", "text/plain;charset=nope", Encoding::UTF_8],
+        ["unknown charset (binary content)", "image/png;charset=nope", Encoding::BINARY],
+      ].each do |(desc, ct, enc)|
+        it "decodes #{desc}" do
+          responses << [200, {"Content-Type" => ct}, ["abc".encode(enc)]]
+          resp = described_class.chunked_download("http://localhost:18013/testfile")
+          expect(server_calls).to have_length(1)
+          expect(resp.body.encoding).to eq(enc)
+          expect(readbody(resp)).to eq("abc".encode(enc))
+        end
+      end
     end
   end
 
@@ -268,20 +379,5 @@ RSpec.describe Webhookdb::Http do
         include("message" => "httparty_request", "context" => include("http_method" => "POST"), "level" => "debug"),
       )
     end
-  end
-
-  it "patches down https to handle more status codes correctly" do
-    req = stub_request(:get, "https://a.b").to_return(status: 304)
-    expect do
-      Down::Httpx.download("https://a.b")
-    end.to raise_error(Down::NotModified)
-    expect(req).to have_been_made.times(1)
-
-    # Make sure original errors work
-    req = stub_request(:get, "https://a.b").to_return(status: 400)
-    expect do
-      Down::Httpx.download("https://a.b")
-    end.to raise_error(Down::ClientError)
-    expect(req).to have_been_made.times(2)
   end
 end

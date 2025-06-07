@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "down"
-
 require "webhookdb/xml"
 
 class Webhookdb::Replicator::AtomSingleFeedV1 < Webhookdb::Replicator::Base

@@ -2,7 +2,7 @@
 
 require "appydays/configurable"
 require "appydays/loggable/httparty_formatter"
-require "down/httpx"
+require "http"
 require "httparty"
 
 module Webhookdb::Http
@@ -17,17 +17,17 @@ module Webhookdb::Http
   class Error < BaseError
     attr_reader :response, :body, :uri, :status, :http_method
 
-    def initialize(response, msg=nil)
+    def initialize(response, msg=nil, uri: nil, http_method: nil)
       @response = response
       @body = response.body
       @headers = response.headers.to_h
       @status = response.code
-      @uri = response.request.last_uri.dup
+      @uri = uri || response.request.last_uri.dup
       if @uri.query.present?
         cleaned_params = CGI.parse(@uri.query).map { |k, v| k.include?("secret") ? [k, ".snip."] : [k, v] }
         @uri.query = HTTParty::Request::NON_RAILS_QUERY_STRING_NORMALIZER.call(cleaned_params)
       end
-      @http_method = response.request.http_method::METHOD
+      @http_method = http_method || response.request.http_method::METHOD
       super(msg || self.to_s)
     end
 
@@ -37,6 +37,11 @@ module Webhookdb::Http
 
     alias inspect to_s
   end
+
+  class ClientError < Error; end
+  class ServerError < Error; end
+  class NotModified < Error; end
+  class TooManyRedirects < BaseError; end
 
   def self.user_agent
     return Webhookdb.http_user_agent unless Webhookdb.http_user_agent.blank?
@@ -58,12 +63,13 @@ module Webhookdb::Http
   end
 
   def self.check!(response, **options)
-    # All oks are ok
-    return if response.code < 300
-    # We expect 300s if we aren't following redirects
-    return if response.code < 400 && !options[:follow_redirects]
-    # Raise for 400s, or 300s if we were meant to follow redirects
-    raise Error, response
+    return if response.code <= 299
+    raise ServerError, response if response.code >= 500
+    raise ClientError, response if response.code >= 400
+    # If we followed redirects, we should not see a 300
+    raise TooManyRedirects, response if response.code >= 300 && options[:follow_redirects]
+    # We got a 300, but are not following redirects, so we're ok.
+    return
   end
 
   def self.get(url, query={}, **options, &)
@@ -97,38 +103,64 @@ module Webhookdb::Http
     options[:log_level] = self.log_level
   end
 
-  # Convenience wrapper around Down so we can use our preferred implementation.
-  # See commit history for more info.
-  # @return Array<Down::ChunkedIO, IO> Tuple
-  def self.chunked_download(request_url, rewindable: false, **down_kw)
-    uri = URI(request_url)
-    raise URI::InvalidURIError, "#{request_url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
-    down_kw[:headers] ||= {}
-    down_kw[:headers]["User-Agent"] ||= self.user_agent
-    io = Down::Httpx.open(uri, rewindable:, **down_kw)
-    return io
+  # Convenience wrapper since downloading a stream isn't so simple.
+  # See commit history for more info, including going from Down, to Down/HTTPX, to HTTP.
+  # @return [HTTP::Response]
+  def self.chunked_download(url, headers: {})
+    uri = URI(url)
+    raise URI::InvalidURIError, "#{url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
+    headers["User-Agent"] ||= self.user_agent
+    headers["Accept"] ||= "*/*"
+    headers["Accept-Encoding"] ||= "gzip, deflate"
+    begin
+      response = HTTP.follow.get(url, headers:)
+    rescue HTTP::Redirector::TooManyRedirectsError => e
+      raise TooManyRedirects, e
+    end
+    http_method = response.request.verb
+    raise ServerError.new(response, uri:, http_method:) if response.code >= 500
+    raise ClientError.new(response, uri:, http_method:) if response.code >= 400
+    raise NotModified.new(response, uri:, http_method:) if response.code == 304
+    response.body.stream!
+    return response
   end
 end
 
-class Down::Httpx
-  alias _original_response_error! response_error!
-  def response_error!(response)
-    # For some reason, Down's httpx backend uses TooManyRedirects for every status code...
-    raise Down::NotModified if response.status == 304
-    return self._original_response_error!(response)
-  end
-
-  alias _original_request_error! request_error!
-  def request_error!(exception)
-    # This is a strange one. If we're streaming the response, but it's a 304,
-    # we try to read the body even though there is not one. It raises a StopIteration.
-    # If this is a StopIteration from the stream plugin, assume it should have just been
-    # returned as a normal 304 response.
-    raise Down::NotModified if
-      exception.is_a?(StopIteration) && exception.backtrace&.first&.include?("httpx/plugins/stream.rb")
-    return self._original_request_error!(exception)
+class HTTP::Headers
+  def fetch(k, *default)
+    vals = self.get(k)
+    return vals.first unless vals.empty?
+    raise KeyError, k if default.empty?
+    return default.first
   end
 end
 
-# Not sure why, but Down uses this, loads the plugin, but the constant isn't defined.
-require "httpx/plugins/follow_redirects"
+class HTTP::Response::Body
+  attr_accessor :encoding
+end
+
+class HTTP::Response
+  alias _orig_initialize initialize
+  def initialize(opts)
+    # Make how we handle encoding more flexible. Gross but needed for things like icalendar hosts.
+
+    _orig_initialize(opts)
+
+    # If we have an explicit body, don't do anything.
+    return if opts.include?(:body)
+    # If we have detected a non-default encoding, use it.
+    return unless body.encoding == Encoding::BINARY
+    # If the charset was invalid, let's try to fix it.
+    if charset && (md = charset.match(/^(utf)(\d+)$/))
+      body.encoding = Encoding.find("#{md[1]}-#{md[2]}")
+      return
+    end
+    # If we are using a text type, use utf-8.
+    if mime_type&.start_with?("text/") || mime_type == "application/json"
+      body.encoding = Encoding::UTF_8
+      return
+    end
+    # We can't figure out a better encoding, so use binary.
+    return
+  end
+end

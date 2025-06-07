@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "down"
+require "down/chunked_io"
 require "ice_cube"
 
 require "webhookdb/icalendar"
@@ -217,19 +217,18 @@ The secret to use for signing is:
     calendar_external_id = row.fetch(:external_id)
     begin
       request_url = self._clean_ics_url(row.fetch(:ics_url))
-      io = self._make_ics_request(request_url, row.fetch(:last_fetch_context))
-    rescue Down::Error,
+      resp = self._make_ics_request(request_url, row.fetch(:last_fetch_context))
+    rescue HTTP::Error,
+           Webhookdb::Http::BaseError,
            URI::InvalidURIError,
-           HTTPX::NativeResolveError,
-           HTTPX::InsecureRedirectError,
-           HTTPX::Connection::HTTP2::Error,
+           OpenSSL::SSL::SSLError,
            EOFError => e
-      self._handle_down_error(e, request_url:, calendar_external_id:)
+      self._handle_request_error(e, request_url:, calendar_external_id:)
       return
     end
 
     upserter = Upserter.new(dep.replicator, calendar_external_id, now:)
-    processor = EventProcessor.new(io:, upserter:, headers: io.data[:headers])
+    processor = EventProcessor.new(io: resp.body, encoding: resp.body.encoding, upserter:, headers: resp.headers)
     processor.process
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
     dep.replicator.admin_dataset do |ds|
@@ -264,7 +263,7 @@ The secret to use for signing is:
       headers["Authorization"] = "Apikey #{Webhookdb::Icalendar.proxy_api_key}" if
         Webhookdb::Icalendar.proxy_api_key.present?
     end
-    resp = Webhookdb::Http.chunked_download(request_url, rewindable: false, headers:)
+    resp = Webhookdb::Http.chunked_download(request_url, headers:)
     return resp
   end
 
@@ -276,16 +275,16 @@ The secret to use for signing is:
     return u.to_s
   end
 
-  def _handle_down_error(e, request_url:, calendar_external_id:)
+  def _handle_request_error(e, request_url:, calendar_external_id:)
     case e
-      when Down::TooManyRedirects
+      when Webhookdb::Http::TooManyRedirects
         response_status = 301
         response_body = "<too many redirects>"
-      when Down::NotModified
+      when Webhookdb::Http::NotModified
         # Do not alert on 304, but do log
         self.logger.info("icalendar_fetch_not_modified", response_status: 304, request_url:, calendar_external_id:)
         return
-      when Down::SSLError
+      when OpenSSL::SSL::SSLError
         # Most SSL errors are transient and can be retried, but some are due to a long-term misconfiguration.
         # Handle these with an alert, like if we had a 404, which indicates a longer-term issue.
         is_fatal =
@@ -298,20 +297,19 @@ The secret to use for signing is:
           response_status = 0
           response_body = e.to_s
         else
-          self._handle_retryable_down_error!(e, request_url:, calendar_external_id:)
+          self._handle_retryable_error!(e, request_url:, calendar_external_id:)
         end
-      when Down::TimeoutError, Down::ConnectionError, Down::InvalidUrl,
+      when HTTP::TimeoutError,
+        HTTP::StateError,
         Errno::ECONNRESET,
         URI::InvalidURIError,
-        HTTPX::NativeResolveError, HTTPX::InsecureRedirectError,
-        HTTPX::Connection::HTTP2::Error,
         EOFError
         response_status = 0
         response_body = e.to_s
-      when Down::ClientError
+      when Webhookdb::Http::ClientError
         raise e if e.response.nil?
-        response_status = e.response.status.to_i
-        self._handle_retryable_down_error!(e, request_url:, calendar_external_id:) if
+        response_status = e.status
+        self._handle_retryable_error!(e, request_url:, calendar_external_id:) if
           self._retryable_client_error?(e, request_url:)
         # These are all the errors we've seen, we can't do anything about.
         # In theory we should do this for ALL 4xx errors,
@@ -337,8 +335,8 @@ The secret to use for signing is:
         end
         raise e unless expected_errors.include?(response_status)
         response_body = self._safe_read_body(e)
-      when Down::ServerError
-        response_status = e.response.status.to_i
+      when Webhookdb::Http::ServerError
+        response_status = e.response.code
         response_body = self._safe_read_body(e)
       else
         response_body = nil
@@ -363,12 +361,12 @@ The secret to use for signing is:
   # Ignore those errors.
   def _safe_read_body(e)
     return e.response.body.to_s
-  rescue OpenSSL::SSL::SSLError, HTTPX::Error
+  rescue OpenSSL::SSL::SSLError, HTTP::Error
     return "<error reading body>"
   end
 
   def _retryable_client_error?(e, request_url:)
-    code = e.response.status.to_i
+    code = e.response.code
     # This is a bad domain that returns 429 for most requests.
     # Tell the org admins it won't sync.
     return false if code == 429 && request_url.start_with?("https://ical.schedulestar.com")
@@ -378,14 +376,14 @@ The secret to use for signing is:
     return false
   end
 
-  def _handle_retryable_down_error!(e, request_url:, calendar_external_id:)
+  def _handle_retryable_error!(e, request_url:, calendar_external_id:)
     # Retry on these, which are hopefully transient.
     # For now, if they aren't transient, die so we see the job.
     # We will probably need to do an alert if the retries on exhausted instead.
     retry_in = rand(4..60).minutes
     self.logger.debug(
       "icalendar_fetch_error_retry",
-      response_status: e.respond_to?(:response) ? e.response&.status : 0,
+      response_status: e.respond_to?(:response) ? e.response&.code : 0,
       request_url:,
       calendar_external_id:,
       retry_at: Time.now + retry_in,
@@ -396,8 +394,9 @@ The secret to use for signing is:
   class EventProcessor
     attr_reader :upserted_identities, :read_bytes, :headers
 
-    def initialize(io:, upserter:, headers:)
-      @io = io
+    def initialize(io:, encoding:, upserter:, headers:)
+      # Use ChunkedIO so we have #gets, to read the stream line-by-line.
+      @io = Down::ChunkedIO.new(chunks: io, rewindable: false, encoding:)
       @upserter = upserter
       @headers = headers
       # Keep track of everything we upsert. For any rows we aren't upserting,
@@ -692,20 +691,19 @@ The secret to use for signing is:
     begin
       url = self._clean_ics_url(row.fetch(:ics_url))
       resp = self._make_ics_request(url, last_fetch)
-    rescue Down::NotModified
+    rescue Webhookdb::Http::NotModified
       return false
     rescue StandardError
       return true
     end
-    headers = resp.data[:headers] || {}
-    content_type_match = headers["Content-Type"] == last_fetch["content_type"] &&
-      headers["Content-Length"] == last_fetch["content_length"]
+    content_type_match = resp.headers["Content-Type"] == last_fetch["content_type"] &&
+      resp.headers["Content-Length"] == last_fetch["content_length"]
     return true unless content_type_match
     last_hash = last_fetch["hash"]
     return true if last_hash.nil?
 
     hash = Digest::MD5.new
-    while (line = resp.gets)
+    while (line = resp.readpartial)
       hash.update(line)
     end
     return hash.hexdigest != last_hash

@@ -722,18 +722,17 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         req = stub_request(:get, "https://feed.me").and_return(
           {status: 301, headers: {"Location" => "https://feed.me"}},
           {status: 301, headers: {"Location" => "https://feed.me"}},
-          {status: 301, headers: {"Location" => "https://feed.me"}},
         )
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
         svc.sync_row(row)
-        expect(req).to have_been_made.times(3)
+        expect(req).to have_been_made.times(2)
         expect(Webhookdb::Message::Delivery.all).to contain_exactly(
           have_attributes(template: "errors/icalendar_fetch"),
         )
       end
 
       [400, 404, 417, 422, 500, 503].each do |httpstatus|
-        it "alerts on Down HTTP #{httpstatus} errors" do
+        it "alerts on HTTP #{httpstatus} errors" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
           req = stub_request(:get, "https://feed.me").
             and_return(status: httpstatus, headers: {"Content-Type" => "text/plain"}, body: "whoops")
@@ -763,7 +762,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(body).to include("Response Status: 599")
       end
 
-      it "noops on Down 304 responses" do
+      it "noops on 304 responses" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").
           and_return(status: 304)
@@ -785,20 +784,11 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "raises on unhandled Down http errors" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").
-          and_return(status: 456, headers: {"Content-Type" => "text/plain"}, body: "whoops")
-        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        expect { svc.sync_row(row) }.to raise_error(Down::ClientError, /456/)
-        expect(req).to have_been_made
-      end
-
       [
         ["429s", {status: 429}],
-        ["ssl errors", Down::SSLError.new],
+        ["ssl errors", OpenSSL::SSL::SSLError.new],
       ].each do |(msg, param)|
-        it "retries on Down #{msg}" do
+        it "retries on #{msg}" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
           req = stub_request(:get, "https://feed.me")
           req = if param.is_a?(Hash)
@@ -842,20 +832,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "alerts on Down timeout" do
+      it "alerts on timeout" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::TimeoutError)
-        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        svc.sync_row(row)
-        expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
-      end
-
-      it "alerts on Down connection errors" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
+        req = stub_request(:get, "https://feed.me").to_raise(HTTP::TimeoutError)
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
         svc.sync_row(row)
         expect(req).to have_been_made
@@ -870,8 +849,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       ].each do |(name, msg)|
         it "alerts on SSL #{name} errors" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-          de = Down::SSLError.new(OpenSSL::SSL::SSLError.new("SSL_connect returned=1 errno=0 peeraddr=216.235.207.153:443 state=error: #{msg}"))
-          req = stub_request(:get, "https://feed.me").to_raise(de)
+          err = OpenSSL::SSL::SSLError.new("SSL_connect returned=1 errno=0 peeraddr=216.235.207.153:443 state=error: #{msg}")
+          req = stub_request(:get, "https://feed.me").to_raise(err)
           row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
           svc.sync_row(row)
           expect(req).to have_been_made
@@ -879,17 +858,6 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             have_attributes(template: "errors/icalendar_fetch"),
           )
         end
-      end
-
-      it "repairs invalid https port 80 urls" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
-        row = insert_calendar_row(ics_url: "https://feed.me:80", external_id: "abc")
-        svc.sync_row(row)
-        expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
       end
     end
 
@@ -1688,13 +1656,14 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
 
     def feed_events
       arr = []
-      described_class::EventProcessor.new(io: source, upserter:, headers:).each_feed_event { |a| arr << a }
+      ep = described_class::EventProcessor.new(io: source, encoding: "utf-8", upserter:, headers:)
+      ep.each_feed_event { |a| arr << a }
       arr
     end
 
     def all_events
       arr = []
-      pr = described_class::EventProcessor.new(io: source, upserter:, headers:)
+      pr = described_class::EventProcessor.new(io: source, encoding: "utf-8", upserter:, headers:)
       pr.each_feed_event do |a|
         pr.each_projected_event(a) do |b|
           arr << b
