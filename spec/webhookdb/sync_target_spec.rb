@@ -49,34 +49,55 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
   describe "sync_stats" do
     let(:syt) { Webhookdb::Fixtures.sync_target.create(page_size: 100) }
 
+    def add_sync_stat(t, **kw) = syt.add_sync_stat(call_start: t, remote_start: t, **kw)
+
     it "can summarize stats" do
       expect(syt.sync_stat_summary).to eq({})
       Timecop.freeze("2024-10-21T13:27:29Z") do
-        syt.add_sync_stat(12.seconds.ago)
-        syt.add_sync_stat(9.seconds.ago, response_status: 503)
-        syt.add_sync_stat(6.seconds.ago, exception: RuntimeError.new("hi"))
-        syt.add_sync_stat(3.seconds.ago)
+        add_sync_stat(12.seconds.ago)
+        add_sync_stat(9.seconds.ago, response_status: 503)
+        add_sync_stat(6.seconds.ago, exception: RuntimeError.new("hi"))
+        add_sync_stat(3.seconds.ago, remote_start: 1.second.ago)
         expect(syt.sync_stat_summary).to include(
-          average_latency: 7.5,
-          average_rows_minute: 800,
-          earliest: match_time(12.seconds.ago),
+          avg_call_latency: 7.5,
+          avg_remote_latency: 7.0,
           errors: 2,
-          latest: match_time(3.seconds.ago),
         )
-        syt.parallelism = 2
-        expect(syt.sync_stat_summary).to include(average_rows_minute: 1600)
       end
     end
 
     it "includes calls per minute" do
       Timecop.freeze("2024-10-10T00:00:00Z") do
-        syt.add_sync_stat(30.seconds.ago)
-        expect(syt.sync_stat_summary).to include(average_calls_minute: 2)
-        syt.add_sync_stat(30.seconds.ago)
-        expect(syt.sync_stat_summary).to include(average_calls_minute: 4)
-        syt.add_sync_stat(30.seconds.ago)
-        expect(syt.sync_stat_summary).to include(average_calls_minute: 6)
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 2, avg_rows_minute: 200)
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 4)
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 6)
       end
+    end
+
+    it "includes earliest and latest calls" do
+      Timecop.freeze("2024-10-10T00:00:00Z") do
+        Timecop.freeze(12.seconds.ago) { add_sync_stat(Time.now) }
+        Timecop.freeze(3.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(
+          earliest: match_time(12.seconds.ago),
+          latest: match_time(3.seconds.ago),
+        )
+      end
+    end
+
+    it "ignores missing keys" do
+      syt.sync_stats = [{"x" => 1}, {"t" => 5}]
+      expect(syt.sync_stat_summary).to include(
+        avg_remote_latency: 0,
+        avg_call_latency: 0,
+        avg_rows_minute: 0,
+        earliest: match_time(0),
+        errors: 0,
+        latest: match_time(0),
+      )
     end
   end
 
@@ -574,8 +595,8 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
         expect(sync2_req).to have_been_made
         expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
-          hash_including("d", "t"),
-          hash_including("d", "t"),
+          hash_including("dr", "t"),
+          hash_including("dr", "t"),
         )
       end
 
@@ -588,8 +609,8 @@ RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::Syn
         expect(reqs).to have_been_made.times(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
         expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
-          hash_including("d", "t"),
-          hash_including("d", "t", "rs" => 413),
+          hash_including("dr", "t"),
+          hash_including("dr", "t", "rs" => 413),
         )
       end
 
