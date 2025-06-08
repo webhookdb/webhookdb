@@ -717,6 +717,22 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
           expect(rubyval).to eq(dbval)
         end
       end
+
+      it "matches conversions listed in the spec file" do
+        hashes = JSON.parse(File.read("spec/data/str2hashconv_spec.json"))
+        hashes.each do |h|
+          input = h.fetch("input")
+          output = h.fetch("output")
+          output_msg = "#{output}|#{input}"
+
+          rubyval = described_class::CONV_STR2HASH.ruby.call(input)
+          expect("#{rubyval}|#{input}").to eq(output_msg)
+
+          sql_expr = described_class::CONV_STR2HASH.sql.call(input)
+          dbval = db.select(sql_expr).first.to_a[0][1]
+          expect("#{dbval}|#{input}").to eq(output_msg)
+        end
+      end
     end
 
     describe "converter_array_element" do

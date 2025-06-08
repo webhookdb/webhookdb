@@ -66,7 +66,14 @@ class Webhookdb::Replicator::Column
     end,
   )
 
+  # rubocop:disable Layout/LineLength
   # Converter using +Webhookdb::Replicator::PartitionableMixin.str2inthash+ logic in Ruby and the DB.
+  # In SQL, this expression looks like:
+  #     SELECT CAST(((CAST(CAST(substring(concat('x', md5(coalesce("external_owner_id", ''))), 1, 10) AS bit(36)) AS bigint) & 4294967295) - 2147483648) AS int)
+  # In Ruby, this expression looks like:
+  #     (Digest::MD5.hexdigest(s)[..8].to_i(16) & 0xFFFFFFFF) - 2**31
+  # See `spec/data/str2hashconv_spec.json` for test inputs and outputs.
+  # rubocop:enable Layout/LineLength
   CONV_STR2HASH = IsomorphicProc.new(
     ruby: ->(value, **_) { Webhookdb::Replicator::PartitionableMixin.str2inthash(value || "") },
     sql: lambda do |i|
