@@ -23,6 +23,7 @@ group :test do
   gem "rubocop-sequel", "~> 0.3", require: false
   gem "simplecov", "~> 0.22", require: false
   gem "simplecov-cobertura", "~> 2.1"
+  gem "thin"
   gem "timecop", "~> 0.9"
   gem "webmock", "~> 3.19"
 end

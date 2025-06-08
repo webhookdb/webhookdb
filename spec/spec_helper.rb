@@ -20,7 +20,6 @@ require "rspec/eventually"
 require "rspec/json_expectations"
 require "timecop"
 require "webmock/rspec"
-require "httpx/adapters/webmock"
 require "appydays/spec_helpers"
 require "appydays/configurable/spec_helpers"
 require "appydays/loggable/spec_helpers"
@@ -33,7 +32,7 @@ Webhookdb.load_app
 Webhookdb::Fixtures.load_all
 
 RSpec.configure do |config|
-  # config.full_backtrace = true
+  config.full_backtrace = true
 
   RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 3000
 
