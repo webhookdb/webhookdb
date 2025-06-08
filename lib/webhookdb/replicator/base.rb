@@ -1310,8 +1310,8 @@ or leave blank to choose the first option.
           nspname: self.service_integration.organization.replication_schema,
           relname: self.service_integration.table_name,
           mode: ["ShareUpdateExclusiveLock", "ExclusiveLock", "AccessExclusiveLock"],
-        ).limit(1).count
-      return true if count&.positive?
+        ).select(1).limit(1).first
+      return true if count.present?
     end
     return false
   end
