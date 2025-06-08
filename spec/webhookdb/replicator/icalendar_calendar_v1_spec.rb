@@ -802,6 +802,41 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         end
       end
 
+      describe "with a real test server" do
+        include Webhookdb::SpecHelpers::Http::TestServer
+
+        it "handles connection errors during body reading, like resets" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          test_server_responses.push lambda { |env|
+            env["rack.hijack"].call # Tell Rack we're hijacking
+            io = env["rack.hijack_io"]
+
+            # Set SO_LINGER to { onoff: 1, linger: 0 } to trigger an RST on close
+            # This is pretty in the weeds stuff, ChatGPT helped figure it out.
+            linger = [1, 0].pack("ii")
+            io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, linger)
+
+            io.write("HTTP/1.1 200 OK\r\n")
+            io.write("Content-Type: text/plain\r\n")
+            # Set a large content length, we won't send it all
+            io.write("Content-Length: 10000000\r\n")
+            io.write("Connection: close\r\n")
+            io.write("\r\n")
+            # Send enough of the body to get a first readpartial to finish (> 17kb).
+            io.write("BEGIN:VEVENT\nENV:VEVENT\n" * 700)
+            # Abruptly close the connection
+            io.close
+            # Rack requires a return value, but it will be ignored after hijack
+            [-1, {}, []]
+          }
+          row = insert_calendar_row(ics_url: test_server_url + "/feed", external_id: "abc")
+          svc.sync_row(row)
+          expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+            have_attributes(template: "errors/icalendar_fetch"),
+          )
+        end
+      end
+
       it "alerts on 429s to particular URLs" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://ical.schedulestar.com/fans/?uuid=123").
