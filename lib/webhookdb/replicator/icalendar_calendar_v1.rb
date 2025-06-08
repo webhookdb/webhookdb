@@ -229,7 +229,12 @@ The secret to use for signing is:
 
     upserter = Upserter.new(dep.replicator, calendar_external_id, now:)
     processor = EventProcessor.new(io: resp.body, encoding: resp.body.encoding, upserter:, headers: resp.headers)
-    processor.process
+    begin
+      processor.process
+    rescue HTTP::Error, OpenSSL::SSL::SSLError, EOFError => e
+      self._handle_request_error(e, request_url:, calendar_external_id:)
+      return
+    end
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
     dep.replicator.admin_dataset do |ds|
       ds = ds.where(calendar_external_id:)
@@ -299,8 +304,9 @@ The secret to use for signing is:
         else
           self._handle_retryable_error!(e, request_url:, calendar_external_id:)
         end
-      when HTTP::TimeoutError,
+      when HTTP::ConnectionError,
         HTTP::StateError,
+        HTTP::TimeoutError,
         Errno::ECONNRESET,
         URI::InvalidURIError,
         EOFError

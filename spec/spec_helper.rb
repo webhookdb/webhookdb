@@ -70,6 +70,7 @@ RSpec.configure do |config|
     config.include(Webhookdb::SpecHelpers)
     require "webhookdb/spec_helpers/async"
     config.include(Webhookdb::SpecHelpers::Async)
+    require "webhookdb/spec_helpers/http"
     require "webhookdb/spec_helpers/message"
     config.include(Webhookdb::SpecHelpers::Message)
     require "webhookdb/spec_helpers/postgres"

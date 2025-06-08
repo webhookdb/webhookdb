@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rack/handler/thin"
-
 require "webhookdb/http"
 
 RSpec.describe Webhookdb::Http do
@@ -266,41 +264,7 @@ RSpec.describe Webhookdb::Http do
     end
 
     describe "body encoding" do
-      responses = []
-      server_calls = []
-
-      before(:all) do
-        # We must test encoding behavior outside of webmock, since for the HTTP adapter it just uses
-        # the encoding of the body, while the native HTTP response creation
-        # will grab the encoding from the headers.
-        server = Class.new do
-          define_method(:call) do |env|
-            resp = responses.pop
-            raise "must push to responses" if resp.nil?
-            server_calls << env
-            return resp
-          end
-        end
-        Thin::Logging.silent = true
-        @server_thread = Thread.new do
-          Rack::Handler::Thin.run server.new, Port: 18_013
-        end
-        sleep(1)
-      end
-
-      after(:all) do
-        @server_thread&.kill
-      end
-
-      before(:each) do
-        WebMock.allow_net_connect!
-        responses.clear
-        server_calls.clear
-      end
-
-      after(:each) do
-        WebMock.disable_net_connect!
-      end
+      include Webhookdb::SpecHelpers::Http::TestServer
 
       [
         ["explicit charset", "fakecontenttype;charset=utf-32", Encoding::UTF_32],
@@ -312,9 +276,9 @@ RSpec.describe Webhookdb::Http do
         ["unknown charset (binary content)", "image/png;charset=nope", Encoding::BINARY],
       ].each do |(desc, ct, enc)|
         it "decodes #{desc}" do
-          responses << [200, {"Content-Type" => ct}, ["abc".encode(enc)]]
-          resp = described_class.chunked_download("http://localhost:18013/testfile")
-          expect(server_calls).to have_length(1)
+          test_server_responses << [200, {"Content-Type" => ct}, ["abc".encode(enc)]]
+          resp = described_class.chunked_download(test_server_url + "/testfile")
+          expect(test_server_calls).to have_length(1)
           expect(resp.body.encoding).to eq(enc)
           expect(readbody(resp)).to eq("abc".encode(enc))
         end
