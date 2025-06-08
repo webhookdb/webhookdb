@@ -4,6 +4,7 @@ require "amigo/durable_job"
 require "amigo/queue_backoff_job"
 require "amigo/semaphore_backoff_job"
 require "webhookdb/async/job"
+require "webhookdb/async/resilient_sidekiq_client"
 
 class Webhookdb::Jobs::ProcessWebhook
   extend Webhookdb::Async::Job
@@ -12,7 +13,10 @@ class Webhookdb::Jobs::ProcessWebhook
   include Amigo::SemaphoreBackoffJob
 
   on "webhookdb.serviceintegration.webhook"
-  sidekiq_options queue: "webhook" # This is usually overridden.
+  sidekiq_options(
+    queue: "webhook", # This is usually overridden
+    client_class: Webhookdb::Async::ResilientSidekiqClient,
+  )
 
   def dependent_queues = ["critical"]
   def semaphore_expiry = 5.minutes.to_i

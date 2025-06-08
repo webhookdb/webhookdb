@@ -573,6 +573,40 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
         expect(last_response).to have_status(202)
       end
     end
+
+    describe "when the primary Redis and/or Postgres are unavailable" do
+      include Webhookdb::SpecHelpers::Async::ResilientAction
+
+      it "logs a resilient webhook if Postgres is unavailable" do
+        expect(Webhookdb::ServiceIntegration).to receive(:[]).with(opaque_id: "xyz").and_raise(Sequel::DatabaseError)
+        expect(Webhookdb::LoggedWebhook).to receive(:dataset).and_raise(Sequel::DatabaseError)
+
+        post "/v1/service_integrations/xyz", foo: 1
+
+        # The database is down, so we can't return a useful response,
+        # since for example this webhook may require synchronous processing.
+        # We still want to log it for replaying later though, in case it isn't retried
+        # (webhook processing is idempotent).
+        expect(last_response).to have_status(500)
+        expect(resilient_webhooks_dataset(&:all)).to contain_exactly(
+          include(json_meta: '{"service_integration_opaque_id":"xyz"}'),
+        )
+      end
+
+      it "logs a resilient job and succeeds if Redis is unavailable" do
+        Sidekiq::Testing.disable! do
+          expect(Sidekiq.redis_pool).to receive(:with) { raise Redis::ConnectionError, "from testing" }
+
+          post "/v1/service_integrations/xyz", foo: 1
+
+          # Everything but the async job worked, so it's okay to pretend this suceeded, since we'll try again later.
+          expect(last_response).to have_status(202)
+        end
+        expect(resilient_jobs_dataset(&:all)).to contain_exactly(
+          include(json_payload: include('"request_method":"POST"}]}],"class":"Webhookdb::Jobs::ProcessWebhook"')),
+        )
+      end
+    end
   end
 
   describe "GET /v1/organizations/:org_identifier/service_integrations/:opaque_id/stats" do
