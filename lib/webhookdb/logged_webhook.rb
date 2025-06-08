@@ -15,7 +15,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     # Space-separated URLs to use for resilient/high availability writes.
     setting :resilient_database_urls, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_database_env_vars, [], convert: ->(s) { s.split.map(&:strip) }
-    setting :resilient_table_name, "_logged_webhooks_resilient_writes"
+    setting :resilient_webhooks_table_name, "_resilient_logged_webhooks_writes"
     # Using /replay can send this many webhooks in one request.
     # Making this too high can cause timeouts- the caller may have to make multiple calls instead.
     setting :maximum_replay_interval_hours, 4
@@ -173,8 +173,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   # Note that these resilient inserts are MUCH slower than normal inserts;
   # they require a separate database connection, CREATE TABLE call, etc.
   # But it's a reasonable way to handle when the database is down.
-  def self.resilient_insert(**kwargs)
-    Resilient.new.insert(kwargs)
+  def self.resilient_insert(service_integration_opaque_id:, **kwargs)
+    Resilient.new.insert(kwargs, {service_integration_opaque_id:})
   end
 
   # Replay and delete all rows in the resilient database tables.

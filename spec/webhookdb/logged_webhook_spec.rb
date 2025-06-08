@@ -154,24 +154,9 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
   end
 
   describe "Resilient" do
+    include Webhookdb::SpecHelpers::Async::ResilientAction
+
     resil = Webhookdb::LoggedWebhook::Resilient.new
-    # We can reuse the test db as our resilient db for unit tests,
-    # obviously in production this wouldn't make sense.
-    let(:resilient_url) { Webhookdb::Postgres::Model.uri }
-
-    before(:each) do
-      described_class.reset_configuration
-      Sequel.connect(resilient_url) do |db|
-        db << "DROP TABLE IF EXISTS #{described_class.resilient_table_name}"
-      end
-    end
-
-    after(:each) do
-      described_class.reset_configuration
-      Sequel.connect(resilient_url) do |db|
-        db << "DROP TABLE IF EXISTS #{described_class.resilient_table_name}"
-      end
-    end
 
     def values(opaqueid)
       return {
@@ -182,12 +167,6 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
         response_status: 0,
         service_integration_opaque_id: opaqueid,
       }
-    end
-
-    def resilient_dataset
-      Sequel.connect(resilient_url) do |db|
-        yield db.from(described_class.resilient_table_name)
-      end
     end
 
     describe "resilient_insert" do
@@ -206,6 +185,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
 
       it "logs an error and raises if no resilient insert succeeds" do
         cause_insert_error
+        described_class.available_resilient_database_urls = []
         logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
           expect do
             described_class.resilient_insert(**values("x"))
@@ -225,10 +205,11 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
           expect(described_class.resilient_insert(**values("x"))).to be(true)
         end
         expect(logs).to contain_exactly(include_json(level: "warn", message: "resilient_insert_handled"))
-        expect(resilient_dataset(&:all)).to contain_exactly(
+        expect(resilient_webhooks_dataset(&:all)).to contain_exactly(
           include(
             json_payload: '{"request_path":"/service_integrations/x","request_body":"{}","request_headers":"{}",' \
-                          '"request_method":"POST","response_status":0,"service_integration_opaque_id":"x"}',
+                          '"request_method":"POST","response_status":0}',
+            json_meta: '{"service_integration_opaque_id":"x"}',
           ),
         )
       end
@@ -255,7 +236,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
         end
         threads.each(&:join)
         expect(errors).to be_empty
-        expect(resilient_dataset(&:all)).to have_length(50)
+        expect(resilient_webhooks_dataset(&:all)).to have_length(50)
       end
     end
 
@@ -265,13 +246,13 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
       end
 
       it "creates logged webhooks and deletes in all reachable resilient dbs" do
-        resil.write_to(resilient_url, "x", values("x").to_json)
-        resil.write_to(resilient_url, "z", values("z").to_json)
+        resil.write_to(resilient_url, values("x").to_json, {service_integration_opaque_id: "x"}.to_json)
+        resil.write_to(resilient_url, values("z").to_json, {service_integration_opaque_id: "z"}.to_json)
         expect do
           expect(resil.replay).to eq(2)
         end.to publish("webhookdb.loggedwebhook.replay").with_payload(contain_exactly(be_an(Integer)))
         expect(described_class.dataset.select_map(&:service_integration_opaque_id)).to contain_exactly("x", "z")
-        expect(resilient_dataset(&:all)).to be_empty
+        expect(resilient_webhooks_dataset(&:all)).to be_empty
       end
 
       it "ignores unreachable resilient databases" do
