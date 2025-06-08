@@ -116,4 +116,41 @@ module Webhookdb::SpecHelpers::Async
       lines.join("\n")
     end
   end
+
+  module ResilientAction
+    def self.included(c)
+      # We can reuse the test db as our resilient db for unit tests,
+      # obviously in production this wouldn't make sense.
+      resilient_url = Webhookdb::Postgres::Model.uri
+      c.let(:resilient_url) { resilient_url }
+      c.before(:each) do
+        Webhookdb::LoggedWebhook.reset_configuration
+        Webhookdb::LoggedWebhook.available_resilient_database_urls << resilient_url
+        Sequel.connect(resilient_url) do |db|
+          db << "DROP TABLE IF EXISTS #{Webhookdb::LoggedWebhook.resilient_webhooks_table_name}"
+          db << "DROP TABLE IF EXISTS #{Webhookdb::LoggedWebhook.resilient_jobs_table_name}"
+        end
+      end
+
+      c.after(:each) do
+        Webhookdb::LoggedWebhook.reset_configuration
+        Sequel.connect(resilient_url) do |db|
+          db << "DROP TABLE IF EXISTS #{Webhookdb::LoggedWebhook.resilient_webhooks_table_name}"
+          db << "DROP TABLE IF EXISTS #{Webhookdb::LoggedWebhook.resilient_jobs_table_name}"
+        end
+      end
+
+      c.define_method(:resilient_webhooks_dataset) do |&block|
+        Sequel.connect(resilient_url) do |db|
+          block.call db.from(Webhookdb::LoggedWebhook.resilient_webhooks_table_name.to_sym)
+        end
+      end
+
+      c.define_method(:resilient_jobs_dataset) do |&block|
+        Sequel.connect(resilient_url) do |db|
+          block.call db.from(Webhookdb::LoggedWebhook.resilient_jobs_table_name.to_sym)
+        end
+      end
+    end
+  end
 end
