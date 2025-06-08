@@ -11,5 +11,6 @@ class Webhookdb::Jobs::LoggedWebhooksResilientReplay
 
   def _perform
     Webhookdb::LoggedWebhook.resilient_replay
+    Webhookdb::Async::ResilientSidekiqClient.resilient_replay
   end
 end

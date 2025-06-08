@@ -420,8 +420,9 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "LoggedWebhookResilientReplay" do
-    it "calls the method" do
+    it "calls the replay method" do
       expect(Webhookdb::LoggedWebhook).to receive(:resilient_replay)
+      expect(Webhookdb::Async::ResilientSidekiqClient).to receive(:resilient_replay)
       # Use mocking because setting this up for real is painful
       Webhookdb::Jobs::LoggedWebhooksResilientReplay.new.perform
     end

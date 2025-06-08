@@ -16,6 +16,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     setting :resilient_database_urls, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_database_env_vars, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_webhooks_table_name, "_resilient_logged_webhooks_writes"
+    setting :resilient_jobs_table_name, "_resilient_sidekiq_jobs_writes"
     # Using /replay can send this many webhooks in one request.
     # Making this too high can cause timeouts- the caller may have to make multiple calls instead.
     setting :maximum_replay_interval_hours, 4
