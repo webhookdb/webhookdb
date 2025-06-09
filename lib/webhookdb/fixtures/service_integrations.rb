@@ -30,10 +30,6 @@ module Webhookdb::Fixtures::ServiceIntegrations
     self.data_encryption_secret = STABLE_ENC_SECRET
   end
 
-  decorator :with_encryption_secret do
-    self.data_encryption_secret = Webhookdb::Crypto.encryption_key.base64
-  end
-
   decorator :with_secrets do
     self.webhook_secret = "fake_whsecret"
     self.backfill_key = "fake_bfkey"

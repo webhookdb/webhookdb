@@ -3,13 +3,9 @@
 # Implementation of a generic backfill pattern.
 class Webhookdb::Backfiller
   # Called for each item.
-  def handle_item(item)
-    raise NotImplementedError
-  end
+  def handle_item(_item) = NotImplementedError
 
-  def fetch_backfill_page(pagination_token, last_backfilled:)
-    raise NotImplementedError
-  end
+  def fetch_backfill_page(pagination_token, last_backfilled:) = raise NotImplementedError
 
   # Use nil last_backfilled for a full sync, pass it for an incremental.
   # Should be service integration last_backfilled_at, the timestamp of
@@ -47,9 +43,7 @@ class Webhookdb::Backfiller
   end
 
   # Make this easy to mock
-  def self.do_retry_wait(seconds)
-    Kernel.sleep(seconds)
-  end
+  def self.do_retry_wait(seconds) = Kernel.sleep(seconds)
 
   def _fetch_backfill_page_with_retry(pagination_token, last_backfilled: nil, attempt: 1)
     return self.fetch_backfill_page(pagination_token, last_backfilled:)

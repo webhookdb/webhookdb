@@ -85,36 +85,12 @@ class Webhookdb::DBAdapter
     #   @return [Boolean]
   end
 
-  class TableDescriptor < Webhookdb::TypedStruct
-    attr_reader :table, :columns, :indices
-
-    def initialize(**kwargs)
-      super
-      self.typecheck!(:table, Table)
-      self.typecheck!(:columns, Array)
-      self.typecheck!(:indices, Array)
-    end
-
-    # @!attribute table
-    #   @return [Table]
-    # @!attribute columns
-    #   @return [Array<Column>]
-    # @!attribute indices
-    #   @return [Array<Index>]
-
-    def _defaults
-      return {indices: []}
-    end
-  end
-
   # Abstract class representing a DB connection.
   # Ususually this is a Sequel connection,
   # but in could just be a stored URL (like for Snowflake
   # we have to call snowsql each time).
   class Connection
-    def execute(sql)
-      raise NotImplementedError
-    end
+    def execute(sql) = raise NotImplementedError
   end
 
   class SequelConnection < Connection
@@ -147,9 +123,7 @@ class Webhookdb::DBAdapter
   # @param [Schema] schema
   # @param [Boolean] if_not_exists
   # @return [String]
-  def create_schema_sql(schema, if_not_exists: false)
-    raise NotImplementedError
-  end
+  def create_schema_sql(schema, if_not_exists: false) = raise NotImplementedError
 
   # Return the CREATE TABLE sql to create table with columns.
   # @param [Table] table
@@ -159,9 +133,7 @@ class Webhookdb::DBAdapter
   # @param partition [Webhookdb::DBAdapter::Partitioning,nil] If provided,
   #   adds a "PARTITION BY HASH (partition_column_name)" to the returned SQL.
   # @return [String]
-  def create_table_sql(table, columns, schema: nil, if_not_exists: false, partition: nil)
-    raise NotImplementedError
-  end
+  def create_table_sql(table, columns, schema: nil, if_not_exists: false, partition: nil) = raise NotImplementedError
 
   # We write our own escaper because we want to only escape what's needed;
   # otherwise we want to avoid quoting identifiers.
@@ -169,9 +141,7 @@ class Webhookdb::DBAdapter
 
   # @param [Index] index
   # @return [String]
-  def create_index_sql(index, concurrently:)
-    raise NotImplementedError
-  end
+  def create_index_sql(index, concurrently:) = raise NotImplementedError
 
   # Create indices, including for partitions.
   # By default, just call create_index_sql and return it in a single-item array.
@@ -190,9 +160,7 @@ class Webhookdb::DBAdapter
   # @param [Column] column
   # @param [Boolean] if_not_exists
   # @return [String]
-  def add_column_sql(table, column, if_not_exists: false)
-    raise NotImplementedError
-  end
+  def add_column_sql(table, column, if_not_exists: false) = raise NotImplementedError
 
   # Given a table and a (temporary) file with CSV data,
   # import it into the table. Usually this is a COPY INTO command.
@@ -204,9 +172,7 @@ class Webhookdb::DBAdapter
   # @param [Column] pk_col Use this to identifier the same row between source and destination.
   # @param [Array<Column>] copy_columns All columns to copy.
   #   NOTE: This includes the pk column, since it should be copied, as we depend on it persisting.
-  def merge_from_csv(connection, file, table, pk_col, copy_columns)
-    raise NotImplementedError
-  end
+  def merge_from_csv(connection, file, table, pk_col, copy_columns)= raise NotImplementedError
 
   def verify_connection(url, timeout: 2, statement: "SELECT 1")
     return self._verify_connection(url, timeout:, statement:)
@@ -221,7 +187,8 @@ class Webhookdb::DBAdapter
       when /^snowflake/
         return Webhookdb::DBAdapter::Snowflake.new
       else
-        raise UnsupportedAdapter, "no adapter available for #{url}"
+        msg = "no adapter available for '#{url}'. Must be one of: #{self.supported_adapters_message}"
+        raise UnsupportedAdapter, msg
     end
   end
 

@@ -25,22 +25,6 @@ module Webhookdb::MethodUtilities
     end
   end
 
-  ### Create instance variables and corresponding methods that return
-  ### true or false values for each of the specified +symbols+ in the singleton
-  ### of the declaring object.
-  def singleton_predicate_reader(*symbols)
-    singleton_class.extend(Webhookdb::MethodUtilities)
-    singleton_class.attr_predicate(*symbols)
-  end
-
-  ### Creates methods that allow assignment to the attributes of the singleton
-  ### of the declaring object that correspond to the specified +symbols+.
-  def singleton_attr_writer(*symbols)
-    singleton_class.instance_exec(symbols) do |attrs|
-      attr_writer(*attrs)
-    end
-  end
-
   ### Creates readers and writers that allow assignment to the attributes of
   ### the singleton of the declaring object that correspond to the specified
   ### +symbols+.
@@ -56,11 +40,6 @@ module Webhookdb::MethodUtilities
   def singleton_predicate_accessor(*symbols)
     singleton_class.extend(Webhookdb::MethodUtilities)
     singleton_class.attr_predicate_accessor(*symbols)
-  end
-
-  ### Creates an alias for the +original+ method named +newname+.
-  def singleton_method_alias(newname, original)
-    singleton_class.__send__(:alias_method, newname, original)
   end
 
   ### Create a reader in the form of a predicate for the given +attrname+.

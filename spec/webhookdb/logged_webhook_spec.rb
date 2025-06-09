@@ -225,13 +225,10 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
         expect(described_class).to receive(:dataset).and_raise(Sequel::DatabaseError).exactly(51).times
         errors = []
         threads = Array.new(5) do |i|
-          Thread.new(name: "resilwh-#{i}") do
+          logging_thread(errors, name: "resilwh-#{i}") do
             Array.new(10) do |j|
               described_class.resilient_insert(**values("id-#{i}-#{j}"))
             end
-          rescue StandardError => e
-            pp e, e.message, e.backtrace
-            errors << e.inspect
           end
         end
         threads.each(&:join)

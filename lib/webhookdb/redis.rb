@@ -29,6 +29,7 @@ module Webhookdb::Redis
   end
 
   def self.cache_key(parts)
+    parts = [parts] unless parts.respond_to?(:to_ary)
     tail = parts.join("/")
     return "cache/#{tail}"
   end
