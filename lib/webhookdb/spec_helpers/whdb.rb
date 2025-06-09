@@ -144,4 +144,17 @@ module Webhookdb::SpecHelpers::Whdb
       v =~ uuid
     end
   end
+
+  # Use this instead of Thread.new when running tests to catch exceptions in the thread,
+  # and report them to an error array and print.
+  # Otherwise, the thread will eat the error and die and it gets
+  # very difficult to debug.
+  module_function def logging_thread(errors, pp: Kernel.method(:pp), **kw)
+    return Thread.new(**kw) do
+      yield
+    rescue StandardError => e
+      pp.call(e, e.message, e.backtrace)
+      errors << e
+    end
+  end
 end

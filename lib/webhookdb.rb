@@ -253,7 +253,6 @@ module Webhookdb
   end
 end
 
-require "webhookdb/aggregate_result"
 require "webhookdb/dbutil"
 require "webhookdb/developer_alert"
 require "webhookdb/http"

@@ -127,4 +127,18 @@ RSpec.describe "Webhookdb::Async", :async, :db do
       described_class.setup_workers
     end
   end
+
+  describe "SpecHelpers", sidekiq: :fake do
+    cls = Class.new do
+      include Sidekiq::Worker
+    end
+
+    describe "have_empty_queues" do
+      it "succeeds if queues are empty" do
+        expect(Sidekiq).to have_empty_queues
+        cls.perform_async
+        expect { expect(Sidekiq).to have_empty_queues }.to raise_error(/Sidekiq queues have jobs:/)
+      end
+    end
+  end
 end

@@ -61,4 +61,18 @@ RSpec.describe Webhookdb::SpecHelpers::Whdb, :db do
       expect(fake_sint.organization).to be === org
     end
   end
+
+  describe "LoggingThread" do
+    it "prints and logs if the block errors" do
+      errors = []
+      prints = []
+      e = RuntimeError.new("from test")
+      t = logging_thread(errors, pp: prints.method(:push)) do
+        raise e
+      end
+      t.join
+      expect(errors).to include(e)
+      expect(prints).to include(/from test/)
+    end
+  end
 end

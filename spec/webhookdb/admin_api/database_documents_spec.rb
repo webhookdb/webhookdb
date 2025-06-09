@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "webhookdb/admin_api/database_documents"
-require "webhookdb/api/behaviors"
 
 RSpec.describe Webhookdb::AdminAPI::DatabaseDocuments, :db do
   include Rack::Test::Methods

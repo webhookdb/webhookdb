@@ -180,13 +180,6 @@ module Webhookdb::Service::Helpers
     )
   end
 
-  def search_param_to_sql(params, column, param: :search)
-    search = params[param]&.strip
-    return nil if search.blank? || search == "*"
-    term = "%#{search.strip}%"
-    return Sequel.ilike(column, term)
-  end
-
   ### If +object+ is valid, save and return it.
   ### If not, call invalid! witht the validation errors.
   def save_or_error!(object)
@@ -198,82 +191,9 @@ module Webhookdb::Service::Helpers
     end
   end
 
-  def paginate(dataset, params)
-    return dataset.paginate(params[:page], params[:per_page])
-  end
-
-  def order(dataset, params)
-    expr = params[:order_direction] == :asc ? Sequel.asc(params[:order_by]) : Sequel.desc(params[:order_by])
-    return dataset.order(expr, Sequel.desc(:id))
-  end
-
   def use_http_expires_caching(expiration)
     return unless Webhookdb::Service.endpoint_caching
     header "Cache-Control", "public"
     header "Expires", expiration.from_now.httpdate
-  end
-
-  # Set the provided, declared/valid parameters in params on model.
-  # Because Grape's `declared()` function *adds* parameters that are declared-but-not-provided,
-  # and its `params` value includes provided-but-not-declared entries,
-  # the fields we set are the intersection of the two.
-  def set_declared(model, params, ignore: [:id])
-    # If .to_h is used (rather than Grape's 'params' which is HashWithIndifferentAccess),
-    # the keys may be strings. We need to deep symbolize since nested hashes get to_h with 'symbolize_keys'.
-    params = params.deep_symbolize_keys
-    decl = declared_and_provided_params(params, exclude: ignore)
-    ignore.each { |k| decl.delete(k) }
-    decl.delete_if { |k| !params.key?(k) }
-    model.set(decl)
-  end
-
-  def declared_and_provided_params(params, exclude: [])
-    decl = declared(params)
-    exclude.each { |k| decl.delete(k) }
-    decl.delete_if { |k| !params.key?(k) }
-    return decl
-  end
-
-  params :money do
-    requires :cents, type: Integer
-    optional :currency, type: String, default: "USD"
-  end
-
-  params :time_range do
-    requires :start, as: :begin, type: Time
-    requires :end, type: Time
-  end
-
-  params :pagination do
-    optional :page, type: Integer, default: 1
-    optional :per_page, type: Integer, default: 100
-  end
-
-  params :searchable do
-    optional :search, type: String
-  end
-
-  params :order do |options|
-    optional :order_by, type: Symbol, values: options[:order_by], default: options[:default_order_by]
-    optional :order, type: Symbol, values: [:asc, :desc], default: options[:default_order]
-  end
-
-  params :ordering do |options|
-    default_order_by = options[:default] || :created_at
-    order_by_values = options[:values] || options[:model]&.columns
-    raise "Must provide :values or :model for possible orderings" unless order_by_values
-    optional :order_by, type: Symbol, values: order_by_values, default: default_order_by
-    optional :order_direction, type: Symbol, values: [:asc, :desc], default: :desc
-  end
-
-  params :address do
-    optional :address1, type: String, allow_blank: false
-    optional :address2, type: String
-    optional :city, type: String, allow_blank: false
-    optional :state_or_province, type: String, allow_blank: false
-    optional :postal_code, type: String, allow_blank: false
-    all_or_none_of :address1, :city, :state_or_province, :postal_code
-    optional :lat, type: Float
-    optional :lng, type: Float
   end
 end

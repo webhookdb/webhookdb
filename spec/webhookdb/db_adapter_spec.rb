@@ -7,7 +7,6 @@ RSpec.describe Webhookdb::DBAdapter do
   let(:tbl) { described_class::Table }
   let(:col) { described_class::Column }
   let(:ind) { described_class::Index }
-  let(:tbldesc) { described_class::TableDescriptor }
   let(:coltype) { described_class::ColumnTypes }
 
   mock_conn = Class.new(Webhookdb::DBAdapter::Connection) do
@@ -36,6 +35,10 @@ RSpec.describe Webhookdb::DBAdapter do
   describe "adapter" do
     it "returns the pg adapter for postgres:// conn strings" do
       expect(described_class.adapter("postgres://")).to be_a(described_class::PG)
+    end
+
+    it "returns the pg adapter for snowflake:// conn strings" do
+      expect(described_class.adapter("snowflake://")).to be_a(described_class::Snowflake)
     end
 
     it "errors for an unknown connection string" do
