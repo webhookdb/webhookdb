@@ -6,6 +6,8 @@ require "webhookdb/resilient_action"
 class Webhookdb::Async::ResilientSidekiqClient < Sidekiq::Client
   alias _native_raw_push raw_push
 
+  def __native_raw_push(*) = _native_raw_push(*)
+
   private def raw_push(payloads)
     Resilient.new(self).insert(payloads, {})
   end
@@ -26,12 +28,12 @@ class Webhookdb::Async::ResilientSidekiqClient < Sidekiq::Client
     def logger = Webhookdb::Async.logger
     def database_urls = Webhookdb::LoggedWebhook.available_resilient_database_urls
     def rescued_exception_types = [Redis::ConnectionError]
-    def do_insert(kwargs, _meta) = @client._native_raw_push(kwargs)
+    def do_insert(kwargs, _meta) = @client.__native_raw_push(kwargs)
     def table_name = Webhookdb::LoggedWebhook.resilient_jobs_table_name
     def ping = @client.redis_pool.with(&:ping)
 
     def do_replay(kwargs, _meta)
-      @client._native_raw_push(kwargs)
+      @client.__native_raw_push(kwargs)
     end
   end
 end
