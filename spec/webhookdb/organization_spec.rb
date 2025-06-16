@@ -230,7 +230,44 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
         expect(indexes).to include(end_with("_pkey"))
         expect(indexes).to include(end_with("_my_id_key"))
         expect(indexes).to include(end_with("_at_idx"))
-        expect(indexes).to include(end_with("_my_id_idx"))
+        expect(indexes).to include(end_with("_at_my_id_idx"))
+      end
+    end
+
+    it "does not try to add indices after a table rename" do
+      oldtable = fake_sint.table_name
+      newtable = oldtable + "_newname"
+      oldid = fake_sint.opaque_id
+      newid = Webhookdb::Id.new_opaque_id("svi")
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: oldtable).select_map(:indexname)
+        expect(indexes).to have_length(3)
+        expect(indexes).to contain_exactly(
+          "#{oldtable}_my_id_key",
+          "#{oldtable}_pkey",
+          "#{oldid}_at_idx",
+        )
+        ds.db << "ALTER TABLE #{oldtable} RENAME TO #{newtable}"
+      end
+      # The changed opaque id would cause indices to get new names
+      fake_sint.update(opaque_id: newid, table_name: newtable)
+
+      o.refresh
+      expect(o.service_integrations.first).to receive(:replicator).at_least(:once).and_return(fake)
+      fake.define_singleton_method(:_extra_index_specs) do
+        [Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id])]
+      end
+      o.migrate_replication_tables
+
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: newtable).select_map(:indexname)
+        expect(indexes).to have_length(4)
+        expect(indexes).to contain_exactly(
+          "#{oldtable}_my_id_key",
+          "#{oldtable}_pkey",
+          "#{oldid}_at_idx",
+          "#{newid}_at_my_id_idx",
+        )
       end
     end
   end

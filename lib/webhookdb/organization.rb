@@ -341,7 +341,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       select_map(:sequence_name).
       to_set
     cols_in_org_db = {}
-    indices_in_org_db = Set.new
+    indices_in_org_db = []
     self.admin_connection do |db|
       cols_in_org_db = db[Sequel[:information_schema][:columns]].
         where(table_schema: self.replication_schema, table_name: tables).
@@ -352,10 +352,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         group_by(:table_name).
         all.
         to_h { |c| [c[:table_name], c[:columns]] }
-      indices_in_org_db = db[Sequel[:pg_indexes]].
+      db[Sequel[:pg_indexes]].
         where(schemaname: self.replication_schema, tablename: tables).
-        select_map(:indexname).
-        to_set
+        select_map([:tablename, :indexname]).
+        each do |(tbl, idx)|
+          indices_in_org_db << Sequel[tbl.to_sym][idx.to_sym]
+        end
     end
 
     self.service_integrations.each do |sint|
@@ -365,7 +367,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       all_sint_cols_exist = (cols_for_sint - existing_columns).empty?
 
       all_indices_exist = svc.indices(svc.dbadapter_table).all? do |ind|
-        indices_in_org_db.include?(ind.name.to_s)
+        Webhookdb::Replicator.refers_to_any_same_index?(Sequel[svc.dbadapter_table.name][ind.name], indices_in_org_db)
       end
 
       svc.ensure_all_columns unless all_sint_cols_exist && all_indices_exist
