@@ -578,18 +578,19 @@ for information on how to refresh data.)
     existing_cols, existing_indices, existing_partitions = nil
     max_pk = 0
     sint = self.service_integration
+    table = self.dbadapter_table
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns.to_set
       existing_indices = ds.db[:pg_indexes].where(
         schemaname: sint.organization.replication_schema,
         tablename: sint.table_name,
-      ).select_map(:indexname).to_set
+      ).select_map(:indexname).
+        map { |idx| Sequel[table.name][idx] }
       max_pk = ds.max(:pk) || 0
       existing_partitions = self.existing_partitions(ds.db)
     end
     adapter = Webhookdb::DBAdapter::PG.new
-    table = self.dbadapter_table
     result = Webhookdb::Replicator::SchemaModification.new
 
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
@@ -632,7 +633,7 @@ for information on how to refresh data.)
 
     # Add missing indices. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indices.
     self.indices(table).map do |index|
-      next if existing_indices.include?(index.name.to_s)
+      next if Webhookdb::Replicator.refers_to_any_same_index?(Sequel[table.name][index.name], existing_indices)
       result.nontransaction_statements.concat(
         adapter.create_index_sqls(index, concurrently: true, partitions: existing_partitions),
       )

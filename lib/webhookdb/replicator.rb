@@ -228,6 +228,40 @@ class Webhookdb::Replicator
       raise self::CredentialsMissing, "Could not find root integration for #{sint.inspect}" if bad_auth
       return root
     end
+
+    # Two names can refer to the same index in the following scenario:
+    # - Two replicators are created for the same service (R1, R2)
+    # - R1 is deleted; R2 has its opaque_id set to R1.opaque_id
+    # - This leads to R2's opaque id, and the prefix opaque_id on its indices, no longer matching.
+    # - So as long as we know that an index points to R2's table,
+    #   we should not care about its prefix.
+    # - Use Replicator#align_index_names to fix this problem.
+    #
+    # IMPORTANT: This method accepts qualified Sequel identifiers
+    # (Sequel[tablename][indexname]) so make sure the indices do not refer to different tables.
+    # Because the opaque id is not considered, "svi_123_at_idx" and "svi_456_at_idx"
+    # would be considered the same.
+    #
+    # @param idx1 [Sequel::SQL::QualifiedIdentifier]
+    # @param idx2 [Sequel::SQL::QualifiedIdentifier]
+    def refers_to_same_index?(idx1, idx2)
+      return false unless idx1.table == idx2.table
+      return true if idx1.column == idx2.column
+      idx1name = idx1.column.to_s
+      idx2name = idx2.column.to_s
+      # Ids are encoded so can be 27-29 characters, we need to extract names with a regexp.
+      regex = /^svi_[0-9a-z]+/
+      return false unless (idx1match = idx1name.match(regex))
+      return false unless (idx2match = idx2name.match(regex))
+      return idx1name[idx1match.to_s.length..] == idx2name[idx2match.to_s.length..]
+    end
+
+    # Same as +refers_to_same_index?+, but names is an array of index names (does an +any?+ call).
+    # @param idx [Sequel::SQL::QualifiedIdentifier]
+    # @param indices [Array<Sequel::SQL::QualifiedIdentifier>]
+    def refers_to_any_same_index?(idx, indices)
+      return indices.any? { |n| self.refers_to_same_index?(n, idx) }
+    end
   end
 
   require "webhookdb/replicator/state_machine_step"

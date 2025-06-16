@@ -24,4 +24,39 @@ RSpec.describe Webhookdb::Replicator, :db do
       fake_path.unlink
     end
   end
+
+  describe "refers_to_same_index?" do
+    opaqueid1 = Webhookdb::Id.new_opaque_id("svi")
+    opaqueid2 = Webhookdb::Id.new_opaque_id("svi")
+
+    it "is true if the tables and indices are the same" do
+      idx1 = Sequel[:t1][:idx]
+      idx2 = Sequel[:t1][:idx]
+      expect(described_class.refers_to_same_index?(idx1, idx2)).to be(true)
+    end
+
+    it "is true if the tables and index names after the svi_ are the same" do
+      idx1 = Sequel[:t1][:"#{opaqueid1}_at_idx"]
+      idx2 = Sequel[:t1][:"#{opaqueid2}_at_idx"]
+      expect(described_class.refers_to_same_index?(idx1, idx2)).to be(true)
+    end
+
+    it "is false if the index names after the svi_ are different" do
+      idx1 = Sequel[:t1][:"#{opaqueid1}_at_idx"]
+      idx2 = Sequel[:t1][:"#{opaqueid2}_ta_idx"]
+      expect(described_class.refers_to_same_index?(idx1, idx2)).to be(false)
+    end
+
+    it "is false if the index names are different" do
+      idx1 = Sequel[:t1][:idx1]
+      idx2 = Sequel[:t1][:idx2]
+      expect(described_class.refers_to_same_index?(idx1, idx2)).to be(false)
+    end
+
+    it "is false if the table names are different, even if the index names are the same" do
+      idx1 = Sequel[:t1][:idx1]
+      idx2 = Sequel[:t2][:idx1]
+      expect(described_class.refers_to_same_index?(idx1, idx2)).to be(false)
+    end
+  end
 end
