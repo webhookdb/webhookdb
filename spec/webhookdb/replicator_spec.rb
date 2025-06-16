@@ -26,8 +26,8 @@ RSpec.describe Webhookdb::Replicator, :db do
   end
 
   describe "refers_to_same_index?" do
-    opaqueid1 = Webhookdb::Id.new_opaque_id("svi")
-    opaqueid2 = Webhookdb::Id.new_opaque_id("svi")
+    opaqueid1 = Webhookdb::ServiceIntegration.new_opaque_id
+    opaqueid2 = Webhookdb::ServiceIntegration.new_opaque_id
 
     it "is true if the tables and indices are the same" do
       idx1 = Sequel[:t1][:idx]

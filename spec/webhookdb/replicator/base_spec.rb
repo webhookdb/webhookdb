@@ -410,4 +410,38 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
       expect(x).to eq(1)
     end
   end
+
+  describe "align_index_names" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "updates all svi_ prefixed indices pointing to this table to use the current opaque id" do
+      index_names = sint.organization.admin_connection do |db|
+        db[Sequel[:pg_indexes]].
+          where(schemaname: "public").
+          select_map(:indexname)
+      end
+      old_id = sint.opaque_id
+      new_id = Webhookdb::ServiceIntegration.new_opaque_id
+      expect(index_names).to have_length(3)
+      expect(index_names).to include("#{old_id}_at_idx")
+      sint.update(opaque_id: new_id)
+      sint.replicator.align_index_names
+      index_names = sint.organization.admin_connection do |db|
+        db[Sequel[:pg_indexes]].
+          where(schemaname: "public").
+          select_map(:indexname)
+      end
+      expect(index_names).to have_length(3)
+      expect(index_names).to include("#{new_id}_at_idx")
+    end
+  end
 end
