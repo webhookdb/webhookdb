@@ -643,6 +643,25 @@ for information on how to refresh data.)
     return result
   end
 
+  def align_index_names
+    regex = /^svi_[0-9a-z]+/
+    opaqueid = self.service_integration.opaque_id
+    org = self.service_integration.organization
+    org.admin_connection do |db|
+      records = db[Sequel[:pg_indexes]].
+        where(schemaname: org.replication_schema, tablename: self.service_integration.table_name).
+        select_map([:schemaname, :indexname])
+      records.each do |(sch, idx)|
+        next if idx.start_with?(opaqueid) # Does not need to be aligned
+        match = idx.match(regex)
+        next unless match # Ignore non-opaque id indices
+        base_name = idx[match.to_s.length..]
+        new_name = "#{opaqueid}#{base_name}"
+        db << "ALTER INDEX #{sch}.#{idx} RENAME TO #{new_name}"
+      end
+    end
+  end
+
   # Return an array of tuples used for splitting UPDATE queries so locks are not held on the entire table
   # when backfilling values when adding new columns. See +ensure_all_columns_modification+.
   #

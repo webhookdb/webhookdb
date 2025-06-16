@@ -301,9 +301,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return self.db.select(Sequel.function(:nextval, self.sequence_name)).single_value
   end
 
-  def new_opaque_id = Webhookdb::Id.new_opaque_id("svi")
+  def self.new_opaque_id = Webhookdb::Id.new_opaque_id("svi")
 
-  def ensure_opaque_id = self[:opaque_id] ||= self.new_opaque_id
+  def ensure_opaque_id = self[:opaque_id] ||= self.class.new_opaque_id
 
   def new_api_key
     k = +"sk/"

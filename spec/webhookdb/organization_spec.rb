@@ -238,7 +238,7 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
       oldtable = fake_sint.table_name
       newtable = oldtable + "_newname"
       oldid = fake_sint.opaque_id
-      newid = Webhookdb::Id.new_opaque_id("svi")
+      newid = Webhookdb::ServiceIntegration.new_opaque_id
       fake.admin_dataset do |ds|
         indexes = ds.from(:pg_indexes).where(tablename: oldtable).select_map(:indexname)
         expect(indexes).to have_length(3)
