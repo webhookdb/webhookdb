@@ -102,10 +102,16 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
       self.set_autovacuum(ds.db, false)
       if self.replicator.partition?
         # If the replicator is partitioned, we need to delete stale rows on partition separately.
-        # We DELETE with a LIMIT in chunks, but when we run this on the main table, it'll run the query
+        # If we were to DELETE with a LIMIT in chunks, when we run this on the main table, it'll run the query
         # on every partition BEFORE applying the limit. You'll see this manifest with speed,
         # but also the planner using a sequential scan for the delete, rather than hitting an index.
-        # Instead, DELETE from each partition in chunks, which will use the indices, and apply the limit properly.
+        # Instead, DELETE from each partition, which will use the indices properly.
+        # Note that we do NOT use the LIMIT when deleting on a partition;
+        # in most cases, the DELETE still needs to do a seqscan to perform the DELETE.
+        # The LIMIT ends up scannign the entire partition over and over.
+        # Instead, we can assume each partition will be fast enough to delete over.
+        # On top of that, we should assume partitioned replicators have indices specific for stale rows,
+        # since they are so large; these non-limited DELETEs end up being very fast.
         self.replicator.existing_partitions(ds.db).each do |p|
           pdb = ds.db[self.replicator.qualified_table_sequel_identifier(table: p.partition_name)]
           self._run_delete(pdb, stale_window_early:, stale_window_late:)
@@ -122,21 +128,15 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
   end
 
   def _run_delete(ds, stale_window_early:, stale_window_late:)
-    base_ds = ds.where(self.stale_condition).limit(self.chunk_size).select(:pk)
+    base_ds = ds.where(self.stale_condition).select(:pk)
+    base_ds = base_ds.limit(self.chunk_size) unless self.replicator.partition?
     window_start = stale_window_early
     until window_start >= stale_window_late
       window_end = window_start + self.incremental_lookback_size
       inner_ds = base_ds.where(self.updated_at_column => window_start..window_end)
       loop do
-        # Due to conflicts where a feed is being inserted while the delete is happening,
-        # this may raise an error like:
-        #   deadlock detected
-        #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
-        #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
-        #   HINT:  See server log for query details.
-        #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
-        # So we don't explicitly handle deadlocks, but could if it becomes an issue.
-        delete_ds = ds.where(pk: inner_ds)
+        # See note above about why we only use the LIMIT and inner query in unpartitioned tables.
+        delete_ds = self.replicator.partition? ? inner_ds : ds.where(pk: inner_ds)
         # Disable seqscan for the delete. We can end up with seqscans if the planner decides
         # it's a better choice given the 'updated at' index, but for our purposes we know
         # we never want to use it (the impact is negligible on small tables,
@@ -147,6 +147,14 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
           delete_ds.delete_sql,
           "COMMIT",
         ]
+        # Due to conflicts where a feed is being inserted while the delete is happening,
+        # this may raise an error like:
+        #   deadlock detected
+        #   DETAIL:  Process 18352 waits for ShareLock on transaction 435085606; blocked by process 24191.
+        #   Process 24191 waits for ShareLock on transaction 435085589; blocked by process 18352.
+        #   HINT:  See server log for query details.
+        #   CONTEXT:  while deleting tuple (2119119,3) in relation "icalendar_event_v1_aaaa"
+        # So we don't explicitly handle deadlocks, but could if it becomes an issue.
         deleted = ds.db << sql_lines.join(";\n")
         break if deleted != self.chunk_size
       end
