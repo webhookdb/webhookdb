@@ -118,6 +118,15 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     return "ALTER TABLE #{self.qualify_table(table)} ADD COLUMN#{ifne} #{c}"
   end
 
+  # Given a connection, table name (string), and column name (string),
+  # get the "last_value" (or 0 if never called) of the sequence for the column.
+  def get_serial_sequence_last_value(conn, tablename, colname)
+    get_seqname = Sequel.function(:pg_get_serial_sequence, tablename, colname)
+    schemaname, sequencename = conn.select(get_seqname.as(:seq)).first.fetch(:seq).split(".")
+    last_value = conn[:pg_sequences].where(schemaname:, sequencename:).first.fetch(:last_value)
+    return last_value || 0
+  end
+
   def merge_from_csv(connection, file, table, pk_col, copy_columns)
     qtable = self.qualify_table(table)
     temptable = "#{self.escape_identifier(table.name)}_staging_#{SecureRandom.hex(4)}"
