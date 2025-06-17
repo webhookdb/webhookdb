@@ -426,7 +426,7 @@ class Webhookdb::Replicator::FakeStaleRowPartitioned < Webhookdb::Replicator::Fa
 
   def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
   def partition_column_name = :textcol
-  def partition_value(r) = r.fetch("textcol")
+  def partition_key_from_resource(r) = self.partition_key_from_value(r.fetch("textcol"))
 end
 
 class Webhookdb::Replicator::FakeWithWatchChannel < Webhookdb::Replicator::Fake
@@ -456,7 +456,8 @@ class Webhookdb::Replicator::FakeHashPartition < Webhookdb::Replicator::Fake
 
   def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
   def partition_column_name = :hashkey
-  def partition_value(resource) = self._str2inthash(resource.fetch("my_id"))
+  def partition_key_from_resource(resource) = self.partition_key_from_value(resource.fetch("my_id"))
+  def partition_key_from_value(v) = self._str2inthash(v)
 end
 
 class Webhookdb::Replicator::FakeRangePartition < Webhookdb::Replicator::Fake
@@ -466,5 +467,5 @@ class Webhookdb::Replicator::FakeRangePartition < Webhookdb::Replicator::Fake
 
   def partition_method = Webhookdb::DBAdapter::Partitioning::RANGE
   def partition_column_name = :at
-  def partition_value(resource) = resource.fetch("at")
+  def partition_key_from_resource(resource) = self.partition_key_from_value(resource.fetch("at"))
 end
