@@ -25,14 +25,39 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
   end
 
   def create_index_sqls(index, concurrently:, partitions: [])
+    # For unpartitioned tables, we can create the index as normal.
     return super if partitions.empty?
-    result = []
-    result << self.create_index_sql(index, concurrently: false).gsub(" ON ", " ON ONLY ")
+    # For partitioned tables, we need to be careful with how we create the indexes.
+    # If the overall function gets interrupted (the process gets killed, etc.), we can be left with an invalid index.
+    # We can minimize this possibility by doing the following:
+    # - Create an index for each partition, if it does not exist already.
+    #   - This is done outside a transaction, since it may happen concurrently.
+    # - Then we open a transaction for the final steps, which are all very fast/metadata-only.
+    #   - A transaction here ensures that we only have the 'parent' index in a successful, completed state.
+    # - Create the 'parent' index 'ONLY ON' the parent table.
+    #   - This is a very fast operation.
+    # - Attach all the partition indexes to the parent index. This is metadata-only so also very fast.
+    #   - At this point, the parent index should be valid.
+    # - These steps mean that, at any point, the process can be interrupted and resumed,
+    #   without losing progress:
+    #   - The concurrent index creation for the partitions can fail, and result in an invalid index;
+    #     but the next call to update the schema will drop invalid indexes for the table.
+    #     Note that successfully created, but unattached, indexes for a partition are valid.
+    #   - The parent index creation, and attaching partitions to it, are atomic.
+    #
+    create_partition_indexes = []
+    attach_indexes = []
     partitions.each do |partition|
       partition_idx = index.change(table: partition.partition_table, name: "#{index.name}#{partition.suffix}")
-      result << self.create_index_sql(partition_idx, concurrently:)
-      result << "ALTER INDEX #{index.name} ATTACH PARTITION #{partition_idx.name}"
+      create_partition_indexes << self.create_index_sql(partition_idx, concurrently:)
+      attach_indexes << "ALTER INDEX #{index.name} ATTACH PARTITION #{partition_idx.name}"
     end
+    result = []
+    result.concat(create_partition_indexes)
+    result << "BEGIN"
+    result << self.create_index_sql(index, concurrently: false).gsub(" ON ", " ON ONLY ")
+    result.concat(attach_indexes)
+    result << "COMMIT"
     return result
   end
 
@@ -116,6 +141,55 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     c = self.create_column_sql(column)
     ifne = if_not_exists ? " IF NOT EXISTS" : ""
     return "ALTER TABLE #{self.qualify_table(table)} ADD COLUMN#{ifne} #{c}"
+  end
+
+  def invalid_indexes_dataset(db, table)
+    # SELECT
+    #   i.indexrelid::regclass AS index_name,
+    #   i.indrelid::regclass  AS table_name,
+    #   i.indisvalid,
+    #   i.indisready,
+    #   i.indisunique,
+    #   i.indisprimary,
+    #   c2.relname AS index_relname,
+    #   n.nspname AS schema_name
+    # FROM pg_index i
+    # JOIN pg_class c ON i.indrelid = c.oid         -- table
+    # JOIN pg_namespace n ON c.relnamespace = n.oid -- schema
+    # JOIN pg_class c2 ON i.indexrelid = c2.oid     -- index
+    # WHERE n.nspname = 'your_schema'
+    #   AND c.relname = 'your_table';
+    invalid = db[Sequel[:pg_index].as(:i)].
+      join(Sequel[:pg_class].as(:c1), {Sequel[:c1][:oid] => Sequel[:i][:indrelid]}).
+      join(Sequel[:pg_namespace].as(:n), {Sequel[:n][:oid] => Sequel[:c1][:relnamespace]}).
+      join(Sequel[:pg_class].as(:c2), {Sequel[:c2][:oid] => Sequel[:i][:indexrelid]}).
+      select(
+        Sequel[:n][:nspname].as(:schema_name),
+        Sequel[:i][:indexrelid].cast(:regclass).as(:index_name),
+        Sequel[:i][:indrelid].cast(:regclass).as(:table_name),
+        Sequel[:i][:indisvalid],
+      ).where(
+        Sequel[:n][:nspname] => table.schema.name.to_s,
+        Sequel[:c1][:relname] => table.name.to_s,
+        Sequel[:i][:indisvalid] => false,
+      )
+    return invalid
+  end
+
+  def delete_invalid_indexes(db, table)
+    invalid = invalid_indexes_dataset(db, table).all
+    invalid.each do |row|
+      sch = db.literal(row.fetch(:schema_name).to_sym)
+      ind = db.literal(row.fetch(:index_name).to_sym)
+      db << "DROP INDEX IF EXISTS #{sch}.#{ind}"
+    end
+  end
+
+  def select_existing_indexes(db, table)
+    return db[:pg_indexes].where(
+      schemaname: table.schema.name.to_s,
+      tablename: table.name.to_s,
+    ).select_map(:indexname)
   end
 
   # Given a connection, table name (string), and column name (string),
