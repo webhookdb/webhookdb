@@ -29,5 +29,6 @@ class Webhookdb::Replicator::IcalendarEventV1Partitioned < Webhookdb::Replicator
 
   def partition_method = Webhookdb::DBAdapter::Partitioning::HASH
   def partition_column_name = :calendar_external_hash
-  def partition_value(resource) = self._str2inthash(resource.fetch("calendar_external_id"))
+  def partition_key_from_resource(r) = self.partition_key_from_value(r.fetch("calendar_external_id"))
+  def partition_key_from_value(v) = self._str2inthash(v)
 end

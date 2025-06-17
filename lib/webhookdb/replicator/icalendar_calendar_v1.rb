@@ -140,7 +140,9 @@ The secret to use for signing is:
       ds.db.transaction do
         ds.where(external_id:).delete
         relevant_integrations.each do |sint|
-          ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id).delete
+          event_ds = ds.db[sint.replicator.qualified_table_sequel_identifier].where(calendar_external_id: external_id)
+          event_ds = sint.replicator.append_partition_key(event_ds, external_id) if sint.replicator.partition?
+          event_ds.delete
         end
       end
     end
@@ -238,6 +240,7 @@ The secret to use for signing is:
     # Delete all the extra replicator rows, and cancel all the rows that weren't upserted.
     dep.replicator.admin_dataset do |ds|
       ds = ds.where(calendar_external_id:)
+      ds = dep.replicator.append_partition_key(ds, calendar_external_id) if dep.replicator.partition?
       if (delete_condition = processor.delete_condition)
         ds.where(delete_condition).delete
       end

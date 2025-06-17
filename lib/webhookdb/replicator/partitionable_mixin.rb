@@ -37,10 +37,21 @@ module Webhookdb::Replicator::PartitionableMixin
   # Must be present in +_denormalized_columns+.
   # @return [Symbol]
   def partition_column_name = raise NotImplementedError
-  # The value for the denormalized column. For HASH partitioning this would be an integer,
+  # The value for the denormalized column, derived from values in the resource hash.
+  # For HASH partitioning this would be an integer,
   # for RANGE partitioning this could be a timestamp, etc.
   # Takes the resource and returns the value.
-  def partition_value(_resource) = raise NotImplementedError
+  def partition_key_from_resource(_resource) = raise NotImplementedError
+  # The value for the denormalized column, derived from a value like a string, time, or integer,
+  # as taken from +partition_key_from_resource+.
+  # By default, return +v+, but may need to turn a string into an integer for HASH partitioning, etc.
+  def partition_key_from_value(v) = v
+  # In many cases, an unpartitioned replicator uses a dataset limited to the 'source' hash key,
+  # like "WHERE external_id = 'x'". However, in order to hit the right partition,
+  # we need "WHERE external_id = 'x' AND external_hash = 1234".
+  # In this cases, you can do append_partition_key(ds.where(external_id: eid), eid),
+  # which will call +partition_column_name+ and +partition_key_from_value+ to get the additional criteria.
+  def append_partition_key(ds, v) = ds.where(self.partition_column_name => self.partition_key_from_value(v))
 
   def partition? = true
 
@@ -50,7 +61,7 @@ module Webhookdb::Replicator::PartitionableMixin
 
   def _prepare_for_insert(resource, event, request, enrichment)
     h = super
-    h[self.partition_column_name] = self.partition_value(resource)
+    h[self.partition_column_name] = self.partition_key_from_resource(resource)
     return h
   end
 

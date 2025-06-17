@@ -8,8 +8,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:sint) { fac.stable_encryption_secret.create(service_name: "icalendar_calendar_v1") }
   let(:svc) { sint.replicator }
-  let(:event_sint) { fac.depending_on(sint).create(service_name: "icalendar_event_v1") }
+  # Test with both the partitioned and unpartitioned replicators
+  let(:dependent_service_name) { ["icalendar_event_v1", "icalendar_event_v1_partitioned"].sample }
+  let(:event_sint) { fac.depending_on(sint).create(service_name: dependent_service_name, partition_value: 3) }
   let(:event_svc) { event_sint.replicator }
+
+  def row(h)
+    h[:data] ||= "{}"
+    if event_svc.partition?
+      h[:calendar_external_hash] ||= event_svc.partition_key_from_value(h.fetch(:calendar_external_id))
+    end
+    h
+  end
 
   def insert_calendar_row(**more)
     svc.admin_dataset do |ds|
@@ -156,8 +166,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_svc.admin_dataset do |event_ds|
           event_ds.multi_insert(
             [
-              {data: "{}", uid: "c", calendar_external_id: "456", compound_identity: "456-c"},
-              {data: "{}", uid: "d", calendar_external_id: "567", compound_identity: "567-d"},
+              row(uid: "c", calendar_external_id: "456", compound_identity: "456-c"),
+              row(uid: "d", calendar_external_id: "567", compound_identity: "567-d"),
             ],
           )
         end
@@ -1285,11 +1295,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_svc.admin_dataset do |ds|
           # Make sure this gets deleted
           ds.insert(
-            data: "{}",
-            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-4",
-            calendar_external_id: "abc",
-            recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
-            recurring_event_sequence: 4,
+            row(
+              compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-4",
+              calendar_external_id: "abc",
+              recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
+              recurring_event_sequence: 4,
+            ),
           )
         end
 
