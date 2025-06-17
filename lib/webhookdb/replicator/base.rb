@@ -361,7 +361,7 @@ for information on how to refresh data.)
     create_table = adapter.create_table_sql(table, columns, if_not_exists:, partition: self.partitioning)
     result.transaction_statements << create_table
     result.transaction_statements.concat(self.create_table_partitions(adapter))
-    self.indices(table).each do |dbindex|
+    self.indexes(table).each do |dbindex|
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
@@ -396,8 +396,8 @@ for information on how to refresh data.)
     return stmts
   end
 
-  # We need to give indices a persistent name, unique across the schema,
-  # since multiple indices within a schema cannot share a name.
+  # We need to give indexes a persistent name, unique across the schema,
+  # since multiple indexes within a schema cannot share a name.
   #
   # Note that in certain RDBMS (Postgres) index names cannot exceed a certian length;
   # Postgres will silently truncate them. This can result in an index not being created
@@ -407,7 +407,7 @@ for information on how to refresh data.)
   #
   # @param columns [Array<Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column>] Must respond to :name.
   # @param identifier [String,nil] Use this instead of a combination of column names.
-  #   Only use this where multiple indices are needed for the same columns, but something like the 'where'
+  #   Only use this where multiple indexes are needed for the same columns, but something like the 'where'
   #   condition is different.
   # @return [String]
   protected def index_name(columns, identifier: nil)
@@ -471,7 +471,7 @@ for information on how to refresh data.)
     return self._denormalized_columns.map(&:to_dbadapter)
   end
 
-  # Names of columns for multi-column indices.
+  # Names of columns for multi-column indexes.
   # Each one must be in +denormalized_columns+.
   # @return [Array<Webhook::Replicator::IndexSpec>]
   def _extra_index_specs
@@ -520,7 +520,7 @@ for information on how to refresh data.)
   end
 
   # When an integration needs denormalized columns, specify them here.
-  # Indices are created for each column.
+  # Indexes are created for each column.
   # Modifiers can be used if columns should have a default or whatever.
   # See +Webhookdb::Replicator::Column+ for more details about column fields.
   #
@@ -530,7 +530,7 @@ for information on how to refresh data.)
   end
 
   # @return [Array<Webhookdb::DBAdapter::Index>]
-  def indices(table)
+  def indexes(table)
     dba_columns = [self.primary_key_column, self.remote_key_column]
     dba_columns.concat(self.storable_columns)
     dba_cols_by_name = dba_columns.index_by(&:name)
@@ -560,7 +560,7 @@ for information on how to refresh data.)
   # changing types, or removing/renaming columns, is not supported and should bump the version
   # or must be handled out-of-band (like deleting the integration then backfilling).
   # To figure out what columns we need to add, we can check what are currently defined,
-  # check what exists, and add denormalized columns and indices for those that are missing.
+  # check what exists, and add denormalized columns and indexes for those that are missing.
   def ensure_all_columns
     modification = self.ensure_all_columns_modification
     return if modification.noop?
@@ -575,20 +575,17 @@ for information on how to refresh data.)
 
   # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
-    existing_cols, existing_indices, existing_partitions = nil
+    existing_cols, existing_indexes, existing_partitions = nil
+    adapter = Webhookdb::DBAdapter::PG.new
     sint = self.service_integration
     table = self.dbadapter_table
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns.to_set
-      existing_indices = ds.db[:pg_indexes].where(
-        schemaname: sint.organization.replication_schema,
-        tablename: sint.table_name,
-      ).select_map(:indexname).
-        map { |idx| Sequel[table.name][idx] }
+      adapter.delete_invalid_indexes(ds.db, table)
+      existing_indexes = adapter.select_existing_indexes(ds.db, table).map { |n| Sequel[table.name][n] }
       existing_partitions = self.existing_partitions(ds.db)
     end
-    adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Replicator::SchemaModification.new
 
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
@@ -635,9 +632,9 @@ for information on how to refresh data.)
       end
     end
 
-    # Add missing indices. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indices.
-    self.indices(table).map do |index|
-      next if Webhookdb::Replicator.refers_to_any_same_index?(Sequel[table.name][index.name], existing_indices)
+    # Add missing indexes. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indexes.
+    self.indexes(table).map do |index|
+      next if Webhookdb::Replicator.refers_to_any_same_index?(Sequel[table.name][index.name], existing_indexes)
       result.nontransaction_statements.concat(
         adapter.create_index_sqls(index, concurrently: true, partitions: existing_partitions),
       )
@@ -658,7 +655,7 @@ for information on how to refresh data.)
       records.each do |(sch, idx)|
         next if idx.start_with?(opaqueid) # Does not need to be aligned
         match = idx.match(regex)
-        next unless match # Ignore non-opaque id indices
+        next unless match # Ignore non-opaque id indexes
         base_name = idx[match.to_s.length..]
         new_name = "#{opaqueid}#{base_name}"
         db << "ALTER INDEX #{sch}.#{idx} RENAME TO #{new_name}"

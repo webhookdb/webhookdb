@@ -130,6 +130,19 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ConnectionCache.borrow(self.admin_connection_url_raw, **kw, &)
   end
 
+  def superuser_url_raw!
+    org_uri = URI(self.admin_connection_url_raw)
+    superuser_url = Webhookdb::Organization::DbBuilder.available_server_urls.find { |u| URI(u).host == org_uri.host }
+    raise Webhookdb::InvalidPrecondition, "cannot find superuser url for #{org_uri.host}" if superuser_url.nil?
+    return superuser_url
+  end
+
+  def superuser_url_to_database!
+    u = URI(superuser_url_raw!)
+    u.path = URI(self.admin_connection_url_raw).path
+    return u.to_s
+  end
+
   def execute_readonly_query(sql)
     max_rows = self.max_query_rows || self.class.max_query_rows
     return self.readonly_connection do |conn|
@@ -341,7 +354,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       select_map(:sequence_name).
       to_set
     cols_in_org_db = {}
-    indices_in_org_db = []
+    indexes_in_org_db = []
     self.admin_connection do |db|
       cols_in_org_db = db[Sequel[:information_schema][:columns]].
         where(table_schema: self.replication_schema, table_name: tables).
@@ -356,7 +369,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         where(schemaname: self.replication_schema, tablename: tables).
         select_map([:tablename, :indexname]).
         each do |(tbl, idx)|
-          indices_in_org_db << Sequel[tbl.to_sym][idx.to_sym]
+          indexes_in_org_db << Sequel[tbl.to_sym][idx.to_sym]
         end
     end
 
@@ -366,11 +379,11 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       cols_for_sint = svc.storable_columns.map { |c| c.name.to_s }
       all_sint_cols_exist = (cols_for_sint - existing_columns).empty?
 
-      all_indices_exist = svc.indices(svc.dbadapter_table).all? do |ind|
-        Webhookdb::Replicator.refers_to_any_same_index?(Sequel[svc.dbadapter_table.name][ind.name], indices_in_org_db)
+      all_indexes_exist = svc.indexes(svc.dbadapter_table).all? do |ind|
+        Webhookdb::Replicator.refers_to_any_same_index?(Sequel[svc.dbadapter_table.name][ind.name], indexes_in_org_db)
       end
 
-      svc.ensure_all_columns unless all_sint_cols_exist && all_indices_exist
+      svc.ensure_all_columns unless all_sint_cols_exist && all_indexes_exist
       if svc.requires_sequence? && !sequences_in_app_db.include?(sint.sequence_name)
         sint.ensure_sequence(skip_check: true)
       end
