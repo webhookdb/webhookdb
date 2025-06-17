@@ -576,7 +576,6 @@ for information on how to refresh data.)
   # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
     existing_cols, existing_indices, existing_partitions = nil
-    max_pk = 0
     sint = self.service_integration
     table = self.dbadapter_table
     self.admin_dataset do |ds|
@@ -587,7 +586,6 @@ for information on how to refresh data.)
         tablename: sint.table_name,
       ).select_map(:indexname).
         map { |idx| Sequel[table.name][idx] }
-      max_pk = ds.max(:pk) || 0
       existing_partitions = self.existing_partitions(ds.db)
     end
     adapter = Webhookdb::DBAdapter::PG.new
@@ -621,6 +619,12 @@ for information on how to refresh data.)
       result.nontransaction_statements.concat(missing_columns.filter_map(&:backfill_statement))
       update_expr = missing_columns.to_h { |c| [c.name, c.backfill_expr || c.to_sql_expr] }
       self.admin_dataset do |ds|
+        # Calculate the maximum pk only if we need it.
+        # We cannot just do `ds.max(:pk) || 0`, since it is very slow for large tables;
+        # in fact, it does an index-only scan of potentially billions of rows!
+        # Instead, take advantage of the fact that this is a sequence, not a normal row,
+        # and peek at the next value for the pk sequence.
+        max_pk = adapter.get_serial_sequence_last_value(ds.db, sint.table_name, "pk")
         chunks = Webhookdb::Replicator::Base.chunked_row_update_bounds(max_pk)
         chunks[...-1].each do |(lower, upper)|
           update_query = ds.where { pk > lower }.where { pk <= upper }.update_sql(update_expr)
