@@ -235,6 +235,16 @@ All of this information can be found in the WebhookDB docs, at https://docs.webh
     # This could be outbound but from a different number, or inbound to a different number.
     # We only care about messages to/from our support number.
     return unless signalwire_payload_inbound_to_support || signalwire_payload_outbound_from_support
+
+    already_synced = self.admin_dataset do |ds|
+      # The flow of data for outbound messages goes Front -> this replicator -> Signalwire SMS,
+      # then the Signalwire replicator finds that (newly sent) data, and tells us about the new row.
+      # However, we already know about this row; we do not want to re-import with sync_outbound!
+      # So check if we already have a row using this signalwire id, and noop if so.
+      !ds.where(signalwire_sid: sw_payload.fetch(:signalwire_id)).empty?
+    end
+    return if already_synced
+
     chan_body = JSON.parse(sw_payload.fetch(:data))
     chan_body.merge!(
       "external_id" => sw_payload.fetch(:signalwire_id),
