@@ -399,6 +399,32 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
       sint.organization.remove_related_database
     end
 
+    it "noops if there is already a Front convo with the signalwire id" do
+      # Swap from and to
+      row[:_from] = row[:from]
+      row[:from] = row[:to]
+      row[:to] = row.delete(:_from)
+      row[:direction] = "outbound-api"
+      sint.organization.prepare_database_connections
+      svc.create_table
+      svc.admin_dataset do |ds|
+        ds.insert(
+          external_id: "already-sent",
+          signalwire_sid: data.fetch("sid"),
+          external_conversation_id: "convoid",
+          sender: "4445556666",
+          recipient: "12223334444",
+          body: "hi customer",
+          direction: "outbound",
+          data: {date_created: Time.parse("2023-01-10T11:00:00Z").rfc2822}.to_json,
+        )
+      end
+      svc.on_dependency_webhook_upsert(signalwire_sint.replicator, row, changed: true)
+      expect(svc.admin_dataset(&:all)).to have_length(1)
+    ensure
+      sint.organization.remove_related_database
+    end
+
     it "upserts a row for inbound messages, and enqueues a backfill" do
       sint.organization.prepare_database_connections
       svc.create_table
