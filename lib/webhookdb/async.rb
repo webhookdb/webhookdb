@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
-require "amigo/retry"
 require "amigo/durable_job"
+require "amigo/queue_backoff_job"
+require "amigo/retry"
+require "amigo/semaphore_backoff_job"
 require "appydays/configurable"
 require "appydays/loggable"
 require "sentry-sidekiq"
@@ -70,6 +72,10 @@ module Webhookdb::Async
     setting :error_reporting_sample_rate, 0.1
     setting :error_reporting_ttl, 120
 
+    # If true, disable queue backoff and semaphore job behavior.
+    # This can be used if there is a large queue of jobs to push through.
+    setting :backoff_disabled, false
+
     after_configured do
       # Very hard to test this, so it's not tested.
       url = self.sidekiq_redis_provider.present? ? ENV.fetch(self.sidekiq_redis_provider, nil) : self.sidekiq_redis_url
@@ -80,6 +86,8 @@ module Webhookdb::Async
         redis_params[:ssl_params] = {verify_mode: OpenSSL::SSL::VERIFY_NONE}
       end
       Amigo::DurableJob.failure_notifier = Webhookdb::Async::JobLogger.method(:durable_job_failure_notifier)
+      Amigo::QueueBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
+      Amigo::SemaphoreBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
       Sidekiq.configure_server { |config| self._configure_server(config, redis_params) }
       Sidekiq.configure_client { |config| self._configure_client(config, redis_params) }
     end
@@ -136,6 +144,7 @@ module Webhookdb::Async
       loggers: [Webhookdb.logger],
       **Webhookdb::Dbutil.configured_connection_options,
     )
+    require "webhookdb/jobs"
     Gem.find_files(File.join("webhookdb/jobs/*.rb")).each do |path|
       require path
     end
