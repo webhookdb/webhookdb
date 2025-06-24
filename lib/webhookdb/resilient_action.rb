@@ -1,6 +1,28 @@
 # frozen_string_literal: true
 
 class Webhookdb::ResilientAction
+  # How often are insert exceptions reported to Sentry?
+  ERROR_REPORT_INTERVAL = 60
+
+  class << self
+    # Capture the exception in Sentry. Rate limit the reporting,
+    # since most of the time we will get swarms of failures (database goes down, etc).
+    # Rate limits are per-exception-type, so for example we will rate limit Redis and Postgres errors separately;
+    # but we don't care about specific databases going down and rate limiting them.
+    # Services going down should be exceptional.
+    def capture_exception(e, reset: false)
+      if reset
+        @last_captured_at_hash = nil
+        return
+      end
+      @last_captured_at_hash ||= {}
+      last_captured_at = @last_captured_at_hash[e.class] || Time.at(0)
+      return if (last_captured_at + ERROR_REPORT_INTERVAL) > Time.now
+      @last_captured_at_hash[e.class] = Time.now
+      Sentry.capture_exception(e)
+    end
+  end
+
   def logger = raise NotImplementedError
   def database_urls = raise NotImplementedError
   def rescued_exception_types = raise NotImplementedError
@@ -18,6 +40,7 @@ class Webhookdb::ResilientAction
     self.database_urls.each do |url|
       next unless self.write_to(url, payload_str, meta_str)
       self.logger.warn "resilient_insert_handled", self._dburl_log_kwargs(url), e
+      Webhookdb::ResilientAction.capture_exception(e)
       return true
     end
     self.logger.error "resilient_insert_unhandled", {action_kwargs:, meta:}, e

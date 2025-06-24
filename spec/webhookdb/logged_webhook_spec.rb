@@ -194,7 +194,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
         expect(logs).to contain_exactly(include_json(level: "error", message: "resilient_insert_unhandled"))
       end
 
-      it "inserts into the first available database and logs a warning" do
+      it "inserts into the first available database and logs a warning and reports to Sentry" do
         described_class.available_resilient_database_urls = [
           "#{resilient_url}_INVALID1",
           resilient_url,
@@ -212,6 +212,20 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
             json_meta: '{"service_integration_opaque_id":"x"}',
           ),
         )
+      end
+
+      it "reports action failures to Sentry, with throttling" do
+        Webhookdb::ResilientAction.capture_exception(nil, reset: true)
+        described_class.available_resilient_database_urls = [resilient_url]
+        cause_insert_error
+        expect(Sentry).to receive(:capture_exception).with(be_a(Sequel::DatabaseError)).twice
+        expect(described_class.resilient_insert(**values("x"))).to be(true)
+        expect(described_class.resilient_insert(**values("x"))).to be(true)
+        expect(described_class.resilient_insert(**values("x"))).to be(true)
+        Timecop.travel(3.minutes.from_now) do
+          expect(described_class.resilient_insert(**values("x"))).to be(true)
+          expect(described_class.resilient_insert(**values("x"))).to be(true)
+        end
       end
 
       it "handles multiple and concurrent inserts", db: :no_transaction do
