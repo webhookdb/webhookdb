@@ -15,10 +15,24 @@ RSpec.describe Webhookdb::API::System do
     end
   end
 
-  describe "GET /health" do
+  describe "GET /healthz" do
     it "returns 200" do
       get "/healthz"
       expect(last_response).to have_status(200)
+      expect(last_response_json_body).to eq({o: "k"})
+    end
+  end
+
+  describe "GET /service_health" do
+    it "returns status about services" do
+      get "/service_health"
+      expect(last_response).to have_status(200)
+      expect(last_response_json_body).to include(
+        autoscale_depth: be_a(Integer),
+        autoscale_started: have_length("1970-01-01T00:00:00Z".length),
+        db: be_a(Float),
+        redis: be_a(Float),
+      )
     end
   end
 
