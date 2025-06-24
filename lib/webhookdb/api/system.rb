@@ -25,6 +25,36 @@ class Webhookdb::API::System < Webhookdb::Service
     {o: "k"}
   end
 
+  desc "Return more extensive health information about service dependencies."
+  get :service_health do
+    result = {
+      db: -1,
+      redis: -1,
+      autoscale_started: Time.at(0),
+      autoscale_depth: -1,
+    }
+    begin
+      start = Time.now
+      Webhookdb::Customer.db["SELECT 1"]
+      result[:db] = (Time.now - start).to_f
+    rescue StandardError
+      nil
+    end
+    begin
+      Sidekiq.redis do |c|
+        start = Time.now
+        c.ping
+        result[:redis] = (Time.now - start).to_f
+        result[:autoscale_started] = Time.at(c.get("amigo/autoscaler/latency_event_started").to_i).utc.iso8601
+        result[:autoscale_depth] = c.get("amigo/autoscaler/depth").to_i
+      end
+    rescue StandardError
+      nil
+    end
+    status 200
+    present(result)
+  end
+
   get :statusz do
     status 200
     {
