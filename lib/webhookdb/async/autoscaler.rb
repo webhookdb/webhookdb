@@ -54,10 +54,8 @@ module Webhookdb::Async::Autoscaler
       end
     end
 
-    def start
-      raise "already started" unless @instance.nil?
-      @impl = self.build_implementation
-      @instance = Amigo::Autoscaler.new(
+    def build_autoscaler
+      return Amigo::Autoscaler.new(
         poll_interval: self.poll_interval,
         latency_threshold: self.latency_threshold,
         hostname_regex: self.hostname_regex,
@@ -68,6 +66,12 @@ module Webhookdb::Async::Autoscaler
         log: ->(level, msg, kw={}) { self.logger.send(level, msg, kw) },
         on_unhandled_exception: ->(e) { Sentry.capture_exception(e) },
       )
+    end
+
+    def start
+      raise "already started" unless @instance.nil?
+      @impl = self.build_implementation
+      @instance = self.build_autoscaler
       return @instance.start
     end
 
