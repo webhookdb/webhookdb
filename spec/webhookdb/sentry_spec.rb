@@ -10,8 +10,7 @@ RSpec.describe Webhookdb::Sentry do
   end
 
   it "configures the Sentry service" do
-    described_class.dsn = "http://public:secret@not-really-sentry.nope/someproject"
-    described_class.run_after_configured_hooks
+    described_class.reset_configuration(dsn: "http://public:secret@not-really-sentry.nope/someproject")
     client = Sentry.get_current_client
     expect(client).to_not be_nil
     expect(client.configuration).to have_attributes(
@@ -26,11 +25,9 @@ RSpec.describe Webhookdb::Sentry do
   end
 
   it "can unconfigure Sentry" do
-    described_class.dsn = "http://public:secret@not-really-sentry.nope/someproject"
-    described_class.run_after_configured_hooks
+    described_class.reset_configuration(dsn: "http://public:secret@not-really-sentry.nope/someproject")
     expect(Sentry).to be_initialized
-    described_class.dsn = ""
-    described_class.run_after_configured_hooks
+    described_class.reset_configuration(dsn: "")
     expect(Sentry).to_not be_initialized
   end
 
@@ -43,6 +40,68 @@ RSpec.describe Webhookdb::Sentry do
     it "returns false if DSN is not set" do
       described_class.dsn = ""
       expect(described_class).to_not be_enabled
+    end
+  end
+
+  describe "trace sampling" do
+    before(:each) do
+      described_class.reset_configuration(
+        traces_base_sample_rate: 0.5,
+        traces_web_sample_rate: 0.1,
+        traces_web_load_sample_rate: 0.01,
+        traces_job_sample_rate: 0.1,
+        traces_job_load_sample_rate: 0.01,
+      )
+    end
+
+    it "uses the parent decision if available" do
+      ctx = {parent_sampled: 0.8}
+      expect(described_class.traces_sampler(ctx)).to eq(0.8)
+      ctx = {parent_sampled: false}
+      expect(described_class.traces_sampler(ctx)).to be(false)
+      ctx = {parent_sampled: nil}
+      expect(described_class.traces_sampler(ctx)).to be(0.5)
+      ctx = {}
+      expect(described_class.traces_sampler(ctx)).to be(0.5)
+    end
+
+    it "uses the baseline by default" do
+      ctx = {transaction_context: {}}
+      expect(described_class.traces_sampler(ctx)).to eq(0.5)
+    end
+
+    describe "for web requests" do
+      it "uses the web sample rate by default" do
+        ctx = {transaction_context: {op: "http.server", name: "/foo"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0.05)
+      end
+
+      it "ignores sink calls" do
+        ctx = {transaction_context: {op: "http.server", name: "/sink"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0)
+      end
+
+      it "biases healthcheck down from the load rate" do
+        ctx = {transaction_context: {op: "http.server", name: "/healthz"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0.0005)
+      end
+
+      it "uses the load rate for certain endpoints" do
+        ctx = {transaction_context: {op: "http.server", name: "/v1/service_integrations/svi_12abc"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0.005)
+      end
+    end
+
+    describe "for jobs" do
+      it "uses the job sample rate by default" do
+        ctx = {transaction_context: {op: "queue.process", name: "Sidekiq/Webhookdb::Jobs::Xyz"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0.05)
+      end
+
+      it "uses the load rate for certain jobs" do
+        ctx = {transaction_context: {op: "queue.process", name: "Sidekiq/Webhookdb::Jobs::ProcessWebhook"}}
+        expect(described_class.traces_sampler(ctx)).to eq(0.005)
+      end
     end
   end
 end
