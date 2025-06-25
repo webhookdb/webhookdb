@@ -70,6 +70,11 @@ RSpec.describe Webhookdb::Sentry do
       expect(described_class.traces_sampler(ctx)).to eq(0.5)
     end
 
+    it "skips certain ops" do
+      ctx = {parent_sampled: 0.8, transaction_context: {op: "queue.publish"}}
+      expect(described_class.traces_sampler(ctx)).to eq(0.0)
+    end
+
     describe "for web requests" do
       it "uses the web sample rate by default" do
         ctx = {transaction_context: {op: "http.server", name: "/foo"}}
