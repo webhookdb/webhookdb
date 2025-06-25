@@ -20,8 +20,6 @@ port ENV.fetch("PORT", nil)
 
 preload_app!
 
-enable_keep_alives false
-
 if workers_count.zero?
   Barnes.start
 else
