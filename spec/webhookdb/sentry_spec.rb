@@ -44,6 +44,8 @@ RSpec.describe Webhookdb::Sentry do
   end
 
   describe "trace sampling" do
+    let(:dsn) { "http://public:secret@not-really-sentry.nope/someproject" }
+
     before(:each) do
       described_class.reset_configuration(
         traces_base_sample_rate: 0.5,
@@ -52,6 +54,15 @@ RSpec.describe Webhookdb::Sentry do
         traces_job_sample_rate: 0.1,
         traces_job_load_sample_rate: 0.01,
       )
+    end
+
+    it "configures the trace sampler unless traces_base_sample_rate is 0" do
+      described_class.reset_configuration(dsn:, traces_base_sample_rate: 0)
+      expect(Sentry.configuration.traces_sample_rate).to eq(0)
+      expect(Sentry.configuration.traces_sampler).to be_nil
+      described_class.reset_configuration(dsn:, traces_base_sample_rate: 0.5)
+      expect(Sentry.configuration.traces_sample_rate).to be_nil
+      expect(Sentry.configuration.traces_sampler).to_not be_nil
     end
 
     it "uses the parent decision if available" do

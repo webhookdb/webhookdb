@@ -83,8 +83,13 @@ module Webhookdb::Sentry
           config.dsn = dsn
           config.sdk_logger = self.logger
           config.sdk_logger.level = self.log_level
-          config.traces_sampler = ->(ctx) { self.traces_sampler(ctx) }
+          if self.traces_base_sample_rate.zero?
+            config.traces_sample_rate = 0
+          else
+            config.traces_sampler = ->(ctx) { self.traces_sampler(ctx) }
+          end
         end
+        Sentry.configuration.sidekiq.propagate_traces = false
       else
         Sentry.instance_variable_set(:@main_hub, nil)
       end
