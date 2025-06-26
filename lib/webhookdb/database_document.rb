@@ -36,7 +36,7 @@ class Webhookdb::DatabaseDocument < Webhookdb::Postgres::Model(:database_documen
     return url + "&sig=#{sig}"
   end
 
-  def check_url(url, now: Time.now)
+  def check_url?(url, now: Time.now)
     sig_idx = url.rindex("&sig=")
     return false if sig_idx.nil?
     without_sig = url[...sig_idx]

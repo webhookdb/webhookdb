@@ -84,13 +84,30 @@ Lint/UnusedMethodArgument:
 # https://rubocop.readthedocs.io/en/latest/cops_naming/
 Naming/AccessorMethodName:
   Enabled: false
-Naming/PredicateName:
+Naming/PredicatePrefix:
   Exclude:
     - 'spec/**/*'
     - 'lib/webhookdb/spec_helpers.rb'
     - 'lib/webhookdb/spec_helpers/*.rb'
+  AllowedMethods:
+    - 'has_admin?'
 Naming/MethodParameterName:
   Enabled: false
+Naming/PredicateMethod:
+  AllowedMethods:
+    - '_handle_repo_name_state_machine'
+    - '_update_where_expr'
+    - 'assert_is_enriched'
+    - 'do_work'
+    - 'fail_with'
+    - 'on_backfill_error'
+    - 'post'
+    - 'retry_one'
+    - 'sync_demo_data'
+    - 'validate_template'
+    - 'with_lock?'
+  AllowedPatterns:
+    - 'setup_*'
 
 RSpec/BeforeAfterAll:
   Enabled: false

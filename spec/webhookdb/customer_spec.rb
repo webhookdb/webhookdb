@@ -50,30 +50,30 @@ RSpec.describe "Webhookdb::Customer", :db do
     it "returns true if the password matches" do
       u = Webhookdb::Customer.new
       u.password = password
-      expect(u.authenticate(password)).to be_truthy
+      expect(u).to be_authenticate(password)
     end
 
     it "returns false if the password does not match" do
       u = Webhookdb::Customer.new
       u.password = "testtest1"
-      expect(u.authenticate("testtest2")).to be_falsey
+      expect(u).to_not be_authenticate("testtest2")
     end
 
     it "returns false if the new password is blank" do
       u = Webhookdb::Customer.new
-      expect(u.authenticate(nil)).to be_falsey
-      expect(u.authenticate("")).to be_falsey
+      expect(u).to_not be_authenticate(nil)
+      expect(u).to_not be_authenticate("")
 
       space = "          "
       u.password = space
-      expect(u.authenticate(space)).to be_truthy
+      expect(u).to be_authenticate(space)
     end
 
     it "cannot auth after being removed" do
       u = Webhookdb::Fixtures.customer.create
       u.soft_delete
       u.password = password
-      expect(u.authenticate(password)).to be_falsey
+      expect(u).to_not be_authenticate(password)
     end
   end
 

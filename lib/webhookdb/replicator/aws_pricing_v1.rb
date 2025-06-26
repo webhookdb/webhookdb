@@ -373,7 +373,7 @@ end
 # Once they are in the SDK we should remove this code.
 unless Aws::Pricing::ClientApi::API.operation_names.include?(:list_price_lists)
 
-  # rubocop:disable Style/StructInheritance:
+  # rubocop:disable Style/StructInheritance
   module ::Aws::Pricing::Types
     class ListPriceListsRequest < Struct.new(
       :currency_code,

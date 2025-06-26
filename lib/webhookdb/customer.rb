@@ -252,9 +252,9 @@ our docs at https://docs.webhookdb.com.
     end
   end
 
-  ### Attempt to authenticate the user with the specified +unencrypted+ password. Returns
-  ### +true+ if the password matched.
-  def authenticate(unencrypted)
+  # Attempt to authenticate the user with the specified +unencrypted+ password. Returns
+  # +true+ if the password matched.
+  def authenticate?(unencrypted)
     return false unless unencrypted
     return false if self.soft_deleted?
     return self.encrypted_password == unencrypted

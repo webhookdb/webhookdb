@@ -22,7 +22,7 @@ class Webhookdb::Service::Auth
         fail!("No customer with that email")
         return nil
       end
-      return customer if customer.authenticate(params["password"])
+      return customer if customer.authenticate?(params["password"])
       fail!("Incorrect password")
       return nil
     end
