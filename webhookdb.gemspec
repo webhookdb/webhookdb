@@ -72,7 +72,7 @@ Gem::Specification.new do |s|
   s.add_dependency("rack-ssl-enforcer", "~> 0.2")
   s.add_dependency("rake", "~> 13.1")
   s.add_dependency("redis-client", "~> 0.23")
-  s.add_dependency("reline", "~> 0.5")
+  s.add_dependency("reline", "~> 0.6")
   s.add_dependency("semantic_logger", "~> 4.16")
   s.add_dependency("sentry-ruby", "~> 5.24")
   s.add_dependency("sentry-sidekiq", "~> 5.22")
