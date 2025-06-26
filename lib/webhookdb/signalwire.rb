@@ -26,7 +26,7 @@ module Webhookdb::Signalwire
     req_body[:MediaUrl] = media_urls if media_urls.present?
     return self.http_request(
       :post,
-      "/2010-04-01/Accounts/#{project_id}/Messages.json",
+      "/api/laml/2010-04-01/Accounts/#{project_id}/Messages.json",
       body: req_body,
       project_id:,
       **kw,

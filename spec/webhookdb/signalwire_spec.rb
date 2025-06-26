@@ -7,7 +7,7 @@ RSpec.describe Webhookdb::Signalwire do
     it "sends the message" do
       described_class.sms_allowlist = ["*"]
 
-      req = stub_request(:post, "https://space.signalwire.com/2010-04-01/Accounts/proj/Messages.json").
+      req = stub_request(:post, "https://space.signalwire.com/api/laml/2010-04-01/Accounts/proj/Messages.json").
         with(
           body: {"Body" => "hello", "From" => "+12223334444", "To" => "+14445556666"},
           headers: {

@@ -164,7 +164,7 @@ Press 'Show' next to the newly-created API token, and copy it.)
       # We need to handle positive and negative UTC offset running locally (non-UTC).
       # Using UTC + 1 day would give 'today' in some cases, we always want 'tomorrow the day after'.
       date_send_max = (Time.now.utc + 2.days).to_date
-      urltail = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
+      urltail = "/api/laml/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
                 "?PageSize=100&DateSend%3C=#{date_send_max}"
     end
     data = self.signalwire_http_request(:get, urltail)

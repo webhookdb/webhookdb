@@ -8,7 +8,7 @@ class Webhookdb::Messages::ErrorGenericBackfill < Webhookdb::Message::Template
     return self.new(
       sint,
       response_status: 422,
-      request_url: "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json",
+      request_url: "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json",
       request_method: "POST",
       response_body: "Unauthorized",
     )
