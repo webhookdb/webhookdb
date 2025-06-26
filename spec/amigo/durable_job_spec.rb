@@ -39,11 +39,11 @@ RSpec.describe Amigo::DurableJob do
 
     Sidekiq.redis(&:flushdb)
     Sidekiq::Testing.disable!
-    Sidekiq.server_middleware.add(@before_server_mw)
-    Sidekiq.client_middleware.add(described_class::ClientMiddleware)
-    Sidekiq.server_middleware.add(described_class::ServerMiddleware)
+    Sidekiq.default_configuration.server_middleware.add(@before_server_mw)
+    Sidekiq.default_configuration.client_middleware.add(described_class::ClientMiddleware)
+    Sidekiq.default_configuration.server_middleware.add(described_class::ServerMiddleware)
     described_class.failure_notifier = nil
-    @death_handlers = Sidekiq.death_handlers.dup
+    @death_handlers = Sidekiq.default_configuration.death_handlers.dup
 
     described_class.reset_configuration(
       enabled: true,
@@ -54,10 +54,10 @@ RSpec.describe Amigo::DurableJob do
   end
 
   after(:each) do
-    Sidekiq.server_middleware.entries.delete(@before_server_mw)
-    Sidekiq.client_middleware.remove(described_class::ClientMiddleware)
-    Sidekiq.server_middleware.remove(described_class::ServerMiddleware)
-    Sidekiq.death_handlers.replace(@death_handlers)
+    Sidekiq.default_configuration.server_middleware.entries.delete(@before_server_mw)
+    Sidekiq.default_configuration.client_middleware.remove(described_class::ClientMiddleware)
+    Sidekiq.default_configuration.server_middleware.remove(described_class::ServerMiddleware)
+    Sidekiq.default_configuration.death_handlers.replace(@death_handlers)
     Sidekiq.redis(&:flushdb)
   end
 
@@ -320,7 +320,7 @@ RSpec.describe Amigo::DurableJob do
 
       fail_rec = call_recorder.new
       death_rec = call_recorder.new
-      Sidekiq.death_handlers.replace([death_rec])
+      Sidekiq.default_configuration.death_handlers.replace([death_rec])
       described_class.failure_notifier = fail_rec
       poll_jobs
       expect(fail_rec.calls).to contain_exactly(
@@ -335,7 +335,7 @@ RSpec.describe Amigo::DurableJob do
       described_class.lock_job("jobx1", -1)
 
       death_rec = call_recorder.new
-      Sidekiq.death_handlers.replace([death_rec])
+      Sidekiq.default_configuration.death_handlers.replace([death_rec])
       described_class.failure_notifier = nil
       poll_jobs
       expect(death_rec.calls).to contain_exactly(

@@ -524,7 +524,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     it "creates the database urls for the organization" do
       expect do
-        org.publish_immediate("create", org.id, org.values)
+        org.publish_immediate("create", org.id, org.values.as_json)
       end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
 
       org.refresh
@@ -543,7 +543,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       Webhookdb::Organization::DbBuilder.create_cname_for_connection_urls = true
 
       expect do
-        org.publish_immediate("create", org.id, org.values)
+        org.publish_immediate("create", org.id, org.values.as_json)
       end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
 
       expect(req).to have_been_made

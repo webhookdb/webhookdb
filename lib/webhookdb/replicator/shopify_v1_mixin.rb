@@ -31,8 +31,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
     self.logger.debug "webhook hit shopify endpoint", log_params
 
     return Webhookdb::WebhookResponse.error("missing hmac") if shopify_auth.nil?
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
     verified = Webhookdb::Shopify.verify_webhook(request_data, shopify_auth, self.service_integration.webhook_secret)
     return Webhookdb::WebhookResponse.ok if verified
     return Webhookdb::WebhookResponse.error("invalid hmac")
@@ -80,7 +79,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
-      step.output = \
+      step.output =
         %(In order to backfill #{self.resource_name_plural}, we need an API key and password
 (file an issue at #{Webhookdb.oss_repo_url} if you need token support).
 

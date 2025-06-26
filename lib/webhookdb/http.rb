@@ -124,6 +124,15 @@ module Webhookdb::Http
     response.body.stream!
     return response
   end
+
+  def self.rewind_request_body(request)
+    if request.body.instance_of?(::Rack::Lint::Wrapper::InputWrapper)
+      request.body.instance_variable_get(:@input).rewind
+    else
+      request.body.rewind
+    end
+    return request.body
+  end
 end
 
 class HTTP::Headers

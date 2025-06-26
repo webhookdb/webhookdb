@@ -8,13 +8,13 @@ RSpec.describe Webhookdb::Async::ExtendedLogging do
 
     Sidekiq.redis(&:flushdb)
     Sidekiq::Testing.disable!
-    Sidekiq.server_middleware.add(@before_server_mw)
-    Sidekiq.server_middleware.add(described_class::ServerMiddleware)
+    Sidekiq.default_configuration.server_middleware.add(@before_server_mw)
+    Sidekiq.default_configuration.server_middleware.add(described_class::ServerMiddleware)
   end
 
   after(:each) do
-    Sidekiq.server_middleware.entries.delete(@before_server_mw)
-    Sidekiq.server_middleware.remove(described_class::ServerMiddleware)
+    Sidekiq.default_configuration.server_middleware.entries.delete(@before_server_mw)
+    Sidekiq.default_configuration.server_middleware.remove(described_class::ServerMiddleware)
     Sidekiq.redis(&:flushdb)
   end
 

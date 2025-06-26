@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "redis_client"
+
 require "webhookdb/async"
 require "webhookdb/resilient_action"
 
@@ -27,7 +29,7 @@ class Webhookdb::Async::ResilientSidekiqClient < Sidekiq::Client
 
     def logger = Webhookdb::Async.logger
     def database_urls = Webhookdb::LoggedWebhook.available_resilient_database_urls
-    def rescued_exception_types = [Redis::ConnectionError, Redis::CommandError]
+    def rescued_exception_types = [RedisClient::ConnectionError, RedisClient::CommandError]
     def do_insert(kwargs, _meta) = @client.__native_raw_push(kwargs)
     def table_name = Webhookdb::LoggedWebhook.resilient_jobs_table_name
     def ping = @client.redis_pool.with(&:ping)

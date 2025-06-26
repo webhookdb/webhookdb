@@ -51,7 +51,6 @@ module Webhookdb::Service::Middleware
 
   def self.add_common_middleware(builder)
     builder.use(Rack::ContentLength)
-    builder.use(Rack::Chunked)
     builder.use(Sentry::Rack::CaptureExceptions)
     builder.use(Rack::Deflater)
   end

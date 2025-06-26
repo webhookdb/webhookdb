@@ -27,8 +27,7 @@ module Webhookdb::Front
   end
 
   def self.verify_signature(request, secret)
-    request.body.rewind
-    body = request.body.read
+    body = Webhookdb::Http.rewind_request_body(request).read
     base_string = "#{request.env['HTTP_X_FRONT_REQUEST_TIMESTAMP']}:#{body}"
     calculated_signature = OpenSSL::HMAC.base64digest(OpenSSL::Digest.new("sha256"), secret, base_string)
     return calculated_signature == request.env["HTTP_X_FRONT_SIGNATURE"]

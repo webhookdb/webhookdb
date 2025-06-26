@@ -100,7 +100,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
     end
 
     data = response.parsed_response.fetch("data")
-    after_cursor = response.parsed_response.fetch("cursor", {}).fetch("afterCursor", nil)
+    after_cursor = response.parsed_response.dig("cursor", "afterCursor")
     return data, nil if after_cursor.nil?
     return [], nil if data.empty?
     last_updated = data.last.fetch("updatedAt")

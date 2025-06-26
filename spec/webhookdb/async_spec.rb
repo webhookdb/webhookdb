@@ -60,29 +60,27 @@ RSpec.describe "Webhookdb::Async", :async, :db do
 
   describe "Sidekiq" do
     before(:each) do
-      @old_config = Sidekiq.instance_variable_get(:@config)
-      @config = Sidekiq::DEFAULTS.dup
+      @old_config = Sidekiq.default_configuration
+      @config = Sidekiq::Config.new
       Sidekiq.instance_variable_set(:@config, @config)
     end
 
     after(:each) do
       described_class.reset_configuration
       Sidekiq.instance_variable_set(:@config, @old_config)
-      Sidekiq.instance_variable_set(:@client_chain, Sidekiq::Middleware::Chain.new(Sidekiq))
-      Sidekiq.instance_variable_set(:@server_chain, Sidekiq::Middleware::Chain.new(Sidekiq))
       described_class.run_after_configured_hooks
     end
 
     it "can configure the client" do
       described_class._configure_client(Sidekiq, {url: "redis://x"})
-      expect(Sidekiq.client_middleware.entries).to include(
+      expect(Sidekiq.default_configuration.client_middleware.entries).to include(
         have_attributes(klass: Amigo::DurableJob::ClientMiddleware),
       )
     end
 
     it "can configure the server" do
       described_class._configure_server(Sidekiq, {url: "redis://x"})
-      expect(Sidekiq.server_middleware.entries).to include(
+      expect(Sidekiq.default_configuration.server_middleware.entries).to include(
         have_attributes(klass: Amigo::JobInContext::ServerMiddleware),
       )
     end

@@ -15,8 +15,7 @@ module Webhookdb::Intercom
   def self.webhook_response(request, webhook_secret)
     header_value = request.env["HTTP_X_HUB_SIGNATURE"]
     return Webhookdb::WebhookResponse.error("missing hmac") if header_value.nil?
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
     hmac = OpenSSL::HMAC.hexdigest("SHA1", webhook_secret, request_data)
     calculated_hmac = "sha1=#{hmac}"
     verified = ActiveSupport::SecurityUtils.secure_compare(calculated_hmac, header_value)

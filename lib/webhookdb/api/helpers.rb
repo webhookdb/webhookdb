@@ -81,7 +81,7 @@ module Webhookdb::API::Helpers
     end
 
     protected def needs_prompt?(attr_name, request, options)
-      if (disable_proc = options[:disable]) && (disable_proc[request])
+      if (disable_proc = options[:disable]) && disable_proc[request]
         return false
       end
       options[:demo_mode_proc][request] if Webhookdb::DemoMode.client_enabled? && options[:demo_mode_proc]
@@ -173,7 +173,7 @@ module Webhookdb::API::Helpers
     begin
       request_headers = request.headers.dup
       if (content_type = env["CONTENT_TYPE"])
-        request_headers["Content-Type"] = content_type
+        request_headers[Rack::CONTENT_TYPE] = content_type
       end
       sint = yield
       return if sint == :pass
@@ -189,7 +189,7 @@ module Webhookdb::API::Helpers
       if request.get? && !request.GET["skipbotcheck"] && Browser.new(request.user_agent).bot?
         # IMPORTANT: Run the Browser code last since it has to run a bunch of regexes to detect a bot.
         env["api.format"] = :binary
-        header "Content-Type", "text/plain"
+        header Rack::CONTENT_TYPE, "text/plain"
         body("This route is for receiving webhooks and HTTP calls, not for bots. " \
              "Call this endpoint with the query param 'skipbotcheck=true' to bypass this check.")
         status 403
@@ -240,7 +240,7 @@ module Webhookdb::API::Helpers
       end
 
       s_headers.each { |k, v| header k, v }
-      if s_headers["Content-Type"] == "application/json"
+      if s_headers[Rack::CONTENT_TYPE] == "application/json"
         body Oj.load(s_body)
       else
         env["api.format"] = :binary
@@ -264,7 +264,7 @@ module Webhookdb::API::Helpers
     # - Must handle error! calls
     # Anyway, this is all pretty confusing, but it's all tested.
     rstatus = status == 201 ? (sstatus || 0) : status
-    request.body.rewind
+    Webhookdb::Http.rewind_request_body(request)
     Webhookdb::LoggedWebhook.resilient_insert(
       request_body: request.body.read,
       request_headers: request_headers.to_json,

@@ -63,9 +63,7 @@ module Webhookdb::API
             return org
           end
 
-          # rubocop:disable Naming/PredicateName
           def has_admin?(org=nil, customer: nil)
-            # rubocop:enable Naming/PredicateName
             customer ||= current_customer
             org ||= lookup_org!
             has_no_admin = org.verified_memberships_dataset.

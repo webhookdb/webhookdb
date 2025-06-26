@@ -72,8 +72,7 @@ class Webhookdb::Increase
     http_signature = request.env["HTTP_INCREASE_WEBHOOK_SIGNATURE"]
     return Webhookdb::WebhookResponse.error("missing header") if http_signature.nil?
 
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
 
     parsed_signature = self.parse_signature(http_signature)
     return Webhookdb::WebhookResponse.error("missing timestamp") if parsed_signature.t.nil?

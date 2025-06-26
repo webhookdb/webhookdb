@@ -55,7 +55,7 @@ module Webhookdb::Service::ViewApi
             content_type: h.fetch("content_type"),
             serialize_view_params: true,
           )
-          Rack::Response.new(new_html, e.status, {"Content-Type" => "text/html"})
+          Rack::Response.new(new_html, e.status, {Rack::CONTENT_TYPE => "text/html"})
         end
       end
     end

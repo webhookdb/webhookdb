@@ -62,8 +62,7 @@ module Webhookdb::Replicator::GithubRepoV1Mixin
     secret = self.service_integration.webhook_secret
     return Webhookdb::WebhookResponse.error("no secret set, run `webhookdb integration setup`", status: 409) if
       secret.nil?
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
     verified = Webhookdb::Github.verify_webhook(request_data, hash, secret)
     return Webhookdb::WebhookResponse.ok if verified
     return Webhookdb::WebhookResponse.error("invalid sha256")

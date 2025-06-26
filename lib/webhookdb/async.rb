@@ -88,6 +88,7 @@ module Webhookdb::Async
       Amigo::DurableJob.failure_notifier = Webhookdb::Async::JobLogger.method(:durable_job_failure_notifier)
       Amigo::QueueBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
       Amigo::SemaphoreBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
+      Sidekiq.default_configuration.logger = self.logger
       Sidekiq.configure_server { |config| self._configure_server(config, redis_params) }
       Sidekiq.configure_client { |config| self._configure_client(config, redis_params) }
     end
