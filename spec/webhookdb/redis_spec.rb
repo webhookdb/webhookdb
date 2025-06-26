@@ -3,6 +3,25 @@
 require "webhookdb/redis"
 
 RSpec.describe Webhookdb::Redis do
+  describe "#fetch_url" do
+    let(:envname) { "_WHDBTEST_REDIS_URL" }
+
+    after(:each) do
+      ENV.delete(envname)
+    end
+
+    it "returns the url if not blank" do
+      expect(described_class.fetch_url(envname, "x")).to eq("x")
+    end
+
+    it "returns the value of the env var if url is blank" do
+      ENV[envname] = "y"
+      expect(described_class.fetch_url(envname, "")).to eq("y")
+      expect(described_class.fetch_url(envname, nil)).to eq("y")
+      expect(described_class.fetch_url(envname, " ")).to eq("y")
+    end
+  end
+
   describe "#conn_params" do
     it "returns keyword arguments" do
       params = described_class.conn_params("redis://localhost:1234/0", reconnect_attempts: 1, timeout: 1.0)

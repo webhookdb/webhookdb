@@ -4,11 +4,9 @@ require "grape"
 
 require "webhookdb"
 require "webhookdb/service"
+require "webhookdb/service/helpers"
 
-# API is the namespace module for API resources.
 module Webhookdb::API
-  require "webhookdb/api/entities"
-
   class V1 < Webhookdb::Service
     def self.inherited(subclass)
       super
@@ -16,11 +14,8 @@ module Webhookdb::API
         version "v1", using: :path
         format :json
 
-        require "webhookdb/service/helpers"
         helpers Webhookdb::Service::Helpers
-        require "webhookdb/api/helpers"
         helpers Webhookdb::API::Helpers
-        require "webhookdb/api/connstr_auth"
 
         helpers do
           def verified_customer!
@@ -100,3 +95,7 @@ module Webhookdb::API
     end
   end
 end
+
+require "webhookdb/api/entities"
+require "webhookdb/api/connstr_auth"
+require "webhookdb/api/helpers"

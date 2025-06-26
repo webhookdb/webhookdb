@@ -3,7 +3,6 @@
 require "grape_entity"
 
 require "webhookdb/service/entities"
-require "webhookdb/api" unless defined? Webhookdb::API
 
 module Webhookdb::API
   MoneyEntity = Webhookdb::Service::Entities::Money

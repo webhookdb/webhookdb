@@ -957,13 +957,6 @@ for information on how to refresh data.)
     return result
   end
 
-  # The string 'null' in a json column still represents 'null' but we'd rather have an actual NULL value,
-  # represented by 'nil'. So, return nil if the arg is nil (so we get NULL),
-  # otherwise return the argument.
-  protected def _nil_or_json(x)
-    return x&.to_json
-  end
-
   # Have a column set itself only on insert or if nil.
   #
   # Given the payload to DO UPDATE, mutate it so that
