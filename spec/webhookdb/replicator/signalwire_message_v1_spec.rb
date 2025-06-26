@@ -25,10 +25,10 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
           "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
           "status": "sent",
           "subresource_uris": {
-            "media": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
           },
           "to": "+15558675310",
-          "uri": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
         }
       J
     end
@@ -56,10 +56,10 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
           "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
           "status": "sent",
           "subresource_uris": {
-            "media": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
           },
           "to": "+15558675310",
-          "uri": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
         }
       J
     end
@@ -84,10 +84,10 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
           "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
           "status": "sent",
           "subresource_uris": {
-            "media": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+            "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
           },
           "to": "+15558675310",
-          "uri": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
         }
       J
     end
@@ -116,16 +116,16 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       <<~R
         {
           "end": 1,
-          "first_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
-          "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+          "first_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
           "page": 0,
           "page_size": 2,
-          "previous_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "previous_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
           "messages": [
             {}
           ],
           "start": 0,
-          "uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
         }
       R
     end
@@ -135,13 +135,13 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
 
     def stub_service_request
-      return stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+      return stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
           to_return(status: 200, body: success_body, headers: {})
     end
 
     def stub_service_request_error
-      stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey_wrong/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+      stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey_wrong/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
         with(headers: {"Authorization" => "Basic YmZrZXlfd3Jvbmc6YmZzZWs="}).
         to_return(status: 401, body: "", headers: {})
     end
@@ -160,11 +160,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       <<~R
         {
           "end": 1,
-          "first_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
-          "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+          "first_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
           "page": 0,
           "page_size": 2,
-          "previous_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "previous_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
           "messages": [
             {
               "account_sid": "AC123",
@@ -185,11 +185,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "SMded05904ccb347238880ca9264e8fe1c",
               "status": "sent",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
             },
             {
               "account_sid": "AC123",
@@ -210,15 +210,15 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "MMc26223853f8c46b4ab7dfaa6abba0a26",
               "status": "received",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26.json"
             }
           ],
           "start": 0,
-          "uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
         }
       R
     end
@@ -227,7 +227,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
         {
           "end": 1,
           "first_page_uri": "never see this",
-          "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=SomeOtherToken",
+          "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=SomeOtherToken",
           "page": 0,
           "page_size": 2,
           "previous_page_uri": "never see this",
@@ -251,11 +251,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "SMabcxyz",
               "status": "sent",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
             }
           ],
           "start": 0,
@@ -287,25 +287,25 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
 
     def stub_service_requests
       return [
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
             to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
             to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_empty_requests
       return [
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
     end
 
     def stub_service_request_error
-      return stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+      return stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           to_return(status: 402, body: "woah")
     end
   end
@@ -317,11 +317,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       <<~R
         {
           "end": 1,
-          "first_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
-          "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+          "first_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
           "page": 0,
           "page_size": 2,
-          "previous_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+          "previous_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
           "messages": [
             {
               "account_sid": "AC123",
@@ -342,11 +342,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "SMded05904ccb347238880ca9264e8fe1c",
               "status": "sent",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
             },
             {
               "account_sid": "AC123",
@@ -367,15 +367,15 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "MMc26223853f8c46b4ab7dfaa6abba0a26",
               "status": "received",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/MMc26223853f8c46b4ab7dfaa6abba0a26.json"
             }
           ],
           "start": 0,
-          "uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+          "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
         }
       R
     end
@@ -384,7 +384,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
         {
           "end": 1,
           "first_page_uri": "never see this",
-          "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=SomeOtherToken",
+          "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=SomeOtherToken",
           "page": 0,
           "page_size": 2,
           "previous_page_uri": "never see this",
@@ -408,11 +408,11 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
               "sid": "SMabcxyz",
               "status": "sent",
               "subresource_uris": {
-                "media": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
-                "feedback": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
+                "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Media.json",
+                "feedback": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c/Feedback.json"
               },
               "to": "+18182008801",
-              "uri": "/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
+              "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMded05904ccb347238880ca9264e8fe1c.json"
             }
           ],
           "start": 0,
@@ -448,15 +448,15 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
 
     def stub_service_requests(partial:)
       new_reqs = [
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
           with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
           to_return(status: 200, body: page1_response, headers: {"Content-Type" => "application/json"}),
       ]
       return new_reqs if partial
       old_reqs = [
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26&To=%2B123456789").
           to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
-        stub_request(:get, "https://whdbtestfake.signalwire.com/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
+        stub_request(:get, "https://whdbtestfake.signalwire.com/api/laml/2010-04-01/Accounts/AC123/Messages.json?DateSent%3E=2008-01-02&From=%2B987654321&Page=1&PageSize=2&PageToken=SomeOtherToken&To=%2B123456789").
           to_return(status: 200, body: page3_response, headers: {"Content-Type" => "application/json"}),
       ]
       return old_reqs + new_reqs
@@ -474,7 +474,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
     end
 
     def stub_service_request
-      return stub_request(:get, "https://namespace.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2024-01-17&PageSize=100")
+      return stub_request(:get, "https://namespace.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2024-01-17&PageSize=100")
     end
 
     def handled_responses
@@ -532,22 +532,22 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
         <<~R
           {
             "end": 1,
-            "first_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
-            "next_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
+            "first_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+            "next_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=1&PageToken=PAMMc26223853f8c46b4ab7dfaa6abba0a26",
             "page": 0,
             "page_size": 2,
-            "previous_page_uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
+            "previous_page_uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0",
             "messages": [
               {}
             ],
             "start": 0,
-            "uri": "/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
+            "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages.json?To=%2B123456789&From=%2B987654321&DateSent%3E=2008-01-02&PageSize=2&Page=0"
           }
         R
       end
 
       def stub_service_request
-        return stub_request(:get, "https://fakespace.signalwire.com/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
+        return stub_request(:get, "https://fakespace.signalwire.com/api/laml/2010-04-01/Accounts/bfkey/Messages.json?DateSend%3C=2020-11-24&PageSize=100").
             with(headers: {"Authorization" => "Basic YmZrZXk6YmZzZWs="}).
             to_return(status: 200, body: success_body, headers: {})
       end

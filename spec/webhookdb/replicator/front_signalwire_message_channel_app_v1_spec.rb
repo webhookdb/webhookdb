@@ -356,10 +356,10 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         "sid": "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
         "status": "sent",
         "subresource_uris": {
-          "media": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
+          "media": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/Media.json"
         },
         "to": "+15558675310",
-        "uri": "/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
+        "uri": "/api/laml/2010-04-01/Accounts/AC123/Messages/SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.json"
       }
     JSON
     let(:row) { signalwire_sint.replicator.upsert_webhook_body(data, upsert: false) }
@@ -626,7 +626,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         )
         ds.insert(external_id: "both_id", front_message_id: "fmid2", signalwire_sid: "swid", data: "{}")
       end
-      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+      req = stub_request(:post, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json").
         with(
           body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
           headers: {
@@ -659,7 +659,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           data: {payload: {created_at: Time.now.to_i}}.to_json,
         )
       end
-      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+      req = stub_request(:post, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json").
         with(
           body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
         ).to_return(json_response(load_fixture_data("signalwire/error_inactive_campaign"), status: 422))
@@ -684,7 +684,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           data: {payload: {created_at: Time.now.to_i}}.to_json,
         )
       end
-      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+      req = stub_request(:post, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json").
         with(
           body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
         ).to_return(json_response({message: "uh oh"}, status: 422))
@@ -703,7 +703,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
           data: {payload: {created_at: Time.now.to_i}}.to_json,
         )
       end
-      req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+      req = stub_request(:post, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json").
         with(
           body: {"Body" => "hi", "From" => "+12223334444", "To" => "+15556667777"},
         ).to_return(status: 500, body: "uh oh")
@@ -1063,7 +1063,7 @@ RSpec.describe Webhookdb::Replicator::FrontSignalwireMessageChannelAppV1, :db do
         end
         attachment_req = stub_request(:get, "https://myclient.api.frontapp.com/messages/msg_2jre19y9/download/fil_50jy51ep").
           to_return(status: 200, body: "myimage", headers: {"Content-Type" => "image/png"})
-        sms_req = stub_request(:post, "https://whdbtest.signalwire.com/2010-04-01/Accounts/projid/Messages.json").
+        sms_req = stub_request(:post, "https://whdbtest.signalwire.com/api/laml/2010-04-01/Accounts/projid/Messages.json").
           with(
             body: hash_including(
               "Body" => "hi",
