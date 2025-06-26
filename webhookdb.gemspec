@@ -63,7 +63,7 @@ Gem::Specification.new do |s|
   s.add_dependency("platform-api", "~> 3.7")
   s.add_dependency("premailer", "~> 1.27")
   s.add_dependency("pry", "~> 0.15")
-  s.add_dependency("puma", "~> 6.5")
+  s.add_dependency("puma", "~> 6.6")
   s.add_dependency("rack-cors", "~> 2.0")
   s.add_dependency("rack-protection", "~> 3.2")
   s.add_dependency("rack-spa", "~> 0.11")

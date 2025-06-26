@@ -41,7 +41,7 @@ PATH
       platform-api (~> 3.7)
       premailer (~> 1.27)
       pry (~> 0.15)
-      puma (~> 6.5)
+      puma (~> 6.6)
       rack-cors (~> 2.0)
       rack-protection (~> 3.2)
       rack-spa (~> 0.11)

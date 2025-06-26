@@ -34,6 +34,19 @@ RSpec.describe Webhookdb::API::System do
         redis: be_a(Float),
       )
     end
+
+    it "handles services that are down" do
+      expect(Webhookdb::Customer.db).to receive(:[]).and_raise(RuntimeError)
+      expect(Sidekiq).to receive(:redis).and_raise(RuntimeError)
+      get "/service_health"
+      expect(last_response).to have_status(200)
+      expect(last_response_json_body).to include(
+        autoscale_depth: -1,
+        autoscale_started: Time.at(0),
+        db: -1,
+        redis: -1,
+      )
+    end
   end
 
   describe "GET /statusz" do
