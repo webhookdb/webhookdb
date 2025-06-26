@@ -1,4 +1,4 @@
-FROM ruby:3.2.1-slim
+FROM ruby:3.4.4-slim
 
 RUN apt-get update && apt-get install -y build-essential shared-mime-info libpq-dev git
 
