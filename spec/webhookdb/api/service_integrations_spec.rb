@@ -462,7 +462,6 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
         "host" => "example.org",
         "trace-id" => be_a(String),
         "x-request-id" => be_a(String),
-        "version" => "HTTP/1.0",
         "x-bar" => "1",
         "x-foo" => "***",
       )
@@ -477,7 +476,8 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
           "args" => contain_exactly(
-            include("payload" => contain_exactly(other_sint.id, hash_including),             )),
+            include("payload" => contain_exactly(other_sint.id, hash_including)),
+          ),
         ),
       )
 

@@ -55,7 +55,7 @@ class Webhookdb::Replicator::Fake < Webhookdb::Replicator::Base
   end
 
   def preprocess_headers_for_logging(headers)
-    self.class.obfuscate_headers_for_logging.each { |h| headers[h] = "***" }
+    self.class.obfuscate_headers_for_logging.each { |h| headers[h.downcase] = "***" }
   end
 
   def synchronous_processing_response_body(**)

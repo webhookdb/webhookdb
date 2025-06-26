@@ -208,7 +208,11 @@ module Webhookdb::API::Helpers
         logger.warn "rejected_webhook", webhook_headers: request_headers, webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
-        req_body = env.key?("api.request.body") ? env["api.request.body"] : env["rack.input"].read
+        req_body = if env.key?("api.request.body")
+                     env["api.request.body"]
+        else
+          Webhookdb::Http.rewind_request_body(request)&.read || ""
+        end
         req_body = {} if req_body.blank?
         process_kwargs = {
           headers: request_headers,
@@ -264,9 +268,8 @@ module Webhookdb::API::Helpers
     # - Must handle error! calls
     # Anyway, this is all pretty confusing, but it's all tested.
     rstatus = status == 201 ? (sstatus || 0) : status
-    Webhookdb::Http.rewind_request_body(request)
     Webhookdb::LoggedWebhook.resilient_insert(
-      request_body: request.body.read,
+      request_body: Webhookdb::Http.rewind_request_body(request)&.read || "",
       request_headers: request_headers.to_json,
       request_method: request.request_method,
       request_path: request.path_info,

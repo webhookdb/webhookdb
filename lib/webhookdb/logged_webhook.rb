@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "appydays/configurable"
-require "rack/headers"
 
 require "webhookdb/postgres/model"
 
@@ -128,7 +127,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
       # in the original request; then we want to use those.
       # Additionally, there are a whole set of headers we'll find on our webserver
       # that are added by our web platform, which we do NOT want to include.
-      Rack::Request[lw.request_headers].each do |k, v|
+      lw.request_headers.each do |k, v|
+        k = k.downcase
         next if Webhookdb::LoggedWebhook::WEBHOST_HEADERS.include?(k)
         next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
@@ -185,7 +185,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   end
 
   def before_save
-    self[:request_headers] = Rack::Headers[(self[:request_headers] || {}).to_h]
+    (self[:request_headers] || {}).transform_keys!(&:downcase)
     super
   end
 end

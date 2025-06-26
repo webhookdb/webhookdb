@@ -308,7 +308,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 get do
                   org = lookup_org!(allow_connstr_auth: true)
                   job = Webhookdb::BackfillJob[
-                    service_integration: org.service_integrations_dataset,opaque_id: params[:job_id],
+                    service_integration: org.service_integrations_dataset, opaque_id: params[:job_id],
                   ]
                   forbidden! if job.nil?
                   present job, with: Webhookdb::API::BackfillJobEntity

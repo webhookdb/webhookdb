@@ -88,7 +88,7 @@ class Webhookdb::Replicator::UrlRecorderV1 < Webhookdb::Replicator::Base
   def redirect? = self.service_integration.api_url =~ %r{^https?://}
 
   def _redirect_response
-    headers = {"Location" => self.service_integration.api_url, "Content-Type" => "text/plain"}
+    headers = {"location" => self.service_integration.api_url, "content-type" => "text/plain"}
     return Webhookdb::WebhookResponse.new(status: 302, headers:, body: "")
   end
 

@@ -68,7 +68,7 @@ RSpec.describe Webhookdb::Replicator::SponsyPublicationV1, :db do
       J
       all_cols = svc._denormalized_columns
       current_cols = all_cols.dup
-      current_cols.delete_if { |c| c.name == :day_names || c.name == :days_normalized }
+      current_cols.delete_if { |c| [:day_names, :days_normalized].include?(c.name) }
 
       expect(svc).to receive(:_denormalized_columns).at_least(:once).and_return(current_cols)
 

@@ -797,7 +797,7 @@ RSpec.describe Webhookdb::API::Install, :db, reset_configuration: Webhookdb::Cus
       # We can test it directly in the future but this is good enough for now.
       expect(Webhookdb::LoggedWebhook.first).to have_attributes(
         request_path: "/v1/install/intercom/uninstall",
-        request_headers: include("host", "version", "trace-id"),
+        request_headers: include("host", "trace-id"),
       )
     end
   end

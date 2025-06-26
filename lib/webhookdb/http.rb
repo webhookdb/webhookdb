@@ -129,7 +129,7 @@ module Webhookdb::Http
     if request.body.instance_of?(::Rack::Lint::Wrapper::InputWrapper)
       request.body.instance_variable_get(:@input).rewind
     else
-      request.body.rewind
+      request.body&.rewind
     end
     return request.body
   end

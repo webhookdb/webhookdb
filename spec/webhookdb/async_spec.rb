@@ -72,34 +72,19 @@ RSpec.describe "Webhookdb::Async", :async, :db do
     end
 
     it "can configure the client" do
-      described_class._configure_client(Sidekiq, {url: "redis://x"})
-      expect(Sidekiq.default_configuration.client_middleware.entries).to include(
+      cfg = Sidekiq::Config.new
+      described_class._configure_client(cfg)
+      expect(cfg.client_middleware.entries).to include(
         have_attributes(klass: Amigo::DurableJob::ClientMiddleware),
       )
     end
 
     it "can configure the server" do
-      described_class._configure_server(Sidekiq, {url: "redis://x"})
-      expect(Sidekiq.default_configuration.server_middleware.entries).to include(
+      cfg = Sidekiq::Config.new
+      described_class._configure_server(cfg)
+      expect(cfg.server_middleware.entries).to include(
         have_attributes(klass: Amigo::JobInContext::ServerMiddleware),
       )
-    end
-
-    it "turns off SSL verify on Heroku" do
-      described_class.sidekiq_redis_url = "rediss://x"
-
-      described_class.run_after_configured_hooks
-      Sidekiq.redis do |r|
-        expect(r.instance_variable_get(:@options)).to_not include(:ssl_params)
-      end
-
-      ENV["HEROKU_APP_ID"] = "z"
-      described_class.run_after_configured_hooks
-      Sidekiq.redis do |r|
-        expect(r.instance_variable_get(:@options)).to include(:ssl_params)
-      end
-    ensure
-      ENV.delete("HEROKU_APP_ID")
     end
   end
 

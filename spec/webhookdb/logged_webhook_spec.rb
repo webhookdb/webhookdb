@@ -154,7 +154,7 @@ RSpec.describe "Webhookdb::LoggedWebhook", :async, :db do
   end
 
   it "canonicalizes headers on save" do
-    lw = Webhookdb::Fixtures.logged_webhook.create(request_headers: {'Xyz' => 'A', 'ABC' => 'z'})
+    lw = Webhookdb::Fixtures.logged_webhook.create(request_headers: {"Xyz" => "A", "ABC" => "z"})
     expect(lw.request_headers).to eq({"abc" => "z", "xyz" => "A"})
     expect(lw.refresh.request_headers).to eq({"abc" => "z", "xyz" => "A"})
   end
