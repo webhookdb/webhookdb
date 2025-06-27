@@ -9,6 +9,12 @@ module Webhookdb::Tasks
     def initialize
       super
       namespace :sidekiq do
+        desc "Tag the Sidekiq deployment in metrics."
+        task :release do
+          require "sidekiq/deploy"
+          ::Sidekiq::Deploy.mark!(Webhookdb::RELEASE)
+        end
+
         desc "Clear the Sidekiq redis DB (flushdb). " \
              "Only use on local, and only for legit reasons, " \
              "not to paper over problems that will show on staging and prod " \
