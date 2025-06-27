@@ -21,7 +21,7 @@ RSpec.describe Webhookdb::Async::ResilientSidekiqClient do
   end
 
   it "can save a job" do
-    expect(Sidekiq.redis_pool).to receive(:with) { raise Redis::ConnectionError, "from testing" }
+    expect(Sidekiq.redis_pool).to receive(:with) { raise RedisClient::ConnectionError, "from testing" }
     cls = create_job_class(nil)
     Sidekiq::Testing.disable! do
       cls.perform_async

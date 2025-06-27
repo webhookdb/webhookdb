@@ -24,7 +24,7 @@ class Webhookdb::AdminAPI::Auth < Webhookdb::AdminAPI::V1
       end
       post do
         (me = Webhookdb::Customer.with_email(params[:email])) or unauthenticated!
-        me.authenticate(params[:password]) or unauthenticated!
+        me.authenticate?(params[:password]) or unauthenticated!
         unauthenticated! unless me.admin?
         set_customer(me)
         status 200

@@ -10,9 +10,8 @@ require "sentry-sidekiq"
 require "sidekiq"
 require "sidekiq-cron"
 
-Sidekiq.strict_args!
-
 require "webhookdb"
+require "webhookdb/redis"
 
 module Webhookdb::Async
   include Appydays::Configurable
@@ -22,12 +21,13 @@ module Webhookdb::Async
   require "webhookdb/async/job_logger"
   require "webhookdb/async/audit_logger"
 
-  def self._configure_server(config, redis_params)
+  def self._configure_server(config)
     require "amigo/job_in_context"
     require "amigo/rate_limited_error_handler"
     require "webhookdb/async/extended_logging"
     require "webhookdb/async/timeout_retry"
-    config.redis = redis_params
+    url = Webhookdb::Redis.fetch_url(self.sidekiq_redis_provider, self.sidekiq_redis_url)
+    config.redis = Webhookdb::Redis.conn_params(url)
     config[:job_logger] = Webhookdb::Async::JobLogger
     # We do NOT want the unstructured default error handler
     config.error_handlers.replace([Webhookdb::Async::JobLogger.method(:error_handler)])
@@ -47,8 +47,9 @@ module Webhookdb::Async
     config.server_middleware.add(Webhookdb::Async::TimeoutRetry::ServerMiddleware)
   end
 
-  def self._configure_client(config, redis_params)
-    config.redis = redis_params
+  def self._configure_client(config)
+    url = Webhookdb::Redis.fetch_url(self.sidekiq_redis_provider, self.sidekiq_redis_url)
+    config.redis = Webhookdb::Redis.conn_params(url)
     config.client_middleware.add(Amigo::DurableJob::ClientMiddleware)
   end
 
@@ -77,19 +78,12 @@ module Webhookdb::Async
     setting :backoff_disabled, false
 
     after_configured do
-      # Very hard to test this, so it's not tested.
-      url = self.sidekiq_redis_provider.present? ? ENV.fetch(self.sidekiq_redis_provider, nil) : self.sidekiq_redis_url
-      redis_params = {url:}
-      if url.start_with?("rediss:") && ENV["HEROKU_APP_ID"]
-        # rediss: schema is Redis with SSL. They use self-signed certs, so we have to turn off SSL verification.
-        # There is not a clear KB on this, you have to piece it together from Heroku and Sidekiq docs.
-        redis_params[:ssl_params] = {verify_mode: OpenSSL::SSL::VERIFY_NONE}
-      end
       Amigo::DurableJob.failure_notifier = Webhookdb::Async::JobLogger.method(:durable_job_failure_notifier)
       Amigo::QueueBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
       Amigo::SemaphoreBackoffJob.enabled = !Webhookdb::Async.backoff_disabled
-      Sidekiq.configure_server { |config| self._configure_server(config, redis_params) }
-      Sidekiq.configure_client { |config| self._configure_client(config, redis_params) }
+      Sidekiq.default_configuration.logger = self.logger
+      Sidekiq.configure_server { |config| self._configure_server(config) }
+      Sidekiq.configure_client { |config| self._configure_client(config) }
     end
   end
 

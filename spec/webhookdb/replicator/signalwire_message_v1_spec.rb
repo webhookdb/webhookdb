@@ -497,7 +497,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       req = Rack::Request.new({})
       status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
-      expect(headers).to include("WWW-Authenticate" => 'Basic realm="Webhookdb"')
+      expect(headers).to include("www-authenticate" => 'Basic realm="Webhookdb"')
     end
 
     it "returns a 401 for an invalid Authorization header" do
@@ -506,7 +506,7 @@ RSpec.describe Webhookdb::Replicator::SignalwireMessageV1, :db do
       req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
       status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
-      expect(headers).to_not include("WWW-Authenticate")
+      expect(headers).to_not include("www-authenticate")
     end
 
     it "returns a 202 with a valid Authorization header" do

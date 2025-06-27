@@ -110,8 +110,7 @@ class Webhookdb::Replicator::EmailOctopusEventV1 < Webhookdb::Replicator::Base
     signature_header = request.env["HTTP_EMAILOCTOPUS_SIGNATURE"]
     return Webhookdb::WebhookResponse.error("missing signature") if signature_header.nil?
 
-    request.body.rewind
-    data = request.body.read
+    data = Webhookdb::Http.rewind_request_body(request).read
     verified = Webhookdb::EmailOctopus.verify_webhook(data, signature_header, self.service_integration.webhook_secret)
     return Webhookdb::WebhookResponse.ok if verified
     return Webhookdb::WebhookResponse.error("invalid signature")

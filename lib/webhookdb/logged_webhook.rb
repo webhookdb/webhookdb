@@ -42,27 +42,27 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   DELETE_FAILURES = 90.days
   TRUNCATE_FAILURES = 30.days
   # When we retry a request, set this so we know not to re-log it.
-  RETRY_HEADER = "Whdb-Logged-Webhook-Retry"
+  RETRY_HEADER = "whdb-logged-webhook-retry"
   # When we retry a request, these headers
   # must come from the Ruby client, NOT the original request.
   NONOVERRIDABLE_HEADERS = [
-    "Accept-Encoding",
-    "Accept",
-    "Host",
-    "Version",
+    "accept-encoding",
+    "accept",
+    "host",
+    "version",
   ].to_set
   # These headers have been added by Heroku/our web host,
   # so should not be part of the retry.
   WEBHOST_HEADERS = [
-    "Connection",
-    "Connect-Time",
-    "X-Request-Id",
-    "X-Forwarded-For",
-    "X-Request-Start",
-    "Total-Route-Time",
-    "X-Forwarded-Port",
-    "X-Forwarded-Proto",
-    "Via",
+    "connection",
+    "connect-time",
+    "x-request-id",
+    "x-forwarded-for",
+    "x-request-start",
+    "total-route-time",
+    "x-forwarded-port",
+    "x-forwarded-proto",
+    "via",
   ].to_set
 
   # Trim logged webhooks to keep this table to a reasonable size.
@@ -128,6 +128,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
       # Additionally, there are a whole set of headers we'll find on our webserver
       # that are added by our web platform, which we do NOT want to include.
       lw.request_headers.each do |k, v|
+        k = k.downcase
         next if Webhookdb::LoggedWebhook::WEBHOST_HEADERS.include?(k)
         next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
@@ -181,6 +182,11 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   # Replay and delete all rows in the resilient database tables.
   def self.resilient_replay
     Resilient.new.replay
+  end
+
+  def before_save
+    (self[:request_headers] || {}).transform_keys!(&:downcase)
+    super
   end
 end
 

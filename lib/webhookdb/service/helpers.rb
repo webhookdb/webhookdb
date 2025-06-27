@@ -107,7 +107,7 @@ module Webhookdb::Service::Helpers
   end
 
   def merror!(status, message, code: nil, more: {}, headers: {}, rollback_db: nil, alert: false)
-    header "Content-Type", "application/json"
+    header Rack::CONTENT_TYPE, "application/json"
     body = Webhookdb::Service.error_body(status, message, code:, more:)
     if alert
       Sentry.with_scope do |scope|

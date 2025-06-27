@@ -20,8 +20,7 @@ class Webhookdb::Stripe
 
     return Webhookdb::WebhookResponse.error("missing hmac") if auth.nil?
 
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
 
     begin
       Stripe::Webhook.construct_event(

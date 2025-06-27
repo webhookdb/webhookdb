@@ -4,6 +4,7 @@ require "appydays/configurable"
 require "grape"
 require "appydays/loggable"
 require "pg"
+require "rack/session"
 require "sentry-ruby"
 require "sequel"
 require "sequel/adapters/postgres"
@@ -75,8 +76,13 @@ class Webhookdb::Service < Grape::API
 
   def self.decode_cookie(s)
     cfg = self.cookie_config
+    s = s.split(";").first
     s = s.delete_prefix(cfg[:key] + "=")
-    return cfg[:coder].decode(Rack::Utils.unescape(s))
+    s = Rack::Utils.unescape(s)
+    cookie_app = Rack::Session::Cookie.new(nil, cfg)
+    dc = cookie_app.encryptors.first
+    ds = dc.decrypt(s)
+    return ds
   end
 
   ### Build the Rack app according to the configured environment.

@@ -429,7 +429,7 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(201)
       cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
       expect(cookie).to include("webhookdb.session")
-      expect(Time.parse(cookie["expires"][0])).to be > (10.days.from_now)
+      expect(Time.parse(cookie["expires"][0])).to be > 10.days.from_now
     end
 
     it "is very short if Whdb-Short-Session header is present" do
@@ -440,7 +440,7 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(201)
       cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
       expect(cookie).to include("webhookdb.session")
-      expect(Time.parse(cookie["expires"][0])).to be < (2.hours.from_now)
+      expect(Time.parse(cookie["expires"][0])).to be < 2.hours.from_now
     end
   end
 

@@ -30,6 +30,6 @@ class Webhookdb::Jobs::IcalendarSync
 
   def semaphore_key = "semaphore-icalendarsync-#{@sint.job_semaphore_identifier}"
   def semaphore_size = @sint.job_semaphore_size
-  def semaphore_expiry = 15.minutes
+  def semaphore_expiry = 15.minutes.to_i
   def semaphore_backoff = 60 + (rand * 30)
 end

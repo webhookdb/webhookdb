@@ -269,7 +269,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
 
     resource :front do
       post :webhook do
-        is_initial_request = request.headers["X-Front-Challenge"].present?
+        is_initial_request = request.headers["x-front-challenge"].present?
         if is_initial_request
           whresp = Webhookdb::Front.initial_verification_request_response(request, Webhookdb::Front.app_secret)
           s_status, s_headers, s_body = whresp.to_rack
@@ -320,7 +320,7 @@ class Webhookdb::API::Install < Webhookdb::API::V1
       end
       route [:post, :delete], :channel do
         handle_webhook_request("front-signalwire-channel") do
-          auth_header = request.headers["Authorization"]
+          auth_header = request.headers["authorization"]
           merror!(401, "Missing Authorization header", code: "unauthenticated") if
             auth_header.nil?
           merror!(401, "Expected Bearer authorization", code: "unauthenticated") unless

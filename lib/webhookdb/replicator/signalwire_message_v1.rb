@@ -26,7 +26,7 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
         status: 401,
         body: "",
         reason: "challenge",
-        headers: {"Content-Type" => "text/plain", "WWW-Authenticate" => 'Basic realm="Webhookdb"'},
+        headers: {Rack::CONTENT_TYPE => "text/plain", "www-authenticate" => 'Basic realm="Webhookdb"'},
       )
     end
     user_and_pass = Base64.decode64(auth.gsub(/^Basic /, ""))
@@ -35,12 +35,12 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
         status: 401,
         body: "",
         reason: "invalid",
-        headers: {"Content-Type" => "text/plain"},
+        headers: {Rack::CONTENT_TYPE => "text/plain"},
       )
     end
     return Webhookdb::WebhookResponse.new(
       status: 202,
-      headers: {"Content-Type" => "text/xml"},
+      headers: {Rack::CONTENT_TYPE => "text/xml"},
       body: "<Response></Response>",
     )
   end

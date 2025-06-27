@@ -44,7 +44,7 @@ module Webhookdb::Replicator::GithubRepoV1Mixin
   def _resource_and_event(request)
     # Note the canonical casing on the header name. GitHub sends X-GitHub-Hook-ID
     # but it's normalized here.
-    is_webhook = (request.headers || {})["X-Github-Hook-Id"]
+    is_webhook = (request.headers || {})["x-github-hook-id"]
     return request.body, nil unless is_webhook
     resource = request.body.fetch(self._mixin_webhook_key, nil)
     return nil, nil if resource.nil?
@@ -62,8 +62,7 @@ module Webhookdb::Replicator::GithubRepoV1Mixin
     secret = self.service_integration.webhook_secret
     return Webhookdb::WebhookResponse.error("no secret set, run `webhookdb integration setup`", status: 409) if
       secret.nil?
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
     verified = Webhookdb::Github.verify_webhook(request_data, hash, secret)
     return Webhookdb::WebhookResponse.ok if verified
     return Webhookdb::WebhookResponse.error("invalid sha256")
@@ -208,7 +207,7 @@ Then click 'Generate token'.)
     )
     # Handle the GH-specific vnd JSON or general application/json
     parsed = response.parsed_response
-    (parsed = Oj.load(parsed)) if response.headers["Content-Type"] == JSON_CONTENT_TYPE
+    (parsed = Oj.load(parsed)) if response.headers["content-type"] == JSON_CONTENT_TYPE
     return response, parsed
   end
 

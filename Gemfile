@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 source "https://rubygems.org"
-ruby "3.2.1"
+ruby "3.4.4"
 
 gemspec
 
@@ -16,10 +16,10 @@ group :test do
   gem "rspec", "~> 3.12"
   gem "rspec-eventually", "~> 0.2"
   gem "rspec-json_expectations", "~> 2.2"
-  gem "rubocop", "~> 1.59"
+  gem "rubocop", "~> 1.77"
   gem "rubocop-performance", "~> 1.20", require: false
   gem "rubocop-rake", "~> 0.6", require: false
-  gem "rubocop-rspec", "~> 2.25", require: false
+  gem "rubocop-rspec", "~> 3.6", require: false
   gem "rubocop-sequel", "~> 0.3", require: false
   gem "simplecov", "~> 0.22", require: false
   gem "simplecov-cobertura", "~> 2.1"

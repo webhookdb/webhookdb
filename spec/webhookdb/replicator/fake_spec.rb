@@ -714,7 +714,7 @@ or leave blank to choose the first option.
         expect(fake).to receive(:_upsert_webhook).and_raise(err)
         logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
           expect do
-            upsert_webhook(fake, body: {"a" => 1}, headers: {"X" => "1"}, path: "/hi", method: "POST")
+            upsert_webhook(fake, body: {"a" => 1}, headers: {"X-Yz" => "1"}, path: "/hi", method: "POST")
           end.to raise_error(err)
         end
         expect(logs).to contain_exactly(
@@ -723,7 +723,7 @@ or leave blank to choose the first option.
             name: eq("Webhookdb::Replicator::Fake"),
             exception: include("name" => "RuntimeError", "message" => "hi"),
             context: {
-              request: {body: {a: 1}, headers: {X: "1"}, path: "/hi", method: "POST"},
+              request: {body: {a: 1}, headers: {"x-yz" => "1"}, path: "/hi", method: "POST"},
             },
           ),
         )

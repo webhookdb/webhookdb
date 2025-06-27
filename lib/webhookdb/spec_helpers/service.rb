@@ -294,7 +294,7 @@ module Webhookdb::SpecHelpers::Service
       if self.expected_type == Array
         return self.fail_with("response body isn't a JSON Array") unless
           self.parsed_response_body.is_a?(Array)
-      elsif self.expected_type == Object || self.expected_type == Hash
+      elsif [Object, Hash].include?(self.expected_type)
         return self.fail_with("response body isn't a JSON Object") unless
           self.parsed_response_body.is_a?(Hash)
       else

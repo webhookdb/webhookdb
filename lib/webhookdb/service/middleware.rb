@@ -8,6 +8,15 @@ require "appydays/loggable/request_logger"
 
 require "webhookdb/service" unless defined?(Webhookdb::Service)
 
+class Rack::SslEnforcer
+  alias original_call call
+  def call(env)
+    resp = original_call(env)
+    resp[1].transform_keys!(&:downcase)
+    return resp
+  end
+end
+
 module Webhookdb::Service::Middleware
   def self.add_middlewares(builder)
     self.add_cors_middleware(builder)
@@ -51,7 +60,6 @@ module Webhookdb::Service::Middleware
 
   def self.add_common_middleware(builder)
     builder.use(Rack::ContentLength)
-    builder.use(Rack::Chunked)
     builder.use(Sentry::Rack::CaptureExceptions)
     builder.use(Rack::Deflater)
   end

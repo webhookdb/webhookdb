@@ -37,7 +37,7 @@ class Webhookdb::WebhookResponse < Webhookdb::TypedStruct
     raise "Reason must be provided if returning an error" if !reason && status >= 400
     if json
       body = json.to_json
-      headers["Content-Type"] = "application/json"
+      headers[Rack::CONTENT_TYPE] = "application/json"
     end
     raise ":body or :json must be provided" if body.nil?
     super(status:, body:, headers:, reason:)

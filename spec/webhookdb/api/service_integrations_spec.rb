@@ -239,7 +239,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("X-My-Test" => "abc", "Content-Type" => "application/json"),
+                  "headers" => hash_including("x-my-test" => "abc", "content-type" => "application/json"),
                   "body" => {"foo" => 1},
                   "request_path" => "/v1/service_integrations/xyz",
                   "request_method" => "POST",
@@ -265,7 +265,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("Content-Type" => "application/x-www-form-urlencoded"),
+                  "headers" => hash_including("content-type" => "application/x-www-form-urlencoded"),
                   "body" => "Key1=a&Key2=10",
                   "request_path" => "/v1/service_integrations/xyz",
                   "request_method" => "POST",
@@ -420,7 +420,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("X-My-Test" => "abc"),
+                  "headers" => hash_including("x-my-test" => "abc"),
                   "body" => {},
                   "request_path" => "/v1/service_integrations/xyz/v2/listings",
                   "request_method" => "DELETE",
@@ -440,7 +440,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
           request_body: "{}",
-          request_headers: hash_including("Host" => "example.org"),
+          request_headers: hash_including("host" => "example.org"),
           request_path: "/v1/service_integrations/xyz/v2/listings",
           request_method: "DELETE",
           response_status: 202,
@@ -457,14 +457,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.first.request_headers.to_h).to match(
-        "Content-Type" => "application/json",
-        "Cookie" => "",
-        "Host" => "example.org",
-        "Trace-Id" => be_a(String),
-        "X-Request-Id" => be_a(String),
-        "Version" => "HTTP/1.0",
-        "X-Bar" => "1",
-        "X-Foo" => "***",
+        "content-type" => "application/json",
+        "cookie" => "",
+        "host" => "example.org",
+        "trace-id" => be_a(String),
+        "x-request-id" => be_a(String),
+        "x-bar" => "1",
+        "x-foo" => "***",
       )
     end
 
@@ -476,9 +475,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       }
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
-          "args" => contain_exactly(include(
-                                      "payload" => contain_exactly(other_sint.id, hash_including),
-                                    )),
+          "args" => contain_exactly(
+            include("payload" => contain_exactly(other_sint.id, hash_including)),
+          ),
         ),
       )
 
@@ -496,7 +495,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
           request_body: '{"a":1}',
-          request_headers: hash_including("Host" => "example.org"),
+          request_headers: hash_including("host" => "example.org"),
           request_path: "/v1/service_integrations/xyz",
           request_method: "POST",
           response_status: 202,
@@ -595,7 +594,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
 
       it "logs a resilient job and succeeds if Redis is unavailable" do
         Sidekiq::Testing.disable! do
-          expect(Sidekiq.redis_pool).to receive(:with) { raise Redis::ConnectionError, "from testing" }
+          expect(Sidekiq.redis_pool).to receive(:with) { raise RedisClient::ConnectionError, "from testing" }
 
           post "/v1/service_integrations/xyz", foo: 1
 

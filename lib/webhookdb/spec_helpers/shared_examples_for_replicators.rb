@@ -128,7 +128,7 @@ RSpec.shared_examples "a replicator" do |supports_rowupsert: true, supports_row_
     status, headers, body = whresp.to_rack
     expect(status).to be_a(Integer)
     expect(headers).to be_a(Hash)
-    expect(headers).to include("Content-Type")
+    expect(headers).to include("content-type")
     expect(body).to be_a(String)
   end
 
