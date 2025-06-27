@@ -205,9 +205,9 @@ The secret to use for signing is:
               last_sync_duration_ms: (Time.now - start).in_milliseconds,
               last_fetch_context: {
                 "hash" => processor&.feed_hash,
-                "content_type" => processor&.headers&.fetch("Content-Type", nil),
-                "content_length" => processor&.headers&.fetch("Content-Length", nil),
-                "etag" => processor&.headers&.fetch("Etag", nil),
+                "content_type" => processor&.headers&.fetch("content-type", nil),
+                "content_length" => processor&.headers&.fetch("content-length", nil),
+                "etag" => processor&.headers&.fetch("etag", nil),
               }.to_json,
             )
         end
@@ -339,7 +339,7 @@ The secret to use for signing is:
         # For now, other client errors, we can raise on,
         # in case it's something we can fix/work around.
         # For example, it's possible something like a 415 is a WebhookDB issue.
-        if response_status == 421 && (origin_err = e.response.headers["Ical-Proxy-Origin-Error"])
+        if response_status == 421 && (origin_err = e.response.headers["ical-proxy-origin-error"])
           response_status = origin_err.to_i
         end
         raise e unless expected_errors.include?(response_status)
@@ -705,8 +705,8 @@ The secret to use for signing is:
     rescue StandardError
       return true
     end
-    content_type_match = resp.headers["Content-Type"] == last_fetch["content_type"] &&
-      resp.headers["Content-Length"] == last_fetch["content_length"]
+    content_type_match = resp.headers["content-type"] == last_fetch["content_type"] &&
+      resp.headers["content-length"] == last_fetch["content_length"]
     return true unless content_type_match
     last_hash = last_fetch["hash"]
     return true if last_hash.nil?
