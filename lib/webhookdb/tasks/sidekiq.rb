@@ -17,6 +17,16 @@ module Webhookdb::Tasks
           require "webhookdb/async"
           ::Sidekiq.redis(&:flushdb)
         end
+
+        desc "Run retry on all jobs in the retry set."
+        task :retry_all do
+          ::Sidekiq::RetrySet.new.retry_all
+        end
+
+        desc "Run retry on all jobs in the dead set."
+        task :retry_all_dead do
+          ::Sidekiq::DeadSet.new.retry_all
+        end
       end
     end
   end
