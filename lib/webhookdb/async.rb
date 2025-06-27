@@ -45,6 +45,10 @@ module Webhookdb::Async
     config[:dead_max_jobs] = 999_999_999
     config.server_middleware.add(Amigo::Retry::ServerMiddleware)
     config.server_middleware.add(Webhookdb::Async::TimeoutRetry::ServerMiddleware)
+
+    config.on(:quiet) do
+      self.sidekiq_shutting_down = true
+    end
   end
 
   def self._configure_client(config)
@@ -85,6 +89,12 @@ module Webhookdb::Async
       Sidekiq.configure_server { |config| self._configure_server(config) }
       Sidekiq.configure_client { |config| self._configure_client(config) }
     end
+  end
+
+  class << self
+    attr_writer :sidekiq_shutting_down
+
+    def stop_processing_jobs? = @sidekiq_shutting_down
   end
 
   def self.open_web
