@@ -6,10 +6,6 @@ RSpec.describe Webhookdb::Redis do
   describe "#fetch_url" do
     let(:envname) { "_WHDBTEST_REDIS_URL" }
 
-    after(:each) do
-      ENV.delete(envname)
-    end
-
     it "returns the url if not blank" do
       expect(described_class.fetch_url(envname, "x")).to eq("x")
     end
@@ -37,8 +33,6 @@ RSpec.describe Webhookdb::Redis do
       ENV["HEROKU_APP_ID"] = "a1b2bc"
       expect(described_class.conn_params(ssl_schema_url)).to include(ssl_params: {verify_mode: 0})
       expect(described_class.conn_params(none_ssl_schema_url)).to_not include(:ssl_params)
-    ensure
-      ENV.delete("HEROKU_APP_ID")
     end
   end
 
