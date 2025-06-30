@@ -24,21 +24,36 @@ module Webhookdb::Dbutil
     # at `warn` level.
     setting :slow_query_seconds, 0.1
 
-    # Default this to whatever concurrency is appropriate for the process type.
+    # The number of additional connections to add to +max_connections+.
+    # Needed to handle cases where there may be considerable background threads with connections.
+    setting :additional_pool_size, 0
+
+    # This gets set by default to whatever concurrency is appropriate for the process type.
     # PROC_MODE is set in the initializers in the config dir.
-    setting :max_connections,
-            (if ENV["PROC_MODE"] == "sidekiq"
-               ENV.fetch("SIDEKIQ_CONCURRENCY", "10").to_i
-            elsif ENV["PROC_MIDE"] == "puma"
-              ENV.fetch("WEB_CONCURRENCY", "4").to_i
-            else
-              4
-            end)
+    # It can also be set explicitly.
+    # Defaults to 4.
+    setting :max_connections, -1
     setting :pool_timeout, 10
     setting :pool_class, :timed_queue
     # Set to 'disable' to work around segfault.
     # See https://github.com/ged/ruby-pg/issues/538
     setting :gssencmode, ""
+
+    after_configured do
+      # The PROC_MODE default values match what is in the initializer files that set PROC_MODE.
+      self.max_connections = if ENV["DBUTIL_MAX_CONNECTIONS"]
+                               ENV.fetch("DBUTIL_MAX_CONNECTIONS", "4").to_i
+      elsif ENV["PROC_MODE"] == "sidekiq"
+        ENV.fetch("SIDEKIQ_CONCURRENCY", "10").to_i
+      elsif ENV["PROC_MODE"] == "puma"
+        ENV.fetch("RAILS_MAX_THREADS", "4").to_i
+      else
+        4
+      end
+      raise Webhookdb::InvalidPostcondition, "max_connections is misconfigured, cannot be <= 0" if
+        self.max_connections <= 0
+      self.max_connections += self.additional_pool_size
+    end
   end
 
   # Needed when we need to work with a source.
