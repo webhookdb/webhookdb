@@ -12,7 +12,11 @@ module Webhookdb::Tasks
         desc "Tag the Sidekiq deployment in metrics."
         task :release do
           require "sidekiq/deploy"
-          ::Sidekiq::Deploy.mark!(Webhookdb::RELEASE)
+          require "webhookdb/async"
+          url = Webhookdb::Redis.fetch_url(Webhookdb::Async.sidekiq_redis_provider, Webhookdb::Async.sidekiq_redis_url)
+          # Use our own pool since we may need custom params for SSL reasons.
+          pool = ::Sidekiq::RedisConnection.create(Webhookdb::Redis.conn_params(url, size: 1))
+          ::Sidekiq::Deploy.new(pool).mark!(label: Webhookdb::RELEASE)
         end
 
         desc "Clear the Sidekiq redis DB (flushdb). " \
