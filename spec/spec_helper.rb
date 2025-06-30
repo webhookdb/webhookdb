@@ -12,17 +12,19 @@ require "simplecov-cobertura"
 (SimpleCov.formatter = SimpleCov::Formatter::CoberturaFormatter) if ENV["CI"]
 SimpleCov.start if ENV["CI"] || ENV["COVERAGE"]
 
+require "rspec"
+
+require "appydays/configurable/spec_helpers"
+require "appydays/loggable/spec_helpers"
+require "appydays/spec_helpers"
+require "dotenv/autorestore"
 require "httparty"
 require "rack/test"
 require "rack/test/methods"
-require "rspec"
 require "rspec/eventually"
 require "rspec/json_expectations"
 require "timecop"
 require "webmock/rspec"
-require "appydays/spec_helpers"
-require "appydays/configurable/spec_helpers"
-require "appydays/loggable/spec_helpers"
 
 require "webhookdb"
 require "webhookdb/spec_helpers"
@@ -32,7 +34,8 @@ Webhookdb.load_app
 Webhookdb::Fixtures.load_all
 
 RSpec.configure do |config|
-  config.full_backtrace = true
+  # Set this in .env.test.local if you want to show full error messages
+  config.full_backtrace = ENV.fetch("RSPEC_FULL_BACKTRACE", nil) ? true : false
 
   RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 3000
 

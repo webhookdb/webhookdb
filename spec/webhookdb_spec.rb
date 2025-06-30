@@ -7,12 +7,10 @@ require "webhookdb"
 RSpec.describe Webhookdb do
   describe "configuration" do
     before(:each) do
-      @env = ENV.fetch(described_class::CONFIG_ENV_VAR, nil)
       @tempfiles = []
     end
 
     after(:each) do
-      ENV[described_class::CONFIG_ENV_VAR] = @end
       @tempfiles.each { |t| t.close(true) }
     end
 
