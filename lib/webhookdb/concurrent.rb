@@ -53,13 +53,13 @@ module Webhookdb::Concurrent
       super()
       threads ||= queue_size
       @timeout = timeout
+      @queue = Thread::SizedQueue.new(queue_size)
+      @exception = nil
       @threads = (1..threads).map do
         Thread.new do
           loop { break unless self.do_work }
         end
       end
-      @queue = Thread::SizedQueue.new(queue_size)
-      @exception = nil
     end
 
     protected def do_work
