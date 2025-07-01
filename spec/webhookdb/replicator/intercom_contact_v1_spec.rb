@@ -1040,6 +1040,78 @@ RSpec.describe Webhookdb::Replicator::IntercomContactV1, :db do
         org.remove_related_database
       end
     end
+
+    describe "handling a subscribe event" do
+      let(:archive_event_body) { JSON.parse(<<~JSON) }
+        {
+          "type": "notification_event",
+          "app_id": "amnz1z9v",
+          "data": {
+            "type": "notification_event_data",
+            "item": {
+              "type": "contact_subscribe",
+              "contact": {
+                "type": "contact",
+                "id": "64d14669156d93e1e18f6a17",
+                "workspace_id": "aaaz1999",
+                "external_id": "1234",
+                "role": "user",
+                "email": "someemail@webhookdb.com",
+                "phone": "",
+                "name": null,
+                "avatar": null,
+                "owner_id": null,
+                "social_profiles": {
+                  "type": "list",
+                  "data": []
+                },
+                "has_hard_bounced": false,
+                "marked_email_as_spam": false,
+                "unsubscribed_from_emails": false,
+                "created_at": "2018-08-06T19:51:08.145+00:00",
+                "updated_at": "2025-03-20T07:34:57.895+00:00",
+                "signed_up_at": "2018-08-06T19:46:18.000+00:00",
+                "last_seen_at": null,
+                "last_replied_at": null,
+                "last_contacted_at": "2025-03-19T22:09:26.863+00:00",
+                "last_email_opened_at": "2025-03-20T07:34:42.162+00:00"
+              },
+              "subscription_types": {
+                "type": "list",
+                "data": []
+              },
+              "created_at": 1742456098
+            }
+          },
+          "links": {},
+          "id": "notif_3593ad28-79bb-4f14-99a2-597cae5bbef2",
+          "topic": "contact.subscribed",
+          "delivery_status": "pending",
+          "delivery_attempts": 1,
+          "delivered_at": 0,
+          "first_sent_at": 1742456098,
+          "created_at": 1742456097,
+          "self": null
+        }
+      JSON
+
+      it "replaces an existing row" do
+        org.prepare_database_connections
+        svc.create_table
+        svc.upsert_webhook_body(full_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "abc",
+        )
+        svc.upsert_webhook_body(archive_event_body)
+        expect(svc.admin_dataset(&:first)).to include(
+          intercom_id: "64d14669156d93e1e18f6a17",
+          external_id: "1234",
+        )
+      ensure
+        org.remove_related_database
+      end
+    end
   end
 
   describe "state machine calculation" do
