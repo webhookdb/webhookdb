@@ -95,6 +95,14 @@ module Webhookdb::Async
     attr_writer :sidekiq_shutting_down
 
     def stop_processing_jobs? = @sidekiq_shutting_down
+
+    # Call this in long-running jobs.
+    # Raises +Sidekiq::Shutdown+ if we're trying to shut down.
+    # Emits an +Amigo::DurableJob+ heartbeat if enabled.
+    def long_running_job_heartbeat!
+      raise Sidekiq::Shutdown if self.stop_processing_jobs?
+      Amigo::DurableJob.heartbeat
+    end
   end
 
   def self.open_web

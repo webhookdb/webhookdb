@@ -135,6 +135,7 @@ class Webhookdb::Replicator::BaseStaleRowDeleter
       window_end = window_start + self.incremental_lookback_size
       inner_ds = base_ds.where(self.updated_at_column => window_start..window_end)
       loop do
+        Webhookdb::Async.long_running_job_heartbeat!
         # See note above about why we only use the LIMIT and inner query in unpartitioned tables.
         delete_ds = self.replicator.partition? ? inner_ds : ds.where(pk: inner_ds)
         # Disable seqscan for the delete. We can end up with seqscans if the planner decides
