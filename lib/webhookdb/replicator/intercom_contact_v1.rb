@@ -56,7 +56,7 @@ class Webhookdb::Replicator::IntercomContactV1 < Webhookdb::Replicator::Base
         when "contact.archived"
           resource["updated_at"] = Time.now
           resource["archived_at"] = Time.now
-        when "contact.unsubscribed"
+        when "contact.subscribed", "contact.unsubscribed"
           resource = resource.fetch("contact")
       end
     return resource, event
