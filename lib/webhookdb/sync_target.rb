@@ -553,6 +553,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     end
 
     def _flush_http_chunk(chunk_started, chunk)
+      Webhookdb::Async.long_running_job_heartbeat!
       chunk_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
       @mutex.synchronize do
         @inflight_timestamps << chunk_ts

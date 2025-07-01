@@ -73,7 +73,7 @@ class Webhookdb::Jobs::IcalendarEnqueueSyncs
             order(:pk).
             select(:external_id, :ics_url, :last_fetch_context)
           row_ds.paged_each(rows_per_fetch: 500, cursor_name: "ical_enqueue_#{sint.id}_cursor") do |row|
-            self.long_running_job_heartbeat!
+            Webhookdb::Async.long_running_job_heartbeat!
             threadpool.post do
               break unless repl.feed_changed?(row)
               calendar_external_id = row.fetch(:external_id)

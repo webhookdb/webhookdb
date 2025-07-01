@@ -24,7 +24,7 @@ class Webhookdb::Backfiller
       page.each do |item|
         self.handle_item(item)
       end
-      Amigo::DurableJob.heartbeat
+      Webhookdb::Async.long_running_job_heartbeat!
       break if pagination_token.blank?
       if Webhookdb.regression_mode?
         Webhookdb.logger.warn("regression_mode_backfill_termination", backfiller: self.to_s, pagination_token:)
@@ -97,6 +97,7 @@ class Webhookdb::Backfiller
     def flush_pending_inserts
       return if self.dry_run?
       return if self.pending_inserts.empty?
+      Webhookdb::Async.long_running_job_heartbeat!
       rows_to_insert = self.pending_inserts.values
       update_where_expr = self.update_where_expr
       update_expr = self.upserting_replicator._upsert_update_expr(rows_to_insert.first)
