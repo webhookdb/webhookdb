@@ -30,6 +30,9 @@ else
   end
 end
 
+require "webhookdb/procmon"
+Webhookdb::Procmon.run if Webhookdb::Procmon.enabled
+
 on_worker_boot do
   SemanticLogger.reopen if defined?(SemanticLogger)
   if defined?(Webhookdb::Postgres)
