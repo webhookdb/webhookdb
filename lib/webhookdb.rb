@@ -116,6 +116,7 @@ module Webhookdb
   def self.load_app
     $stdout.sync = true
     $stderr.sync = true
+    Webhookdb::Signals.install
 
     Appydays::Loggable.configure_12factor(format: self.log_format, application: APPLICATION_NAME)
 
@@ -258,5 +259,6 @@ require "webhookdb/developer_alert"
 require "webhookdb/http"
 require "webhookdb/phone_number"
 require "webhookdb/replicator"
+require "webhookdb/signals"
 require "webhookdb/typed_struct"
 require "webhookdb/webhook_response"
