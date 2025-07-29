@@ -12,9 +12,13 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
         create(service_integration: sint, deliver_to_url: "https://example.com/")
     end
     let(:params) do
-      {service_name: "test_service", table_name: "test_service_table",
-       row: ["echo", "foxtrot", "golf"], external_id: "asdfgk",
-       external_id_column: "external id column",}
+      {
+        service_name: "test_service",
+        table_name: "test_service_table",
+        row: ["echo", "foxtrot", "golf"],
+        external_id: "asdfgk",
+        external_id_column: "external id column",
+      }
     end
 
     describe "#deliver" do
@@ -47,6 +51,22 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
           ).to_return(status: 200, body: "", headers: {})
 
         webhook_sub.deliver_test_event(external_id: "extid")
+        expect(req).to have_been_made
+      end
+
+      it "can deliver to Github repository dispatches" do
+        webhook_sub.update(deliver_to_url: "https://api.github.com/repos/myorg/myrepo/dispatches")
+        req = stub_request(:post, "https://api.github.com/repos/myorg/myrepo/dispatches").
+          with(
+            body: {event_type: "webhook", client_payload: params}.to_json,
+            headers: {
+              "Accept" => "application/vnd.github+json",
+              "Content-Type" => "application/json",
+              "Authorization" => "Bearer #{webhook_sub.webhook_secret}",
+            },
+          ).to_return(status: 204, headers: {})
+
+        webhook_sub.deliver(**params)
         expect(req).to have_been_made
       end
     end

@@ -79,10 +79,31 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
       external_id:,
       external_id_column:,
     }
+    return self.deliver_github_dispatch(body, headers:) if
+      %r{^https://api\.github\.com/repos/\w+/\w+/dispatches$}.match?(self.deliver_to_url)
     return Webhookdb::Http.post(
       self.deliver_to_url,
       body,
       headers: {"Whdb-Webhook-Secret" => self.webhook_secret}.merge(headers),
+      timeout: TIMEOUT,
+      logger: self.logger,
+    )
+  end
+
+  # Allow triggering Github repository builds.
+  # Use https://api.github.com/repos/{owner}/{repo}/dispatches as the url,
+  # and a valid token as the secret.
+  #
+  # See https://kontent.ai/blog/how-to-trigger-github-action-using-webhook-with-no-code/
+  # for a good tutorial.
+  def deliver_github_dispatch(client_payload, headers:)
+    return Webhookdb::Http.post(
+      self.deliver_to_url,
+      {event_type: "webhook", client_payload:},
+      headers: {
+        "Accept" => "application/vnd.github+json",
+        "Authorization" => "Bearer #{self.webhook_secret}",
+      }.merge(headers),
       timeout: TIMEOUT,
       logger: self.logger,
     )
