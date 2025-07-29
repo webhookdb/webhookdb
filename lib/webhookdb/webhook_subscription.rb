@@ -217,6 +217,12 @@ class Webhookdb::WebhookSubscription < Webhookdb::Postgres::Model(:webhook_subsc
 
   def before_create
     self[:opaque_id] ||= Webhookdb::Id.new_opaque_id("wsb")
+    super
+  end
+
+  def before_save
+    self[:deliver_to_url] = self[:deliver_to_url]&.strip
+    super
   end
 end
 

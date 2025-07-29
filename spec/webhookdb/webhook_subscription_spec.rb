@@ -224,4 +224,11 @@ RSpec.describe "Webhookdb::WebhookSubscription", :db do
       expect(sub).to have_attributes(associated_type: "service_integration", associated_id: "hello")
     end
   end
+
+  describe "validations" do
+    it "strips the url" do
+      d = Webhookdb::Fixtures.webhook_subscription.create(deliver_to_url: " https://example.com\t")
+      expect(d).to have_attributes(deliver_to_url: "https://example.com")
+    end
+  end
 end
