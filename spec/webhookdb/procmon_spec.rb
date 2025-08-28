@@ -60,10 +60,10 @@ RSpec.describe Webhookdb::Procmon do
             "emoji" => ":file_folder:",
             "fallback" => "Disk Used: 3.4 GB, Disk % Used: 90%, Files Used: 950, Files % Used: 95%",
             "fields" => [
-              {"title" => "Disk Used", "value" => "3.4 GB"},
-              {"title" => "Disk % Used", "value" => "90%"},
-              {"title" => "Files Used", "value" => 950},
-              {"title" => "Files % Used", "value" => "95%"},
+              {"title" => "Disk Used", "value" => "3.4 GB", "short" => true},
+              {"title" => "Disk % Used", "value" => "90%", "short" => true},
+              {"title" => "Files Used", "value" => "950", "short" => true},
+              {"title" => "Files % Used", "value" => "95%", "short" => true},
 
             ],
           },
@@ -127,14 +127,93 @@ RSpec.describe Webhookdb::Procmon do
             "emoji" => ":key:",
             "fallback" => "Used Memory: 800MB, Used Memory RSS: 805MB, Available Memory: 1GB, Peak Memory: 810MB",
             "fields" => [
-              {"title" => "Used Memory", "value" => "800MB"},
-              {"title" => "Used Memory RSS", "value" => "805MB"},
-              {"title" => "Available Memory", "value" => "1GB"},
-              {"title" => "Peak Memory", "value" => "810MB"},
+              {"title" => "Used Memory", "value" => "800MB", "short" => true},
+              {"title" => "Used Memory RSS", "value" => "805MB", "short" => true},
+              {"title" => "Available Memory", "value" => "1GB", "short" => true},
+              {"title" => "Peak Memory", "value" => "810MB", "short" => true},
             ],
           },
         ),
       )
+    end
+
+    it "logs sidekiq jobs" do
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        expect do
+          described_class.check
+        end.to_not publish("webhookdb.developeralert.emitted")
+      end
+      expect(logs).to have_a_line_matching(/"message":"procmon"/)
+      expect(logs).to have_a_line_matching(
+        /"sidekiq_running_jobs":0,"sidekiq_slow_jobs":0/,
+      )
+    end
+
+    it "does not warn about slow sidekiq jobs if under the count/age threshold" do
+      expect(described_class).to receive(:sidekiq_work).
+        and_yield(Sidekiq::Work.new("5h", "", {"run_at" => 5.hours.ago.to_i})).
+        and_yield(Sidekiq::Work.new("1m", "", {"run_at" => 1.minute.ago.to_i})).
+        and_yield(Sidekiq::Work.new("6h", "", {"run_at" => 6.hours.ago.to_i})).
+        and_yield(Sidekiq::Work.new("2m", "", {"run_at" => 2.minutes.ago.to_i})).
+        and_yield(Sidekiq::Work.new("1h", "", {"run_at" => 1.hour.ago.to_i}))
+
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        expect do
+          described_class.check
+        end.to_not publish("webhookdb.developeralert.emitted")
+      end
+      expect(logs).to have_a_line_matching(/"message":"procmon"/)
+      expect(logs).to have_a_line_matching(
+        /"sidekiq_running_jobs":5,"sidekiq_slow_jobs":2/,
+      )
+    end
+
+    it "warns about slow Sidekiq jobs" do
+      Timecop.freeze("2025-07-15T12:00:00Z") do
+        expect(described_class).to receive(:sidekiq_work) do |&block|
+          [
+            [2, "minute"],
+            [3, "minute"],
+            [3, "hour"],
+            [4, "hour"],
+            [5, "hour"],
+            [6, "hour"],
+            [7, "hour"],
+            [8, "hour"],
+            [9, "hour"],
+            [10, "hour"],
+            [11, "hour"],
+          ].shuffle.each do |n, unit|
+            payload = {class: "Cls#{n}#{unit.first}", jid: "j#{n}#{unit.first}"}
+            whash = {"run_at" => n.send(unit).ago.to_i, "payload" => payload.to_json}
+            block.call(Sidekiq::Work.new("w#{n}#{unit.first}", "", whash))
+          end
+        end
+
+        expect do
+          described_class.check
+        end.to publish("webhookdb.developeralert.emitted").with_payload(
+          contain_exactly(
+            {
+              "subsystem" => "Process Monitor (Sidekiq)",
+              "emoji" => ":ice_hockey_stick_and_puck:",
+              # rubocop:disable Layout/LineLength
+              "fallback" => "Running Jobs: 11, Slow Jobs: 6, j11h: Cls11h / 11 hours, j10h: Cls10h / 10 hours, j9h: Cls9h / 9 hours, j8h: Cls8h / 8 hours, j7h: Cls7h / 7 hours, j6h: Cls6h / 6 hours",
+              # rubocop:enable Layout/LineLength
+              "fields" => [
+                {"title" => "Running Jobs", "value" => "11", "short" => true},
+                {"title" => "Slow Jobs", "value" => "6", "short" => true},
+                {"title" => "j11h", "value" => "`Cls11h` / 11 hours", "short" => false},
+                {"title" => "j10h", "value" => "`Cls10h` / 10 hours", "short" => false},
+                {"title" => "j9h", "value" => "`Cls9h` / 9 hours", "short" => false},
+                {"title" => "j8h", "value" => "`Cls8h` / 8 hours", "short" => false},
+                {"title" => "j7h", "value" => "`Cls7h` / 7 hours", "short" => false},
+                {"title" => "j6h", "value" => "`Cls6h` / 6 hours", "short" => false},
+              ],
+            },
+          ),
+        )
+      end
     end
   end
 
