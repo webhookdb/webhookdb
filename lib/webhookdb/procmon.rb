@@ -15,6 +15,7 @@ class Webhookdb::Procmon
   configurable(:procmon) do
     setting :enabled, true
     setting :interval, 60
+
     # At what disk usage percentage should we alert.
     setting :disk_threshold_pct, 70
     # What mount path should we detect disk usage percentage for.
@@ -22,6 +23,14 @@ class Webhookdb::Procmon
     # At what memory usage percentage should we alert.
     # '60' would alert above 600MB used on a 1GB server.
     setting :redis_memory_pct, 60
+    # Alert about jobs which have been running for longer than this number of seconds (default 2 hours).
+    setting :long_running_jobs_age, 2.hours.to_i
+    # Only alert when there are more than this many long-running jobs.
+    # It is hard to avoid *all* long-running jobs, and the occassional long job can be managed through metrics.
+    # But we want to alert if we end up becoming saturated with long-running jobs.
+    # By default, alert if we have more than one sidekiq worker worth of long-running jobs.
+    setting :long_running_jobs_count, ENV.fetch("SIDEKIQ_CONCURRENCY", "5").to_i
+
     setting :info_log_level, :info
     setting :warn_log_level, :warn
   end
@@ -43,11 +52,13 @@ class Webhookdb::Procmon
       self.prepare
       checkdisk
       checkredis
+      checksidekiq
       level = @alerted ? self.warn_log_level : self.info_log_level
       self.logger.send(level, "procmon", @logtags)
     end
 
     def prepare
+      @now = Time.now
       @logtags = {}
       @alerted = false
     end
@@ -82,7 +93,7 @@ class Webhookdb::Procmon
         [
           {title: "Disk Used", value: "#{disk_used.to_f.to_gb.round(1)} GB"},
           {title: "Disk % Used", value: "#{disk_perc_used}%"},
-          {title: "Files Used", value: files_used},
+          {title: "Files Used", value: files_used.to_s},
           {title: "Files % Used", value: "#{files_perc_used}%"},
         ],
       )
@@ -111,14 +122,51 @@ class Webhookdb::Procmon
       )
     end
 
+    def checksidekiq
+      all_work_count = 0
+      slow_work = []
+      self.sidekiq_work do |work|
+        all_work_count += 1
+        age = @now - work.run_at
+        slow_work << work if age > self.long_running_jobs_age
+        # next if work.run_at > old_job_threshold
+        # labels << "#{work.job.klass}(#{work.job.jid})"
+      end
+      @logtags[:sidekiq_running_jobs] = all_work_count
+      @logtags[:sidekiq_slow_jobs] = slow_work.count
+      return if slow_work.count <= self.long_running_jobs_count
+      slow_work.sort_by!(&:run_at)
+      slow_work = slow_work.take(6)
+      self.devalert(
+        "Sidekiq",
+        ":ice_hockey_stick_and_puck:",
+        [
+          {title: "Running Jobs", value: all_work_count.to_s},
+          {title: "Slow Jobs", value: slow_work.count.to_s},
+        ].concat(slow_work.sort_by(&:run_at).take(6).map do |w|
+          age = ActiveSupport::Duration.build((@now - w.run_at).round).inspect
+          {title: w.job.jid, value: "`#{w.job.klass}` / #{age}", short: false}
+        end),
+      )
+    end
+
+    def sidekiq_work(&)
+      Sidekiq::WorkSet.new.each do |_wid, _tid, work|
+        yield(work)
+      end
+    end
+
     private def devalert(subsystem, emoji, fields)
       @alerted = true
+      fields.each do |f|
+        f[:short] = true unless f.key?(:short)
+      end
       Webhookdb::DeveloperAlert.new(
         subsystem: "Process Monitor (#{subsystem})",
         emoji:,
         fields:,
         fallback: fields.
-          map { |f| "#{f[:title]}: #{f[:value]}" }.
+          map { |f| "#{f[:title]}: #{f[:value].delete('`')}" }.
           join(", "),
       ).emit
     end
