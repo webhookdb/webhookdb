@@ -271,7 +271,16 @@ The secret to use for signing is:
       headers["Authorization"] = "Apikey #{Webhookdb::Icalendar.proxy_api_key}" if
         Webhookdb::Icalendar.proxy_api_key.present?
     end
-    resp = Webhookdb::Http.chunked_download(request_url, headers:)
+    resp = Webhookdb::Http.chunked_download(
+      request_url,
+      headers:,
+      logger: self.logger,
+      timeout: {
+        connect: Webhookdb::Icalendar.http_connect_timeout,
+        write: Webhookdb::Icalendar.http_connect_timeout,
+        read: Webhookdb::Icalendar.http_read_timeout,
+      },
+    )
     return resp
   end
 
