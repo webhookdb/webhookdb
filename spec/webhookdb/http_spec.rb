@@ -194,7 +194,7 @@ RSpec.describe Webhookdb::Http do
             "User-Agent" => %r{WebhookDB/},
           },
         ).to_return(status: 200, body:)
-      resp = described_class.chunked_download("https://a.b")
+      resp = described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
       expect(req).to have_been_made
       expect(resp).to be_a(HTTP::Response)
       expect { resp.body.to_s }.to raise_error(HTTP::StateError)
@@ -203,11 +203,11 @@ RSpec.describe Webhookdb::Http do
 
     it "raises without an http url" do
       expect do
-        described_class.chunked_download("webcal://a.b")
+        described_class.chunked_download("webcal://a.b", logger: nil, timeout: nil)
       end.to raise_error(URI::InvalidURIError, "webcal://a.b must be an http/s url")
 
       expect do
-        described_class.chunked_download("httpss://a.b")
+        described_class.chunked_download("httpss://a.b", logger: nil, timeout: nil)
       end.to raise_error(URI::InvalidURIError, "httpss://a.b must be an http/s url")
     end
 
@@ -216,7 +216,7 @@ RSpec.describe Webhookdb::Http do
         to_return(status: 301, headers: {"Location" => "https://a.b2"})
       req2 = stub_request(:get, "https://a.b2").
         to_return(status: 200)
-      described_class.chunked_download("https://a.b")
+      described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
       expect(req1).to have_been_made
       expect(req2).to have_been_made
     end
@@ -225,36 +225,64 @@ RSpec.describe Webhookdb::Http do
       req = stub_request(:get, "https://a.b").
         to_return({status: 301, headers: {"Location" => "https://a.b"}})
       expect do
-        described_class.chunked_download("https://a.b")
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
       end.to raise_error(described_class::TooManyRedirects)
       expect(req).to have_been_made.times(2)
+    end
+
+    it "requires a :timeout" do
+      expect do
+        described_class.chunked_download("https://x.y", logger: nil)
+      end.to raise_error(ArgumentError, "must pass :timeout keyword")
+    end
+
+    it "requires a :logger" do
+      expect do
+        described_class.chunked_download("https://x.y", timeout: nil)
+      end.to raise_error(ArgumentError, "must pass :logger keyword")
+    end
+
+    it "logs to the logger" do
+      req = stub_request(:get, "https://x.y").to_return(status: 200)
+      lg = SemanticLogger["mytest"]
+      logs = capture_logs_from(lg, level: :info, formatter: :json) do
+        described_class.chunked_download("https://x.y", timeout: nil, logger: lg)
+      end
+      expect(req).to have_been_made
+      expect(logs).to have_a_line_matching(%r{"message":"> GET https://x\.y/"})
     end
 
     it "raises NotModified for a 304" do
       req = stub_request(:get, "https://a.b").
         to_return(status: 304)
-      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::NotModified)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::NotModified)
       expect(req).to have_been_made
     end
 
     it "raises for 4xx errors" do
       req = stub_request(:get, "https://a.b").
         to_return(status: 400)
-      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::ClientError)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::ClientError)
       expect(req).to have_been_made
     end
 
     it "raises for 5xx errors" do
       req = stub_request(:get, "https://a.b").
         to_return(status: 500)
-      expect { described_class.chunked_download("https://a.b") }.to raise_error(described_class::ServerError)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::ServerError)
       expect(req).to have_been_made
     end
 
     it "patches headers with #fetch" do
       req = stub_request(:get, "https://a.b").
         to_return(status: 200, headers: [["Single", "a"], ["Double", "x"], ["Double", "y"]])
-      resp = described_class.chunked_download("https://a.b")
+      resp = described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
       expect(req).to have_been_made
       expect(resp.headers.fetch("Single")).to eq("a")
       expect(resp.headers.fetch("Single", 5)).to eq("a")
@@ -277,7 +305,7 @@ RSpec.describe Webhookdb::Http do
       ].each do |(desc, ct, enc)|
         it "decodes #{desc}" do
           test_server_responses << [200, {"Content-Type" => ct}, ["abc".encode(enc)]]
-          resp = described_class.chunked_download(test_server_url + "/testfile")
+          resp = described_class.chunked_download(test_server_url + "/testfile", logger: nil, timeout: nil)
           expect(test_server_calls).to have_length(1)
           expect(resp.body.encoding).to eq(enc)
           expect(readbody(resp)).to eq("abc".encode(enc))

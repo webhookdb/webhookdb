@@ -43,5 +43,10 @@ module Webhookdb::Icalendar
     # Api key of the icalproxy server, if using one.
     # See https://github.com/webhookdb/icalproxy
     setting :proxy_api_key, ""
+
+    # Because some ical files can be several megabytes, and on all sorts of servers,
+    # provide separate connect (also used for write) and read timeouts.
+    setting :http_connect_timeout, 30
+    setting :http_read_timeout, 30
   end
 end

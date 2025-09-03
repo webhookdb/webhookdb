@@ -106,14 +106,19 @@ module Webhookdb::Http
   # Convenience wrapper since downloading a stream isn't so simple.
   # See commit history for more info, including going from Down, to Down/HTTPX, to HTTP.
   # @return [HTTP::Response]
-  def self.chunked_download(url, headers: {})
+  def self.chunked_download(url, headers: {}, **options)
+    self._setup_required_args(options)
     uri = URI(url)
     raise URI::InvalidURIError, "#{url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
     headers["User-Agent"] ||= self.user_agent
     headers["Accept"] ||= "*/*"
     headers["Accept-Encoding"] ||= "gzip, deflate"
+    req = HTTP
+    req = req.use(logging: {logger: options[:logger]}) if options[:logger]
+    req = req.timeout(options[:timeout]) if options[:timeout]
+    req = req.follow
     begin
-      response = HTTP.follow.get(url, headers:)
+      response = req.get(url, headers:)
     rescue HTTP::Redirector::TooManyRedirectsError => e
       raise TooManyRedirects, e
     end
