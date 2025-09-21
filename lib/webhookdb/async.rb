@@ -10,16 +10,15 @@ require "sentry-sidekiq"
 require "sidekiq"
 require "sidekiq-cron"
 
-require "webhookdb"
 require "webhookdb/redis"
+
+module Webhookdb::Async; end
 
 module Webhookdb::Async
   include Appydays::Configurable
   include Appydays::Loggable
-  extend Webhookdb::MethodUtilities
 
   require "webhookdb/async/job_logger"
-  require "webhookdb/async/audit_logger"
 
   def self._configure_server(config)
     require "amigo/job_in_context"

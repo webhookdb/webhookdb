@@ -56,7 +56,7 @@ module Webhookdb::Apps
     Webhookdb::Async.setup_web
     config_ru.instance_exec do
       map "/admin_api" do
-        run Webhookdb::Apps::AdminAPI.build_app
+        run Webhookdb::Apps::AdminAPI.build_app(compile: true)
       end
       map "/admin" do
         run Webhookdb::Apps::Admin.to_app
@@ -71,7 +71,7 @@ module Webhookdb::Apps
         memo[k] = v
         memo["#{k}/"] = v
       end)
-      run Webhookdb::Apps::API.build_app
+      run Webhookdb::Apps::API.build_app(compile: true)
     end
   end
 

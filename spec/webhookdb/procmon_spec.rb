@@ -4,7 +4,8 @@ require "webhookdb/procmon"
 
 RSpec.describe Webhookdb::Procmon do
   before(:each) do
-    described_class.reset_configuration
+    described_class.reset_configuration(singleton_hostname_regex: /.*/)
+    ENV["DYNO"] = "web1"
     Webhookdb::SHUTTING_DOWN.make_false
     Webhookdb::SHUTTING_DOWN_EVENT.reset
   end
@@ -57,9 +58,10 @@ RSpec.describe Webhookdb::Procmon do
         contain_exactly(
           {
             "subsystem" => "Process Monitor (Disk)",
-            "emoji" => ":file_folder:",
-            "fallback" => "Disk Used: 3.4 GB, Disk % Used: 90%, Files Used: 950, Files % Used: 95%",
+            "emoji" => ":dvd:",
+            "fallback" => "Host: web1, Disk Used: 3.4 GB, Disk % Used: 90%, Files Used: 950, Files % Used: 95%",
             "fields" => [
+              {"title" => "Host", "value" => "web1", "short" => true},
               {"title" => "Disk Used", "value" => "3.4 GB", "short" => true},
               {"title" => "Disk % Used", "value" => "90%", "short" => true},
               {"title" => "Files Used", "value" => "950", "short" => true},
@@ -214,6 +216,27 @@ RSpec.describe Webhookdb::Procmon do
           ),
         )
       end
+    end
+
+    it "does not run singleton checks if the host name does not match the regex (DYNO env var)" do
+      described_class.reset_configuration(singleton_hostname_regex: /web\.1/)
+      ENV["DYNO"] = "web.2"
+
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        described_class.check
+      end
+      expect(logs).to_not have_a_line_matching(/sidekiq_running_jobs/)
+    end
+
+    it "does not run singleton checks if the host name does not match the regex (Socket.hostname)" do
+      described_class.reset_configuration(singleton_hostname_regex: /web\.1/)
+      ENV.delete("DYNO")
+      expect(Socket).to receive(:gethostname).and_return("web.2")
+
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        described_class.check
+      end
+      expect(logs).to_not have_a_line_matching(/sidekiq_running_jobs/)
     end
   end
 

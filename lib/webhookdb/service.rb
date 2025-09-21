@@ -85,9 +85,15 @@ class Webhookdb::Service < Grape::API
     return ds
   end
 
-  ### Build the Rack app according to the configured environment.
-  def self.build_app
+  # Build the Rack app according to the configured environment.
+  # If +compile+ is true, make a fake request to the API which will precompile it.
+  # Using compile! alone does not work properly; most of the memory ends up being allocated later.
+  def self.build_app(compile: false)
     inner_app = self
+    if compile
+      inner_app.compile!
+      Rack::MockRequest.new(inner_app).get("/prewarm")
+    end
     builder = Rack::Builder.new do
       Webhookdb::Service::Middleware.add_middlewares(self)
       run inner_app

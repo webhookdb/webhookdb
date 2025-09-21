@@ -3,6 +3,8 @@
 require "appydays/configurable"
 require "redis_client"
 
+require "webhookdb/dbutil"
+
 module Webhookdb::Redis
   include Appydays::Configurable
 

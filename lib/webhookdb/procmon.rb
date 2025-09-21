@@ -4,6 +4,7 @@ require "appydays/configurable"
 require "appydays/loggable"
 require "sys/filesystem"
 
+require "webhookdb/developer_alert"
 require "webhookdb/signals"
 
 # Basic monitor for things like disk space, in environments that don't have other monitors for it,
@@ -15,6 +16,14 @@ class Webhookdb::Procmon
   configurable(:procmon) do
     setting :enabled, true
     setting :interval, 60
+    # What hosts/processes should singleton checks (redis, Sidekiq) this run on?
+    # Looks at ENV['DYNO'] and Socket.gethostname for a match.
+    # Default to only run on 'web.1', which is the first Heroku web dyno.
+    # We run on the web, not worker, dyno, so we report backed up queues
+    # in case we, say, turn off all workers (broken web processes
+    # are generally easier to find).
+    # @return [Regexp]
+    setting :singleton_hostname_regex, /^web\.1$/, convert: ->(s) { Regexp.new(s) }
 
     # At what disk usage percentage should we alert.
     setting :disk_threshold_pct, 70
@@ -24,7 +33,7 @@ class Webhookdb::Procmon
     # '60' would alert above 600MB used on a 1GB server.
     setting :redis_memory_pct, 60
     # Alert about jobs which have been running for longer than this number of seconds (default 2 hours).
-    setting :long_running_jobs_age, 2.hours.to_i
+    setting :long_running_jobs_age, 2 * 60 * 60
     # Only alert when there are more than this many long-running jobs.
     # It is hard to avoid *all* long-running jobs, and the occassional long job can be managed through metrics.
     # But we want to alert if we end up becoming saturated with long-running jobs.
@@ -51,16 +60,18 @@ class Webhookdb::Procmon
     def check
       self.prepare
       checkdisk
-      checkredis
-      checksidekiq
+      checkredis if @run_singleton
+      checksidekiq if @run_singleton
       level = @alerted ? self.warn_log_level : self.info_log_level
       self.logger.send(level, "procmon", @logtags)
     end
 
     def prepare
       @now = Time.now
-      @logtags = {}
       @alerted = false
+      @hostname = ENV.fetch("DYNO") { Socket.gethostname }
+      @logtags = {hostname: @hostname}
+      @run_singleton = self.singleton_hostname_regex.match(@hostname)
     end
 
     def checkdisk
@@ -89,8 +100,9 @@ class Webhookdb::Procmon
       return unless is_alert
       self.devalert(
         "Disk",
-        ":file_folder:",
+        ":dvd:",
         [
+          {title: "Host", value: @hostname},
           {title: "Disk Used", value: "#{disk_used.to_f.to_gb.round(1)} GB"},
           {title: "Disk % Used", value: "#{disk_perc_used}%"},
           {title: "Files Used", value: files_used.to_s},
