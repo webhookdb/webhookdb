@@ -3,7 +3,6 @@
 require "appydays/configurable"
 require "appydays/loggable"
 require "sys/filesystem"
-require "sys/memory"
 
 require "webhookdb/developer_alert"
 require "webhookdb/signals"
@@ -30,10 +29,6 @@ class Webhookdb::Procmon
     setting :disk_threshold_pct, 70
     # What mount path should we detect disk usage percentage for.
     setting :mount_path, Dir.pwd
-    # At what memory usage percentage should we alert.
-    # Note that memory only looks at physical memory, and we look at system memory, not process memory,
-    # since there are few use cases where we care about process-specific memory on a larger system.
-    setting :memory_threshold_pct, 95
     # At what memory usage percentage should we alert.
     # '60' would alert above 600MB used on a 1GB server.
     setting :redis_memory_pct, 60
@@ -65,7 +60,6 @@ class Webhookdb::Procmon
     def check
       self.prepare
       checkdisk
-      checkmemory
       checkredis if @run_singleton
       checksidekiq if @run_singleton
       level = @alerted ? self.warn_log_level : self.info_log_level
@@ -113,24 +107,6 @@ class Webhookdb::Procmon
           {title: "Disk % Used", value: "#{disk_perc_used}%"},
           {title: "Files Used", value: files_used.to_s},
           {title: "Files % Used", value: "#{files_perc_used}%"},
-        ],
-      )
-    end
-
-    def checkmemory
-      mem_used = Sys::Memory.used
-      mem_perc_used = Sys::Memory.load
-      @logtags[:mem_used] = mem_used
-      @logtags[:mem_perc_used] = mem_perc_used
-      is_alert = mem_perc_used > self.memory_threshold_pct
-      return unless is_alert
-      self.devalert(
-        "Memory",
-        ":brain:",
-        [
-          {title: "Host", value: @hostname},
-          {title: "Memory Used", value: "#{mem_used.to_f.to_gb.round(1)} GB"},
-          {title: "Memory % Used", value: "#{mem_perc_used}%"},
         ],
       )
     end

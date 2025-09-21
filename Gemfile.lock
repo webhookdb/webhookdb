@@ -67,7 +67,6 @@ PATH
       slack-notifier (~> 2.4)
       stripe (~> 15.2)
       sys-filesystem (~> 1.5)
-      sys-memory (~> 0.2)
       uuidx (~> 0.10)
       warden (~> 1.2)
 
@@ -430,8 +429,6 @@ GEM
     stripe (15.2.1)
     strscan (3.1.5)
     sys-filesystem (1.5.3)
-      ffi (~> 1.1)
-    sys-memory (0.2.0)
       ffi (~> 1.1)
     timecop (0.9.10)
     timeout (0.4.3)
