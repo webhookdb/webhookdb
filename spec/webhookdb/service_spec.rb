@@ -209,6 +209,16 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_response).to have_status(301)
   end
 
+  it "can precompile the app" do
+    uncompiled = Class.new(described_class)
+    uncompiled.build_app
+    expect(uncompiled.instance).to be_nil
+
+    compiled = Class.new(described_class)
+    compiled.build_app(compile: true)
+    expect(compiled.instance).to_not be_nil
+  end
+
   it "always clears request_user after the request" do
     Thread.current[:request_user] = 5
     Thread.current[:request_admin] = 6

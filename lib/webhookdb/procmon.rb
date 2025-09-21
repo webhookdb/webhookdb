@@ -4,6 +4,7 @@ require "appydays/configurable"
 require "appydays/loggable"
 require "sys/filesystem"
 
+require "webhookdb/developer_alert"
 require "webhookdb/signals"
 
 # Basic monitor for things like disk space, in environments that don't have other monitors for it,
@@ -24,7 +25,7 @@ class Webhookdb::Procmon
     # '60' would alert above 600MB used on a 1GB server.
     setting :redis_memory_pct, 60
     # Alert about jobs which have been running for longer than this number of seconds (default 2 hours).
-    setting :long_running_jobs_age, 2.hours.to_i
+    setting :long_running_jobs_age, 2 * 60 * 60
     # Only alert when there are more than this many long-running jobs.
     # It is hard to avoid *all* long-running jobs, and the occassional long job can be managed through metrics.
     # But we want to alert if we end up becoming saturated with long-running jobs.

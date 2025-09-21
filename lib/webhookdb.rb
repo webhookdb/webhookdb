@@ -254,6 +254,7 @@ module Webhookdb
   end
 end
 
+require "webhookdb/async"
 require "webhookdb/dbutil"
 require "webhookdb/developer_alert"
 require "webhookdb/http"

@@ -23,21 +23,21 @@ module Webhookdb::Service::Helpers
   # Return the currently-authenticated user,
   # or respond with a 401 if there is no authenticated user.
   def current_customer
-    return _check_customer_deleted(env["warden"].authenticate!(scope: :customer), admin_customer?)
+    return _check_customer_deleted(env["warden"]&.authenticate!(scope: :customer), admin_customer?)
   end
 
   # Return the currently-authenticated user,
   # or respond nil if there is no authenticated user.
   def current_customer?
-    return _check_customer_deleted(env["warden"].user(scope: :customer), admin_customer?)
+    return _check_customer_deleted(env["warden"]&.user(scope: :customer), admin_customer?)
   end
 
   def admin_customer
-    return _check_customer_deleted(env["warden"].authenticate!(scope: :admin), nil)
+    return _check_customer_deleted(env["warden"]&.authenticate!(scope: :admin), nil)
   end
 
   def admin_customer?
-    return _check_customer_deleted(env["warden"].authenticate(scope: :admin), nil)
+    return _check_customer_deleted(env["warden"]&.authenticate(scope: :admin), nil)
   end
 
   def authenticate!
