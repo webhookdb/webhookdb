@@ -3,6 +3,7 @@
 require "appydays/configurable"
 require "appydays/loggable"
 require "sys/filesystem"
+require "sys/memory"
 
 require "webhookdb/developer_alert"
 require "webhookdb/signals"
@@ -16,11 +17,23 @@ class Webhookdb::Procmon
   configurable(:procmon) do
     setting :enabled, true
     setting :interval, 60
+    # What hosts/processes should singleton checks (redis, Sidekiq) this run on?
+    # Looks at ENV['DYNO'] and Socket.gethostname for a match.
+    # Default to only run on 'web.1', which is the first Heroku web dyno.
+    # We run on the web, not worker, dyno, so we report backed up queues
+    # in case we, say, turn off all workers (broken web processes
+    # are generally easier to find).
+    # @return [Regexp]
+    setting :singleton_hostname_regex, /^web\.1$/, convert: ->(s) { Regexp.new(s) }
 
     # At what disk usage percentage should we alert.
     setting :disk_threshold_pct, 70
     # What mount path should we detect disk usage percentage for.
     setting :mount_path, Dir.pwd
+    # At what memory usage percentage should we alert.
+    # Note that memory only looks at physical memory, and we look at system memory, not process memory,
+    # since there are few use cases where we care about process-specific memory on a larger system.
+    setting :memory_threshold_pct, 95
     # At what memory usage percentage should we alert.
     # '60' would alert above 600MB used on a 1GB server.
     setting :redis_memory_pct, 60
@@ -52,16 +65,19 @@ class Webhookdb::Procmon
     def check
       self.prepare
       checkdisk
-      checkredis
-      checksidekiq
+      checkmemory
+      checkredis if @run_singleton
+      checksidekiq if @run_singleton
       level = @alerted ? self.warn_log_level : self.info_log_level
       self.logger.send(level, "procmon", @logtags)
     end
 
     def prepare
       @now = Time.now
-      @logtags = {}
       @alerted = false
+      @hostname = ENV.fetch("DYNO") { Socket.gethostname }
+      @logtags = {hostname: @hostname}
+      @run_singleton = self.singleton_hostname_regex.match(@hostname)
     end
 
     def checkdisk
@@ -90,12 +106,31 @@ class Webhookdb::Procmon
       return unless is_alert
       self.devalert(
         "Disk",
-        ":file_folder:",
+        ":dvd:",
         [
+          {title: "Host", value: @hostname},
           {title: "Disk Used", value: "#{disk_used.to_f.to_gb.round(1)} GB"},
           {title: "Disk % Used", value: "#{disk_perc_used}%"},
           {title: "Files Used", value: files_used.to_s},
           {title: "Files % Used", value: "#{files_perc_used}%"},
+        ],
+      )
+    end
+
+    def checkmemory
+      mem_used = Sys::Memory.used
+      mem_perc_used = Sys::Memory.load
+      @logtags[:mem_used] = mem_used
+      @logtags[:mem_perc_used] = mem_perc_used
+      is_alert = mem_perc_used > self.memory_threshold_pct
+      return unless is_alert
+      self.devalert(
+        "Memory",
+        ":brain:",
+        [
+          {title: "Host", value: @hostname},
+          {title: "Memory Used", value: "#{mem_used.to_f.to_gb.round(1)} GB"},
+          {title: "Memory % Used", value: "#{mem_perc_used}%"},
         ],
       )
     end

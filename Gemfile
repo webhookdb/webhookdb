@@ -12,6 +12,7 @@ gem "ice_cube", git: "https://github.com/nehresma/ice_cube.git", ref: "d7ea51efc
 group :test do
   gem "faker", "~> 3.2"
   gem "fluent_fixtures", "~> 0.11"
+  gem "memory_profiler", "~> 1.1"
   gem "rack-test", "~> 2.1"
   gem "rspec", "~> 3.12"
   gem "rspec-eventually", "~> 0.2"

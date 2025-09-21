@@ -4,7 +4,10 @@ require "webhookdb/procmon"
 
 RSpec.describe Webhookdb::Procmon do
   before(:each) do
-    described_class.reset_configuration
+    described_class.reset_configuration(singleton_hostname_regex: /.*/)
+    ENV["DYNO"] = "web1"
+    # We don't know the memory usage of the system we're running on, so never cause a false positive during tests.
+    allow(Sys::Memory).to receive(:load).and_return(1)
     Webhookdb::SHUTTING_DOWN.make_false
     Webhookdb::SHUTTING_DOWN_EVENT.reset
   end
@@ -57,14 +60,58 @@ RSpec.describe Webhookdb::Procmon do
         contain_exactly(
           {
             "subsystem" => "Process Monitor (Disk)",
-            "emoji" => ":file_folder:",
-            "fallback" => "Disk Used: 3.4 GB, Disk % Used: 90%, Files Used: 950, Files % Used: 95%",
+            "emoji" => ":dvd:",
+            "fallback" => "Host: web1, Disk Used: 3.4 GB, Disk % Used: 90%, Files Used: 950, Files % Used: 95%",
             "fields" => [
+              {"title" => "Host", "value" => "web1", "short" => true},
               {"title" => "Disk Used", "value" => "3.4 GB", "short" => true},
               {"title" => "Disk % Used", "value" => "90%", "short" => true},
               {"title" => "Files Used", "value" => "950", "short" => true},
               {"title" => "Files % Used", "value" => "95%", "short" => true},
 
+            ],
+          },
+        ),
+      )
+    end
+
+    it "logs memory usage" do
+      expect(Sys::Memory).to receive(:used).and_return(123_456_789)
+      expect(Sys::Memory).to receive(:load).and_return(45)
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        expect do
+          described_class.check
+        end.to_not publish("webhookdb.developeralert.emitted")
+      end
+      expect(logs).to have_a_line_matching(/"message":"procmon"/)
+      expect(logs).to have_a_line_matching(
+        /"mem_used":123456789,"mem_perc_used":45/,
+      )
+    end
+
+    it "warns on high memory usage" do
+      expect(Sys::Memory).to receive(:used).and_return(123_456_789).twice
+      expect(Sys::Memory).to receive(:load).and_return(99).twice
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        described_class.check
+      end
+      expect(logs).to have_a_line_matching(/"message":"procmon"/)
+      expect(logs).to have_a_line_matching(
+        /"mem_used":123456789,"mem_perc_used":99/,
+      )
+
+      expect do
+        described_class.check
+      end.to publish("webhookdb.developeralert.emitted").with_payload(
+        contain_exactly(
+          {
+            "subsystem" => "Process Monitor (Memory)",
+            "emoji" => ":brain:",
+            "fallback" => "Host: web1, Memory Used: 0.1 GB, Memory % Used: 99%",
+            "fields" => [
+              {"title" => "Host", "value" => "web1", "short" => true},
+              {"title" => "Memory Used", "value" => "0.1 GB", "short" => true},
+              {"title" => "Memory % Used", "value" => "99%", "short" => true},
             ],
           },
         ),
@@ -214,6 +261,27 @@ RSpec.describe Webhookdb::Procmon do
           ),
         )
       end
+    end
+
+    it "does not run singleton checks if the host name does not match the regex (DYNO env var)" do
+      described_class.reset_configuration(singleton_hostname_regex: /web\.1/)
+      ENV["DYNO"] = "web.2"
+
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        described_class.check
+      end
+      expect(logs).to_not have_a_line_matching(/sidekiq_running_jobs/)
+    end
+
+    it "does not run singleton checks if the host name does not match the regex (Socket.hostname)" do
+      described_class.reset_configuration(singleton_hostname_regex: /web\.1/)
+      ENV.delete("DYNO")
+      expect(Socket).to receive(:gethostname).and_return("web.2")
+
+      logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
+        described_class.check
+      end
+      expect(logs).to_not have_a_line_matching(/sidekiq_running_jobs/)
     end
   end
 
