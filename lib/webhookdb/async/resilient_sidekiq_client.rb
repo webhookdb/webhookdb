@@ -16,7 +16,7 @@ class Webhookdb::Async::ResilientSidekiqClient < Sidekiq::Client
 
   def self.resilient_replay
     pool = Thread.current[:sidekiq_via_pool] || Sidekiq.redis_pool
-    self.new(pool).resilient.replay
+    self.new(pool:).resilient.replay
   end
 
   def resilient = Resilient.new(self)
