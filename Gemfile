@@ -7,7 +7,6 @@ gemspec
 
 # Pull in BYPOS ICal rule fix from https://github.com/ice-cube-ruby/ice_cube/pull/449
 gem "ice_cube", git: "https://github.com/nehresma/ice_cube.git", ref: "d7ea51efcd"
-gem "sidekiq-amigo", git: "https://github.com/lithictech/sidekiq-amigo.git", branch: "autoscaler-rewrite"
 
 # NOTE: When running integration tests, you will need to set BUNDLE_WITHOUT to something other than 'test'.
 group :test do
