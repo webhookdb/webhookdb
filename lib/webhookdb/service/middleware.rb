@@ -6,6 +6,8 @@ require "rack/ssl-enforcer"
 require "sentry-ruby"
 require "appydays/loggable/request_logger"
 
+require "webhookdb/redis"
+require "webhookdb/async/web_autoscaler"
 require "webhookdb/service" unless defined?(Webhookdb::Service)
 
 class Rack::SslEnforcer
@@ -59,8 +61,16 @@ module Webhookdb::Service::Middleware
   end
 
   def self.add_common_middleware(builder)
-    builder.use(Rack::ContentLength)
     builder.use(Sentry::Rack::CaptureExceptions)
+    if Webhookdb::Async::WebAutoscaler.enabled
+      builder.use(
+        Amigo::Autoscaler::Checkers::WebLatency::Middleware,
+        redis: Webhookdb::Redis.cache,
+        namespace: Webhookdb::Async::WebAutoscaler::NAMESPACE,
+      )
+    end
+
+    builder.use(Rack::ContentLength)
     builder.use(Rack::Deflater)
   end
 

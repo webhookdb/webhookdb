@@ -23,7 +23,9 @@ preload_app!
 require "webhookdb/procmon"
 Webhookdb::Procmon.run if Webhookdb::Procmon.enabled
 require "webhookdb/async/autoscaler"
-Webhookdb::Async::Autoscaler.start if Webhookdb::Async::Autoscaler.enabled?
+Webhookdb::Async::Autoscaler.build.start if Webhookdb::Async::Autoscaler.enabled
+require "webhookdb/async/web_autoscaler"
+Webhookdb::Async::WebAutoscaler.build.start if Webhookdb::Async::WebAutoscaler.enabled
 
 require "barnes"
 

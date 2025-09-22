@@ -35,7 +35,7 @@ RSpec.describe Webhookdb::Async::ResilientSidekiqClient do
   end
 
   it "can replay jobs" do
-    resilient = described_class.new(Sidekiq.redis_pool).resilient
+    resilient = described_class.new(pool: Sidekiq.redis_pool).resilient
     calls = []
     create_job_class(calls)
     resilient.write_to(
