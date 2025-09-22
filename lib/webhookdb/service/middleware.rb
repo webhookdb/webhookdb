@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require "amigo/autoscaler/checkers/web_latency"
 require "rack/cors"
 require "rack/protection"
 require "rack/ssl-enforcer"
 require "sentry-ruby"
 require "appydays/loggable/request_logger"
 
+require "webhookdb/redis"
 require "webhookdb/service" unless defined?(Webhookdb::Service)
 
 class Rack::SslEnforcer
@@ -59,8 +61,9 @@ module Webhookdb::Service::Middleware
   end
 
   def self.add_common_middleware(builder)
-    builder.use(Rack::ContentLength)
     builder.use(Sentry::Rack::CaptureExceptions)
+    builder.use(Amigo::Autoscaler::Checkers::WebLatency::Middleware, redis: Webhookdb::Redis.cache)
+    builder.use(Rack::ContentLength)
     builder.use(Rack::Deflater)
   end
 

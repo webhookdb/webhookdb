@@ -1,4 +1,13 @@
 GIT
+  remote: https://github.com/lithictech/sidekiq-amigo.git
+  revision: d53cc65ad97231f71d67b7df031d9ec4ef247f60
+  branch: autoscaler-rewrite
+  specs:
+    sidekiq-amigo (1.11.0)
+      sidekiq (>= 7)
+      sidekiq-cron (~> 2)
+
+GIT
   remote: https://github.com/nehresma/ice_cube.git
   revision: d7ea51efcdb06b3d6f8ccc9f940893103a6f568f
   ref: d7ea51efcd
@@ -407,9 +416,6 @@ GEM
       logger (>= 1.6.2)
       rack (>= 3.1.0)
       redis-client (>= 0.23.2)
-    sidekiq-amigo (1.11.0)
-      sidekiq (>= 7)
-      sidekiq-cron (~> 2)
     sidekiq-cron (2.3.0)
       cronex (>= 0.13.0)
       fugit (~> 1.8, >= 1.11.1)
@@ -468,6 +474,7 @@ DEPENDENCIES
   rubocop-rake (~> 0.6)
   rubocop-rspec (~> 3.6)
   rubocop-sequel (~> 0.3)
+  sidekiq-amigo!
   simplecov (~> 0.22)
   simplecov-cobertura (~> 2.1)
   timecop (~> 0.9)

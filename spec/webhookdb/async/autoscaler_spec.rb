@@ -3,102 +3,36 @@
 require "webhookdb/async/autoscaler"
 
 RSpec.describe Webhookdb::Async::Autoscaler do
-  describe "configuration", reset_configuration: described_class do
-    it "errors for an invalid provider" do
-      described_class.provider = "x"
-      expect do
-        described_class.run_after_configured_hooks
-      end.to raise_error(RuntimeError, /invalid AUTOSCALER_PROVIDER: 'x', one of: heroku, fake/)
-    end
-
-    it "allows a valid provider" do
-      described_class.provider = "heroku"
-      expect { described_class.run_after_configured_hooks }.to_not raise_error
-    end
-
-    it "allows an empty provider if enabled is false" do
-      described_class.provider = ""
-      described_class.enabled = false
-      expect { described_class.run_after_configured_hooks }.to_not raise_error
-    end
-
-    it "errors for an empty provider if enabled is true" do
-      described_class.provider = ""
-      described_class.enabled = true
-      expect do
-        described_class.run_after_configured_hooks
-      end.to raise_error(RuntimeError, /invalid AUTOSCALER_PROVIDER: '', one of: heroku, fake/)
-    end
-  end
-
   describe "build_implementation", reset_configuration: described_class do
-    it "works for a heroku provider", reset_configuration: Webhookdb::Heroku do
-      described_class.provider = "heroku"
-      described_class.heroku_app_id_or_app_name = "fake-app"
+    it "conditionally adds handlers", reset_configuration: Webhookdb::Heroku do
       Webhookdb::Heroku.oauth_token = "x"
-      expect(described_class.build_implementation).to have_attributes(
-        heroku: Webhookdb::Heroku.client,
-        active_event_initial_workers: nil,
-        max_additional_workers: 2,
-        app_id_or_app_name: "fake-app",
-        formation_id_or_formation_type: "worker",
+      described_class.handlers = "heroku+sentry"
+      as = described_class.build
+      expect(as.handler.chain).to contain_exactly(
+        be_a(Amigo::Autoscaler::Handlers::Log),
+        be_a(Amigo::Autoscaler::Handlers::Heroku),
+        be_a(Amigo::Autoscaler::Handlers::Sentry),
       )
-    end
 
-    it "works for a fake provider" do
-      described_class.provider = "fake"
-      impl = described_class.build_implementation
-      impl.scale_up({}, depth: 1, x: 1)
-      impl.scale_down(x: 1)
-      expect(impl).to have_attributes(
-        scale_ups: [[{}, {depth: 1, x: 1}]],
-        scale_downs: [[{x: 1}]],
+      described_class.handlers = "heroku"
+      as = described_class.build
+      expect(as.handler.chain).to contain_exactly(
+        be_a(Amigo::Autoscaler::Handlers::Log),
+        be_a(Amigo::Autoscaler::Handlers::Heroku),
       )
-    end
-  end
 
-  it "alerts Sentry if the autoscaler check errors", :sentry, reset_configuration: described_class do
-    err = RuntimeError.new("hi")
-    described_class.provider = "fake"
-    described_class.poll_interval = 0
-    described_class.hostname_regex = /.*/
-    expect(Sentry).to receive(:capture_exception).with(err)
-    described_class.start
-    calls = []
-    expect(described_class.instance_variable_get(:@instance)).to receive(:_check) do
-      Thread.current.report_on_exception = false
-      calls << 1
-      raise err
-    end
-    expect { calls }.to eventually(have_length(1))
-  end
+      described_class.handlers = "sentry"
+      as = described_class.build
+      expect(as.handler.chain).to contain_exactly(
+        be_a(Amigo::Autoscaler::Handlers::Log),
+        be_a(Amigo::Autoscaler::Handlers::Sentry),
+      )
 
-  describe "scale_up", :sentry do
-    after(:each) do
-      described_class.instance_variable_set(:@impl, nil)
-    end
-
-    it "only alerts sentry every configured interval" do
-      described_class.provider = "fake"
-      impl = described_class.build_implementation
-      described_class.instance_variable_set(:@impl, impl)
-      expect(Sentry).to receive(:capture_message).twice
-
-      # One call
-      described_class.scale_up({}, depth: 1, duration: 1)
-      described_class.scale_up({}, depth: 1, duration: 1)
-
-      # No additional calls
-      Timecop.travel(30.seconds.from_now) do
-        described_class.scale_up({}, depth: 1, duration: 1)
-        described_class.scale_up({}, depth: 1, duration: 1)
-      end
-
-      # One additional call since it's been 3 minutes
-      Timecop.travel(4.minutes.from_now) do
-        described_class.scale_up({}, depth: 1, duration: 1)
-        described_class.scale_up({}, depth: 1, duration: 1)
-      end
+      described_class.handlers = ""
+      as = described_class.build
+      expect(as.handler.chain).to contain_exactly(
+        be_a(Amigo::Autoscaler::Handlers::Log),
+      )
     end
   end
 end
