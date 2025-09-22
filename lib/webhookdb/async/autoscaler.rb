@@ -21,7 +21,7 @@ module Webhookdb::Async::Autoscaler
     # If 'sentry' is in the string, use the Sentry handler.
     # If 'heroku' is in the string, use the Sentry handler.
     setting :handlers, "sentry"
-    setting :latency_threshold, 10
+    setting :latency_threshold, 10.0
     setting :alert_interval, 180
     setting :poll_interval, 30
     setting :max_additional_workers, 2
