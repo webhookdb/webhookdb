@@ -30,8 +30,11 @@ RSpec.describe Webhookdb::API::System do
       expect(last_response_json_body).to include(
         autoscale_depth: be_a(Integer),
         autoscale_started: have_length("1970-01-01T00:00:00Z".length),
+        web_autoscale_started: have_length("1970-01-01T00:00:00Z".length),
+        web_autoscale_depth: be_a(Integer),
         db: be_a(Float),
         redis: be_a(Float),
+        redis_cache: be_a(Float),
       )
     end
 

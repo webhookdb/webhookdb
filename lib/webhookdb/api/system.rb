@@ -45,21 +45,22 @@ class Webhookdb::API::System < Webhookdb::Service
     begin
       Sidekiq.redis do |c|
         start = Time.now
-        c.ping
+        c.call("PING")
         result[:redis] = (Time.now - start).to_f
         ns = Webhookdb::Async::Autoscaler::NAMESPACE
-        result[:autoscale_started] = Time.at(c.get("#{ns}/latency_event_started").to_i).utc.iso8601
-        result[:autoscale_depth] = c.get("#{ns}/depth").to_i
+        result[:autoscale_started] = Time.at(c.call("GET", "#{ns}/latency_event_started").to_i).utc.iso8601
+        result[:autoscale_depth] = c.call("GET", "#{ns}/depth").to_i
       end
       Webhookdb::Redis.cache.with do |c|
         start = Time.now
         c.call("PING")
         result[:redis_cache] = (Time.now - start).to_f
         ns = Webhookdb::Async::WebAutoscaler::NAMESPACE
-        result[:autoscale_started] = Time.at(c.get("#{ns}/latency_event_started").to_i).utc.iso8601
-        result[:autoscale_depth] = c.get("#{ns}/depth").to_i
+        result[:web_autoscale_started] = Time.at(c.call("GET", "#{ns}/latency_event_started").to_i).utc.iso8601
+        result[:web_autoscale_depth] = c.call("GET", "#{ns}/depth").to_i
       end
-    rescue StandardError
+    rescue StandardError => e
+      puts e if Webhookdb::RACK_ENV == "test"
       nil
     end
     status 200
