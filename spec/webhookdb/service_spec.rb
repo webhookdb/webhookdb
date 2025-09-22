@@ -636,6 +636,20 @@ RSpec.describe Webhookdb::Service, :db do
     end
   end
 
+  describe "middleware" do
+    it "adds the web latency middleware if enabled", reset_configuration: Webhookdb::Async::WebAutoscaler do
+      app = Webhookdb::API::TestService.build_app
+      get "/hello"
+      expect(last_response).to have_status(201)
+
+      Webhookdb::Async::WebAutoscaler.enabled = true
+
+      app = Webhookdb::API::TestService.build_app
+      get "/hello"
+      expect(last_response).to have_status(201)
+    end
+  end
+
   describe "etag mixin" do
     it "hashes the rendered entity" do
       get "/etagged"
