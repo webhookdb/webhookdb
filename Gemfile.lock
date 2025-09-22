@@ -407,7 +407,7 @@ GEM
       logger (>= 1.6.2)
       rack (>= 3.1.0)
       redis-client (>= 0.23.2)
-    sidekiq-amigo (1.12.0)
+    sidekiq-amigo (1.12.1)
       sidekiq (>= 7)
       sidekiq-cron (~> 2)
     sidekiq-cron (2.3.0)
