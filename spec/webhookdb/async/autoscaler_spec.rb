@@ -34,5 +34,21 @@ RSpec.describe Webhookdb::Async::Autoscaler do
         be_a(Amigo::Autoscaler::Handlers::Log),
       )
     end
+
+    it "uses a logging handler" do
+      described_class.handlers = ""
+      as = described_class.build
+      logs = capture_logs_from(described_class.logger) do
+        as.handler.scale_up({}, duration: 1.0, depth: 1)
+      end
+      expect(logs).to have_a_line_matching(/high_latency_queues/)
+    end
+
+    it "captures unhandled exceptions" do
+      as = described_class.build
+      e = RuntimeError.new("hi")
+      expect(Sentry).to receive(:capture_exception).with(e)
+      as.on_unhandled_exception.call(e)
+    end
   end
 end
