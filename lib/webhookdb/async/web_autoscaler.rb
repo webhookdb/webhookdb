@@ -23,6 +23,8 @@ module Webhookdb::Async::WebAutoscaler
     setting :handlers, "sentry"
     # Over 5s, start scaling. Under 5s, we can start scaling down.
     setting :latency_threshold, 4.0
+    # Scale if our pool is over 85% used.
+    setting :usage_threshold, 0.85
     setting :alert_interval, 20
     setting :poll_interval, 15
     setting :max_additional_workers, 2
@@ -51,6 +53,7 @@ module Webhookdb::Async::WebAutoscaler
         ),
         poll_interval: self.poll_interval,
         latency_threshold: self.latency_threshold,
+        usage_threshold: self.usage_threshold,
         hostname_regex: self.hostname_regex,
         alert_interval: self.alert_interval,
         namespace: NAMESPACE,
