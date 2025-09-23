@@ -27,6 +27,15 @@ class Webhookdb::API::System < Webhookdb::Service
     {o: "k"}
   end
 
+  helpers do
+    def safe_call(&)
+      yield
+    rescue StandardError => e
+      puts e if Webhookdb::RACK_ENV == "test"
+      nil
+    end
+  end
+
   desc "Return more extensive health information about service dependencies."
   get :service_health do
     result = {
@@ -35,14 +44,12 @@ class Webhookdb::API::System < Webhookdb::Service
       autoscale_started: Time.at(0),
       autoscale_depth: -1,
     }
-    begin
+    safe_call do
       start = Time.now
       Webhookdb::Customer.db["SELECT 1"]
       result[:db] = (Time.now - start).to_f
-    rescue StandardError
-      nil
     end
-    begin
+    safe_call do
       Sidekiq.redis do |c|
         start = Time.now
         c.call("PING")
@@ -51,6 +58,9 @@ class Webhookdb::API::System < Webhookdb::Service
         result[:autoscale_started] = Time.at(c.call("GET", "#{ns}/latency_event_started").to_i).utc.iso8601
         result[:autoscale_depth] = c.call("GET", "#{ns}/depth").to_i
       end
+      result[:queues] = Sidekiq::Queue.all.map { |q| {n: q.name, l: q.latency} }
+    end
+    safe_call do
       Webhookdb::Redis.cache.with do |c|
         start = Time.now
         c.call("PING")
@@ -59,9 +69,6 @@ class Webhookdb::API::System < Webhookdb::Service
         result[:web_autoscale_started] = Time.at(c.call("GET", "#{ns}/latency_event_started").to_i).utc.iso8601
         result[:web_autoscale_depth] = c.call("GET", "#{ns}/depth").to_i
       end
-    rescue StandardError => e
-      puts e if Webhookdb::RACK_ENV == "test"
-      nil
     end
     status 200
     present(result)
