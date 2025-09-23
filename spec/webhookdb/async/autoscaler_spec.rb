@@ -39,7 +39,7 @@ RSpec.describe Webhookdb::Async::Autoscaler do
       described_class.handlers = ""
       as = described_class.build
       logs = capture_logs_from(described_class.logger) do
-        as.handler.scale_up({}, duration: 1.0, depth: 1)
+        as.handler.scale_up(high_latencies: {}, duration: 1.0, depth: 1, pool_usage: 1.1)
       end
       expect(logs).to have_a_line_matching(/high_latency_queues/)
     end
