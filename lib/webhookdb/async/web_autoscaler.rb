@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "amigo/autoscaler"
+require "amigo/autoscaler/checkers/chain"
+require "amigo/autoscaler/checkers/puma_pool_usage"
 require "amigo/autoscaler/checkers/web_latency"
 
 require "webhookdb/async"
@@ -28,6 +30,11 @@ module Webhookdb::Async::WebAutoscaler
   end
 
   class << self
+    def puma_pool_usage_checker
+      @puma_pool_usage_checker ||= Amigo::Autoscaler::Checkers::PumaPoolUsage.new(redis: Webhookdb::Redis.cache)
+      return @puma_pool_usage_checker
+    end
+
     def build
       return Webhookdb::Async::Autoscaler.build_common(
         handlers: self.handlers,
@@ -36,7 +43,12 @@ module Webhookdb::Async::WebAutoscaler
         formation: "web",
         sentry_message: "Web requests have a high latency",
         log_message: "high_latency_requests",
-        checker: Amigo::Autoscaler::Checkers::WebLatency.new(redis: Webhookdb::Redis.cache),
+        checker: Amigo::Autoscaler::Checkers::Chain.new(
+          [
+            Amigo::Autoscaler::Checkers::WebLatency.new(redis: Webhookdb::Redis.cache),
+            self.puma_pool_usage_checker,
+          ],
+        ),
         poll_interval: self.poll_interval,
         latency_threshold: self.latency_threshold,
         hostname_regex: self.hostname_regex,
