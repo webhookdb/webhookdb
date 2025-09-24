@@ -23,9 +23,15 @@ preload_app!
 require "webhookdb/procmon"
 Webhookdb::Procmon.run if Webhookdb::Procmon.enabled
 require "webhookdb/async/autoscaler"
+
 Webhookdb::Async::Autoscaler.build.start if Webhookdb::Async::Autoscaler.enabled
 require "webhookdb/async/web_autoscaler"
-Webhookdb::Async::WebAutoscaler.build.start if Webhookdb::Async::WebAutoscaler.enabled
+if Webhookdb::Async::WebAutoscaler.enabled
+  Webhookdb::Async::WebAutoscaler.build.start
+  amigo_autoscaler_interval Webhookdb::Async::WebAutoscaler.poll_interval
+  amigo_puma_pool_usage_checker Webhookdb::Async::WebAutoscaler.puma_pool_usage_checker
+  plugin :amigo
+end
 
 require "barnes"
 
