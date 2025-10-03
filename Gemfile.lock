@@ -67,6 +67,7 @@ PATH
       slack-notifier (~> 2.4)
       stripe (~> 15.2)
       sys-filesystem (~> 1.5)
+      tzinfo-data (~> 1)
       uuidx (~> 0.10)
       warden (~> 1.2)
 
@@ -434,6 +435,8 @@ GEM
     timeout (0.4.3)
     tzinfo (2.0.6)
       concurrent-ruby (~> 1.0)
+    tzinfo-data (1.2025.2)
+      tzinfo (>= 1.0.0)
     unicode (0.4.4.5)
     unicode-display_width (3.1.4)
       unicode-emoji (~> 4.0, >= 4.0.4)
