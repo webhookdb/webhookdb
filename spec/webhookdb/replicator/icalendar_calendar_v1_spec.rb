@@ -306,6 +306,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           "content_type" => "text/calendar",
           "hash" => "b816a713f55ce89a441a16a72367f5ca",
           "etag" => "somevalue",
+          "parser_version" => described_class::PARSER_VERSION,
         },
       )
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
@@ -1908,6 +1909,15 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     ICAL
     let(:content_length) { body.size.to_s }
     let(:content_type) { "text/calendar" }
+    let(:parser_version) { described_class::PARSER_VERSION }
+    let(:unchanged_context) do
+      {
+        hash: Digest::MD5.hexdigest(body),
+        content_type:,
+        content_length:,
+        parser_version:,
+      }
+    end
 
     it "is false if the content headers and feed hash match the previous sync" do
       req = stub_request(:get, "https://feed.me").
@@ -1919,11 +1929,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: Digest::MD5.hexdigest(body),
-          content_type:,
-          content_length:,
-        }.to_json,
+        last_fetch_context: unchanged_context.to_json,
       )
       expect(svc).to_not be_feed_changed(row)
       expect(req).to have_been_made
@@ -1936,9 +1942,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          etag: "somevalue",
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(etag: "somevalue").to_json,
       )
       expect(svc).to_not be_feed_changed(row)
       expect(req).to have_been_made
@@ -1954,11 +1958,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: "abc",
-          content_type:,
-          content_length:,
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(hash: "abc").to_json,
       )
       expect(svc).to be_feed_changed(row)
       expect(req).to have_been_made
@@ -1974,11 +1974,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: Digest::MD5.hexdigest(body),
-          content_type: "text/calendar; charset=utf-8",
-          content_length:,
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(content_type: "text/calendar; charset=utf-8").to_json,
       )
       expect(svc).to be_feed_changed(row)
       expect(req).to have_been_made
@@ -1994,17 +1990,13 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: "abc",
-          content_type:,
-          content_length: "10",
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(content_length: "10").to_json,
       )
       expect(svc).to be_feed_changed(row)
       expect(req).to have_been_made
     end
 
-    it "is true if the content length is nil" do
+    it "is true if the content length (from server, and in DB) is nil" do
       req = stub_request(:get, "https://feed.me").
         and_return(
           status: 200,
@@ -2014,11 +2006,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: "abc",
-          content_type:,
-          content_length: nil,
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(content_length: nil).to_json,
       )
       expect(svc).to be_feed_changed(row)
       expect(req).to have_been_made
@@ -2041,20 +2029,34 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       expect(svc).to be_feed_changed(row)
     end
 
+    it "is true with a non-empty but nonsense context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {x: 1}.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
     it "is true if the fetch errors" do
       req = stub_request(:get, "https://feed.me").
         and_raise(RuntimeError)
       row = insert_calendar_row(
         ics_url: "https://feed.me",
         external_id: "abc",
-        last_fetch_context: {
-          hash: "abc",
-          content_type:,
-          content_length:,
-        }.to_json,
+        last_fetch_context: unchanged_context.merge(hash: "abc").to_json,
       )
       expect(svc).to be_feed_changed(row)
       expect(req).to have_been_made
+    end
+
+    it "is true if the last_fetch_context has no parser_version field" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(parser_version: -1).to_json,
+      )
+      expect(svc).to be_feed_changed(row)
     end
   end
 end

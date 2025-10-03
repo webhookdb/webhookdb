@@ -275,7 +275,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     it "skips unchanged feeds", sidekiq: :fake do
       req = stub_request(:get, "https://feed.me/").
-        to_return(status: 200, body: "", headers: {})
+        to_return(status: 304, body: nil)
 
       sint.replicator.admin_dataset do |ds|
         ds.insert(
@@ -283,9 +283,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           external_id: "abc",
           ics_url: "https://feed.me",
           last_fetch_context: {
-            content_type: nil,
-            content_length: nil,
-            hash: "d41d8cd98f00b204e9800998ecf8427e",
+            parser_version: Webhookdb::Replicator::IcalendarCalendarV1::PARSER_VERSION,
           }.to_json,
         )
       end
