@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "tzinfo"
+require "tzinfo/data"
+
 module Webhookdb::Timezone
   include Appydays::Configurable
 
@@ -41,6 +44,56 @@ module Webhookdb::Timezone
       return win_to_tz
     end
 
+    SPECIAL_CASE_OFFSETS = {
+      "EDT" => -"-0400",
+      "EST" => -"-0500",
+      "CDT" => -"-0500",
+      "CST" => -"-0600",
+      "MDT" => -"-0600",
+      "MST" => -"-0700",
+      "PDT" => -"-0700",
+      "PST" => -"-0800",
+      "Microsoft/Utc" => -"+00",
+      "(UTC) Coordinated Universal Time" => -"+00",
+    }.freeze
+
+    EASTERN = -"America/New_York"
+    CENTRAL = -"America/Chicago"
+    MOUNTAIN = -"America/Denver"
+    PACIFIC = -"America/Los_Angeles"
+
+    SPECIAL_CASE_LINKS = {
+      "HT_ESTL" => EASTERN,
+      "HT_CSTL" => CENTRAL,
+      "HT_MSTL" => MOUNTAIN,
+      "HT_PSTL" => PACIFIC,
+
+      "HT_EST" => EASTERN,
+      "HT_CST" => CENTRAL,
+      "HT_MST" => MOUNTAIN,
+      "HT_PST" => PACIFIC,
+
+      "Yukon Standard Time" => "America/Whitehorse",
+
+      "Eastern Standard Time" => EASTERN,
+      "Eastern Time" => EASTERN,
+      "Central Standard Time" => CENTRAL,
+      "Central Time" => CENTRAL,
+      "Mountain Standard Time" => MOUNTAIN,
+      "Mountain Time" => MOUNTAIN,
+      "Pacific Standard Time" => PACIFIC,
+      "Pacific Time" => PACIFIC,
+
+      "GMT -0500 (Standard) / GMT -0400 (Daylight)" => EASTERN,
+      "GMT -0600 (Standard) / GMT -0500 (Daylight)" => CENTRAL,
+      "GMT -0700 (Standard) / GMT -0600 (Daylight)" => MOUNTAIN,
+      "GMT -0800 (Standard) / GMT -0700 (Daylight)" => PACIFIC,
+    }.freeze
+
+    UUID_RE = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
+    CANONICAL_MAPPING = TZInfo::Timezone.all_identifiers.to_h { |d| [d.tr("-", "_").upcase, d] }
+
     # Given a tzid and value for a timestamp, return a Time (with a timezone).
     # While there's no formal naming scheme, we see the following forms:
     #
@@ -63,17 +116,58 @@ module Webhookdb::Timezone
     # We use the tzinfo-data gem so we don't depend on the system timezone,
     # but this means we need to keep it updated manually.
     def parse_time_with_tzid(value, tzid)
-      if (zone = Time.find_zone(tzid.tr("-", "/")))
+      tzid = tzid.delete_prefix("/").delete_prefix("Etc/").delete_prefix("tzone://")
+      # Order these conditions based on how common they are, and how expensive the check is.
+      if (zone = Time.find_zone(tzid))
+        # Happy path, the zone exists.
         return [zone.parse(value), true]
       end
-      if /^(GMT|UTC)[+-]\d\d\d?\d?$/.match?(tzid)
-        offset = tzid[3..]
-        return [Time.parse(value + offset), true]
+      if (new_tzid = SPECIAL_CASE_LINKS[tzid])
+        # This is a weird zone we need to explicitly point to a new one.
+        return parse_time_with_tzid(value, new_tzid)
       end
       if (zone = self.windows_name_to_tz[tzid])
+        # Windows has their own zones, of course.
         return [zone.parse(value), true]
       end
-      unless self.nonsense_tzids&.include?(tzid.upcase)
+      if (offset = SPECIAL_CASE_OFFSETS[tzid])
+        # Some timezones need explicit offsets, rather than handling them as timezones (EST and EDT, for example).
+        return [Time.parse(value + offset), true]
+      end
+      if (md = /^\(?(GMT|UTC)([+-]\d\d?:?\d?\d?)/.match(tzid))
+        # Offsets with and without names: (UTC-07:00) Arizona, GMT+01
+        offset = md[2]
+        if offset.size == 2
+          # values like Etc/GMT-2 into -0200
+          offset = "#{offset[0]}0#{offset[1]}:00"
+        end
+        return [Time.parse(value + offset), true]
+      end
+      if (zone = Time.find_zone(tzid.tr("-", "/")))
+        # Turn 'US-Pacific' into 'US/Pacific'
+        return [zone.parse(value), true]
+      end
+      if (canonical = CANONICAL_MAPPING[tzid.tr("-", "_").upcase])
+        # Incorrect casing means we should retry with a canonical zone.
+        return parse_time_with_tzid(value, canonical)
+      end
+      if /[A-Za-z]{2}\d\d\d\d$/.match?(tzid)
+        # Weird stuff like 'Eastern Standard Time2025', due to a malformed icalendar
+        return parse_time_with_tzid(value, tzid[...-4])
+      end
+      if (pair = SPECIAL_CASE_LINKS.find { |k, _v| tzid.start_with?(k) })
+        return parse_time_with_tzid(value, pair[1])
+      end
+      # At this point, we know we can't parse, so will be using UTC.
+      # The question is if we alert or not.
+      is_custom = tzid =~ /no TZ description/i ||
+        tzid =~ /Custom/i || # Microsoft/Custom, UnnamedCustomTimeZone, Customized Time Zone 2
+        tzid =~ /^d+$/ || # '1'
+        tzid =~ UUID_RE
+      is_ignored = self.nonsense_tzids&.include?(tzid.upcase)
+      do_alert = !is_custom && !is_ignored
+
+      if do_alert
         # We only want to alert weekly, and it's okay to alert globally,
         # since responding is a system administrator responsibility (update config or gem).
         # Have a fast path to ensure we don't hit the DB in this code as it may be called a lot.
@@ -93,8 +187,8 @@ module Webhookdb::Timezone
           end
         end
       end
-      zone = Time.find_zone!("UTC")
-      return [zone.parse(value), false]
+      utc = Time.find_zone!("UTC")
+      return [utc.parse(value), false]
     end
   end
 end
