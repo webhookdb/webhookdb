@@ -10,6 +10,10 @@ require "webhookdb/messages/error_icalendar_fetch"
 class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
 
+  # If there is a change to how a feed is parsed (like we fix a bug),
+  # we need to bump this version so fetches for unchanged data will still be processed.
+  PARSER_VERSION = 1
+
   RECURRENCE_PROJECTION = 5.years
 
   def documentation_url = Webhookdb::Icalendar::DOCUMENTATION_URL
@@ -204,10 +208,11 @@ The secret to use for signing is:
               feed_bytes: processor&.read_bytes,
               last_sync_duration_ms: (Time.now - start).in_milliseconds,
               last_fetch_context: {
-                "hash" => processor&.feed_hash,
-                "content_type" => processor&.headers&.fetch("content-type", nil),
-                "content_length" => processor&.headers&.fetch("content-length", nil),
-                "etag" => processor&.headers&.fetch("etag", nil),
+                hash: processor&.feed_hash,
+                content_type: processor&.headers&.fetch("content-type", nil),
+                content_length: processor&.headers&.fetch("content-length", nil),
+                etag: processor&.headers&.fetch("etag", nil),
+                parser_version: PARSER_VERSION,
               }.to_json,
             )
         end
@@ -705,6 +710,7 @@ The secret to use for signing is:
   def feed_changed?(row)
     last_fetch = row.fetch(:last_fetch_context)
     return true if last_fetch.nil? || last_fetch.empty?
+    return true unless last_fetch["parser_version"] == PARSER_VERSION
 
     begin
       url = self._clean_ics_url(row.fetch(:ics_url))
@@ -714,9 +720,12 @@ The secret to use for signing is:
     rescue StandardError
       return true
     end
-    content_type_match = resp.headers["content-type"] == last_fetch["content_type"] &&
+    # content matches if the type matches, there is a length, and the length matches.
+    # We do not want to match if there is no length, since we have to assume it's changed.
+    content_match = resp.headers["content-type"] == last_fetch["content_type"] &&
+      !resp.headers["content-length"].nil? &&
       resp.headers["content-length"] == last_fetch["content_length"]
-    return true unless content_type_match
+    return true unless content_match
     last_hash = last_fetch["hash"]
     return true if last_hash.nil?
 
