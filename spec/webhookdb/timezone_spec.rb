@@ -16,7 +16,16 @@ RSpec.describe Webhookdb::Timezone, :db do
   end
 
   describe "parse_time_with_tzid" do
+    let(:summer) { "2000-07-01T12:00:00" }
     let(:ts) { "2000-01-01T12:00:00" }
+
+    def testparse(s, tzid, expected, didparse)
+      t, parsed = described_class.parse_time_with_tzid(s, tzid)
+      expect(t).to match_time(expected)
+      expect(parsed).to eq(didparse)
+    end
+
+    # rubocop:disable RSpec/NoExpectationExample
 
     it "parses regular timezones" do
       expect(
@@ -31,34 +40,103 @@ RSpec.describe Webhookdb::Timezone, :db do
     end
 
     it "parses offsets" do
-      expect(
-        described_class.parse_time_with_tzid(ts, "GMT-0500"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00-05"), true)
-      expect(
-        described_class.parse_time_with_tzid(ts, "UTC-0500"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00-05"), true)
-      expect(
-        described_class.parse_time_with_tzid(ts, "UTC+0500"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00+05"), true)
-      expect(
-        described_class.parse_time_with_tzid(ts, "UTC-05"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00-05"), true)
+      testparse(ts, "GMT-0500", "2000-01-01T12:00:00-05", true)
+      testparse(ts, "GMT-06:00", "2000-01-01T12:00:00-06", true)
+      testparse(ts, "UTC-0500", "2000-01-01T12:00:00-05", true)
+      testparse(ts, "UTC+0500", "2000-01-01T12:00:00+05", true)
+      testparse(ts, "UTC-05", "2000-01-01T12:00:00-05", true)
+    end
+
+    it "parses named offsets" do
+      testparse(ts, "(UTC-07:00) Arizona", "2000-01-01T12:00:00-07", true)
+      testparse(ts, "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi", "2000-01-01T12:00:00+0530", true)
+      testparse(ts, "(UTC+00:00) Dublin, Edinburgh, Lisbon, London", "2000-01-01T12:00:00Z", true)
+    end
+
+    it "handles special case TZID offsets" do
+      testparse(ts, "EST", "2000-01-01T12:00:00-05", true)
+      testparse(ts, "EDT", "2000-01-01T12:00:00-04", true)
+      testparse(ts, "Yukon Standard Time", "2000-01-01T12:00:00-08", true)
+      testparse("2024-01-01T12:00:00-07", "Yukon Standard Time", "2024-01-01T12:00:00-07", true)
+      testparse(ts, "(UTC) Coordinated Universal Time", "2000-01-01T12:00:00Z", true)
+    end
+
+    it "handles special case TZID names" do
+      testparse(ts, "Eastern Standard Time", "2000-01-01T12:00:00-05", true)
+      testparse(ts, "Eastern Standard Time 1", "2000-01-01T12:00:00-05", true)
+      testparse(summer, "Eastern Standard Time", "2000-07-01T12:00:00-04", true)
+      testparse(ts, "Eastern Time", "2000-01-01T12:00:00-05", true)
+      testparse(ts, "Pacific Time (US & Canada), Tijuana", "2000-01-01T12:00:00-08", true)
+    end
+
+    it "handles standard/daylight format" do
+      tzid = "GMT -0800 (Standard) / GMT -0700 (Daylight)"
+      testparse(ts, tzid, "2000-01-01T12:00:00-08", true)
+      testparse(summer, tzid, "2000-07-01T12:00:00-07", true)
+    end
+
+    it "canonicalizes casing" do
+      testparse(ts, "America/Blanc-Sablon", "2000-01-01T12:00:00-04", true)
+      testparse(ts, "America/Blanc-sablon", "2000-01-01T12:00:00-04", true)
+      testparse(ts, "America/blanc-SABLON", "2000-01-01T12:00:00-04", true)
+    end
+
+    it "handles Etc" do
+      testparse(ts, "Etc/GMT", "2000-01-01T12:00:00+00", true)
+      testparse(ts, "Etc/Universal", "2000-01-01T12:00:00+00", true)
+      # These are inverted, see: https://en.wikipedia.org/wiki/Tz_database#Area
+      testparse(ts, "Etc/GMT-2", "2000-01-01T12:00:00+02", true)
+      testparse(ts, "Etc/GMT-0", "2000-01-01T12:00:00+00", true)
+      testparse(ts, "Etc/GMT+1", "2000-01-01T12:00:00-01", true)
+      testparse(ts, "Etc/GMT+11", "2000-01-01T12:00:00-11", true)
+    end
+
+    it "ignores custom timezones and uuids" do
+      testparse(ts, "c3566dec-0958-48d5-8c80-57fb6274ccb2", "2000-01-01T12:00:00Z", false)
+      testparse(ts, "Customized Time Zone 1", "2000-01-01T12:00:00Z", false)
+      testparse(ts, "Customized Time Zone", "2000-01-01T12:00:00Z", false)
+      testparse(ts, "1", "2000-01-01T12:00:00Z", false)
+    end
+
+    it "strips tzone://" do
+      testparse(ts, "tzone://Microsoft/Utc", "2000-01-01T12:00:00Z", true)
+      testparse(ts, "tzone://Microsoft/Custom", "2000-01-01T12:00:00Z", false)
+    end
+
+    it "strips leading slashes" do
+      testparse(ts, "/America/Los_Angeles", "2000-01-01T12:00:00-0800", true)
+    end
+
+    it "strips trailing years (due to malformed tzid line)" do
+      testparse(ts, "Eastern Standard Time2025", "2000-01-01T12:00:00-0500", true)
+      testparse(ts, "America/New_York2025", "2000-01-01T12:00:00-0500", true)
     end
 
     it "parses utc" do
-      expect(
-        described_class.parse_time_with_tzid(ts, "GMT"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00Z"), true)
-      expect(
-        described_class.parse_time_with_tzid(ts, "UTC"),
-      ).to contain_exactly(match_time("2000-01-01T12:00:00Z"), true)
+      testparse(ts, "GMT", "2000-01-01T12:00:00Z", true)
+      testparse(ts, "UTC", "2000-01-01T12:00:00Z", true)
+    end
+
+    [
+      ["Singapore Standard Time", "2000-01-01T12:00:00+0800"],
+      ["Central Daylight Time", "2000-07-01T12:00:00-0500", true],
+      # Daylight time in southern hemisphere is northern winter months
+      ["AUS Eastern Standard Time", "2000-01-01T12:00:00+1100"],
+      ["AUS Eastern Standard Time", "2000-07-01T12:00:00+1000", true],
+      ["GMT Standard Time", "2000-01-01T12:00:00+00:00"],
+      ["Greenwich Standard Time", "2000-01-01T12:00:00+00:00"],
+      ["US Eastern Standard Time", "2000-01-01T12:00:00-0500"],
+      ["US America/New_York", "2000-01-01T12:00:00-0500"],
+      ["AUS America/New_York", "2000-01-01T12:00:00-0500"],
+    ].each do |(tzid, expected, dosummer)|
+      it "parses #{tzid}#{' in summer' if dosummer}" do
+        testparse(dosummer ? summer : ts, tzid, expected, true)
+      end
     end
 
     it "warns about invalid timezones", :async do
       expect do
-        expect(
-          described_class.parse_time_with_tzid(ts, "invalid-tz"),
-        ).to contain_exactly(match_time("2000-01-01T12:00:00Z"), false)
+        testparse(ts, "invalid-tz", "2000-01-01T12:00:00Z", false)
       end.to publish("webhookdb.developeralert.emitted").with_payload(
         contain_exactly(
           {
@@ -78,10 +156,10 @@ RSpec.describe Webhookdb::Timezone, :db do
     it "does not warn about nonsense timezones", :async, reset_configuration: described_class do
       described_class.nonsense_tzids = "Foo invalid-TZ bar".upcase
       expect do
-        expect(
-          described_class.parse_time_with_tzid(ts, "invalid-tz"),
-        ).to contain_exactly(match_time("2000-01-01T12:00:00Z"), false)
+        testparse(ts, "invalid-tz", "2000-01-01T12:00:00Z", false)
       end.to_not publish("webhookdb.developeralert.emitted")
     end
+
+    # rubocop:enable RSpec/NoExpectationExample
   end
 end

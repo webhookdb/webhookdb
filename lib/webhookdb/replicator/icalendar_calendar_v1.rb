@@ -12,7 +12,7 @@ class Webhookdb::Replicator::IcalendarCalendarV1 < Webhookdb::Replicator::Base
 
   # If there is a change to how a feed is parsed (like we fix a bug),
   # we need to bump this version so fetches for unchanged data will still be processed.
-  PARSER_VERSION = 1
+  PARSER_VERSION = 3
 
   RECURRENCE_PROJECTION = 5.years
 
