@@ -89,6 +89,7 @@ Gem::Specification.new do |s|
   s.add_dependency("slack-notifier", "~> 2.4")
   s.add_dependency("stripe", "~> 15.2")
   s.add_dependency("sys-filesystem", "~> 1.5")
+  s.add_dependency("tzinfo-data", "~> 1")
   s.add_dependency("uuidx", "~> 0.10")
   s.add_dependency("warden", "~> 1.2")
 end

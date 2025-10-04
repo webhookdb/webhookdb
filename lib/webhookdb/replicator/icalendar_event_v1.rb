@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "webhookdb/icalendar"
-require "webhookdb/windows_tz"
+require "webhookdb/timezone"
 require "webhookdb/replicator/base_stale_row_deleter"
 
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
@@ -50,7 +50,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     raise ArgumentError, "do not pass a date string" if self.value_is_date_str?(value)
     return [Time.strptime(value, "%Y%m%dT%H%M%S%Z"), true] if value.end_with?("Z")
     if (tzid = entry["TZID"])
-      return self._parse_time_with_tzid(value, tzid)
+      return Webhookdb::Timezone.parse_time_with_tzid(value, tzid)
     end
     return [Time.find_zone!("UTC").parse(value), false]
   end
@@ -340,35 +340,6 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
       end
     end
     return parts[:name], parts[:value], params
-  end
-
-  # Given a tzid and value for a timestamp, return a Time (with a timezone).
-  # While there's no formal naming scheme, we see the following forms:
-  # - valid names like America/Los_Angeles, US/Eastern
-  # - dashes, like America-Los_Angeles, US-Eastern
-  # - Offsets, like GMT-0700'
-  #
-  # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
-  # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
-  # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
-  #
-  # If the zone cannot be parsed, assume UTC.
-  #
-  # Return a tuple of [Time, true if the zone could be parsed].
-  # If the zone cannot be parsed, you usually want to log or store it.
-  def self._parse_time_with_tzid(value, tzid)
-    if (zone = Time.find_zone(tzid.tr("-", "/")))
-      return [zone.parse(value), true]
-    end
-    if /^(GMT|UTC)[+-]\d\d\d\d$/.match?(tzid)
-      offset = tzid[3..]
-      return [Time.parse(value + offset), true]
-    end
-    if (zone = Webhookdb::WindowsTZ.windows_name_to_tz[tzid])
-      return [zone.parse(value), true]
-    end
-    zone = Time.find_zone!("UTC")
-    return [zone.parse(value), false]
   end
 
   def on_dependency_webhook_upsert(_ical_svc, _ical_row, **)

@@ -44,6 +44,12 @@ RSpec.describe "Webhookdb::Idempotency", db: :no_transaction do
         end.to raise_error(Webhookdb::Postgres::InTransaction)
       end
     end
+
+    it "can mark transactions ok" do
+      described_class.db.transaction do
+        expect(described_class.once_ever.transaction_ok.under_key("some-key") { 5 }).to eq(5)
+      end
+    end
   end
 
   describe "stored" do

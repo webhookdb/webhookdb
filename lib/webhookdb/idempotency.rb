@@ -88,6 +88,11 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
       return self
     end
 
+    def transaction_ok
+      @transaction_ok = true
+      return self
+    end
+
     # Run the idempotency on a separate connection.
     # Allows use of idempotency within an existing transaction block,
     # which is normally not allowed. Usually should be used with #stored,
@@ -117,11 +122,13 @@ class Webhookdb::Idempotency < Webhookdb::Postgres::Model(:idempotencies)
         db = InDatabase.new(Webhookdb::Idempotency.separate_connection)
       else
         conn = Webhookdb::Idempotency.db
-        Webhookdb::Postgres.check_transaction(
-          conn,
-          "Cannot use idempotency while already in a transaction, since side effects may not be idempotent. " \
-          "You can chain withusing_seperate_connection to run the idempotency itself separately.",
-        )
+        unless @transaction_ok
+          Webhookdb::Postgres.check_transaction(
+            conn,
+            "Cannot use idempotency while already in a transaction, since side effects may not be idempotent. " \
+            "You can chain withusing_seperate_connection to run the idempotency itself separately.",
+          )
+        end
         db = InDatabase.new(conn)
       end
 
