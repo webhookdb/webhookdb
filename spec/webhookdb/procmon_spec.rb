@@ -4,7 +4,7 @@ require "webhookdb/procmon"
 
 RSpec.describe Webhookdb::Procmon do
   before(:each) do
-    described_class.reset_configuration(singleton_hostname_regex: /.*/)
+    described_class.reset_configuration(singleton_hostname_regex: /.*/, disk_threshold_pct: 99, redis_memory_pct: 99)
     ENV["DYNO"] = "web1"
     Webhookdb::SHUTTING_DOWN.make_false
     Webhookdb::SHUTTING_DOWN_EVENT.reset
@@ -37,6 +37,7 @@ RSpec.describe Webhookdb::Procmon do
 
     it "warns on high disk usage" do
       described_class.mount_path = "/app"
+      described_class.disk_threshold_pct = 70
       stat = Sys::Filesystem::Stat.new
       stat.blocks = 1_000_000
       stat.blocks_free = 100_000
@@ -88,6 +89,7 @@ RSpec.describe Webhookdb::Procmon do
     end
 
     it "uses total memory if maxmemory is 0" do
+      described_class.redis_memory_pct = 60
       expect(Amigo::MemoryPressure.instance).to receive(:get_memory_info).
         and_return({
                      "maxmemory" => "0",
@@ -110,6 +112,7 @@ RSpec.describe Webhookdb::Procmon do
     end
 
     it "warns on high Redis memory usage" do
+      described_class.redis_memory_pct = 60
       expect(Amigo::MemoryPressure.instance).to receive(:get_memory_info).
         and_return({
                      "maxmemory" => "1000000",
@@ -231,7 +234,7 @@ RSpec.describe Webhookdb::Procmon do
     it "does not run singleton checks if the host name does not match the regex (Socket.hostname)" do
       described_class.reset_configuration(singleton_hostname_regex: /web\.1/)
       ENV.delete("DYNO")
-      expect(Socket).to receive(:gethostname).and_return("web.2")
+      expect(Socket).to receive(:gethostname).and_return(+"web.2")
 
       logs = capture_logs_from(described_class.logger, level: :info, formatter: :json) do
         described_class.check
