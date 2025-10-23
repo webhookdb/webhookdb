@@ -32,6 +32,7 @@ module Webhookdb::Timezone
         line.strip!
         next if line.blank? || line.start_with?("#")
         iana, win = line.split(/\s/, 2)
+        win = win.upcase!
         next if win_to_tz.include?(win)
         all_win_names.add(win)
         tz = ActiveSupport::TimeZone[iana]
@@ -129,7 +130,7 @@ module Webhookdb::Timezone
     # We use the tzinfo-data gem so we don't depend on the system timezone,
     # but this means we need to keep it updated manually.
     def parse_time_with_tzid(value, tzid)
-      tzid = tzid.delete_prefix("/").delete_prefix("tzone://")
+      tzid = tzid.strip.delete_prefix("/").delete_prefix("tzone://")
       # Order these conditions based on how common they are, and how expensive the check is.
       if (zone = Time.find_zone(tzid) || Time.find_zone(tzid.gsub(/^[A-Z]+ /, "")))
         # Happy path, the zone exists.
@@ -138,7 +139,7 @@ module Webhookdb::Timezone
         # the country prefix.
         return [zone.parse(value), true]
       end
-      if (zone = self.windows_name_to_tz[tzid])
+      if (zone = self.windows_name_to_tz[tzid.upcase])
         # Windows has their own zones, of course. Prefer these before anything else.
         return [zone.parse(value), true]
       end

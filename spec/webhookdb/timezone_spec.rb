@@ -10,7 +10,8 @@ RSpec.describe Webhookdb::Timezone, :db do
   describe "windows_name_to_tz" do
     it "returns windows timezone names to unix tz names" do
       expect(described_class.windows_name_to_tz).to include(
-        "AUS Central Standard Time" => Time.find_zone!("Australia/Darwin"),
+        "AUS CENTRAL STANDARD TIME" => Time.find_zone!("Australia/Darwin"),
+        "ATLANTIC STANDARD TIME" => Time.find_zone!("America/Halifax"),
       )
     end
   end
@@ -37,6 +38,12 @@ RSpec.describe Webhookdb::Timezone, :db do
       expect(
         described_class.parse_time_with_tzid(ts, "America-New_York"),
       ).to contain_exactly(match_time("2000-01-01T12:00:00-05"), true)
+    end
+
+    it "parses windows timezones" do
+      testparse(ts, "SA Western Standard Time", "2000-01-01T12:00:00-04", true)
+      testparse(ts, " SA Western Standard Time\t", "2000-01-01T12:00:00-04", true)
+      testparse(ts, "sa western standard time", "2000-01-01T12:00:00-04", true)
     end
 
     it "parses offsets" do
