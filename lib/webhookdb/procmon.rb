@@ -15,7 +15,12 @@ class Webhookdb::Procmon
 
   configurable(:procmon) do
     setting :enabled, true
+
+    # How often we poll for issues.
     setting :interval, 60
+    # How often we alert for a particular issue.
+    setting :alert_interval, 15.minutes.to_i
+
     # What hosts/processes should singleton checks (redis, Sidekiq) this run on?
     # Looks at ENV['DYNO'] and Socket.gethostname for a match.
     # Default to only run on 'web.1', which is the first Heroku web dyno.
@@ -170,17 +175,19 @@ class Webhookdb::Procmon
 
     private def devalert(subsystem, emoji, fields)
       @alerted = true
-      fields.each do |f|
-        f[:short] = true unless f.key?(:short)
+      Webhookdb::Idempotency.every(self.alert_interval).in_memory.under_key("procmon-#{subsystem}") do
+        fields.each do |f|
+          f[:short] = true unless f.key?(:short)
+        end
+        Webhookdb::DeveloperAlert.new(
+          subsystem: "Process Monitor (#{subsystem})",
+          emoji:,
+          fields:,
+          fallback: fields.
+            map { |f| "#{f[:title]}: #{f[:value].delete('`')}" }.
+            join(", "),
+        ).emit
       end
-      Webhookdb::DeveloperAlert.new(
-        subsystem: "Process Monitor (#{subsystem})",
-        emoji:,
-        fields:,
-        fallback: fields.
-          map { |f| "#{f[:title]}: #{f[:value].delete('`')}" }.
-          join(", "),
-      ).emit
     end
   end
 end
