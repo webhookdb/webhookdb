@@ -8,10 +8,12 @@ RSpec.describe Webhookdb::Procmon do
     ENV["DYNO"] = "web1"
     Webhookdb::SHUTTING_DOWN.make_false
     Webhookdb::SHUTTING_DOWN_EVENT.reset
+    described_class.alert_interval = 0
   end
 
   after(:each) do
     described_class.reset_configuration
+    Webhookdb::Idempotency.memory_cache.clear
   end
 
   describe "check", :async do
@@ -267,5 +269,28 @@ RSpec.describe Webhookdb::Procmon do
   it "raises if the mount path cannot be found" do
     described_class.reset_configuration(mount_path: "/not/found/#{SecureRandom.hex}")
     expect { described_class.run }.to raise_error(/Could not stat on/)
+  end
+
+  describe "devalert", :async do
+    it "only alerts once every 15 minutes for a particular alert" do
+      described_class.alert_interval = 15.minutes.to_i
+
+      expect do
+        described_class.send(:devalert, "Disk", ":dvd:", [])
+      end.to publish("webhookdb.developeralert.emitted")
+      expect do
+        described_class.send(:devalert, "Disk", ":dvd:", [])
+      end.to_not publish("webhookdb.developeralert.emitted")
+
+      expect do
+        described_class.send(:devalert, "Disk2", ":dvd:", [])
+      end.to publish("webhookdb.developeralert.emitted")
+
+      Timecop.travel(20.minutes.from_now) do
+        expect do
+          described_class.send(:devalert, "Disk", ":dvd:", [])
+        end.to publish("webhookdb.developeralert.emitted")
+      end
+    end
   end
 end
