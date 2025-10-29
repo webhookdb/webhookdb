@@ -119,7 +119,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   def self.retry_logs(instances, truncate_successful: false)
     successes, failures = instances.partition do |lw|
       uri = URI(Webhookdb.api_url + lw.request_path)
-      req = Net::HTTP::Post.new(uri.path, {"Content-Type" => "application/json"})
+      req = Net::HTTP::Post.new(uri.path, {"content-type" => "application/json"})
       req.body = lw.request_body
       # This is going to have these headers:
       # ["content-type", "accept-encoding", "accept", "user-agent", "host"]
@@ -127,13 +127,12 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
       # in the original request; then we want to use those.
       # Additionally, there are a whole set of headers we'll find on our webserver
       # that are added by our web platform, which we do NOT want to include.
-      lw.request_headers.each do |k, v|
-        k = k.downcase
+      Webhookdb::Http::HeaderHash.from_h(lw.request_headers).each do |k, v|
         next if Webhookdb::LoggedWebhook::WEBHOST_HEADERS.include?(k)
         next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
       end
-      req[Webhookdb::LoggedWebhook::RETRY_HEADER] = lw.id
+      req[Webhookdb::LoggedWebhook::RETRY_HEADER] = lw.id.to_s
       resp = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
         http.request(req)
       end
