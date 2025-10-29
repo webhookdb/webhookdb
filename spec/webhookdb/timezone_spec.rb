@@ -151,8 +151,8 @@ RSpec.describe Webhookdb::Timezone, :db do
             emoji: ":world_map:",
             fallback: "Invalid TZID: invalid-tz. Update tzinfo-data gem, or add this to TIMEZONE_NONSENSE_TZIDS.",
             fields: [
-              {title: "Timezone ID", value: "invalid-tz", short: true},
-              {title: "Time string", value: "2000-01-01T12:00:00", "short" => true},
+              {title: "Timezone ID", value: '"invalid-tz" (UTF-8)', short: true},
+              {title: "Time string", value: "2000-01-01T12:00:00", short: true},
               {title: "Action", value: "Update tzinfo-data gem, or add this ID to TIMEZONE_NONSENSE_TZIDS config."},
             ],
           }.as_json,

@@ -189,7 +189,7 @@ module Webhookdb::Timezone
               emoji: ":world_map:",
               fallback: "Invalid TZID: #{tzid}. Update tzinfo-data gem, or add this to TIMEZONE_NONSENSE_TZIDS.",
               fields: [
-                {title: "Timezone ID", value: tzid, short: true},
+                {title: "Timezone ID", value: "#{tzid.inspect} (#{tzid.encoding})", short: true},
                 {title: "Time string", value: value, short: true},
                 {title: "Action", value: "Update tzinfo-data gem, or add this ID to TIMEZONE_NONSENSE_TZIDS config."},
               ],
