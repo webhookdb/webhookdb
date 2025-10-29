@@ -268,12 +268,12 @@ The secret to use for signing is:
     # Using Httpx, Accept-Encoding is gzip,deflate
     # which seems fine (server should use identity as worst case).
     headers = {
-      "Accept" => "text/calendar,*/*",
+      "accept" => "text/calendar,*/*",
     }
-    headers["If-None-Match"] = last_fetch_context["etag"] if last_fetch_context & ["etag"]
+    headers["if-none-match"] = last_fetch_context["etag"] if last_fetch_context & ["etag"]
     if (proxy_url = Webhookdb::Icalendar.proxy_url).present?
       request_url = "#{proxy_url.delete_suffix('/')}/?url=#{URI.encode_www_form_component(request_url)}"
-      headers["Authorization"] = "Apikey #{Webhookdb::Icalendar.proxy_api_key}" if
+      headers["authorization"] = "Apikey #{Webhookdb::Icalendar.proxy_api_key}" if
         Webhookdb::Icalendar.proxy_api_key.present?
     end
     resp = Webhookdb::Http.chunked_download(

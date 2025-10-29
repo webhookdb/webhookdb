@@ -360,6 +360,51 @@ RSpec.describe Webhookdb::Http do
     end
   end
 
+  describe "HeaderHash" do
+    it "downcases keys" do
+      h = described_class::HeaderHash.new
+      h["Content-Type"] = "x"
+      expect(h).to eq("content-type" => "x")
+
+      h = described_class::HeaderHash.new
+      h["X"] = "2"
+      expect(h).to eq({"x" => "2"})
+      h.update("X" => "2")
+      expect(h).to eq({"x" => "2"})
+
+      h = described_class::HeaderHash.from_h({"Content-Type" => "x"})
+      expect(h).to eq("content-type" => "x")
+    end
+
+    it "converts nils to empty strings" do
+      h = described_class::HeaderHash.from_h({"y" => nil})
+      h["x"] = nil
+      expect(h).to eq("x" => "", "y" => "")
+    end
+
+    it "errors for non-string values" do
+      h = described_class::HeaderHash.new
+      expect { h["x"] = 1 }.to raise_error(TypeError)
+    end
+
+    it "errors for non-lowercased key lookup" do
+      h = described_class::HeaderHash.new
+      expect { h["X"] }.to raise_error(TypeError)
+      expect { h[1] }.to raise_error(TypeError)
+      expect { h["x"] }.to_not raise_error
+
+      expect { h.fetch(1, nil) }.to raise_error(TypeError)
+      expect { h.fetch("x", nil) }.to_not raise_error
+    end
+
+    it "works for non mutating methods" do
+      h = described_class::HeaderHash.new
+      h2 = h.merge({"x" => "1"})
+      expect(h2).to eq({"x" => "1"})
+      expect(h2).to be_a(described_class::HeaderHash)
+    end
+  end
+
   describe "logging" do
     it "logs structured request information" do
       logger = SemanticLogger["http_spec_logging_test"]

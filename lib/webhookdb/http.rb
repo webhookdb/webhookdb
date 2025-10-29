@@ -43,6 +43,63 @@ module Webhookdb::Http
   class NotModified < Error; end
   class TooManyRedirects < BaseError; end
 
+  # Hash that downcases keys when set (ie, NOT case insensitive on lookup),
+  # and errors if setting a non-nil value.
+  class HeaderHash < Hash
+    def self.from_h(h)
+      hh = self.new
+      hh.update(h)
+      return hh
+    end
+
+    def initialize(*)
+      super
+      transform_and_check
+    end
+
+    def []=(key, value)
+      super(normalize_key(key), normalize_value(value))
+    end
+
+    def update(*)
+      super
+      transform_and_check
+    end
+
+    alias merge! update
+
+    if Webhookdb::RACK_ENV == "test"
+      def [](k)
+        check_key(k)
+        return super
+      end
+
+      def fetch(k, *)
+        check_key(k)
+        return super
+      end
+
+      private def check_key(k)
+        raise TypeError, "key #{k.inspect} must be lowercase" unless normalize_key(k.to_s) == k
+      end
+    end
+
+    private def transform_and_check
+      self.transform_keys! { |k| normalize_key(k) }
+      self.transform_values! { |v| normalize_value(v) }
+    end
+
+    private def normalize_key(k)
+      return k.downcase
+    end
+
+    private def normalize_value(value)
+      return "" if value.nil?
+      raise TypeError, "value #{value.inspect} must be a string" unless value.is_a?(String)
+      return value
+    end
+  end
+
   def self.user_agent
     return Webhookdb.http_user_agent unless Webhookdb.http_user_agent.blank?
     return "WebhookDB/#{Webhookdb::RELEASE} https://webhookdb.com #{Webhookdb::RELEASE_CREATED_AT}"
@@ -75,10 +132,11 @@ module Webhookdb::Http
   def self.get(url, query={}, **options, &)
     self._setup_required_args(options)
     opts = {query:, headers: {}}.merge(**options)
-    opts[:headers]["User-Agent"] = self.user_agent
+    opts[:headers] = HeaderHash.from_h(opts[:headers])
+    opts[:headers]["user-agent"] = self.user_agent
     # See https://github.com/jnunemaker/httparty/issues/784#issuecomment-1585714745
     # I *think* this should be safe to always use.
-    opts[:headers]["Connection"] ||= "keep-alive"
+    opts[:headers]["connection"] ||= "keep-alive"
     r = HTTParty.get(url, **opts, &)
     self.check!(r, **opts)
     return r
@@ -86,10 +144,12 @@ module Webhookdb::Http
 
   def self.post(url, body={}, headers: {}, method: nil, check: true, **options, &)
     self._setup_required_args(options)
-    headers["Content-Type"] ||= "application/json"
-    headers["User-Agent"] = self.user_agent
-    body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
-    opts = {body:, headers:}.merge(**options)
+    hhash = HeaderHash.new
+    hhash.update(headers)
+    hhash["content-type"] ||= "application/json"
+    hhash["user-agent"] = self.user_agent
+    body = body.to_json if !body.is_a?(String) && hhash["content-type"].include?("json")
+    opts = {body:, headers: hhash}.merge(**options)
     r = HTTParty.send(method || :post, url, **opts, &)
     self.check!(r, **options) if check
     return r
@@ -110,15 +170,16 @@ module Webhookdb::Http
     self._setup_required_args(options)
     uri = URI(url)
     raise URI::InvalidURIError, "#{url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
-    headers["User-Agent"] ||= self.user_agent
-    headers["Accept"] ||= "*/*"
-    headers["Accept-Encoding"] ||= "gzip, deflate"
+    hhash = HeaderHash.from_h(headers)
+    hhash["user-agent"] ||= self.user_agent
+    hhash["accept"] ||= "*/*"
+    hhash["accept-encoding"] ||= "gzip, deflate"
     req = HTTP
     req = req.use(logging: {logger: options[:logger]}) if options[:logger]
     req = req.timeout(options[:timeout]) if options[:timeout]
     req = req.follow
     begin
-      response = req.get(url, headers:)
+      response = req.get(url, headers: hhash)
     rescue HTTP::Redirector::TooManyRedirectsError => e
       raise TooManyRedirects, e
     end
