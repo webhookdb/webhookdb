@@ -17,6 +17,8 @@ module Webhookdb::Timezone
   end
 
   class << self
+    def _windows_mutex = (@_windows_mutex ||= Mutex.new)
+
     attr_accessor :_win_to_tz
 
     # Map Windows Timezone names to IANA names (and ActiveSupport timezones).
@@ -24,25 +26,27 @@ module Webhookdb::Timezone
     # @return [Hash<String => ActiveSupport::TimeZone>]
     def windows_name_to_tz
       return self._win_to_tz if self._win_to_tz
-      win_to_tz = {}
-      self._win_to_tz = win_to_tz
-
-      all_win_names = Set.new
-      File.open(Webhookdb::DATA_DIR + "windows_tz.txt").each do |line|
-        line.strip!
-        next if line.blank? || line.start_with?("#")
-        iana, win = line.split(/\s/, 2)
-        win = win.upcase!
-        next if win_to_tz.include?(win)
-        all_win_names.add(win)
-        tz = ActiveSupport::TimeZone[iana]
-        next if tz.nil?
-        win_to_tz[win] = tz
+      self._windows_mutex.synchronize do
+        return self._win_to_tz if self._win_to_tz
+        win_to_tz = {}
+        all_win_names = Set.new
+        File.open(Webhookdb::DATA_DIR + "windows_tz.txt").each do |line|
+          line.strip!
+          next if line.blank? || line.start_with?("#")
+          iana, win = line.split(/\s/, 2)
+          win = win.upcase!
+          next if win_to_tz.include?(win)
+          all_win_names.add(win)
+          tz = ActiveSupport::TimeZone[iana]
+          next if tz.nil?
+          win_to_tz[win] = tz
+        end
+        win_to_tz.each_key { |k| all_win_names.delete(k) }
+        raise Webhookdb::InvariantViolation, "unmapped windows timezones: #{all_win_names.join(', ')}" unless
+          all_win_names.empty?
+        self._win_to_tz = win_to_tz
       end
-      win_to_tz.each_key { |k| all_win_names.delete(k) }
-      raise Webhookdb::InvariantViolation, "unmapped windows timezones: #{all_win_names.join(', ')}" unless
-        all_win_names.empty?
-      return win_to_tz
+      return self._win_to_tz
     end
 
     SPECIAL_CASE_OFFSETS = {
@@ -189,7 +193,10 @@ module Webhookdb::Timezone
               emoji: ":world_map:",
               fallback: "Invalid TZID: #{tzid}. Update tzinfo-data gem, or add this to TIMEZONE_NONSENSE_TZIDS.",
               fields: [
-                {title: "Timezone ID", value: "#{tzid.inspect} (#{tzid.encoding})", short: true},
+                {title: "Timezone ID", value: tzid.inspect, short: true},
+                {title: "Encoding", value: tzid.encoding.to_s, short: true},
+                # Include Base64 so we can make sure no bytes are hidden when we handle the alert
+                {title: "Base64", value: Base64.strict_encode64(tzid), short: true},
                 {title: "Time string", value: value, short: true},
                 {title: "Action", value: "Update tzinfo-data gem, or add this ID to TIMEZONE_NONSENSE_TZIDS config."},
               ],
