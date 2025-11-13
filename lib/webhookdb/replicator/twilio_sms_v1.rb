@@ -147,4 +147,6 @@ Both of these values should be visible from the homepage of your Twilio admin Da
 
     return messages, data["next_page_uri"]
   end
+
+  def on_backfill_error(be) = self.service_integration.organization.alerting.handle_backfill_error(self, be)
 end
