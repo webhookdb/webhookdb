@@ -232,21 +232,7 @@ Then click 'Generate token'.)
     return data
   end
 
-  def on_backfill_error(be)
-    e = Webhookdb::Errors.find_cause(be) do |ex|
-      next true if ex.is_a?(Webhookdb::Http::Error) && ex.status == 401
-    end
-    return unless e
-    message = Webhookdb::Messages::ErrorGenericBackfill.new(
-      self.service_integration,
-      response_status: e.status,
-      response_body: e.body,
-      request_url: e.uri.to_s,
-      request_method: e.http_method,
-    )
-    self.service_integration.organization.alerting.dispatch_alert(message)
-    return true
-  end
+  def on_backfill_error(be) = self.service_integration.organization.alerting.handle_backfill_error(self, be)
 
   def _prepare_for_insert(resource, event, request, enrichment)
     # if enrichment is not nil, it's the detailed resource.

@@ -1121,7 +1121,7 @@ for information on how to refresh data.)
         _do_serial_backfill(backfillers, last_backfilled)
       end
     rescue StandardError => e
-      if self.on_backfill_error(e) == true
+      if self.on_backfill_error(e)
         job.update(finished_at: Time.now)
         return
       end
@@ -1179,7 +1179,8 @@ for information on how to refresh data.)
   # if nothing is raised, the original exception will be raised instead.
   # By default, this method noops, so the original exception is raised.
   # @param e [Exception]
-  def on_backfill_error(e) = nil
+  # @return [true,false]
+  def on_backfill_error(e) = false
 
   # If this replicator supports backfilling in parallel (running multiple backfillers at a time),
   # return the degree of paralellism (or nil if not running in parallel).

@@ -95,4 +95,35 @@ class Webhookdb::Organization::Alerting
       end
     end
   end
+
+  # For use in Replicator#on_backfill_error.
+  # Alert using the generic backfill error for a 401 (or whatever alert_status),
+  # or is a socket error, or potentially some other types of errors we always want to alert about.
+  def handle_backfill_error(replicator, be, alert_status: [401])
+    e = Webhookdb::Errors.find_cause(be) do |ex|
+      next true if ex.is_a?(Webhookdb::Http::Error) && alert_status.include?(ex.status)
+      next true if ex.is_a?(::SocketError)
+    end
+    return unless e
+    if e.is_a?(::SocketError)
+      response_status = 0
+      response_body = e.message
+      request_url = "<unknown>"
+      request_method = "<unknown>"
+    else
+      response_status = e.status
+      response_body = e.body
+      request_url = e.uri.to_s
+      request_method = e.http_method
+    end
+    message = Webhookdb::Messages::ErrorGenericBackfill.new(
+      replicator.service_integration,
+      response_status:,
+      response_body:,
+      request_url:,
+      request_method:,
+    )
+    self.dispatch_alert(message)
+    return true
+  end
 end
