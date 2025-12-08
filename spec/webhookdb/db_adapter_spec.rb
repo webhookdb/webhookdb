@@ -48,7 +48,7 @@ RSpec.describe Webhookdb::DBAdapter do
     end
   end
 
-  describe "Webhookdb::DBAdapter::PG" do
+  describe described_class::PG do
     let(:ad) { described_class::PG.new }
 
     describe "create_schema_sql" do
@@ -285,7 +285,7 @@ RSpec.describe Webhookdb::DBAdapter do
     end
   end
 
-  describe "Webhookdb::DBAdapter::Snowflake" do
+  describe described_class::Snowflake do
     let(:ad) { described_class::Snowflake.new }
 
     it "can create a table" do
@@ -360,6 +360,28 @@ RSpec.describe Webhookdb::DBAdapter do
         expect(inst.escape_identifier("select")).to eq('"select"')
         expect(inst.escape_identifier("a")).to eq("a")
       end
+    end
+  end
+
+  describe described_class::Partition do
+    it "formats index names" do
+      # rubocop:disable Naming/VariableNumber, Layout/LineLength
+      part = described_class.new(
+        parent_table: Webhookdb::DBAdapter::Table.new(
+          name: :tbl,
+          schema: Webhookdb::DBAdapter::Schema.new(name: :sch),
+        ),
+        partition_name: :part_1,
+        suffix: :_1,
+      )
+      expect(part.index_name("shorty")).to eq(:shorty_1)
+      expect(part.index_name("x" * 63)).to eq(:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_1)
+      expect(part.index_name("x" * 99)).to eq(:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_1)
+      expect(part.index_name(("x" * 59) + "_idx")).to eq(:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_idx_1)
+      expect(part.index_name(("x" * 62) + "_i")).to eq(:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_i_1)
+      expect(part.index_name(("x" * 31) + "_" + ("y" * 30))).to eq(:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_yyyyyyyyyyyyyyyyyyyyyyyyyyyyy_1)
+      expect(part.index_name("foo_bar_idx")).to eq(:foo_bar_idx_1)
+      # rubocop:enable Naming/VariableNumber, Layout/LineLength
     end
   end
 end

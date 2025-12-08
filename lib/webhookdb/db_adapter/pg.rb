@@ -48,7 +48,8 @@ class Webhookdb::DBAdapter::PG < Webhookdb::DBAdapter
     create_partition_indexes = []
     attach_indexes = []
     partitions.each do |partition|
-      partition_idx = index.change(table: partition.partition_table, name: "#{index.name}#{partition.suffix}")
+      partition_idx_name = partition.index_name(index.name)
+      partition_idx = index.change(table: partition.partition_table, name: partition_idx_name)
       create_partition_indexes << self.create_index_sql(partition_idx, concurrently:)
       attach_indexes << "ALTER INDEX #{index.name} ATTACH PARTITION #{partition_idx.name}"
     end
