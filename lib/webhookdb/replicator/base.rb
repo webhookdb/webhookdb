@@ -421,14 +421,14 @@ for information on how to refresh data.)
       name = "#{opaque_id}_#{identifier}_idx"
     else
       name = "#{opaque_id}_#{colnames}_idx"
-      if name.size > MAX_INDEX_NAME_LENGTH
+      if name.size > Webhookdb::DBAdapter::MAX_IDENTIFIER_LENGTH
         # We don't have the 32 extra chars for a full md5 hash.
         # We can't convert to Base64 or whatever, since we don't want to depend on case sensitivity.
         # So just lop off a few characters (normally 2) from the end of the md5.
         # The collision space is so small (some combination of column names would need to have the
         # same md5, which is unfathomable), we're not really worried about it.
         colnames_md5 = Digest::MD5.hexdigest(colnames)
-        available_chars = MAX_INDEX_NAME_LENGTH - "#{opaque_id}__idx".size
+        available_chars = Webhookdb::DBAdapter::MAX_IDENTIFIER_LENGTH - "#{opaque_id}__idx".size
         name = "#{opaque_id}_#{colnames_md5[...available_chars]}_idx"
       end
     end
@@ -436,8 +436,6 @@ for information on how to refresh data.)
       name.size > 63
     return name
   end
-
-  MAX_INDEX_NAME_LENGTH = 63
 
   # @return [Webhookdb::DBAdapter::Column]
   def primary_key_column

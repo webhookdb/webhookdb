@@ -998,6 +998,25 @@ or leave blank to choose the first option.
         expect { sint.organization.migrate_replication_tables }.to_not raise_error
       end
 
+      it "uses index names of the appropriate length" do
+        sint.update(opaque_id: "svi_5borjkosbnoyyk7l0o0wg2eaq", table_name: "fhp_v1_77a9")
+        sint.replicator.create_table
+        Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [
+          Webhookdb::Replicator::IndexSpec.new(columns: [:at] * 20),
+        ]
+        mod_sql = sint.replicator.ensure_all_columns_modification.to_s.strip
+        expect(mod_sql).to include(<<~SQL.strip)
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_0 ON public.fhp_v1_77a9_0 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_1 ON public.fhp_v1_77a9_1 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          BEGIN;
+          CREATE INDEX IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ON ONLY public.fhp_v1_77a9 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          ALTER INDEX svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ATTACH PARTITION svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_0;
+          ALTER INDEX svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ATTACH PARTITION svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_1;
+          COMMIT;
+        SQL
+        expect { sint.organization.migrate_replication_tables }.to_not raise_error
+      end
+
       it "deletes and recreates invalid indices" do
         sint.replicator.create_table
         Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [

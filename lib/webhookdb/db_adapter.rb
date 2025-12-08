@@ -15,6 +15,10 @@ class Webhookdb::DBAdapter
 
   INVALID_IDENTIFIER_MESSAGE = INVALID_IDENTIFIER_PROMPT.tr("\n", " ")
 
+  # Max number of bytes for an identifier. Choose the lowest common value to make things work the same
+  # across databases.
+  MAX_IDENTIFIER_LENGTH = 63
+
   class InvalidIdentifier < Webhookdb::InvalidInput; end
 
   class Schema < Webhookdb::TypedStruct
