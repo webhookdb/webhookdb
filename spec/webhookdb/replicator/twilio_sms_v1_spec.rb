@@ -463,10 +463,12 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     let(:svc) { Webhookdb::Replicator.create(sint) }
 
     it "sends a dev alert on 401" do
-      req = stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bkey/Messages.json?DateSend%3C=2025-11-15&PageSize=100").
+      req = stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bkey/Messages.json?DateSend%3C=2024-11-17&PageSize=100").
         to_return(status: 401, body: "", headers: {})
 
-      expect { backfill(sint) }.to_not raise_error
+      Timecop.travel("2024-11-15T18:00:00Z") do
+        expect { backfill(sint) }.to_not raise_error
+      end
 
       expect(req).to have_been_made
     end
