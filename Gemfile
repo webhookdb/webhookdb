@@ -6,7 +6,7 @@ ruby "3.4.4"
 gemspec
 
 # Pull in BYPOS ICal rule fix from https://github.com/ice-cube-ruby/ice_cube/pull/449
-gem "ice_cube", git: "https://github.com/nehresma/ice_cube.git", ref: "d7ea51efcd"
+gem "ice_cube", git: "https://github.com/nehresma/ice_cube.git", ref: "1674659380"
 
 # NOTE: When running integration tests, you will need to set BUNDLE_WITHOUT to something other than 'test'.
 group :test do
