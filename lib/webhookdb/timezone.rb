@@ -168,6 +168,11 @@ module Webhookdb::Timezone
         # Incorrect casing means we should retry with a canonical zone.
         return parse_time_with_tzid(value, canonical)
       end
+      if (zone = self.windows_name_to_tz[tzid.upcase.gsub(/\s*\d+$/, "")])
+        # We see timezones like Morocco Standard Time 1,
+        # see if we can find a Windows zone without the digits.
+        return [zone.parse(value), true]
+      end
       if /[A-Za-z]{2}\d\d\d\d$/.match?(tzid)
         # Weird stuff like 'Eastern Standard Time2025', due to a malformed icalendar
         return parse_time_with_tzid(value, tzid[...-4])
@@ -176,9 +181,9 @@ module Webhookdb::Timezone
       # The question is if we alert or not.
       is_custom = tzid =~ /no TZ description/i ||
         tzid =~ /Custom/i || # Microsoft/Custom, UnnamedCustomTimeZone, Customized Time Zone 2
-        tzid =~ /^d+$/ || # '1'
+        tzid =~ /^\d+$/ || # '1'
         tzid =~ UUID_RE
-      is_ignored = self.nonsense_tzids&.include?(tzid.upcase)
+      is_ignored = self.nonsense_tzids&.include?(tzid.upcase) || tzid.empty?
       do_alert = !is_custom && !is_ignored
 
       if do_alert

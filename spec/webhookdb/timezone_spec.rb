@@ -40,10 +40,14 @@ RSpec.describe Webhookdb::Timezone, :db do
       ).to contain_exactly(match_time("2000-01-01T12:00:00-05"), true)
     end
 
-    it "parses windows timezones" do
+    it "parses windows timezones (and with trailing digits)" do
       testparse(ts, "SA Western Standard Time", "2000-01-01T12:00:00-04", true)
       testparse(ts, " SA Western Standard Time\t", "2000-01-01T12:00:00-04", true)
       testparse(ts, "sa western standard time", "2000-01-01T12:00:00-04", true)
+      # Also with trailing digits
+      testparse(ts, "SA Western Standard Time 1", "2000-01-01T12:00:00-04", true)
+      testparse(ts, " SA Western Standard Time\t  20  ", "2000-01-01T12:00:00-04", true)
+      testparse(ts, "sa western standard time 2", "2000-01-01T12:00:00-04", true)
     end
 
     it "parses offsets" do
@@ -162,10 +166,24 @@ RSpec.describe Webhookdb::Timezone, :db do
       )
     end
 
-    it "does not warn about nonsense timezones", :async, reset_configuration: described_class do
+    it "does not warn about configured nonsense timezones", :async, reset_configuration: described_class do
       described_class.nonsense_tzids = "Foo invalid-TZ bar".upcase
       expect do
         testparse(ts, "invalid-tz", "2000-01-01T12:00:00Z", false)
+      end.to_not publish("webhookdb.developeralert.emitted")
+    end
+
+    it "does not warn about empty or numeric timezones", :async, reset_configuration: described_class do
+      expect do
+        testparse(ts, "", "2000-01-01T12:00:00Z", false)
+      end.to_not publish("webhookdb.developeralert.emitted")
+
+      expect do
+        testparse(ts, "1", "2000-01-01T12:00:00Z", false)
+      end.to_not publish("webhookdb.developeralert.emitted")
+
+      expect do
+        testparse(ts, "22", "2000-01-01T12:00:00Z", false)
       end.to_not publish("webhookdb.developeralert.emitted")
     end
 
