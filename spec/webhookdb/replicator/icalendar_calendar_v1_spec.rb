@@ -1516,6 +1516,78 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         expect(sync(body)).to contain_exactly(hash_including(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E"))
       end
 
+      it "handles weird recurrence exceptions" do
+        uid = "7A76F2F2-C31E-4C58-AD2F-5D3D7B3DE9D1"
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20250915T130156Z
+          DTEND;TZID=America/Los_Angeles:20250915T160000
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20250915T154500
+          EXDATE;TZID=America/Los_Angeles:20260105T154500
+          EXDATE;TZID=America/Los_Angeles:20260112T154500
+          EXDATE;TZID=America/Los_Angeles:20260119T154500
+          LAST-MODIFIED:20260112T041158Z
+          RRULE:FREQ=WEEKLY;UNTIL=20251208T224500Z
+          SEQUENCE:1
+          SUMMARY:Rob pick up Jase and drop at Golf
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20251124T045258Z
+          DTEND;TZID=America/Los_Angeles:20251124T155000
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20251124T152000
+          LAST-MODIFIED:20260106T055314Z
+          RECURRENCE-ID;TZID=America/Los_Angeles:20251124T154500
+          SEQUENCE:1
+          SUMMARY:Rob Drop Jase at Golf clinic
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          X-APPLE-CREATOR-TEAM-IDENTITY:0000000000
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20251026T185536Z
+          DTEND;TZID=America/Los_Angeles:20251027T161500
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20251027T154500
+          LAST-MODIFIED:20260106T055314Z
+          RECURRENCE-ID;TZID=America/Los_Angeles:20251027T154500
+          SEQUENCE:1
+          SUMMARY:Rob bring Chris and Jase to Golf
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          X-APPLE-CREATOR-TEAM-IDENTITY:0000000000
+          END:VEVENT
+        ICAL
+        expect(sync(body).map do |h|
+          {
+            cid: h[:compound_identity],
+            uid: h[:uid],
+            rid: h[:recurring_event_id],
+            rs: h[:recurring_event_sequence],
+            n: h[:data]["SUMMARY"]["v"],
+          }
+        end).to contain_exactly(
+          {cid: "abc-#{uid}-0", uid: "#{uid}-0", rid: uid, rs: 0, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-1", uid: "#{uid}-1", rid: uid, rs: 1, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-2", uid: "#{uid}-2", rid: uid, rs: 2, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-3", uid: "#{uid}-3", rid: uid, rs: 3, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-4", uid: "#{uid}-4", rid: uid, rs: 4, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-5", uid: "#{uid}-5", rid: uid, rs: 5, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-6", uid: "#{uid}-6", rid: uid, rs: 6, n: "Rob bring Chris and Jase to Golf"},
+          {cid: "abc-#{uid}-7", uid: "#{uid}-7", rid: uid, rs: 7, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-8", uid: "#{uid}-8", rid: uid, rs: 8, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-9", uid: "#{uid}-9", rid: uid, rs: 9, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-10", uid: "#{uid}-10", rid: uid, rs: 10, n: "Rob Drop Jase at Golf clinic"},
+          {cid: "abc-#{uid}-11", uid: "#{uid}-11", rid: uid, rs: 11, n: "Rob pick up Jase and drop at Golf"},
+        )
+      end
+
       describe "IceCube fixes" do
         it "handles BYSETPOS=2" do
           # See https://github.com/ice-cube-ruby/ice_cube/pull/449

@@ -480,10 +480,13 @@ The secret to use for signing is:
         candidates = @expanded_events_by_uid[uid]
         if candidates.nil?
           # We can have no recurring events, even with the exclusion date.
-          # Not much we can do here- just treat it as a standalone event.
+          # Not much we can do here. Just treat it as a standalone event.
+          # NOTE: recurring_event_id is nil because we have no series we're a part of.
           yield h
           return
         end
+        # This is some type of series, so record the series it came from.
+        h["recurring_event_id"] = uid
         unless (match = candidates.find { |c| c[startfield] == start })
           # There are some providers (like Apple) where an excluded event
           # will be outside the bounds of the RRULE of its owner.
@@ -494,7 +497,6 @@ The secret to use for signing is:
           # So increment the last-seen sequence number for the UID and use that.
           max_seq_num = @max_sequence_num_by_uid[uid] += 1
           h["UID"] = {"v" => "#{uid}-#{max_seq_num}"}
-          h["recurring_event_id"] = uid
           h["recurring_event_sequence"] = max_seq_num
           yield h
           return
