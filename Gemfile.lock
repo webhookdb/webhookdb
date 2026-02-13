@@ -1,7 +1,7 @@
 GIT
-  remote: https://github.com/nehresma/ice_cube.git
-  revision: 1674659380ccc6342df1fcc53b339e9259f5d306
-  ref: 1674659380
+  remote: https://github.com/ice-cube-ruby/ice_cube.git
+  revision: 32ff145baf152ae4aa130376d66041eba174b085
+  ref: 32ff145b
   specs:
     ice_cube (0.17.0)
 
