@@ -245,11 +245,11 @@ RSpec.describe Webhookdb::Http do
     it "logs to the logger" do
       req = stub_request(:get, "https://x.y").to_return(status: 200)
       lg = SemanticLogger["mytest"]
-      logs = capture_logs_from(lg, level: :info, formatter: :json) do
+      logs = capture_logs_from(lg, level: :debug, formatter: :json) do
         described_class.chunked_download("https://x.y", timeout: nil, logger: lg)
       end
       expect(req).to have_been_made
-      expect(logs).to have_a_line_matching(%r{"message":"> GET https://x\.y/"})
+      expect(logs).to have_a_line_matching("\"http_method\":\"GET\"")
     end
 
     it "raises NotModified for a 304" do
