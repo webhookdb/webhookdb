@@ -146,6 +146,38 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
       )
     end
 
+    it "assumes 1 hour for an invalid DURATION (DTSTART time)" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DURATION:P1DT
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: Time.parse("20200220T170000Z"),
+        end_at: Time.parse("20200220T180000Z"),
+        start_date: nil,
+        end_date: nil,
+      )
+    end
+
+    it "assumes 1 day for an invalid DURATION (DTSTART day)" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220
+        DURATION:P1DT
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: nil,
+        end_at: nil,
+        start_date: Date.parse("20200220"),
+        end_date: Date.parse("20200221"),
+      )
+    end
+
     it "sets a DTSTART datetime using the DURATION if there is no DTEND" do
       s = <<~ICAL
         BEGIN:VEVENT

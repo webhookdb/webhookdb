@@ -189,7 +189,14 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   def _set_implicit_end_date(resource, h)
     if (d = resource["DURATION"])
       # See https://icalendar.org/iCalendar-RFC-5545/3-3-6-duration.html
-      dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      begin
+        dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      rescue ActiveSupport::Duration::ISO8601Parser::ParsingError
+        # Assume invalid durations are a day; nothing we can really do about this.
+        # We already prefer DTEND if given, we need something,
+        # and this default seems reasonable.
+        dur = 1
+      end
       h[:end_date] = h[:start_date] + dur
       return
     end
@@ -197,8 +204,13 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   end
 
   def _set_implicit_end_at(resource, h)
+    # See above for duration parsing explanation.
     if (d = resource["DURATION"])
-      dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      begin
+        dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      rescue ActiveSupport::Duration::ISO8601Parser::ParsingError
+        dur = 1.hour
+      end
       h[:end_at] = h[:start_at] + dur
       return
     end
