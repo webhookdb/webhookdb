@@ -79,6 +79,7 @@ module Webhookdb::Timezone
       "HT_PST" => PACIFIC,
 
       "Yukon Standard Time" => "America/Whitehorse",
+      "Paris, Madrid" => "Europe/Paris",
 
       # Not everyone will use 'standard' and 'daylight' properly;
       # ie, there are dates where they may use 'standard' in the summer even though it should be daylight.

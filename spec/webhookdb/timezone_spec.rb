@@ -78,6 +78,7 @@ RSpec.describe Webhookdb::Timezone, :db do
       testparse(summer, "Eastern Standard Time", "2000-07-01T12:00:00-04", true)
       testparse(ts, "Eastern Time", "2000-01-01T12:00:00-05", true)
       testparse(ts, "Pacific Time (US & Canada), Tijuana", "2000-01-01T12:00:00-08", true)
+      testparse(ts, "Paris, Madrid", "2000-01-01T12:00:00+01", true)
     end
 
     it "handles standard/daylight format" do
