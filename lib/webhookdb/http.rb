@@ -3,11 +3,14 @@
 require "appydays/configurable"
 require "appydays/loggable/httparty_formatter"
 require "http"
+require "http/features/logging_ext"
 require "httparty"
 
 module Webhookdb::Http
   include Appydays::Configurable
   configurable(:http) do
+    # The level at which the HTTP loggers run.
+    # WebhookDB makes a LOT of external requests so we default to debug.
     setting :log_level, :debug
   end
 
@@ -175,7 +178,15 @@ module Webhookdb::Http
     hhash["accept"] ||= "*/*"
     hhash["accept-encoding"] ||= "gzip, deflate"
     req = HTTP
-    req = req.use(logging: {logger: options[:logger]}) if options[:logger]
+    if options[:logger]
+      req = req.use(
+        logging_ext: {
+          logger: options[:logger],
+          level: self.log_level,
+          dump_response: false, # Body is streamed so never dump it.
+        },
+      )
+    end
     req = req.timeout(options[:timeout]) if options[:timeout]
     req = req.follow
     begin
