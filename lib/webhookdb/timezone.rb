@@ -72,6 +72,7 @@ module Webhookdb::Timezone
       "HT_CSTL" => CENTRAL,
       "HT_MSTL" => MOUNTAIN,
       "HT_PSTL" => PACIFIC,
+      "HT_CETL" => "Europe/Berlin",
 
       "HT_EST" => EASTERN,
       "HT_CST" => CENTRAL,
@@ -87,18 +88,23 @@ module Webhookdb::Timezone
       "Eastern Standard Time" => EASTERN,
       "Eastern Daylight Time" => EASTERN,
       "Eastern Time" => EASTERN,
+      "US Eastern" => EASTERN,
 
       "Central Standard Time" => CENTRAL,
       "Central Daylight Time" => CENTRAL,
       "Central Time" => CENTRAL,
+      "US Central" => CENTRAL,
 
       "Mountain Standard Time" => MOUNTAIN,
       "Mountain Daylight Time" => MOUNTAIN,
       "Mountain Time" => MOUNTAIN,
+      "US Mountain" => MOUNTAIN,
 
       "Pacific Standard Time" => PACIFIC,
       "Pacific Daylight Time" => PACIFIC,
       "Pacific Time" => PACIFIC,
+      "US Western" => MOUNTAIN,
+      "US Pacific" => MOUNTAIN,
 
       # These are special case strings we've seen. Maybe once we accumulate enough we can figure out an algorithm.
       "Pacific Time (US & Canada), Tijuana" => "America/Tijuana",
@@ -107,6 +113,10 @@ module Webhookdb::Timezone
       "GMT -0600 (Standard) / GMT -0500 (Daylight)" => CENTRAL,
       "GMT -0700 (Standard) / GMT -0600 (Daylight)" => MOUNTAIN,
       "GMT -0800 (Standard) / GMT -0700 (Daylight)" => PACIFIC,
+
+      # These are recent (September 2026) windows additions not in the official mapping yet.
+      "British Columbia Standard Time" => "America/Vancouver",
+      "Alberta Standard Time" => "America/Edmonton",
     }.freeze
 
     UUID_RE = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
