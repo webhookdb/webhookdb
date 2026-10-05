@@ -804,10 +804,14 @@ for information on how to refresh data.)
   # This is valid for PG, because it's not a NULL- it's an escaped "\", followed by "u0000".
   # If we were to remove the string "\\u0000", we'd end up with '{"x":"\\"}'. This creates an invalid document.
   #
-  # So we remove only "\\u0000" by not replacing "\\\\u0000"- replace all occurences of
-  # "<any one character except backslash>\\u0000" with "<character before backslash>".
+  # So we remove only "\\u0000" by detecting the numebrn of slashes before the u0000:
+  # if there is an odd amount ('\u0000', '\\\u0000'), remove the '\u0000' and keep the prefix (so, '', and '\\').
+  # if there is an event amount ('\\u0000', '\\\\u0000'), keep it all ('\\u0000', '\\\\u0000').
   def _to_json(v)
-    return v.to_json.gsub(/(\\\\u0000|\\u0000)/, {"\\\\u0000" => "\\\\u0000", "\\u0000" => ""})
+    return v.to_json.gsub(/(\\+)u0000/) do
+      run = Regexp.last_match(1)
+      run&.length&.odd? ? run[0...-1] : "#{run}u0000"
+    end
   end
 
   # @param changed [Boolean]

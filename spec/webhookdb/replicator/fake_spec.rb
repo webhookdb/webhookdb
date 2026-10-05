@@ -742,9 +742,15 @@ or leave blank to choose the first option.
 
       it "strips null unicode codepoints from JSON" do
         # See \u0000 in base.rb for more info
-        fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u0000\u00004\u0000\\u0000 u"})
+        fake.upsert_webhook_body(
+          {
+            "my_id" => "abc",
+            "at" => Time.now.to_s,
+            "has_u0" => "b\u0000\u00004\u0000\\u0000 u\\\u0000z",
+          },
+        )
         expect(fake.readonly_dataset(&:all)).to contain_exactly(
-          include(data: hash_including("has_u0" => "b4\\u0000 u")),
+          include(data: hash_including("has_u0" => "b4\\u0000 u\\z")),
         )
       end
 
