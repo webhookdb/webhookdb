@@ -366,6 +366,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_start_date_idx ON public.svctable (start_date) WHERE (\"start_date\" IS NOT NULL)",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_end_date_idx ON public.svctable (end_date) WHERE (\"end_date\" IS NOT NULL)",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_recurring_event_id_idx ON public.svctable (recurring_event_id) WHERE (\"recurring_event_id\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_uncancelled_cal_external_id_idx ON public.svctable (calendar_external_id) WHERE (\"status\" IS DISTINCT FROM 'CANCELLED')",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_50d5d161e2e533574149dd136a9fc8_idx ON public.svctable (calendar_external_id, start_at, end_at) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_at\" IS NOT NULL))",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_2a46eca5b6e6adca4a315774180a30_idx ON public.svctable (calendar_external_id, start_date, end_date) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_date\" IS NOT NULL))",
       )
