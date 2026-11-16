@@ -233,6 +233,14 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
         where: Sequel[status: "CANCELLED"],
         identifier: "cancelled_row_updated_at",
       ),
+      # Needed for the STATUS = 'CANCELLED' bulk-cancellation.
+      # See the query that generates; but it uses `~Sequel[status: "CANCELLED"])`,
+      # which won't hit the compound CANCELLED indices.
+      Webhookdb::Replicator::IndexSpec.new(
+        columns: [:calendar_external_id],
+        where: Sequel[:status].is_distinct_from("CANCELLED"),
+        identifier: "uncancelled_cal_external_id",
+      ),
     ]
   end
 
