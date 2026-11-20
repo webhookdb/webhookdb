@@ -8,8 +8,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
   let(:sint) { fac.stable_encryption_secret.create(service_name: "icalendar_calendar_v1") }
   let(:svc) { sint.replicator }
-  let(:event_sint) { fac.depending_on(sint).create(service_name: "icalendar_event_v1") }
+  # Test with both the partitioned and unpartitioned replicators
+  let(:dependent_service_name) { ["icalendar_event_v1", "icalendar_event_v1_partitioned"].sample }
+  let(:event_sint) { fac.depending_on(sint).create(service_name: dependent_service_name, partition_value: 3) }
   let(:event_svc) { event_sint.replicator }
+
+  def row(h)
+    h[:data] ||= "{}"
+    if event_svc.partition?
+      h[:calendar_external_hash] ||= event_svc.partition_key_from_value(h.fetch(:calendar_external_id))
+    end
+    h
+  end
 
   def insert_calendar_row(**more)
     svc.admin_dataset do |ds|
@@ -24,7 +34,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
-  it_behaves_like "a replicator", "icalendar_calendar_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:sint) { super() }
     let(:body) do
       JSON.parse(<<~J)
@@ -46,10 +56,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         last_synced_at: nil,
       )
     end
-    let(:supports_row_diff) { false }
   end
 
-  it_behaves_like "a replicator with dependents", "icalendar_calendar_v1", "icalendar_event_v1" do
+  it_behaves_like "a replicator with dependents", "icalendar_event_v1" do
     let(:sint) { super() }
     let(:body) do
       JSON.parse(<<~J)
@@ -69,6 +78,10 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         last_synced_at: nil,
         row_created_at: match_time(:now),
         row_updated_at: match_time(:now),
+        event_count: nil,
+        feed_bytes: nil,
+        last_sync_duration_ms: nil,
+        last_fetch_context: nil,
       }
     end
   end
@@ -103,7 +116,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end
@@ -140,7 +153,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
             ),
           )
         end
-        expect(Sidekiq).to have_queue.consisting_of(
+        expect(Sidekiq).to have_queue("netout").consisting_of(
           job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "456"]),
         )
       end
@@ -153,8 +166,8 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_svc.admin_dataset do |event_ds|
           event_ds.multi_insert(
             [
-              {data: "{}", uid: "c", calendar_external_id: "456", compound_identity: "456-c"},
-              {data: "{}", uid: "d", calendar_external_id: "567", compound_identity: "567-d"},
+              row(uid: "c", calendar_external_id: "456", compound_identity: "456-c"),
+              row(uid: "d", calendar_external_id: "567", compound_identity: "567-d"),
             ],
           )
         end
@@ -199,7 +212,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
     end
   end
 
-  it_behaves_like "a replicator with a custom backfill not supported message", "icalendar_calendar_v1"
+  it_behaves_like "a replicator with a custom backfill not supported message"
 
   describe "webhook_response" do
     it "validates using Whdb-Webhook-Secret" do
@@ -245,7 +258,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       org.remove_related_database
     end
 
-    it "upserts each vevent in the url" do
+    it "upserts each vevent in the url, and stores meta about the fetch" do
       literal = '\n\r\n\t\n'
       body = <<~ICAL
         BEGIN:VCALENDAR
@@ -273,11 +286,29 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         END:VCALENDAR
       ICAL
       req = stub_request(:get, "https://feed.me").
-        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        and_return(
+          status: 200,
+          headers: {
+            "Content-Type" => "text/calendar",
+            "Content-Length" => body.size.to_s,
+            "Etag" => "somevalue",
+          },
+          body:,
+        )
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
-      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
       expect(req).to have_been_made
+      expect(svc.admin_dataset(&:first)).to include(
+        last_synced_at: match_time(:now),
+        last_sync_duration_ms: be_positive,
+        last_fetch_context: {
+          "content_length" => body.size.to_s,
+          "content_type" => "text/calendar",
+          "hash" => "b816a713f55ce89a441a16a72367f5ca",
+          "etag" => "somevalue",
+          "parser_version" => described_class::PARSER_VERSION,
+        },
+      )
       expect(event_svc.admin_dataset(&:all)).to contain_exactly(
         include(
           calendar_external_id: "abc",
@@ -305,10 +336,52 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "stores the total number of upserts and the feed byte size" do
+      body = <<~ICAL
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//ZContent.net//Zap Calendar 1.0//EN
+        CALSCALE:GREGORIAN
+        METHOD:PUBLISH
+        BEGIN:VEVENT
+        SUMMARY:Abraham Lincoln
+        UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+        SEQUENCE:0
+        STATUS:CONFIRMED
+        TRANSP:TRANSPARENT
+        DTSTART:20080212
+        DTEND:20080213
+        DTSTAMP:20150421T141403
+        RRULE:FREQ=YEARLY;UNTIL=20110101T000000Z
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(svc.admin_dataset(&:first)).to include(
+        last_synced_at: match_time(:now),
+        event_count: 3,
+        feed_bytes: 354,
+      )
+      expect(event_svc.admin_dataset(&:all)).to have_length(3)
+    end
+
     it "noops if there's no event integration" do
       event_sint.destroy
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
+      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
+    end
+
+    it "noops if the server 304s" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 304)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
       expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
     end
 
@@ -323,41 +396,29 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         UID:c7614cff-3549-4a00-9152-d25cc1fe077d
         DTSTART:20080212
         DTEND:20080213
-        LAST-MODIFIED:20150421T141403Z
         END:VEVENT
         END:VCALENDAR
       ICAL
       updated1 = v1.gsub("Version1", "Version2")
-      updated2 = v1.gsub("Version1", "Version3").gsub("20150421T141403Z", "20160421T141403Z")
-      updated3 = v1.gsub("Version1", "Version4").gsub("\nLAST-MODIFIED:20150421T141403Z", "")
       req = stub_request(:get, "https://feed.me").
         and_return(
           {status: 200, headers: {"Content-Type" => "text/calendar"}, body: v1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: v1},
           {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated1},
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated2},
-          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: updated3},
         )
       row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
       svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version1"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version1"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version3"})),
-      )
-      svc.sync_row(row)
-      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
-        include(data: hash_including("SUMMARY" => {"v" => "Version4"})),
-      )
-      expect(req).to have_been_made.times(4)
+      orig_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      Timecop.travel(3.hours.from_now) { svc.sync_row(row) }
+      newly_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      expect(newly_updated_at).to eq(orig_updated_at)
+      Timecop.travel(6.hours.from_now) { svc.sync_row(row) }
+      final_updated_at = event_svc.admin_dataset(&:first)[:row_updated_at]
+      expect(final_updated_at).to be > orig_updated_at
+      expect(req).to have_been_made.times(3)
     end
 
-    it "uses UTC for unregonized timezones" do
+    it "uses UTC for unrecognized timezones" do
       body = <<~ICAL
         BEGIN:VCALENDAR
         BEGIN:VEVENT
@@ -384,6 +445,87 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           uid: "c7614cff-3549-4a00-9152-d25cc1fe077d",
         ),
       )
+    end
+
+    it "handles missing timezones" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        SEQUENCE:0
+        CREATED:20130607T011211Z
+        DTSTAMP:20130607T011211Z
+        UID:ABCD-07DD0607-005F-011C-FF1B-0091E
+        SUMMARY:Management Team Call
+        DTSTART;TZID=America/New_York:20121001T140000
+        DTEND:20121001T190000Z
+        RRULE:FREQ=YEARLY;UNTIL=20130101T000000Z
+        LAST-MODIFIED:20130607T011211Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          start_at: match_time("2012-10-01T18:00:00Z"),
+          end_at: match_time("2012-10-01T19:00:00Z"),
+        ),
+      )
+    end
+
+    it "assumes a UTC end date if it is missing TZID but start date has it" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        CREATED:20240926T125710Z
+        DTEND:20240926T210000
+        DTSTART;TZID=US/Eastern:20240926T160000
+        LAST-MODIFIED:20240926T125710Z
+        RRULE:FREQ=WEEKLY;UNTIL=20241003T200000Z
+        UID:003CEEF7-23D0-4F95-96F3-FF3EAEBD155A
+        DTSTAMP:20240926T134830Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      Timecop.freeze("2024-09-25 20:00:00") do
+        svc.sync_row(row)
+      end
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to include(
+        include(
+          start_at: match_time("2024-09-26T20:00:00Z"),
+          end_at: match_time("2024-09-26T21:00:00Z"),
+          data: hash_including(
+            "DTSTART" => {"TZID" => "US/Eastern", "v" => "20240926T160000"},
+            "DTEND" => {"v" => "20240926T210000Z"},
+          ),
+        ),
+      )
+    end
+
+    it "errors for an invalid start/end time with recurrence" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        SEQUENCE:0
+        CREATED:20130607T011211Z
+        DTSTAMP:20130607T011211Z
+        UID:ABCD-07DD0607-005F-011C-FF1B-0091E
+        SUMMARY:Management Team Call
+        DTSTART;TZID=America/New_York:20121001T140000
+        DTEND:20121001T190000.0
+        RRULE:FREQ=YEARLY;UNTIL=20130101T000000Z
+        LAST-MODIFIED:20130607T011211Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      expect do
+        svc.sync_row(row)
+      end.to raise_error(/Cannot create ical entry from/)
+      expect(req).to have_been_made
     end
 
     it "cancels events added previously no longer present in the calendar" do
@@ -465,6 +607,116 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
+    it "updates row_updated_at when canceling an event" do
+      body1 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:already_cancelled
+        DTSTART:20080212
+        DTEND:20080213
+        STATUS:CANCELLED
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:will_cancel
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+      ICAL
+      body2 = <<~ICAL
+        BEGIN:VEVENT
+        UID:keep
+        DTSTART:20080212
+        DTEND:20080213
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+        BEGIN:VEVENT
+        UID:already_cancelled
+        DTSTART:20080212
+        DTEND:20080213
+        STATUS:CANCELLED
+        LAST-MODIFIED:20150421T141403Z
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body1},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+          {status: 200, headers: {"Content-Type" => "text/calendar"}, body: body2},
+        )
+      cal_row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      first_ran = Time.parse("2020-01-15T12:00:00Z")
+      Timecop.freeze(first_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: nil, row_updated_at: match_time(first_ran)),
+      )
+      second_ran = first_ran + 1.hour
+      Timecop.freeze(second_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: "CANCELLED", row_updated_at: match_time(second_ran)),
+      )
+      third_ran = second_ran + 1.hour
+      Timecop.freeze(third_ran) do
+        svc.sync_row(cal_row)
+      end
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        hash_including(compound_identity: "abc-keep", status: nil, row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-already_cancelled", status: "CANCELLED", row_updated_at: match_time(first_ran)),
+        hash_including(compound_identity: "abc-will_cancel", status: "CANCELLED", row_updated_at: match_time(second_ran)),
+      )
+      expect(req).to have_been_made.times(3)
+    end
+
+    it "does a best attempt if DTSTART is a time and DTEND is a date" do
+      body = <<~ICAL
+        BEGIN:VEVENT
+        DTEND;VALUE=DATE:20241102
+        DTSTAMP:20241101T233000Z
+        DTSTART;TZID=America/Los_Angeles:20241101T163000
+        STATUS:CONFIRMED
+        RRULE;TZID=UTC:FREQ=WEEKLY;UNTIL=20241115T075959Z
+        UID:81DAC1F1-E948-486C-B3BF-2904F591FBA3
+        END:VEVENT
+      ICAL
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to contain_exactly(
+        include(
+          data: hash_including(
+            "DTEND" => {"VALUE" => "DATE", "v" => "20241102"},
+            "DTSTART" => {"TZID" => "America/Los_Angeles", "v" => "20241101T163000"},
+          ),
+          start_at: match_time("2024-11-01T23:30:00Z"),
+          end_at: match_time("2024-11-01T23:30:00Z"),
+          end_date: Date.new(2024, 11, 2),
+          start_date: nil,
+        ),
+        include(
+          start_at: match_time("2024-11-09T00:30:00Z"),
+          end_at: match_time("2024-11-09T00:30:00Z"),
+          end_date: Date.new(2024, 11, 2),
+          start_date: nil,
+        ),
+      )
+    end
+
     describe "alerting", :no_transaction_check do
       it "raises on unexpected errors" do
         err = RuntimeError.new("hi")
@@ -481,18 +733,17 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         req = stub_request(:get, "https://feed.me").and_return(
           {status: 301, headers: {"Location" => "https://feed.me"}},
           {status: 301, headers: {"Location" => "https://feed.me"}},
-          {status: 301, headers: {"Location" => "https://feed.me"}},
         )
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
         svc.sync_row(row)
-        expect(req).to have_been_made.times(3)
+        expect(req).to have_been_made.times(2)
         expect(Webhookdb::Message::Delivery.all).to contain_exactly(
           have_attributes(template: "errors/icalendar_fetch"),
         )
       end
 
-      [400, 404, 417, 500, 503].each do |httpstatus|
-        it "alerts on Down HTTP #{httpstatus} errors" do
+      [400, 404, 417, 422, 500, 503].each do |httpstatus|
+        it "alerts on HTTP #{httpstatus} errors" do
           Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
           req = stub_request(:get, "https://feed.me").
             and_return(status: httpstatus, headers: {"Content-Type" => "text/plain"}, body: "whoops")
@@ -505,13 +756,108 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         end
       end
 
-      it "raises on unhandled Down http errors" do
+      it "unwraps an Ical-Proxy-Origin-Error header into a status code", reset_configuration: Webhookdb::Icalendar do
+        Webhookdb::Icalendar.proxy_url = "https://proxy"
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://proxy?url=https://feed.me").
+          and_return(status: 421, headers: {"Ical-Proxy-Origin-Error" => 599}, body: "whoops")
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+        # Ensure the proxy fields aren't in the email
+        body = Webhookdb::Message::Body.where(mediatype: "text/plain").first.content
+        expect(body).to include("Request: GET https://feed.me")
+        expect(body).to include("Response Status: 599")
+      end
+
+      it "noops on 304 responses" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
         req = stub_request(:get, "https://feed.me").
-          and_return(status: 456, headers: {"Content-Type" => "text/plain"}, body: "whoops")
+          and_return(status: 304)
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        expect { svc.sync_row(row) }.to raise_error(Down::ClientError, /456/)
+        svc.sync_row(row)
         expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to be_empty
+      end
+
+      it "alerts on redirect without a Location header" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").
+          and_return(status: 307, headers: {})
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      [
+        ["429s", {status: 429}],
+        ["ssl errors", OpenSSL::SSL::SSLError.new],
+      ].each do |(msg, param)|
+        it "retries on #{msg}" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          req = stub_request(:get, "https://feed.me")
+          req = if param.is_a?(Hash)
+                  req.and_return(headers: {"Content-Type" => "text/plain"}, body: "whoops", **param)
+          else
+            req.and_raise(param)
+                end
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          expect { svc.sync_row(row) }.to raise_error(Amigo::Retry::OrDie)
+          expect(req).to have_been_made
+        end
+      end
+
+      describe "with a real test server" do
+        include Webhookdb::SpecHelpers::Http::TestServer
+
+        it "handles connection errors during body reading, like resets" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          test_server_responses.push lambda { |env|
+            env["rack.hijack"].call # Tell Rack we're hijacking
+            io = env["rack.hijack_io"]
+
+            # Set SO_LINGER to { onoff: 1, linger: 0 } to trigger an RST on close
+            # This is pretty in the weeds stuff, ChatGPT helped figure it out.
+            linger = [1, 0].pack("ii")
+            io.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, linger)
+
+            io.write("HTTP/1.1 200 OK\r\n")
+            io.write("Content-Type: text/plain\r\n")
+            # Set a large content length, we won't send it all
+            io.write("Content-Length: 10000000\r\n")
+            io.write("Connection: close\r\n")
+            io.write("\r\n")
+            # Send enough of the body to get a first readpartial to finish (> 17kb).
+            io.write("BEGIN:VEVENT\nENV:VEVENT\n" * 700)
+            # Abruptly close the connection
+            io.close
+            # Rack requires a return value, but it will be ignored after hijack
+            [-1, {}, []]
+          }
+          row = insert_calendar_row(ics_url: test_server_url + "/feed", external_id: "abc")
+          svc.sync_row(row)
+          expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+            have_attributes(template: "errors/icalendar_fetch"),
+          )
+        end
+      end
+
+      it "alerts on 429s to particular URLs" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://ical.schedulestar.com/fans/?uuid=123").
+          and_return(status: 429)
+        row = insert_calendar_row(ics_url: "https://ical.schedulestar.com/fans/?uuid=123", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
       end
 
       it "alerts on invalid url errors" do
@@ -523,9 +869,18 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "alerts on Down timeout" do
+      it "alerts on non-UTF8 url errors" do
         Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::TimeoutError)
+        row = insert_calendar_row(ics_url: "https://outlook.office365.com/\u2026acmecorp.com/", external_id: "abc")
+        svc.sync_row(row)
+        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+          have_attributes(template: "errors/icalendar_fetch"),
+        )
+      end
+
+      it "alerts on timeout" do
+        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+        req = stub_request(:get, "https://feed.me").to_raise(HTTP::TimeoutError)
         row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
         svc.sync_row(row)
         expect(req).to have_been_made
@@ -534,26 +889,21 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         )
       end
 
-      it "alerts on Down ssl errors" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::SSLError)
-        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        svc.sync_row(row)
-        expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
-      end
-
-      it "alerts on Down connection errors" do
-        Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
-        req = stub_request(:get, "https://feed.me").to_raise(Down::ConnectionError)
-        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
-        svc.sync_row(row)
-        expect(req).to have_been_made
-        expect(Webhookdb::Message::Delivery.all).to contain_exactly(
-          have_attributes(template: "errors/icalendar_fetch"),
-        )
+      [
+        ["certificate failures", "certificate verify failed (certificate has expired)"],
+        ["legacy TLS", "unsafe legacy renegotiation disabled"],
+      ].each do |(name, msg)|
+        it "alerts on SSL #{name} errors" do
+          Webhookdb::Fixtures.organization_membership.org(org).verified.admin.create
+          err = OpenSSL::SSL::SSLError.new("SSL_connect returned=1 errno=0 peeraddr=216.235.207.153:443 state=error: #{msg}")
+          req = stub_request(:get, "https://feed.me").to_raise(err)
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          svc.sync_row(row)
+          expect(req).to have_been_made
+          expect(Webhookdb::Message::Delivery.all).to contain_exactly(
+            have_attributes(template: "errors/icalendar_fetch"),
+          )
+        end
       end
     end
 
@@ -695,9 +1045,9 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           END:VEVENT
         ICAL
         expect(sync(body)).to contain_exactly(
-          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z"), end_at: nil),
-          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z"), end_at: nil),
-          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z"), end_at: nil),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-0", start_at: Time.parse("2018-01-01 00:00:00Z"), end_at: Time.parse("2018-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-1", start_at: Time.parse("2019-01-01 00:00:00Z"), end_at: Time.parse("2019-01-01 00:00:00Z")),
+          hash_including(compound_identity: "abc-c7614cff-3549-4a00-9152-d25cc1fe077d-2", start_at: Time.parse("2020-01-01 00:00:00Z"), end_at: Time.parse("2020-01-01 00:00:00Z")),
         )
       end
 
@@ -946,11 +1296,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         event_svc.admin_dataset do |ds|
           # Make sure this gets deleted
           ds.insert(
-            data: "{}",
-            compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-4",
-            calendar_external_id: "abc",
-            recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
-            recurring_event_sequence: 4,
+            row(
+              compound_identity: "abc-2A389DBC-C85E-4A98-8817-8F5C0059DEB6-4",
+              calendar_external_id: "abc",
+              recurring_event_id: "2A389DBC-C85E-4A98-8817-8F5C0059DEB6",
+              recurring_event_sequence: 4,
+            ),
           )
         end
 
@@ -1134,14 +1485,14 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           EXDATE;TZID=America/Indianapolis:20231220T110000
           EXDATE;TZID=America/Indianapolis:20231225T110000
           LAST-MODIFIED:20231214T143742Z
-          RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+          RRULE:FREQ=WEEKLY;BYDAY=SA
           SEQUENCE:0
           SUMMARY:Abe Lincoln
           UID:77082075-30B2-4A5D-AB3C-F65F73C1E90E
           END:VEVENT
         ICAL
         got = sync(body)
-        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-6881", start_at: match_time("1990-01-01 16:00:00Z"))
+        expect(got.first).to include(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E-3962", start_at: match_time("2000-01-01 16:00:00Z"))
         expect(got.last).to include(start_at: be > 1.month.ago)
       end
 
@@ -1163,6 +1514,78 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
           END:VEVENT
         ICAL
         expect(sync(body)).to contain_exactly(hash_including(compound_identity: "abc-77082075-30B2-4A5D-AB3C-F65F73C1E90E"))
+      end
+
+      it "handles weird recurrence exceptions" do
+        uid = "7A76F2F2-C31E-4C58-AD2F-5D3D7B3DE9D1"
+        body = <<~ICAL
+          BEGIN:VEVENT
+          CREATED:20250915T130156Z
+          DTEND;TZID=America/Los_Angeles:20250915T160000
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20250915T154500
+          EXDATE;TZID=America/Los_Angeles:20260105T154500
+          EXDATE;TZID=America/Los_Angeles:20260112T154500
+          EXDATE;TZID=America/Los_Angeles:20260119T154500
+          LAST-MODIFIED:20260112T041158Z
+          RRULE:FREQ=WEEKLY;UNTIL=20251208T224500Z
+          SEQUENCE:1
+          SUMMARY:Rob pick up Jase and drop at Golf
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20251124T045258Z
+          DTEND;TZID=America/Los_Angeles:20251124T155000
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20251124T152000
+          LAST-MODIFIED:20260106T055314Z
+          RECURRENCE-ID;TZID=America/Los_Angeles:20251124T154500
+          SEQUENCE:1
+          SUMMARY:Rob Drop Jase at Golf clinic
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          X-APPLE-CREATOR-TEAM-IDENTITY:0000000000
+          END:VEVENT
+          BEGIN:VEVENT
+          CREATED:20251026T185536Z
+          DTEND;TZID=America/Los_Angeles:20251027T161500
+          DTSTAMP:20260112T041158Z
+          DTSTART;TZID=America/Los_Angeles:20251027T154500
+          LAST-MODIFIED:20260106T055314Z
+          RECURRENCE-ID;TZID=America/Los_Angeles:20251027T154500
+          SEQUENCE:1
+          SUMMARY:Rob bring Chris and Jase to Golf
+          UID:#{uid}
+          URL;VALUE=URI:
+          X-APPLE-CREATOR-IDENTITY:com.apple.mobilecal
+          X-APPLE-CREATOR-TEAM-IDENTITY:0000000000
+          END:VEVENT
+        ICAL
+        expect(sync(body).map do |h|
+          {
+            cid: h[:compound_identity],
+            uid: h[:uid],
+            rid: h[:recurring_event_id],
+            rs: h[:recurring_event_sequence],
+            n: h[:data]["SUMMARY"]["v"],
+          }
+        end).to contain_exactly(
+          {cid: "abc-#{uid}-0", uid: "#{uid}-0", rid: uid, rs: 0, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-1", uid: "#{uid}-1", rid: uid, rs: 1, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-2", uid: "#{uid}-2", rid: uid, rs: 2, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-3", uid: "#{uid}-3", rid: uid, rs: 3, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-4", uid: "#{uid}-4", rid: uid, rs: 4, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-5", uid: "#{uid}-5", rid: uid, rs: 5, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-6", uid: "#{uid}-6", rid: uid, rs: 6, n: "Rob bring Chris and Jase to Golf"},
+          {cid: "abc-#{uid}-7", uid: "#{uid}-7", rid: uid, rs: 7, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-8", uid: "#{uid}-8", rid: uid, rs: 8, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-9", uid: "#{uid}-9", rid: uid, rs: 9, n: "Rob pick up Jase and drop at Golf"},
+          {cid: "abc-#{uid}-10", uid: "#{uid}-10", rid: uid, rs: 10, n: "Rob Drop Jase at Golf clinic"},
+          {cid: "abc-#{uid}-11", uid: "#{uid}-11", rid: uid, rs: 11, n: "Rob pick up Jase and drop at Golf"},
+        )
       end
 
       describe "IceCube fixes" do
@@ -1208,7 +1631,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
         DTEND;VALUE=DATE:20230907
         DTSTAMP:20230819T112238Z
         DTSTART;VALUE=DATE:20230906
-        RRULE:FREQ=WEEKLY;UNTIL=20231001;INTERVAL=2;BYMONTHDAY=4,26,5
+        RRULE:FREQ=WEEKLY;UNTIL=20231001;BYMONTHDAY=4,26,5;INTERVAL=2
         SEQUENCE:0
         X-Comment:Same as above but with multiple BYMONTHDAY
         SUMMARY:Circles
@@ -1233,32 +1656,113 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       )
     end
 
-    it "handles when the server sends gzip even though we do not want it" do
+    it "does not get caught in an endless loop for impossible rrules" do
       body = <<~ICAL
         BEGIN:VCALENDAR
         BEGIN:VEVENT
+        CREATED:20220106T215154Z
+        DTEND;TZID=America/Los_Angeles:20220112T210000
+        DTSTAMP:20220113T033503Z
+        DTSTART;TZID=America/Los_Angeles:20220112T200000
+        RRULE:FREQ=MONTHLY;BYDAY=2WE;BYSETPOS=2
+        SEQUENCE:0
+        SUMMARY:High Council Meeting
+        UID:82F63A35-0D63-46DB-B06A-B2F95D9BE8E0
+        END:VEVENT
+        END:VCALENDAR
+      ICAL
+      # BYSETPOS=2 means 'second occurrence' and BYDAY=2WE means 'second wednesday'.
+      # Since there is no month with multiple second wednesdays, this cannot occur.
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      svc.sync_row(row)
+      expect(req).to have_been_made
+      expect(event_svc.admin_dataset(&:all)).to be_empty
+    end
+
+    it "backs off if the table should avoid writes" do
+      Sequel.connect(sint.organization.admin_connection_url) do |db|
+        db.transaction do
+          db << "LOCK TABLE #{event_sint.table_name}"
+          row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+          expect do
+            svc.sync_row(row)
+          end.to raise_error(Amigo::Retry::Retry)
+        end
+      end
+    end
+
+    it "skips the job if the row has recently been synced, unless force: true" do
+      body = <<~ICAL
+        BEGIN:VEVENT
         SUMMARY:Abraham Lincoln
         UID:c7614cff-3549-4a00-9152-d25cc1fe077d
-        STATUS:CONFIRMED
         DTSTART:20080212
         DTEND:20080213
         DTSTAMP:20150421T141403
         END:VEVENT
-        END:VCALENDAR
       ICAL
-      resp = {
-        status: 200,
-        headers: {"Content-Type" => "text/calendar; charset=UTF-8", "Content-Encoding" => "gzip"},
-        body: ActiveSupport::Gzip.compress(body),
-      }
-      req = stub_request(:get, "https://feed.me").
-        with { |r| ["", "gzip;q=1.0,deflate;q=0.6,identity;q=0.3"].include?(r.headers["Accept-Encoding"]) }.
-        and_return(resp, resp)
-      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+      row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc", last_synced_at: 2.hours.ago)
       svc.sync_row(row)
-      expect(svc.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
-      expect(req).to have_been_made # .times(2)
+      expect(event_svc.admin_dataset(&:all)).to be_empty
+
+      req = stub_request(:get, "https://feed.me").
+        and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+      svc.sync_row(row, force: true)
+      expect(req).to have_been_made
       expect(event_svc.admin_dataset(&:all)).to have_length(1)
+    end
+
+    describe "with a proxy configured", reset_configuration: Webhookdb::Icalendar do
+      before(:each) do
+        Webhookdb::Icalendar.proxy_url = "https://icalproxy.webhookdb.com" + (rand < 0.5 ? "" : "/")
+      end
+
+      it "calls the proxy server" do
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          and_return(
+            status: 200,
+            headers: {"Content-Type" => "text/calendar"},
+            body: "BEGIN:VCALENDAR\nEND:VCALENDAR",
+          )
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+      end
+
+      it "sets the authorization header if an api key is configured" do
+        Webhookdb::Icalendar.proxy_api_key = "sekret"
+
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          with(headers: {"Authorization" => "Apikey sekret"}).
+          and_return(
+            status: 200,
+            headers: {"Content-Type" => "text/calendar"},
+            body: "BEGIN:VCALENDAR\nEND:VCALENDAR",
+          )
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc")
+        svc.sync_row(row)
+        expect(req).to have_been_made
+      end
+
+      it "does not skip the sync even if the row has been recently modified" do
+        body = <<~ICAL
+          BEGIN:VEVENT
+          SUMMARY:Abraham Lincoln
+          UID:c7614cff-3549-4a00-9152-d25cc1fe077d
+          DTSTART:20080212
+          DTEND:20080213
+          DTSTAMP:20150421T141403
+          END:VEVENT
+        ICAL
+        row = insert_calendar_row(ics_url: "https://feed.me", external_id: "abc", last_synced_at: 1.minute.ago)
+        req = stub_request(:get, "https://icalproxy.webhookdb.com/?url=https://feed.me").
+          and_return(status: 200, headers: {"Content-Type" => "text/calendar"}, body:)
+        svc.sync_row(row)
+        expect(req).to have_been_made
+        expect(event_svc.admin_dataset(&:all)).to have_length(1)
+      end
     end
   end
 
@@ -1266,19 +1770,32 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
   describe "icalendar parser tests" do
     let(:source) { File.open(Webhookdb::SpecHelpers::TEST_DATA_DIR + "icalendar" + fn) }
     let(:replicator) { described_class.new(nil) }
-    let(:upserter) { described_class::Upserter.new(replicator, "1") }
+    let(:upserter) { described_class::Upserter.new(replicator, "1", now: Time.now) }
+    let(:headers) { {} }
 
-    def events
+    def feed_events
       arr = []
-      described_class::EventProcessor.new(source, upserter).each_feed_event { |a| arr << a }
+      ep = described_class::EventProcessor.new(io: source, encoding: "utf-8", upserter:, headers:)
+      ep.each_feed_event { |a| arr << a }
       arr
     end
 
-    context "single_event.ics" do
+    def all_events
+      arr = []
+      pr = described_class::EventProcessor.new(io: source, encoding: "utf-8", upserter:, headers:)
+      pr.each_feed_event do |a|
+        pr.each_projected_event(a) do |b|
+          arr << b
+        end
+      end
+      arr
+    end
+
+    describe "single_event.ics" do
       let(:fn) { "single_event.ics" }
 
       it "returns an array of calendars" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           {
             "DTSTAMP" => {"v" => "20050118T211523Z"},
@@ -1298,11 +1815,25 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "event.ics" do
+    describe "with busted, incorrect encoding" do
+      # This was generated with the following:
+      # iconv -f utf-8 -t iso-8859-1 < spec/data/icalendar/single_event.ics > spec/data/icalendar/single_event_wrong_encoding.ics
+      # See code for explanation.
+      let(:fn) { "single_event_wrong_encoding.ics" }
+
+      it "forces encoding to utf8" do
+        parsed = feed_events
+        expect(parsed).to contain_exactly(
+          include("UID" => {"v" => "bsuidfortestabc123"}),
+        )
+      end
+    end
+
+    describe "event.ics" do
       let(:fn) { "event.ics" }
 
       it "returns an array of events" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           {
             "DTSTAMP" => {"v" => "20050118T211523Z"},
@@ -1322,11 +1853,11 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "events.ics" do
+    describe "events.ics" do
       let(:fn) { "two_events.ics" }
 
       it "returns an array of events" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including("UID" => {"v" => "bsuidfortestabc123"}),
           {
@@ -1345,11 +1876,11 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "tzid_search.ics" do
+    describe "tzid_search.ics" do
       let(:fn) { "tzid_search.ics" }
 
       it "correctly sets the weird tzid" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including(
             "DTEND" => {"v" => "20180104T130000", "TZID" => "(GMT-05:00) Eastern Time (US & Canada)"},
@@ -1362,12 +1893,12 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       end
     end
 
-    context "missing_required.ics" do
+    describe "missing_required.ics" do
       let(:fn) { "missing_required.ics" }
 
       it "skips and warns about invalid items" do
         logs = capture_logs_from(replicator.logger, level: :warn, formatter: :json) do
-          parsed = events
+          parsed = feed_events
           expect(parsed).to contain_exactly(
             hash_including("SUMMARY" => {"v" => "Missing DTSTAMP"}),
             hash_including("SUMMARY" => {"v" => "Missing nothing"}),
@@ -1390,7 +1921,7 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event_bad_line.ics" }
 
       it "uses nil" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(
           hash_including(
             "UID" => {"v" => "bsuidfortestabc123"},
@@ -1404,9 +1935,200 @@ RSpec.describe Webhookdb::Replicator::IcalendarCalendarV1, :db do
       let(:fn) { "single_event_bad_dtstart.ics" }
 
       it "falls back to date type for dtstart" do
-        parsed = events
+        parsed = feed_events
         expect(parsed).to contain_exactly(hash_including("DTSTART" => {"v" => "20050120"}))
       end
+    end
+
+    describe "with an invalid bymonthyear/day/frequency combination" do
+      let(:fn) { "invalid_bymonthyearday.ics" }
+
+      it "returns an array of calendars" do
+        # Because we project '5 years' into the future, we can end up with more than 36 events at times
+        # (3102AFB1-1FE8-49A1-BBB2-20965DFD44C9-30 is the extra event).
+        # Use Timecop.travel('2024-08-10') to see 36,
+        # Timecop.travel('2024-08-16') to see 37,
+        # Timecop.travel('2024-12-03') to see 38.
+        # Timecop.travel('2025-12-03') to see 39.
+        # Rather than having a flaky or imprecise spec, we use timecop to get a consistent result.
+        parsed = Timecop.travel(Date.new(2024, 8, 1)) { all_events }
+        expect(parsed).to have_length(36)
+        expect(parsed).to include(
+          hash_including("DTSTART" => {"v" => "20220514"}),
+          hash_including("DTSTART" => {"v" => "20220814"}),
+          hash_including("DTSTART" => {"v" => "20221114"}),
+          hash_including("DTSTART" => {"v" => "20210814"}),
+          hash_including("DTSTART" => {"v" => "20211114"}),
+          hash_including("DTSTART" => {"v" => "20220214"}),
+        )
+      end
+    end
+  end
+
+  describe "feed_changed?" do
+    before(:each) do
+      org.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    let(:body) { <<~ICAL }
+      BEGIN:VCALENDAR
+      END:VCALENDAR
+    ICAL
+    let(:content_length) { body.size.to_s }
+    let(:content_type) { "text/calendar" }
+    let(:parser_version) { described_class::PARSER_VERSION }
+    let(:unchanged_context) do
+      {
+        hash: Digest::MD5.hexdigest(body),
+        content_type:,
+        content_length:,
+        parser_version:,
+      }
+    end
+
+    it "is false if the content headers and feed hash match the previous sync" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.to_json,
+      )
+      expect(svc).to_not be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is false if the server returns a 304" do
+      req = stub_request(:get, "https://feed.me").
+        with(headers: {"If-None-Match" => "somevalue"}).
+        and_return(status: 304)
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(etag: "somevalue").to_json,
+      )
+      expect(svc).to_not be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the body has a different hash" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(hash: "abc").to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content type is different" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(content_type: "text/calendar; charset=utf-8").to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content length is different" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type, "Content-Length" => content_length},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(content_length: "10").to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the content length (from server, and in DB) is nil" do
+      req = stub_request(:get, "https://feed.me").
+        and_return(
+          status: 200,
+          headers: {"Content-Type" => content_type},
+          body:,
+        )
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(content_length: nil).to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true (and does not fetch) with a nil fetch context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
+    it "is true (and does not fetch) with an empty fetch context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {}.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
+    it "is true with a non-empty but nonsense context" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: {x: 1}.to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+    end
+
+    it "is true if the fetch errors" do
+      req = stub_request(:get, "https://feed.me").
+        and_raise(RuntimeError)
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(hash: "abc").to_json,
+      )
+      expect(svc).to be_feed_changed(row)
+      expect(req).to have_been_made
+    end
+
+    it "is true if the last_fetch_context has no parser_version field" do
+      row = insert_calendar_row(
+        ics_url: "https://feed.me",
+        external_id: "abc",
+        last_fetch_context: unchanged_context.merge(parser_version: -1).to_json,
+      )
+      expect(svc).to be_feed_changed(row)
     end
   end
 end

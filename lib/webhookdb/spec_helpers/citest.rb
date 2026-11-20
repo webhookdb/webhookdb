@@ -60,7 +60,7 @@ module Webhookdb::SpecHelpers::Citest
       content: html,
       content_type: "text/html",
     )
-    url = doc.presigned_view_url(expire_at: 1.week.from_now)
+    url = doc.presigned_admin_view_url(expire_at: 1.week.from_now)
     return url
   end
 

@@ -28,7 +28,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
   end
   let(:contact_svc) { Webhookdb::Replicator.create(contact_sint) }
 
-  it_behaves_like "a replicator", "email_octopus_event_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -54,12 +54,11 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusEventV1, :db do
     end
   end
 
-  it_behaves_like "a replicator dependent on another", "email_octopus_event_v1",
-                  "email_octopus_list_v1" do
+  it_behaves_like "a replicator dependent on another", "email_octopus_list_v1" do
     let(:no_dependencies_message) { "This integration requires Email Octopus Lists to sync" }
   end
 
-  it_behaves_like "a replicator that can backfill", "email_octopus_event_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:empty_response) do
       <<~R
         {

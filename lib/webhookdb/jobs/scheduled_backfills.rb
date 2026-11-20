@@ -51,8 +51,9 @@ module Webhookdb::Jobs
         Webhookdb::Github.activity_cron_expression, 30.seconds, false,
       ),
       Spec.new(
+        # This incremental sync is a backstop for any missed webhooks.
         "IntercomScheduledBackfill", "intercom_marketplace_root_v1",
-        "*/1 * * * *", 0, false, true,
+        "46 4 * * *", 0, true, true,
       ),
       Spec.new(
         "AtomSingleFeedPoller", "atom_single_feed_v1",
@@ -72,11 +73,11 @@ module Webhookdb::Jobs
       ),
       Spec.new(
         "TwilioSmsBackfill", "twilio_sms_v1",
-        "*/1 * * * *", 0, true, false,
+        "*/1 * * * *", 0, true, true,
       ),
       Spec.new(
         "SignalwireMessageBackfill", "signalwire_message_v1",
-        "*/1 * * * *", 0, true, false,
+        "*/1 * * * *", 0, true, true,
       ),
     ].each { |sp| self.install(sp) }
   end

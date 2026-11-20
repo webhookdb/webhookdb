@@ -1,0 +1,6 @@
+{
+  "code": "21717",
+  "message": "From must belong to an active campaign.",
+  "more_info": "https://developer.signalwire.com/compatibility-api/reference/error-codes",
+  "status": 400
+}

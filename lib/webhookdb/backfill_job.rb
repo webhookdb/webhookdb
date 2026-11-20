@@ -15,6 +15,7 @@
 #
 class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_integration]
 
   many_to_one :service_integration, class: "Webhookdb::ServiceIntegration"
   many_to_one :parent_job, class: "Webhookdb::BackfillJob"
@@ -71,6 +72,12 @@ class Webhookdb::BackfillJob < Webhookdb::Postgres::Model(:backfill_jobs)
     self.child_jobs.each(&:enqueue)
   end
 
+  def ensure_service_integration_lock
+    return Webhookdb::BackfillJob::ServiceIntegrationLock.find_or_create_or_find(
+      service_integration_id: self.service_integration_id,
+    )
+  end
+
   #
   # :section: Sequel Hooks
   #
@@ -93,6 +100,8 @@ end
 #  parent_job_id          | integer                  |
 #  created_by_id          | integer                  |
 #  incremental            | boolean                  | NOT NULL
+#  criteria               | jsonb                    | NOT NULL DEFAULT '{}'::jsonb
+#  text_search            | tsvector                 |
 # Indexes:
 #  backfill_jobs_pkey                         | PRIMARY KEY btree (id)
 #  backfill_jobs_opaque_id_key                | UNIQUE btree (opaque_id)

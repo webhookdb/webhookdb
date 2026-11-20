@@ -1,17 +1,30 @@
 # frozen_string_literal: true
 
 module Webhookdb::Replicator::IntercomV1Mixin
-  # @return [Webhookdb::ServiceIntegration]
+  # Timestamps can be unix timestamps when listing a resource,
+  # or strings in other cases, like webhooks. This may have to do with API versions.
+  # Handle both.
+  QUESTIONABLE_TIMESTAMP = Webhookdb::Replicator::Column::IsomorphicProc.new(
+    ruby: lambda do |i, **_|
+      return nil if i.nil?
+      return Time.at(i)
+    rescue TypeError
+      return Time.parse(i)
+    end,
+    sql: lambda do |*|
+      # We would have to check the type of the data, which is a pain, so don't worry about this for now.
+      raise NotImplementedError
+    end,
+  )
 
   # Quick note on these Intercom integrations: although we will technically be bringing in information from webhooks,
   # all webhooks for the WebhookDB app will use a single endpoint and we use the WebhookDB app's Client Secret for
   # webhook verification, which means that webhooks actually don't require any setup on the integration level. Thus,
   # `supports_webhooks` is false.
   def find_auth_integration
-    # rubocop:disable Naming/MemoizedInstanceVariableName
-    return @auth ||= Webhookdb::Replicator.find_at_root!(self.service_integration,
-                                                         service_name: "intercom_marketplace_root_v1",)
-    # rubocop:enable Naming/MemoizedInstanceVariableName
+    return @find_auth_integration ||= Webhookdb::Replicator.find_at_root!(
+      self.service_integration, service_name: "intercom_marketplace_root_v1",
+    )
   end
 
   def intercom_auth_headers
@@ -34,20 +47,12 @@ module Webhookdb::Replicator::IntercomV1Mixin
     return self.qualified_table_sequel_identifier[:updated_at] < Sequel[:excluded][:updated_at]
   end
 
-  def _timestamp_column_name
-    return :updated_at
-  end
+  def _timestamp_column_name = :updated_at
 
   def _webhook_response(request)
-    # info for debugging
-    intercom_auth = request.env["HTTP_X_HUB_SIGNATURE"]
-
-    return Webhookdb::WebhookResponse.error("missing hmac") if intercom_auth.nil?
-    request.body.rewind
-    request_data = request.body.read
-    verified = Webhookdb::Intercom.verify_webhook(request_data, intercom_auth)
-    return Webhookdb::WebhookResponse.ok if verified
-    return Webhookdb::WebhookResponse.error("invalid hmac")
+    # Intercom webhooks are done through a centralized oauth replicator,
+    # so the secret is for the app, not the individual replicator.
+    return Webhookdb::Intercom.webhook_response(request, Webhookdb::Intercom.client_secret)
   end
 
   # @return [Webhookdb::Replicator::StateMachineStep]
@@ -67,11 +72,10 @@ module Webhookdb::Replicator::IntercomV1Mixin
     return
   end
 
-  def _mixin_backfill_url
-    raise NotImplementedError
-  end
+  def _mixin_backfill_url = raise NotImplementedError
+  def _mixin_backfill_hashkey = raise NotImplementedError
 
-  def _fetch_backfill_page(pagination_token, **_kwargs)
+  def _fetch_backfill_page(pagination_token, last_backfilled:)
     unless self.auth_credentials?
       raise Webhookdb::Replicator::CredentialsMissing,
             "This integration requires that the Intercom Auth integration has a valid Auth Token"
@@ -89,6 +93,28 @@ module Webhookdb::Replicator::IntercomV1Mixin
         timeout: Webhookdb::Intercom.http_timeout,
       )
     rescue Webhookdb::Http::Error => e
+      is_token_suspended = e.status == 401 &&
+        e.response["errors"].present? &&
+        e.response["errors"].any? { |er| er["code"] == "token_suspended" }
+      if is_token_suspended
+        root_sint = self.find_auth_integration
+        message = "Organization has closed their Intercom workspace and this integration should be deleted. " \
+                  "From a console, run: " \
+                  "Webhookdb::ServiceIntegration[#{root_sint.id}].destroy_self_and_all_dependents"
+        Webhookdb::DeveloperAlert.new(
+          subsystem: "Intercom Workspace Closed Error",
+          emoji: ":hook:",
+          fallback: message,
+          fields: [
+            {title: "Organization", value: root_sint.organization.name, short: true},
+            {title: "Integration ID", value: root_sint.id.to_s, short: true},
+            {title: "Instructions", value: message},
+          ],
+        ).emit
+        # Noop here since there's nothing to do, the developer alert takes care of notifying
+        # so no need to error or log.
+        return [], nil
+      end
       #  We are looking to catch the "api plan restricted" error. This is always a 403 and every
       # 403 will be an "api plan restricted" error according to the API documentation. Because we
       # specify the API version in our headers we can expect that this won't change.
@@ -98,8 +124,29 @@ module Webhookdb::Replicator::IntercomV1Mixin
       # a TypeError in the backfiller.
       return [], nil
     end
-    data = response.parsed_response.fetch("data", [])
+    data = response.parsed_response.fetch(self._mixin_backfill_hashkey)
     starting_after = response.parsed_response.dig("pages", "next", "starting_after")
+    # Intercom pagination sorts by updated_at newest. So if we are doing an incremental sync (last_backfilled set),
+    # and we last backfilled after the latest updated_at, we can stop paginating.
+    if last_backfilled && data.last && data.last["updated_at"]
+      oldest_update = Time.at(data.last["updated_at"])
+      starting_after = nil if oldest_update < last_backfilled
+    end
     return data, starting_after
+  end
+
+  def _backfillers
+    return [Backfiller.new(self)]
+  end
+
+  class Backfiller < Webhookdb::Replicator::Base::ServiceBackfiller
+    include Webhookdb::Backfiller::Bulk
+
+    # Upsert for each API call
+    def upsert_page_size = Webhookdb::Intercom.page_size
+    def prepare_body(_body) = nil
+    def upserting_replicator = self.svc
+    # We don't want to override newer items from webhooks, so use conditional upsert.
+    def conditional_upsert? = true
   end
 end

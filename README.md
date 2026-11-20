@@ -52,6 +52,11 @@ and set up a replicator with `webhookdb integrations create`.
 
 Visit <https://docs.webhookdb.com> to see the docs.
 
+## Admin
+
+The server comes with an admin interface at `/admin`.
+Go to <http://localhost:18101/admin> to view it.
+
 ## Deployment
 
 WebhookDB is designed to be easy to deploy. You just need a way to run a container,

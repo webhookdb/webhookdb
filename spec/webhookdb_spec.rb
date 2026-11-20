@@ -7,12 +7,10 @@ require "webhookdb"
 RSpec.describe Webhookdb do
   describe "configuration" do
     before(:each) do
-      @env = ENV.fetch(described_class::CONFIG_ENV_VAR, nil)
       @tempfiles = []
     end
 
     after(:each) do
-      ENV[described_class::CONFIG_ENV_VAR] = @end
       @tempfiles.each { |t| t.close(true) }
     end
 
@@ -220,6 +218,35 @@ RSpec.describe Webhookdb do
       described_class.use_globals_cache = false
       expect(described_class.cached_get("k") { @calls += 1 }).to eq(4)
       expect(described_class.cached_get("k") { @calls += 1 }).to eq(5)
+    end
+  end
+
+  describe "parse_bool" do
+    it "parses bool" do
+      expect(described_class.parse_bool(0)).to be(false)
+      expect(described_class.parse_bool(false)).to be(false)
+      expect(described_class.parse_bool(nil)).to be(false)
+      expect(described_class.parse_bool("")).to be(false)
+      expect(described_class.parse_bool(" ")).to be(false)
+      expect(described_class.parse_bool("0")).to be(false)
+      expect(described_class.parse_bool("FALSE")).to be(false)
+      expect(described_class.parse_bool("no")).to be(false)
+      expect(described_class.parse_bool("off")).to be(false)
+      expect(described_class.parse_bool("f")).to be(false)
+      expect(described_class.parse_bool("n")).to be(false)
+
+      expect(described_class.parse_bool(1)).to be(true)
+      expect(described_class.parse_bool(2)).to be(true)
+      expect(described_class.parse_bool(-1)).to be(true)
+      expect(described_class.parse_bool("1")).to be(true)
+      expect(described_class.parse_bool("TRUE")).to be(true)
+      expect(described_class.parse_bool("yes")).to be(true)
+      expect(described_class.parse_bool("on")).to be(true)
+      expect(described_class.parse_bool("t")).to be(true)
+      expect(described_class.parse_bool("y")).to be(true)
+
+      expect { described_class.parse_bool("?") }.to raise_error(ArgumentError)
+      expect { described_class.parse_bool("2") }.to raise_error(ArgumentError)
     end
   end
 end

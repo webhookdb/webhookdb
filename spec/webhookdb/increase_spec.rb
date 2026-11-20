@@ -5,104 +5,104 @@ require "webhookdb/increase"
 RSpec.describe "Webhookdb::Increase" do
   let(:described_class) { Webhookdb::Increase }
 
-  describe "webhook_response" do
-    it "returns a 401 as per spec if there is no Authorization header" do
-      req = fake_request
-      data = req.body
-      resp = Webhookdb::Increase.webhook_response(req, "webhook_secret")
-      expect(resp).to have_attributes(status: 401, reason: "missing hmac")
+  describe "webhook validation" do
+    let(:req) { fake_request(input: '{"data": "asdfghujkl"}') }
+    let(:data) { req.body }
+    let(:secret) { "webhook_secret" }
+
+    describe "parse_signature" do
+      it "parses all variety of signatures" do
+        t = Time.parse("2022-01-31T23:59:59Z")
+        expect(described_class.parse_signature(nil)).to have_attributes(t: nil, v1: [])
+        expect(described_class.parse_signature("")).to have_attributes(t: nil, v1: [])
+        expect(described_class.parse_signature("t=2022-01-31T23:59:59Z")).to have_attributes(t:, v1: [])
+        expect(described_class.parse_signature("t=abcd")).to have_attributes(t: nil, v1: [])
+        expect(described_class.parse_signature("t=abcd,v1=abcd")).to have_attributes(t: nil, v1: ["abcd"])
+        expect(described_class.parse_signature("t=abcd,v1=abcd,v2=xyz")).to have_attributes(t: nil, v1: ["abcd"])
+        expect(described_class.parse_signature("t=2022-01-31T23:59:59Z,v1=ab,v1=cd")).to have_attributes(
+          t:, v1: ["ab", "cd"],
+        )
+      end
     end
 
-    it "returns a 401 for an invalid Authorization header" do
-      req = fake_request(input: '{"data": "asdfghujkl"}')
-      data = req.body
-      computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "webhook_secret", '{"data": "foobar"}')
-      req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
-      resp = Webhookdb::Increase.webhook_response(req, "webhook_secret")
-      expect(resp).to have_attributes(status: 401, reason: "invalid hmac")
+    describe "Signature" do
+      describe "format" do
+        it "formats" do
+          t = Time.parse("2022-01-31T23:59:59Z")
+          sig = described_class::WebhookSignature.new(t:, v1: ["ab", "cd"])
+          expect(sig.format).to eq("t=2022-01-31T23:59:59Z,v1=ab,v1=cd")
+          sig.v1 = ["ab"]
+          expect(sig.format).to eq("t=2022-01-31T23:59:59Z,v1=ab")
+          sig.t = nil
+          expect(sig.format).to eq("v1=ab")
+          sig.v1 = ["ab"]
+          expect(sig.format).to eq("v1=ab")
+          sig.v1 = []
+          expect(sig.format).to eq("")
+        end
+      end
     end
 
-    it "returns a 202 with a valid Authorization header" do
-      req = fake_request(input: '{"data": "asdfghujkl"}')
-      data = req.body
-      computed_auth = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new("sha256"), "webhook_secret", data)
-      req.add_header("HTTP_X_BANK_WEBHOOK_SIGNATURE", "sha256=" + computed_auth)
-      resp = Webhookdb::Increase.webhook_response(req, "webhook_secret")
-      expect(resp).to have_attributes(status: 202)
-    end
-  end
+    describe "webhook_response" do
+      it "returns a 401 as per spec if there is no Authorization header" do
+        resp = Webhookdb::Increase.webhook_response(req, "webhook_secret")
+        expect(resp).to have_attributes(status: 401, reason: "missing header")
+      end
 
-  describe "webhook_contains_object" do
-    let(:webhook_body) do
-      JSON.parse(<<~J)
-        {"event_id": "transaction_event_123",
-                  "event": "created",
-                  "created_at": "2020-01-31T23:59:59Z",
-                  "data": {
-                    "id": "transaction_uyrp7fld2ium70oa7oi",
-                    "account_id": "account_in71c4amph0vgo2qllky",
-                    "amount": 100,
-                    "date": "2020-01-10",
-                    "description": "Rent payment",
-                    "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-                    "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-                    "source": {}
-                  }
-                  }
-      J
-    end
+      it "returns a 401 for an invalid Authorization header (no timestamp)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.t = nil
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 401, reason: "missing timestamp")
+      end
 
-    it "returns true when object name is in the id of the webhook object" do
-      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transaction")).to be(true)
-    end
+      it "returns a 401 for an invalid Authorization header (no v1)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.v1 = nil
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 401, reason: "missing signatures")
+      end
 
-    it "returns false when object name is not in the id of the webhook object" do
-      expect(Webhookdb::Increase.contains_desired_object(webhook_body, "transfer")).to be(false)
-    end
-  end
+      it "returns a 401 for an invalid Authorization header (invalid v1)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.v1[0] = "notvalid hash"
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 401, reason: "invalid signature")
+      end
 
-  describe "find_object_data" do
-    let(:webhook_body) do
-      JSON.parse(<<~J)
-                            {"event_id": "transaction_event_123",
-        "event": "created",
-        "created_at": "2020-01-31T23:59:59Z",
-        "data": {
-          "id": "transaction_uyrp7fld2ium70oa7oi",
-          "account_id": "account_in71c4amph0vgo2qllky",
-          "amount": 100,
-          "date": "2020-01-10",
-          "description": "Rent payment",
-          "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-          "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-          "source": {}
-        }
-        }
-      J
-    end
+      it "returns a 401 for an invalid Authorization header (timestamp old)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.t = 40.days.ago
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 401, reason: "too old")
+      end
 
-    let(:object_json) do
-      JSON.parse(<<~J)
-                            {
-          "id": "transaction_uyrp7fld2ium70oa7oi",
-          "account_id": "account_in71c4amph0vgo2qllky",
-          "amount": 100,
-          "date": "2020-01-10",
-          "description": "Rent payment",
-          "route_id": "ach_route_yy0yirrxa4pblzl0k4op",
-          "path": "/transactions/transaction_uyrp7fld2ium70oa7oi",
-          "source": {}
-        }
+      it "returns a 401 for an invalid Authorization header (timestamp future)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.t = 1.week.from_now
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 401, reason: "too new")
+      end
 
-      J
-    end
+      it "returns a 202 if the signature and timestamp matches (single signature)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 202)
+      end
 
-    it "returns object data from webhook body" do
-      expect(Webhookdb::Increase.find_desired_object_data(webhook_body)).to eq(object_json)
-    end
-
-    it "returns object json intact" do
-      expect(Webhookdb::Increase.find_desired_object_data(object_json)).to eq(object_json)
+      it "returns a 202 if the signature and timestamp matches (multiple signatures)" do
+        sig = described_class.compute_signature(secret:, data:, t: Time.now)
+        sig.v1 = ["invalid1", sig.v1.first, "invalid2"]
+        req.add_header("HTTP_INCREASE_WEBHOOK_SIGNATURE", sig.format)
+        resp = Webhookdb::Increase.webhook_response(req, secret)
+        expect(resp).to have_attributes(status: 202)
+      end
     end
   end
 end

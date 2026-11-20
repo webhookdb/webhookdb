@@ -10,7 +10,7 @@ class Webhookdb::AdminAPI::DatabaseDocuments < Webhookdb::AdminAPI::V1
       auth(:skip)
       get :view do
         (doc = Webhookdb::DatabaseDocument[params[:id]]) or forbidden!
-        doc.check_url(request.url) or forbidden!
+        doc.check_url?(request.url) or forbidden!
         content_type doc.content_type
         env["api.format"] = :binary
         body doc.content

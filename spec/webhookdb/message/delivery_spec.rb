@@ -7,6 +7,16 @@ RSpec.describe "Webhookdb::Message::Delivery", :db, :messaging do
     Webhookdb::Message::FakeTransport.reset!
   end
 
+  it "can fixture and full text search" do
+    expect { Webhookdb::Fixtures.message_delivery.create.text_search_reindex }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.email.create }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.to("x").create }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.with_recipient.create }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.with_body.create }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.via(:email).create }.to_not raise_error
+    expect { Webhookdb::Fixtures.message_delivery.sent.create }.to_not raise_error
+  end
+
   context "datasets" do
     it "has a dataset for sent and unsent messages" do
       unsent = Webhookdb::Fixtures.message_delivery.create

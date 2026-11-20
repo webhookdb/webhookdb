@@ -97,7 +97,7 @@ RSpec.describe Webhookdb::Backfiller, :db do
 
     it "ignores items that are not upserted by the replicator" do
       Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |r|
-        r.fetch("my_id") == "3" ? [nil, nil] : [r, nil]
+        r.body.fetch("my_id") == "3" ? [nil, nil] : [r.body, nil]
       }
       bf = backfiller_cls.new(
         sint,

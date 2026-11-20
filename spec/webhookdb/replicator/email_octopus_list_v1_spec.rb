@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
-  it_behaves_like "a replicator", "email_octopus_list_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -39,7 +39,6 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
         }
       J
     end
-    let(:supports_row_diff) { false }
   end
 
   it_behaves_like "a replicator that verifies backfill secrets" do
@@ -76,7 +75,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "email_octopus_list_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:empty_response) do
       <<~R
         {
@@ -199,7 +198,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
     end
   end
 
-  it_behaves_like "a replicator with dependents", "email_octopus_list_v1", "email_octopus_contact_v1" do
+  it_behaves_like "a replicator with dependents", "email_octopus_contact_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -230,7 +229,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
       }
     end
   end
-  it_behaves_like "a replicator with dependents", "email_octopus_list_v1", "email_octopus_campaign_v1" do
+  it_behaves_like "a replicator with dependents", "email_octopus_campaign_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -262,7 +261,7 @@ RSpec.describe Webhookdb::Replicator::EmailOctopusListV1, :db do
     end
   end
 
-  it_behaves_like "a replicator with dependents", "email_octopus_list_v1", "email_octopus_event_v1" do
+  it_behaves_like "a replicator with dependents", "email_octopus_event_v1" do
     let(:body) do
       JSON.parse(<<~J)
         {

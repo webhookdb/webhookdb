@@ -3,6 +3,9 @@
 require "sequel/advisory_lock"
 require "sequel/database"
 
+require "webhookdb/concurrent"
+require "webhookdb/jobs/sync_target_run_sync"
+
 # Support exporting WebhookDB data into external services,
 # such as another Postgres instance or data warehouse (Snowflake, etc).
 #
@@ -21,9 +24,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   include Appydays::Configurable
   include Webhookdb::Dbutil
 
-  class Deleted < StandardError; end
-  class InvalidConnection < StandardError; end
-  class SyncInProgress < StandardError; end
+  class Deleted < Webhookdb::WebhookdbError; end
+  class InvalidConnection < Webhookdb::WebhookdbError; end
+  class SyncInProgress < Webhookdb::WebhookdbError; end
 
   # Advisory locks for sync targets use this as the first int, and the id as the second.
   ADVISORY_LOCK_KEYSPACE = 2_000_000_000
@@ -32,6 +35,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   DB_VERIFY_TIMEOUT = 2000
   DB_VERIFY_STATEMENT = "SELECT 1"
   RAND = Random.new
+  MAX_STATS = 200
 
   configurable(:sync_target) do
     # Allow installs to set this much lower if they want a faster sync.
@@ -52,6 +56,12 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # we must allow sync targets to use http urls. This should only
     # be used internally, and never in production.
     setting :allow_http, false
+    # Syncing may require serverside cursors, which open a transaction.
+    # To avoid long-lived transactions, any sync which has a transaction,
+    # and goes on longer than +max_transaction_seconds+,
+    # will 'soft abort' the sync and reschedule itself to continue
+    # using a new transaction.
+    setting :max_transaction_seconds, 10.minutes.to_i
 
     after_configured do
       if Webhookdb::RACK_ENV == "test"
@@ -74,6 +84,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   end
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_integration, :created_by]
   plugin :column_encryption do |enc|
     enc.column :connection_url
   end
@@ -86,8 +97,10 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   dataset_module do
     def due_for_sync(as_of:)
       never_synced = Sequel[last_synced_at: nil]
-      next_due_at = Sequel[:last_synced_at] + (Sequel.lit("INTERVAL '1 second'") * Sequel[:period_seconds])
-      due_before_now = next_due_at <= as_of
+      # Use 'last_synced_at <= (now - internal)' rather than 'last_synced_at + interval <= now'
+      # so we can use the last_synced_at index.
+      cutoff = (Sequel[as_of].cast("TIMESTAMPTZ") - (Sequel.lit("INTERVAL '1 second'") * Sequel[:period_seconds]))
+      due_before_now = Sequel[:last_synced_at] <= cutoff
       return self.where(never_synced | due_before_now)
     end
   end
@@ -167,11 +180,27 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         timeout: HTTP_VERIFY_TIMEOUT,
         follow_redirects: true,
       )
-    rescue Timeout::Error => e
-      raise InvalidConnection, "POST to #{cleanurl} timed out: #{e.message}"
-    rescue Webhookdb::Http::Error => e
-      raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}"
+    rescue StandardError => e
+      raise InvalidConnection, "POST to #{cleanurl} failed: #{e.message}" if
+        e.is_a?(Webhookdb::Http::Error) || self.transport_error?(e)
+      raise
     end
+  end
+
+  # Return true if the given error is considered a 'transport' error,
+  # like a timeout, socket error, dns error, etc.
+  # This isn't a consistent class type.
+  def self.transport_error?(e)
+    return true if e.is_a?(Timeout::Error)
+    return true if e.is_a?(SocketError)
+    return true if e.is_a?(OpenSSL::SSL::SSLError)
+    # SystemCallError are Errno errors, we can get them when the url no longer resolves.
+    return true if e.is_a?(SystemCallError)
+    # Socket::ResolutionError is an error but I guess it's defined in C and we can't raise it in tests.
+    # Anything with an error_code assume is some transport-level issue and treat it as a connection issue,
+    # not a coding issue.
+    return true if e.respond_to?(:error_code)
+    return false
   end
 
   def next_scheduled_sync(now:)
@@ -197,6 +226,13 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     max_jitter = [20, self.period_seconds / 4].min
     max_jitter = [1, max_jitter].max
     return RAND.rand(1..max_jitter)
+  end
+
+  # @return [ActiveSupport::Duration,Integer]
+  def latency(now: Time.now)
+    return 0 if self.last_synced_at.nil?
+    return 0 if self.last_synced_at > now
+    return now - self.last_synced_at
   end
 
   # Running a sync involves some work we always do (export, transform),
@@ -230,6 +266,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
   # @param now [Time] The current time. Rows that were updated <= to 'now', and >= the 'last updated' timestamp,
   # will be synced.
   def run_sync(now:)
+    return false if self.disabled
     ran = false
     # Take the advisory lock with a separate connection. This seems to be pretty important-
     # it's possible that (for reasons not clear at this time) using the standard connection pool
@@ -238,6 +275,7 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # since the session will be ended.
     Webhookdb::Dbutil.borrow_conn(Webhookdb::Postgres::Model.uri) do |db|
       self.advisory_lock(db).with_lock? do
+        self.logger.info "starting_sync"
         routine = if self.connection_url.start_with?("https://", "http://")
                     # Note that http links are not secure and should only be used for development purposes
                     HttpRoutine.new(now, self)
@@ -258,6 +296,16 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
 
   def displaysafe_connection_url
     return displaysafe_url(self.connection_url)
+  end
+
+  def log_tags
+    return {
+      sync_target_id: self.id,
+      sync_target_connection_url: self.displaysafe_connection_url,
+      service_integration_id: self.service_integration_id,
+      service_integration_service: self.service_integration.service_name,
+      service_integration_table: self.service_integration.table_name,
+    }
   end
 
   # @return [String]
@@ -281,6 +329,64 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     schema_name = self.schema.present? ? self.schema : self.class.default_schema
     table_name = self.table.present? ? self.table : self.service_integration.table_name
     return "#{schema_name}.#{table_name}"
+  end
+
+  # :section: Stats
+
+  def add_sync_stat(call_start:, remote_start:, exception: nil, response_status: nil)
+    now = Time.now
+    stat = {
+      "t" => s2ms(now),
+      "dr" => s2ms(now - remote_start),
+      "dc" => s2ms(now - call_start),
+    }
+    stat["e"] = exception.class.name if exception
+    stat["rs"] = response_status unless response_status.nil?
+    stats = self.sync_stats
+    stats.prepend(stat)
+    stats.pop if stats.size > MAX_STATS
+    self.will_change_column(:sync_stats)
+  end
+
+  protected def s2ms(t) = (t.to_f * 1000).to_i
+  protected def ms2s(ms) = ms / 1000.0
+
+  def sync_stat_summary
+    return {} if self.sync_stats.empty?
+    earliest = self.sync_stats.last
+    latest = self.sync_stats.first
+
+    avg_remote_latency = 0
+    avg_call_latency = 0
+    errors = 0
+    self.sync_stats.each do |st|
+      avg_remote_latency += st["dr"] if st["dr"]
+      avg_call_latency += st["dc"] if st["dc"]
+      errors += 1 if st["e"] || st["rs"]
+    end
+    avg_remote_latency = ms2s(avg_remote_latency / self.sync_stats.size).round(2)
+    avg_call_latency = ms2s(avg_call_latency / self.sync_stats.size).round(2)
+    avg_calls_minute = self._stat_average_calls_per_minute.round(2)
+    avg_rows_minute = (avg_calls_minute * self.page_size).to_i
+    return {
+      earliest: earliest["t"] ? Time.at(ms2s(earliest["t"]).to_i) : Time.at(0),
+      latest: latest["t"] ? Time.at(ms2s(latest["t"]).to_i) : Time.at(0),
+      avg_remote_latency:,
+      avg_call_latency:,
+      avg_rows_minute:,
+      avg_calls_minute:,
+      errors:,
+    }
+  end
+
+  # See how many calls we've made over the lifetime of the sync stats,
+  # and average to a minute.
+  def _stat_average_calls_per_minute
+    start_timespan = Time.now.to_f - ms2s(self.sync_stats.last["t"])
+    return 0 if start_timespan.zero?
+    per_second = self.sync_stats.count / start_timespan.to_f
+    per_minute = per_second * 60
+    return per_minute
   end
 
   # @return [Webhookdb::Organization]
@@ -327,7 +433,8 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
     # it wasn't in the last sync; however that is likely not a big problem
     # since clients need to handle updates in any case.
     def dataset_to_sync
-      @replicator.readonly_dataset do |ds|
+      # Use admin dataset, since the client could be using all their readonly conns.
+      @replicator.admin_dataset do |ds|
         # Find rows updated before we started
         tscond = (@timestamp_expr <= @now)
         # Find rows updated after the last sync was run
@@ -339,35 +446,119 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       end
     end
 
-    def record(last_synced_at)
-      self.sync_target.update(last_synced_at:)
+    def perform_db_op(&)
+      yield
     rescue Sequel::NoExistingObject => e
       raise Webhookdb::SyncTarget::Deleted, e
+    end
+
+    def record(last_synced_at)
+      self.perform_db_op do
+        self.sync_target.update(last_synced_at:)
+      end
+    end
+
+    # Wrap a remote call and record a stat on finish.
+    # +call_start+ should be when the current call/page began syncing.
+    # The block is assumed to be a DB or HTTP callout.
+    def with_stat(call_start, &)
+      remote_start = Time.now
+      begin
+        yield
+        self.sync_target.add_sync_stat(call_start:, remote_start:)
+      rescue Webhookdb::Http::Error => e
+        self.sync_target.add_sync_stat(call_start:, remote_start:, response_status: e.status)
+        raise
+      rescue StandardError => e
+        self.sync_target.add_sync_stat(call_start:, remote_start:, exception: e)
+        raise
+      end
+    end
+
+    def to_ms(t)
+      return (t.to_f * 1000).to_i
     end
   end
 
   class HttpRoutine < Routine
-    def run
-      page_size = self.sync_target.page_size
-      self.dataset_to_sync do |ds|
-        chunk = []
-        ds.paged_each(rows_per_fetch: page_size) do |row|
-          chunk << row
-          self._flush_http_chunk(chunk) if chunk.size >= page_size
-        end
-        self._flush_http_chunk(chunk) unless chunk.empty?
-        # We should save 'now' as the timestamp, rather than the last updated row.
-        # This is important because other we'd keep trying to sync the last row synced.
-        self.record(self.now)
+    def initialize(*)
+      super
+      @inflight_timestamps = []
+      @cleanurl, @authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
+      @threadpool = if self.sync_target.parallelism.zero?
+                      Webhookdb::Concurrent::SerialPool.new
+        else
+          Webhookdb::Concurrent::ParallelizedPool.new(self.sync_target.parallelism)
       end
-    rescue Webhookdb::Http::Error, Errno::ECONNRESET, Net::ReadTimeout, Net::OpenTimeout, OpenSSL::SSL::SSLError => e
-      # This is handled well so no need to re-raise.
-      # We already committed the last page that was successful,
-      # so we can just stop syncing at this point to try again later.
-      self.sync_target.logger.warn("sync_target_http_error", error: e)
+      @mutex = Thread::Mutex.new
     end
 
-    def _flush_http_chunk(chunk)
+    def run
+      timeout_at = Time.now + Webhookdb::SyncTarget.max_transaction_seconds
+      page_size = self.sync_target.page_size
+      sync_result = :complete
+      self.dataset_to_sync do |ds|
+        chunk = []
+        cursor_name = "synctarget_#{self.sync_target.service_integration.service_name}_#{self.sync_target.id}_cursor"
+        chunk_start = Time.now
+        ds.paged_each(rows_per_fetch: page_size, cursor_name:) do |row|
+          chunk << row
+          if chunk.size >= page_size
+            # Do not share chunks across threads
+            self._flush_http_chunk(chunk_start, chunk.dup)
+            chunk.clear
+            chunk_start = Time.now
+            if Time.now >= timeout_at && Thread.current[:sidekiq_context]
+              # If we've hit the timeout, stop any further syncing
+              sync_result = :timeout
+              break
+            end
+          end
+        end
+        self._flush_http_chunk(chunk_start, chunk) unless chunk.empty?
+        @threadpool.join
+        case sync_result
+          when :timeout
+            # If the sync timed out, use the last recorded sync timestamp,
+            # and re-enqueue the job, so the sync will pick up where it left off.
+            self.sync_target.logger.info("sync_target_transaction_timeout", self.sync_target.log_tags)
+            Webhookdb::Jobs::SyncTargetRunSync.perform_async(self.sync_target.id)
+          else
+            # The sync completed normally.
+            # Save 'now' as the timestamp, rather than the last updated row.
+            # This is important because other we'd keep trying to sync the last row synced.
+            self.record(self.now)
+        end
+      end
+    rescue Webhookdb::Concurrent::Timeout => e
+      # This should never really happen, but it does, so record it while we debug it.
+      self.perform_db_op do
+        self.sync_target.save_changes
+      end
+      self.sync_target.logger.error("sync_target_pool_timeout_error", self.sync_target.log_tags, e)
+    rescue StandardError => e
+      # Errors talking to the http server are handled well so no need to re-raise.
+      # We already committed the last page that was successful,
+      # so we can just stop syncing at this point to try again later.
+      raise e unless e.is_a?(Webhookdb::Http::Error) || Webhookdb::SyncTarget.transport_error?(e)
+      self.perform_db_op do
+        # Save any outstanding stats.
+        self.sync_target.save_changes
+      end
+      # Don't spam our logs with downstream errors
+      idem_key = "sync_target_http_error-#{self.sync_target.id}-#{e.class.name}"
+      Webhookdb::Idempotency.every(1.hour).in_memory.under_key(idem_key) do
+        self.sync_target.logger.warn("sync_target_http_error", self.sync_target.log_tags, e)
+      end
+    end
+
+    def _flush_http_chunk(chunk_started, chunk)
+      Webhookdb::Async.long_running_job_heartbeat!
+      chunk_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
+      @mutex.synchronize do
+        @inflight_timestamps << chunk_ts
+        @inflight_timestamps.sort!
+      end
       sint = self.sync_target.service_integration
       body = {
         rows: chunk,
@@ -376,19 +567,34 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
         table: sint.table_name,
         sync_timestamp: self.now,
       }
-      cleanurl, authparams = Webhookdb::Http.extract_url_auth(self.sync_target.connection_url)
-      Webhookdb::Http.post(
-        cleanurl,
-        body,
-        timeout: sint.organization.sync_target_timeout,
-        logger: self.sync_target.logger,
-        basic_auth: authparams,
-      )
-      latest_ts = chunk.last.fetch(self.replicator.timestamp_column.name)
-      # The client committed the sync page we sent. Record it in case of a future error,
-      # so we don't re-send the same page.
-      self.record(latest_ts)
-      chunk.clear
+      @threadpool.post do
+        self.with_stat(chunk_started) do
+          Webhookdb::Http.post(
+            @cleanurl,
+            body,
+            timeout: sint.organization.sync_target_timeout,
+            logger: self.sync_target.logger,
+            basic_auth: @authparams,
+          )
+        end
+        # On success, we want to commit the latest timestamp we sent to the client,
+        # so it can be recorded. Then in the case of an error on later rows,
+        # we won't re-sync rows we've already processed (with earlier updated timestamps).
+        @mutex.synchronize do
+          this_ts_idx = @inflight_timestamps.index { |t| t == chunk_ts }
+          raise Webhookdb::InvariantViolation, "timestamp no longer found!?" if this_ts_idx.nil?
+          # However, we only want to record the timestamp if this request is the earliest inflight request;
+          # ie, if a later request finishes before an earlier one, we don't want to record the timestamp
+          # of the later request as 'finished' since the earlier one didn't finish.
+          # This does mean though that, if the earliest request errors, we'll throw away the work
+          # done by the later request.
+          # Note that each row can only appear in a sync once, even if it is modified after the sync starts;
+          # thus, parallel httpsync should be fine for most clients to handle,
+          # since race conditions *on the same row* cannot happen even with parallel httpsync.
+          self.record(chunk_ts) if this_ts_idx.zero?
+          @inflight_timestamps.delete_at(this_ts_idx)
+        end
+      end
     end
   end
 
@@ -438,7 +644,9 @@ class Webhookdb::SyncTarget < Webhookdb::Postgres::Model(:sync_targets)
       schema_expr = schema_lines.join(";\n") + ";"
       if schema_expr != self.sync_target.last_applied_schema
         adapter_conn.execute(schema_expr)
-        self.sync_target.update(last_applied_schema: schema_expr)
+        self.perform_db_op do
+          self.sync_target.update(last_applied_schema: schema_expr)
+        end
       end
       tempfile = Tempfile.new("whdbsyncout-#{self.sync_target.id}")
       begin
@@ -480,6 +688,7 @@ end
 #  last_synced_at         | timestamp with time zone |
 #  last_applied_schema    | text                     | NOT NULL DEFAULT ''::text
 #  page_size              | integer                  | NOT NULL
+#  text_search            | tsvector                 |
 # Indexes:
 #  sync_targets_pkey                         | PRIMARY KEY btree (id)
 #  sync_targets_opaque_id_key                | UNIQUE btree (opaque_id)

@@ -103,7 +103,7 @@ class Webhookdb::Jobs::RetryChecker
       when "die"
         raise Amigo::Retry::Die
     else
-        raise Amigo::Retry::Die.new(attempts, interval)
+        raise Amigo::Retry::OrDie.new(attempts, interval)
     end
   end
 end

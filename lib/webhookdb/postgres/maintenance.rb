@@ -22,16 +22,13 @@ module Webhookdb::Postgres::Maintenance
     end
 
     def conn_params
-      org_uri = URI(self.service_integration.organization.admin_connection_url_raw)
-      superuser_url = Webhookdb::Organization::DbBuilder.available_server_urls.find { |u| URI(u).host == org_uri.host }
-      raise Webhookdb::InvalidPrecondition, "cannot find superuser url for #{org_uri.host}" if superuser_url.nil?
-      sup_uri = URI(superuser_url)
+      sup_uri = URI(self.service_integration.organization.superuser_url_to_database!)
       return {
         user: sup_uri.user,
         password: sup_uri.password,
         host: sup_uri.host,
         port: sup_uri.port,
-        database: org_uri.path&.delete_prefix("/"),
+        database: sup_uri.path&.delete_prefix("/"),
         table: self.service_integration.table_name,
       }
     end

@@ -1,4 +1,4 @@
-{% expose subject %}WebhookDB: ICalendar Error{% endexpose %}
+ {% expose subject %}WebhookDB: ICalendar Error{% endexpose %}
 
 {% partial 'greeting' %}
 
@@ -6,8 +6,9 @@
     WebhookDB encountered an error syncing an ICalendar feed. We have the following information about the failure:
 </p>
 <ul>
+    <li>Organization: {{ org_name }} (key: <code>{{ org_key }}</code>)</li>
     <li>Service Integration Name: {{ service_name }}, ID: <code>{{ opaque_id }}</code></li>
-    <li>Calendar ID (you send this to us when adding the calendar): <code>{{ external_calendar_id }}</code></li>
+    <li>Calendar ID (you sent this when adding the calendar): <code>{{ external_calendar_id }}</code></li>
     <li>Request: <code>{{ request_method }} {{ request_url }}</code></li>
     <li>Response Status: <code>{{ response_status }}</code></li>
     <li>Body: <code>{{  response_body }}</code></li>
@@ -22,7 +23,12 @@
 <p>
     If this calendar is no longer shared, it should be removed.
     Use a DELETE request, as per <a href="{{ docs_url }}/guides/icalendar/#delete">{{ docs_url }}/guides/icalendar/#delete</a>.
+    For example, here is the cURL to run to delete this from the shell:
 </p>
+<pre>
+    $ export WHDB_WEBHOOK_SECRET=`webhookdb integration info --org={{ org_key }} --field=webhook_secret {{ opaque_id }}`
+    $ curl -X POST -d '{"type":"DELETE","external_id":"{{ external_calendar_id }}"}' -H "Content-Type: application/json" -H "Whdb-Webhook-Secret: ${WHDB_WEBHOOK_SECRET}" "{{ webhook_endpoint }}"
+</pre>
 <p>We'll continue to send daily emails when this happens, so please do fix this up when you get a chance.</p>
 <p>Please file an issue at {{ oss_repo }} if you need any help.</p>
 

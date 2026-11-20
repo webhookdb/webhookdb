@@ -12,16 +12,43 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
   let(:calendar_external_id) { "123" }
   let(:ics_url) { "https://spec.test" }
 
-  it_behaves_like "a replicator dependent on another", "icalendar_event_v1", "icalendar_calendar_v1" do
+  it_behaves_like "a replicator", supports_row_diff: false do
+    let(:body) do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DTEND:20190820T190000Z
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      h = described_class.vevent_to_hash(s.lines)
+      h["calendar_external_id"] = "123"
+      h["row_updated_at"] = Time.now.iso8601
+      h
+    end
+    let(:expected_row) do
+      include(
+        :pk,
+        calendar_external_id: "123",
+        compound_identity: "123-79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
+        data: include("DTEND").and(not_include("row_updated_at")),
+        start_at: match_time("2020-02-20 17:00:00Z"),
+        uid: "79396C44-9EA7-4EF0-A99F-5EFCE7764CFE",
+      )
+    end
+  end
+
+  it_behaves_like "a replicator dependent on another", "icalendar_calendar_v1" do
     let(:no_dependencies_message) { "" }
   end
 
-  it_behaves_like "a replicator with a custom backfill not supported message", "icalendar_event_v1"
+  it_behaves_like "a replicator with a custom backfill not supported message"
 
   describe "upsert" do
     def upsert(s)
       h = described_class.vevent_to_hash(s.lines)
       h["calendar_external_id"] = "123"
+      h["row_updated_at"] = Time.now.iso8601
       return svc.upsert_webhook_body(h, upsert: false)
     end
 
@@ -72,6 +99,113 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         end_at: nil,
         start_date: Date.new(2020, 2, 28),
         end_date: Date.new(2019, 8, 20),
+      )
+    end
+
+    it "sets a DTSTART date without a DTEND as one day" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20190228
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: nil,
+        end_at: nil,
+        start_date: Date.new(2019, 2, 28),
+        end_date: Date.new(2019, 3, 1),
+      )
+    end
+
+    it "sets a DTSTART datetime without a DTEND to end at the start time" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: match_time("20200220T170000Z"),
+        end_at: match_time("20200220T170000Z"),
+      )
+    end
+
+    it "sets a DTSTART date using the DURATION if there is no DTEND" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20190215
+        DURATION:P3D
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: nil,
+        end_at: nil,
+        start_date: Date.new(2019, 2, 15),
+        end_date: Date.new(2019, 2, 18),
+      )
+    end
+
+    it "assumes 1 hour for an invalid DURATION (DTSTART time)" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DURATION:P1DT
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: Time.parse("20200220T170000Z"),
+        end_at: Time.parse("20200220T180000Z"),
+        start_date: nil,
+        end_date: nil,
+      )
+    end
+
+    it "assumes 1 day for an invalid DURATION (DTSTART day)" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220
+        DURATION:P1DT
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: nil,
+        end_at: nil,
+        start_date: Date.parse("20200220"),
+        end_date: Date.parse("20200221"),
+      )
+    end
+
+    it "sets a DTSTART datetime using the DURATION if there is no DTEND" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DURATION:P3DT2H5M
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: match_time("20200220T170000Z"),
+        end_at: match_time("20200223T190500Z"),
+      )
+    end
+
+    it "prefers DTEND over DURATION" do
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20180215
+        DURATION:P5D
+        DTEND:20180217
+        UID:79396C44-9EA7-4EF0-A99F-5EFCE7764CFE
+        END:VEVENT
+      ICAL
+      expect(upsert(s)).to include(
+        start_at: nil,
+        end_at: nil,
+        start_date: Date.new(2018, 2, 15),
+        end_date: Date.new(2018, 2, 17),
       )
     end
 
@@ -232,10 +366,48 @@ RSpec.describe Webhookdb::Replicator::IcalendarEventV1, :db do
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_start_date_idx ON public.svctable (start_date) WHERE (\"start_date\" IS NOT NULL)",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_end_date_idx ON public.svctable (end_date) WHERE (\"end_date\" IS NOT NULL)",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_recurring_event_id_idx ON public.svctable (recurring_event_id) WHERE (\"recurring_event_id\" IS NOT NULL)",
+        "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_uncancelled_cal_external_id_idx ON public.svctable (calendar_external_id) WHERE (\"status\" IS DISTINCT FROM 'CANCELLED')",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_50d5d161e2e533574149dd136a9fc8_idx ON public.svctable (calendar_external_id, start_at, end_at) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_at\" IS NOT NULL))",
         "CREATE INDEX IF NOT EXISTS svi_4rropdhippn7o0o9k966otl5_2a46eca5b6e6adca4a315774180a30_idx ON public.svctable (calendar_external_id, start_date, end_date) WHERE ((\"status\" IS DISTINCT FROM 'CANCELLED') AND (\"start_date\" IS NOT NULL))",
       )
       # rubocop:enable Layout/LineLength
+    end
+  end
+
+  describe "StaleRowDeleter" do
+    before(:each) do
+      org.prepare_database_connections
+      svc.create_table
+    end
+
+    after(:each) { org.remove_related_database }
+
+    def upsert(uid, updated, status: "CANCELLED")
+      s = <<~ICAL
+        BEGIN:VEVENT
+        DTSTART:20200220T170000Z
+        DTEND:20190820T190000Z
+        UID:#{uid}
+        STATUS:#{status}
+        END:VEVENT
+      ICAL
+      h = described_class.vevent_to_hash(s.lines)
+      h["calendar_external_id"] = "123"
+      h["row_updated_at"] = updated.iso8601
+      return svc.upsert_webhook_body(h)
+    end
+
+    it "deletes stale cancelled events" do
+      upsert("recent", 3.days.ago)
+      upsert("stale", 21.days.ago)
+      upsert("stale_not_cancelled", 21.days.ago, status: "CONFIRMED")
+      upsert("too_old", 100.days.ago)
+      svc.stale_row_deleter.run
+      expect(svc.admin_dataset { |ds| ds.select(:uid).all }).to contain_exactly(
+        include(uid: "recent"),
+        include(uid: "stale_not_cancelled"),
+        include(uid: "too_old"),
+      )
     end
   end
 end

@@ -9,7 +9,7 @@ require "webhookdb/postgres"
 module Webhookdb::Tasks
   class Docs < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :docs do
         desc "Write out auto-generated docs for integrations."
         task :replicators, [:out, :name] do |_, args|

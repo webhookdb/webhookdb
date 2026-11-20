@@ -1,4 +1,4 @@
-FROM ruby:3.2.1-slim
+FROM ruby:3.4.12-slim
 
 RUN apt-get update && apt-get install -y build-essential shared-mime-info libpq-dev git
 
@@ -8,6 +8,7 @@ COPY Gemfile* .
 COPY webhookdb.gemspec .
 COPY lib/webhookdb/version.rb lib/webhookdb/version.rb
 RUN bundle install --deployment
+COPY ./admin-dist admin-dist
 COPY ./config config
 COPY ./data data
 COPY ./db db

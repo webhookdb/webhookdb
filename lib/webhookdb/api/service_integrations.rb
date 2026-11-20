@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "browser"
 require "grape"
 require "oj"
 
@@ -10,13 +11,15 @@ require "webhookdb/async/audit_logger"
 require "webhookdb/jobs/process_webhook"
 
 class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   # These URLs are not used by the CLI-
   # they are the url that customers should point their webhooks to.
   # We can't check org permissions on this endpoint
   # because external services (so no auth) will be posting webhooks here.
   # Depend on webhook verification to ensure the request is valid.
   resource :service_integrations do
-    route [:post, :put, :delete, :patch], "/:opaque_id*" do
+    route [:get, :post, :put, :delete, :patch], "/:opaque_id*" do
       opaque_id = params[:opaque_id]
       handle_webhook_request(opaque_id) do
         Webhookdb::ServiceIntegration[opaque_id:] or merror!(400, "No integration with that id")
@@ -41,7 +44,7 @@ class Webhookdb::API::ServiceIntegrations < Webhookdb::API::V1
         resource :create do
           helpers do
             def create_integration(org, name)
-              available_services_list = org.available_replicator_names.sort.join("\n\t")
+              available_services_list = org.available_replicators.map(&:name).sort.join("\n\t")
 
               service_name_invalid = Webhookdb::Replicator.registered(name).nil?
               if service_name_invalid
@@ -55,7 +58,7 @@ Run `webhookdb services list` to see available services, and try again with the 
               end
 
               # If org does not have access to the given service
-              unless org.available_replicator_names.include?(name)
+              unless org.available_replicators.map(&:name).include?(name)
                 step = Webhookdb::Replicator::StateMachineStep.new
                 step.needs_input = false
                 step.output =
@@ -95,13 +98,13 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
                 :guard_confirm,
                 "WARNING: #{org.name} already has an integration for service #{params[:service_name]}.\n" \
                 "Press Enter to create another, or Ctrl+C to quit.\n" \
-                "Modify the existing integration using `webhookdb integrations #{existing.opaque_id} setup`",
+                "Modify the existing integration using `webhookdb integrations setup #{existing.opaque_id}`",
               )
             end
           end
           desc "Create service integration on a given organization"
           params do
-            optional :service_name, type: String,
+            optional :service_name, type: TrimmedString,
                                     prompt: "Enter the name of the service to create an integration for.\n" \
                                             "Run 'webhookdb services list' to see available services:"
             optional :guard_confirm
@@ -176,7 +179,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
             begin
               svc.upsert_webhook_body(body)
             rescue KeyError, TypeError => e
-              self.logger.error "immediate_upsert", error: e
+              self.logger.error "immediate_upsert", e
               err_msg = "Sorry! Looks like something has gone wrong. " \
                         "Check your schema or contact support at #{Webhookdb.support_email}."
               merror!(400, err_msg)
@@ -187,7 +190,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
 
           desc "Returns information about the integration."
           params do
-            optional :field, type: String, values: Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.keys + [""]
+            optional :field,
+                     type: TrimmedString,
+                     values: TrimmedString.map(Webhookdb::ServiceIntegration::INTEGRATION_INFO_FIELDS.keys + [""])
           end
           post :info do
             ensure_plan_supports!
@@ -302,8 +307,9 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
               route_param :job_id, type: String do
                 get do
                   org = lookup_org!(allow_connstr_auth: true)
-                  job = Webhookdb::BackfillJob[service_integration: org.service_integrations_dataset,
-                                               opaque_id: params[:job_id]]
+                  job = Webhookdb::BackfillJob[
+                    service_integration: org.service_integrations_dataset, opaque_id: params[:job_id],
+                  ]
                   forbidden! if job.nil?
                   present job, with: Webhookdb::API::BackfillJobEntity
                 end
@@ -339,7 +345,7 @@ If the list does not look correct, you can contact support at #{Webhookdb.suppor
           end
 
           params do
-            optional :confirm, type: String
+            optional :confirm, type: TrimmedString
           end
           post :delete do
             ensure_plan_supports!
@@ -384,9 +390,11 @@ The tables and all data for this integration and its dependents will also be rem
 
           params do
             optional :new_name,
-                     type: String,
+                     type: TrimmedString,
                      db_identifier: true,
-                     prompt: "Enter the new name of the table. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
+                     prompt: "Enter the new name of the table. " +
+                       Webhookdb::DBAdapter::INVALID_IDENTIFIER_PROMPT +
+                       "\nTable name:"
           end
           post :rename_table do
             org = lookup_org!

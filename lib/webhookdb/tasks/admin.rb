@@ -7,7 +7,7 @@ require "webhookdb"
 module Webhookdb::Tasks
   class Admin < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :admin do
         desc "Add roles to the named org"
         task :role, [:org_key, :role] do |_, args|

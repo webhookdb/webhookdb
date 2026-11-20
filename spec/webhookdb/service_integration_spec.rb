@@ -141,7 +141,7 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     it "errors for an invalid name" do
       expect do
         sint.rename_table(to: "foo-bar")
-      end.to raise_error(described_class::TableRenameError, /must start with a letter/)
+      end.to raise_error(Webhookdb::DBAdapter::InvalidIdentifier, /must start with a letter/)
     end
 
     it "errors if the target table already exists" do
@@ -217,6 +217,11 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
     ensure
       org.remove_related_database
     end
+
+    it "works if the database is not set up" do
+      sint.destroy_self_and_all_dependents
+      expect(org.service_integrations_dataset.all).to be_empty
+    end
   end
 
   describe "api key" do
@@ -241,6 +246,39 @@ RSpec.describe "Webhookdb::ServiceIntegration", :db do
       organization = Webhookdb::Fixtures.organization.create
       sint = Webhookdb::ServiceIntegration.create_disambiguated("fake_v1", organization:)
       expect(sint.table_name).to match(/fake_v1_([a-z\d]){4}/)
+    end
+  end
+
+  describe "recursive dependents/dependencies" do
+    it "returns the expected dependents and dependency chain" do
+      fac = Webhookdb::Fixtures.service_integration
+      a = fac.create
+      a_a = fac.create(depends_on: a)
+      a_b = fac.create(depends_on: a)
+      a_a_a = fac.create(depends_on: a_a)
+      a_a_b = fac.create(depends_on: a_a)
+      a_b_a = fac.create(depends_on: a_b)
+      expect(a.recursive_dependencies).to be_empty
+      expect(a.recursive_dependents).to have_same_ids_as(a_a, a_b, a_a_a, a_a_b, a_b_a).ordered
+
+      expect(a_a.recursive_dependencies).to have_same_ids_as(a).ordered
+      expect(a_a.recursive_dependents).to have_same_ids_as(a_a_a, a_a_b).ordered
+
+      expect(a_a_b.recursive_dependencies).to have_same_ids_as(a_a, a).ordered
+      expect(a_a_b.recursive_dependents).to be_empty
+
+      a_a_a_a = fac.create(depends_on: a_a_a)
+      expect(a_a_a_a.recursive_dependencies).to have_same_ids_as(a_a_a, a_a, a).ordered
+    end
+  end
+
+  describe "job_semaphore_size" do
+    it "uses the service integration semaphore size if non-zero, and falls back to the organization" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      sint.organization.organization_job_semaphore_size = 9
+      expect(sint).to have_attributes(job_semaphore_size: 9, job_semaphore_identifier: "org-#{sint.organization_id}")
+      sint.integration_job_semaphore_size = 5
+      expect(sint).to have_attributes(job_semaphore_size: 5, job_semaphore_identifier: "sint-#{sint.id}")
     end
   end
 end

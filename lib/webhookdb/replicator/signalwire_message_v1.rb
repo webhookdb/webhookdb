@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "webhookdb/errors"
 require "webhookdb/signalwire"
+require "webhookdb/messages/error_generic_backfill"
 
 class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
@@ -24,7 +26,7 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
         status: 401,
         body: "",
         reason: "challenge",
-        headers: {"Content-Type" => "text/plain", "WWW-Authenticate" => 'Basic realm="Webhookdb"'},
+        headers: {Rack::CONTENT_TYPE => "text/plain", "www-authenticate" => 'Basic realm="Webhookdb"'},
       )
     end
     user_and_pass = Base64.decode64(auth.gsub(/^Basic /, ""))
@@ -33,12 +35,12 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
         status: 401,
         body: "",
         reason: "invalid",
-        headers: {"Content-Type" => "text/plain"},
+        headers: {Rack::CONTENT_TYPE => "text/plain"},
       )
     end
     return Webhookdb::WebhookResponse.new(
       status: 202,
-      headers: {"Content-Type" => "text/xml"},
+      headers: {Rack::CONTENT_TYPE => "text/xml"},
       body: "<Response></Response>",
     )
   end
@@ -50,7 +52,7 @@ class Webhookdb::Replicator::SignalwireMessageV1 < Webhookdb::Replicator::Base
       h = u.host.gsub(/\.signalwire\.com$/, "")
       value = h
     end
-    return super(field, value, attr:)
+    return super
   end
 
   def calculate_backfill_state_machine
@@ -89,24 +91,16 @@ Press 'Show' next to the newly-created API token, and copy it.)
       return step.secret_prompt("API Token").backfill_secret(self.service_integration)
     end
 
-    unless (result = self.verify_backfill_credentials).verified
+    unless self.verify_backfill_credentials.verified?
       self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
+      return self.calculate_backfill_state_machine.
+          with_output("Something is wrong with your configuration. Please look over the instructions and try again.")
     end
 
     step.output = %(We are going to start replicating your SignalWire Messages, and will keep it updated.
 #{self._query_help_output}
       )
     return step.completed
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _remote_key_column
@@ -152,23 +146,28 @@ Press 'Show' next to the newly-created API token, and copy it.)
     return self.qualified_table_sequel_identifier[:date_updated] < Sequel[:excluded][:date_updated]
   end
 
+  def signalwire_http_request(method, url, **kw)
+    return Webhookdb::Signalwire.http_request(
+      method,
+      url,
+      space_url: self.service_integration.api_url,
+      project_id: self.service_integration.backfill_key,
+      api_key: self.service_integration.backfill_secret,
+      logger: self.logger,
+      **kw,
+    )
+  end
+
   def _fetch_backfill_page(pagination_token, last_backfilled:)
     urltail = pagination_token
     if pagination_token.blank?
       # We need to handle positive and negative UTC offset running locally (non-UTC).
       # Using UTC + 1 day would give 'today' in some cases, we always want 'tomorrow the day after'.
       date_send_max = (Time.now.utc + 2.days).to_date
-      urltail = "/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
+      urltail = "/api/laml/2010-04-01/Accounts/#{self.service_integration.backfill_key}/Messages.json" \
                 "?PageSize=100&DateSend%3C=#{date_send_max}"
     end
-    data = Webhookdb::Signalwire.http_request(
-      :get,
-      urltail,
-      space_url: self.service_integration.api_url,
-      project_id: self.service_integration.backfill_key,
-      api_key: self.service_integration.backfill_secret,
-      logger: self.logger,
-    )
+    data = self.signalwire_http_request(:get, urltail)
     messages = data["messages"]
 
     if last_backfilled.present?
@@ -180,4 +179,6 @@ Press 'Show' next to the newly-created API token, and copy it.)
 
     return messages, data["next_page_uri"]
   end
+
+  def on_backfill_error(be) = self.service_integration.organization.alerting.handle_backfill_error(self, be)
 end

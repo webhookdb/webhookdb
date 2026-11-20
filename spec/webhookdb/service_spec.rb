@@ -62,21 +62,23 @@ class Webhookdb::API::TestService < Webhookdb::Service
   end
 
   params do
-    requires :email, type: String, coerce_with: NormalizedEmail
-    requires :phone, type: String, coerce_with: NormalizedPhone
+    requires :email, type: NormalizedEmail
+    requires :phone, type: NormalizedPhone
+    requires :trimstr, type: TrimmedString
     requires :arr, type: [String], coerce_with: CommaSepArray
   end
   get :custom_types do
-    present({email: params[:email], phone: params[:phone], arr: params[:arr]})
+    present({email: params[:email], phone: params[:phone], arr: params[:arr], trimstr: params[:trimstr]})
   end
   params do
-    requires :email, type: String, coerce_with: NormalizedEmail
-    requires :phone, type: String, coerce_with: NormalizedPhone
+    requires :email, type: NormalizedEmail
+    requires :phone, type: NormalizedPhone
+    requires :trimstr, type: TrimmedString
     requires :arr, type: [String], coerce_with: CommaSepArray
   end
   post :custom_types do
     status 200
-    present({email: params[:email], phone: params[:phone], arr: params[:arr]})
+    present({email: params[:email], phone: params[:phone], arr: params[:arr], trimstr: params[:trimstr]})
   end
 
   params do
@@ -129,10 +131,6 @@ class Webhookdb::API::TestService < Webhookdb::Service
     present_collection coll
   end
 
-  get :entity do
-    present Webhookdb::Customer.first, with: CustomerEntity, message: "hello"
-  end
-
   get :caching do
     use_http_expires_caching(5.minutes)
     present [1, 2, 3]
@@ -178,6 +176,10 @@ class Webhookdb::API::TestService < Webhookdb::Service
     c = admin_customer?
     present({id: c&.id})
   end
+
+  get :exception_carrier do
+    raise Webhookdb::ExceptionCarrier.new(429, "hello", **params.symbolize_keys)
+  end
 end
 
 RSpec.describe Webhookdb::Service, :db do
@@ -205,6 +207,16 @@ RSpec.describe Webhookdb::Service, :db do
 
     get "/hello"
     expect(last_response).to have_status(301)
+  end
+
+  it "can precompile the app" do
+    uncompiled = Class.new(described_class)
+    uncompiled.build_app
+    expect(uncompiled.instance).to be_nil
+
+    compiled = Class.new(described_class)
+    compiled.build_app(compile: true)
+    expect(compiled.instance).to_not be_nil
   end
 
   it "always clears request_user after the request" do
@@ -405,6 +417,19 @@ RSpec.describe Webhookdb::Service, :db do
     expect(last_session_id).to be_present
   end
 
+  it "returns ExceptionCarrier exceptions as structured errors" do
+    get "/exception_carrier"
+    expect(last_response).to have_status(429)
+    expect(last_response_json_body).to eq({error: {message: "hello", status: 429}})
+  end
+
+  it "includes 'more' and 'headers' with ExceptionCarrier errors" do
+    get "/exception_carrier", code: "hi", more: {x: "1"}, headers: {y: "2"}
+    expect(last_response).to have_status(429)
+    expect(last_response_json_body).to eq({error: {code: "hi", message: "hello", status: 429, x: "1"}})
+    expect(last_response.headers).to include({"y" => "2"})
+  end
+
   describe "session length" do
     it "is the default normally" do
       header "Whdb-Short-Session", ""
@@ -414,7 +439,7 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(201)
       cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
       expect(cookie).to include("webhookdb.session")
-      expect(Time.parse(cookie["expires"][0])).to be > (10.days.from_now)
+      expect(Time.parse(cookie["expires"][0])).to be > 10.days.from_now
     end
 
     it "is very short if Whdb-Short-Session header is present" do
@@ -425,7 +450,7 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(201)
       cookie = CGI::Cookie.parse(last_response["Set-Cookie"])
       expect(cookie).to include("webhookdb.session")
-      expect(Time.parse(cookie["expires"][0])).to be < (2.hours.from_now)
+      expect(Time.parse(cookie["expires"][0])).to be < 2.hours.from_now
     end
   end
 
@@ -452,15 +477,6 @@ RSpec.describe Webhookdb::Service, :db do
       expect(last_response).to have_status(200)
       expect(last_response.headers).to_not include("Expires")
     end
-  end
-
-  it "can represent a customer with a message" do
-    customer = Webhookdb::Fixtures.customer.create
-
-    get "/entity"
-
-    expect(last_response).to have_status(200)
-    expect(last_response_json_body).to eq(id: customer.id, note: customer.note, message: "hello")
   end
 
   describe "collections" do
@@ -492,7 +508,6 @@ RSpec.describe Webhookdb::Service, :db do
         page_count: 1,
         total_count: 1,
         display_headers: [["id", "ID"]],
-        message: "hello",
       )
     end
 
@@ -519,25 +534,7 @@ RSpec.describe Webhookdb::Service, :db do
     )
   end
 
-  describe "Sentry integration" do
-    before(:each) do
-      # We need to fake doing what Sentry would be doing for initialization,
-      # so we can assert it has the right data in its scope.
-      Webhookdb::Sentry.dsn = "foo"
-      hub = Sentry::Hub.new(
-        Sentry::Client.new(Sentry::Configuration.new),
-        Sentry::Scope.new,
-      )
-      expect(Sentry).to_not be_initialized
-      Sentry.instance_variable_set(:@main_hub, hub)
-      expect(Sentry).to be_initialized
-    end
-
-    after(:each) do
-      Webhookdb::Sentry.reset_configuration
-      expect(Sentry).to_not be_initialized
-    end
-
+  describe "Sentry integration", :sentry do
     it "reports errors to Sentry if devmode is off and Sentry is enabled" do
       described_class.devmode = false
       expect(Sentry).to receive(:capture_exception).
@@ -639,6 +636,20 @@ RSpec.describe Webhookdb::Service, :db do
     end
   end
 
+  describe "middleware" do
+    it "adds the web latency middleware if enabled", reset_configuration: Webhookdb::Async::WebAutoscaler do
+      app = Webhookdb::API::TestService.build_app
+      get "/hello"
+      expect(last_response).to have_status(201)
+
+      Webhookdb::Async::WebAutoscaler.enabled = true
+
+      app = Webhookdb::API::TestService.build_app
+      get "/hello"
+      expect(last_response).to have_status(201)
+    end
+  end
+
   describe "etag mixin" do
     it "hashes the rendered entity" do
       get "/etagged"
@@ -652,32 +663,35 @@ RSpec.describe Webhookdb::Service, :db do
 
   describe "custom types" do
     it "works with custom types" do
-      get "/custom_types?email= x@Y.Z &phone=555-111-2222&arr=1,2,a"
+      get "/custom_types?email= x@Y.Z &phone=555-111-2222&arr=1,2,a&trimstr=%20abc%20"
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "abc",
       )
     end
 
     it "POST works with custom types" do
-      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: "1,2,a"}
+      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: "1,2,a", trimstr: " abc "}
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "abc",
       )
     end
 
     it "POST works with actual arrays" do
-      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: ["1", "2", "a"]}
+      post "/custom_types", {email: " x@Y.Z ", phone: "555-111-2222", arr: ["1", "2", "a"], trimstr: ""}
       expect(last_response).to have_status(200)
       expect(last_response).to have_json_body.that_includes(
         email: "x@y.z",
         phone: "15551112222",
         arr: ["1", "2", "a"],
+        trimstr: "",
       )
     end
   end

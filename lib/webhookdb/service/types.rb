@@ -7,18 +7,20 @@ module Webhookdb::Service::Types
     ctx.const_set(:NormalizedEmail, NormalizedEmail)
     ctx.const_set(:NormalizedPhone, NormalizedPhone)
     ctx.const_set(:CommaSepArray, CommaSepArray)
+    ctx.const_set(:TrimmedString, TrimmedString)
   end
 
-  class NormalizedEmail
-    def self.parse(value)
-      return value.downcase.strip
-    end
+  class NormalizedEmail < String
+    def self.parse(value) = self.new(value.downcase.strip)
   end
 
-  class NormalizedPhone
-    def self.parse(value)
-      return Webhookdb::PhoneNumber::US.normalize(value)
-    end
+  class NormalizedPhone < String
+    def self.parse(value) = self.new(Webhookdb::PhoneNumber::US.normalize(value))
+  end
+
+  class TrimmedString < String
+    def self.parse(value) = self.new(value.strip)
+    def self.map(arr) = arr.map { |a| self.new(a) }
   end
 
   class CommaSepArray

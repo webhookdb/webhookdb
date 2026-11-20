@@ -14,9 +14,9 @@ fix:
 fmt: fix
 
 up:
-	docker-compose up -d
+	docker compose up -d
 down:
-	docker-compose stop
+	docker compose stop
 
 release:
 	bundle exec foreman start release
@@ -52,12 +52,13 @@ testf:
 migrate-test:
 	RACK_ENV=test bundle exec rake db:drop_tables_and_replication_databases
 	RACK_ENV=test bundle exec rake db:migrate
+	RACK_ENV=test bundle exec rake db:unlogged
 wipe-test-db:
 	RACK_ENV=test bundle exec rake db:wipe_tables_and_drop_replication_databases
 recreate-test-db:
-	docker-compose stop test_db
-	docker-compose rm -f test_db
-	docker-compose up -d test_db
+	docker compose stop test_db
+	docker compose rm -f test_db
+	docker compose up -d test_db
 	make migrate-test
 
 fixture-full:
@@ -72,7 +73,8 @@ integration-test-task:
 annotate:
 	LOG_LEVEL=info bundle exec rake annotate
 docs-replicators:
-	LOG_LEVEL=warn bundle exec rake docs:replicators['../docs/_integrations']
+	@WEBHOOKDB_ENTERPRISE_BUNDLE=true make install
+	WEBHOOKDB_ENTERPRISE_BUNDLE=true LOG_LEVEL=warn bundle exec rake docs:replicators['../docs/_integrations']
 
 psql: cmd-exists-pgcli
 	pgcli postgres://webhookdb:webhookdb@localhost:18005/webhookdb
@@ -89,6 +91,9 @@ message-render-html: env-MESSAGE
 	open message.html
 	sleep 3
 	rm message.html
+
+admin-build:
+	bin/build-admin
 
 dockerdev-build:
 	@docker build -f docker/dev.Dockerfile -t webhookdb-dev:latest --progress=plain .

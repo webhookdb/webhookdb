@@ -45,12 +45,15 @@ class Webhookdb::ConnectionCache
   extend Webhookdb::MethodUtilities
   include Webhookdb::Dbutil
 
-  class ReentranceError < StandardError; end
+  class ReentranceError < Webhookdb::ProgrammingError; end
 
   configurable(:connection_cache) do
     # If this many seconds has elapsed since the last connecton was borrowed,
     # prune connections with no pending borrows.
     setting :prune_interval, 120
+
+    # If a connection hasn't been used in this long, validate it before reusing it.
+    setting :idle_timeout, 20.minutes
 
     # Seconds for the :fast timeout option.
     setting :timeout_fast, 30
@@ -83,6 +86,25 @@ class Webhookdb::ConnectionCache
     @last_pruned_at = Time.now
   end
 
+  Available = Struct.new(:connection, :at) do
+    delegate :disconnect, to: :connection
+
+    # Return +connection+ if it has not been idle long enough,
+    # or if it has been idle, then validate it (SELECT 1), and return +connection+
+    # if it's valid, or +nil+ if the database disconnected it.
+    def validated_connection
+      needs_validation_at = self.at + Webhookdb::ConnectionCache.idle_timeout
+      return self.connection if needs_validation_at > Time.now
+      begin
+        self.connection << "SELECT 1"
+        return self.connection
+      rescue Sequel::DatabaseDisconnectError
+        self.connection.disconnect
+        return nil
+      end
+    end
+  end
+
   # Connect to the database at the given URL.
   # borrow is not re-entrant, so if the current thread already owns a connection
   # to the given url, raise a ReentrantError.
@@ -111,23 +133,48 @@ class Webhookdb::ConnectionCache
         raise ReentranceError,
               "ConnectionCache#borrow is not re-entrant for the same database since the connection has stateful config"
       end
-      conn = db_loans[:available].pop || take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
+      if (available = db_loans[:available].pop)
+        # If the connection doesn't validate, it won't be in :available at this point, so don't worry about it.
+        conn = available.validated_connection
+      end
+      conn ||= take_conn(url, single_threaded: true, extensions: [:pg_json, :pg_streaming])
       db_loans[:loaned][t] = conn
     end
-    conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
-    conn << "BEGIN;" if transaction
+    trash_conn = false
     begin
-      result = yield conn
-      conn << "COMMIT;" if transaction
-    rescue Sequel::DatabaseError
-      conn << "ROLLBACK;" if transaction
+      # All database operations need global handling to ensure property pool management.
+      conn << "SET statement_timeout TO #{timeout * 1000}" if timeout.present?
+      conn << "BEGIN;" if transaction
+      begin
+        result = yield conn
+        conn << "COMMIT;" if transaction
+      rescue Sequel::DatabaseError => e
+        # Roll back on any database error; but if we're disconnected, don't bother
+        # since we know the rollback won't reach the database.
+        conn << "ROLLBACK;" if transaction && !e.is_a?(Sequel::DatabaseDisconnectError)
+        raise
+      end
+    rescue Sequel::DatabaseDisconnectError
+      # If we're disconnected, trash this connection rather than re-adding it back to the pool.
+      trash_conn = true
       raise
     ensure
-      conn << "SET statement_timeout TO 0" if timeout.present?
+      reraise = nil
+      if timeout.present?
+        begin
+          # If the timeout fails for whatever reason, assume the connection is toast
+          # and don't return it to the pool.
+          conn << "SET statement_timeout TO 0"
+        rescue Sequel::DatabaseError => e
+          reraise = e
+          trash_conn = true
+        end
+      end
       @mutex.synchronize do
         @dbs_for_urls[url][:loaned].delete(t)
-        @dbs_for_urls[url][:available] << conn
+        @dbs_for_urls[url][:available] << Available.new(conn, Time.now) unless trash_conn
       end
+      raise reraise if reraise
     end
     self.prune(url) if now > self.next_prune_at
     return result

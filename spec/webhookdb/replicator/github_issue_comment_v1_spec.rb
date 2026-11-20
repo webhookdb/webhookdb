@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
-  it_behaves_like "a replicator", "github_issue_comment_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -25,7 +25,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "github_issue_comment_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~JSON)
         {
@@ -66,7 +66,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that may have a minimal body", "github_issue_comment_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -83,7 +83,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
       JSON
     end
   end
-  it_behaves_like "a replicator that deals with resources and wrapped events", "github_issue_comment_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_json) { resource_in_envelope_json.fetch("comment") }
     let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
@@ -114,7 +114,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
   # This is tested through github_issue_v1
   # it_behaves_like "a replicator that verifies backfill secrets"
 
-  it_behaves_like "a replicator that can backfill", "github_issue_comment_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:api_url) { "my/code" }
     let(:page1_response) do
       <<~JSON
@@ -203,7 +203,7 @@ RSpec.describe Webhookdb::Replicator::GithubIssueCommentV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "github_issue_comment_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:api_url) { "my/code" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do

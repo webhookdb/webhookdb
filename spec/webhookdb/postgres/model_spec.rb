@@ -141,7 +141,7 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
   describe "#find_or_create_or_find" do
     let(:model_class) { Webhookdb::Postgres::TestingPixie }
 
-    it "will find again if the create fails due to a race condition (UniqueConstraintViolation)" do
+    it "finds again if the create fails due to a race condition (UniqueConstraintViolation)" do
       name = "foo"
       placeholder = model_class.create(name: "not-" + name)
       expect(model_class).to receive(:find).with({name:}).twice do
@@ -257,6 +257,17 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
         ),
       )
     end
+
+    it "skips models which are marked as no_async_events" do
+      model_class = Class.new(Webhookdb::Postgres::Model(:testing_pixies)) do
+        no_async_events
+
+        def self.name = "noasync"
+      end
+      expect do
+        model_class.new.save_changes
+      end.to_not publish("noasync.created")
+    end
   end
 
   describe "inspect" do
@@ -307,6 +318,12 @@ RSpec.describe "Webhookdb::Postgres::Model", :db do
       expect(st.inspect).to include('connection_url: "...')
       st.connection_url = ""
       expect(st.inspect).to include('connection_url: "...')
+    end
+
+    it "abbreviates the text search column" do
+      inst = Webhookdb::Fixtures.customer.create(name: "user", email: "a@bee.com")
+      inst.text_search_reindex
+      expect(inst.refresh.inspect).to include("text_search: {22}")
     end
   end
 

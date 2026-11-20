@@ -2,7 +2,11 @@
 
 RSpec.describe "Webhookdb::Organization", :async, :db do
   let(:described_class) { Webhookdb::Organization }
-  let!(:o) { Webhookdb::Fixtures.organization.create }
+  let(:o) { Webhookdb::Fixtures.organization.create }
+
+  it "can fixture and full text search" do
+    expect { Webhookdb::Fixtures.organization.create.text_search_reindex }.to_not raise_error
+  end
 
   describe "associations" do
     it "knows about all sync targets" do
@@ -226,7 +230,44 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
         expect(indexes).to include(end_with("_pkey"))
         expect(indexes).to include(end_with("_my_id_key"))
         expect(indexes).to include(end_with("_at_idx"))
-        expect(indexes).to include(end_with("_my_id_idx"))
+        expect(indexes).to include(end_with("_at_my_id_idx"))
+      end
+    end
+
+    it "does not try to add indices after a table rename" do
+      oldtable = fake_sint.table_name
+      newtable = oldtable + "_newname"
+      oldid = fake_sint.opaque_id
+      newid = Webhookdb::ServiceIntegration.new_opaque_id
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: oldtable).select_map(:indexname)
+        expect(indexes).to have_length(3)
+        expect(indexes).to contain_exactly(
+          "#{oldtable}_my_id_key",
+          "#{oldtable}_pkey",
+          "#{oldid}_at_idx",
+        )
+        ds.db << "ALTER TABLE #{oldtable} RENAME TO #{newtable}"
+      end
+      # The changed opaque id would cause indices to get new names
+      fake_sint.update(opaque_id: newid, table_name: newtable)
+
+      o.refresh
+      expect(o.service_integrations.first).to receive(:replicator).at_least(:once).and_return(fake)
+      fake.define_singleton_method(:_extra_index_specs) do
+        [Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id])]
+      end
+      o.migrate_replication_tables
+
+      fake.admin_dataset do |ds|
+        indexes = ds.from(:pg_indexes).where(tablename: newtable).select_map(:indexname)
+        expect(indexes).to have_length(4)
+        expect(indexes).to contain_exactly(
+          "#{oldtable}_my_id_key",
+          "#{oldtable}_pkey",
+          "#{oldid}_at_idx",
+          "#{newid}_at_my_id_idx",
+        )
       end
     end
   end
@@ -411,13 +452,34 @@ RSpec.describe "Webhookdb::Organization", :async, :db do
     it "filters out replicators that the org should not have access to" do
       # by default the org does not have the "internal" feature role assigned to it,
       # so our "fake" integrations should not show up in this list
-      expect(o.available_replicator_names).to_not include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicators.map(&:name)).to_not include("fake_v1", "fake_with_enrichments_v1")
     end
 
     it "includes replicators that the org should have access to" do
       internal_role = Webhookdb::Role.create(name: "internal")
       o.add_feature_role(internal_role)
-      expect(o.available_replicator_names).to include("fake_v1", "fake_with_enrichments_v1")
+      expect(o.available_replicators.map(&:name)).to include("fake_v1", "fake_with_enrichments_v1")
+    end
+  end
+
+  describe "#close" do
+    let(:org) { Webhookdb::Fixtures.organization.with_member.create(name: "testorg") }
+
+    it "removes all memberships and destroys the org" do
+      c = org.all_memberships.first.customer
+      org.close(confirm: true)
+      expect(Webhookdb::Customer.all).to contain_exactly(be === c)
+      expect(Webhookdb::Organization.all).to be_empty
+      expect(Webhookdb::OrganizationMembership.all).to be_empty
+    end
+
+    it "errors if there are any service integrations" do
+      Webhookdb::Fixtures.service_integration(organization: org).create
+      expect { org.close(confirm: true) }.to raise_error(/cannot close with active service integrations/)
+    end
+
+    it "errors if confirm is false" do
+      expect { org.close(confirm: false) }.to raise_error(/confirm must be true/)
     end
   end
 end

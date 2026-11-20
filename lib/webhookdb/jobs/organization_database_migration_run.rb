@@ -11,14 +11,12 @@ class Webhookdb::Jobs::OrganizationDatabaseMigrationRun
 
   def _perform(event)
     dbm = self.lookup_model(Webhookdb::Organization::DatabaseMigration, event)
-    self.with_log_tags(
-      organization_id: dbm.organization.id,
-      organization_name: dbm.organization.name,
-      organization_database_migration_id: dbm.id,
-    ) do
+    self.set_job_tags(organization: dbm.organization.key, database_migration_id: dbm.id)
+    begin
       dbm.migrate
+      self.set_job_tags(result: "migration_finished")
     rescue Webhookdb::Organization::DatabaseMigration::MigrationAlreadyFinished
-      self.logger.warn("org_database_migration_already_finished")
+      self.set_job_tags(result: "migration_already_finished")
     end
   end
 end

@@ -95,7 +95,7 @@ RSpec.describe Webhookdb::Http do
       expect(qreq).to have_been_made
     end
 
-    it "will not to_json string body" do
+    it "does not to_json string body" do
       req = stub_request(:post, "https://a.b").
         with(body: "xyz").
         to_return(status: 200, body: "")
@@ -103,7 +103,7 @@ RSpec.describe Webhookdb::Http do
       expect(req).to have_been_made
     end
 
-    it "will not to_json if content type is not json" do
+    it "does not to_json if content type is not json" do
       req = stub_request(:post, "https://a.b").
         with(body: "x=1").
         to_return(status: 200, body: "")
@@ -177,6 +177,143 @@ RSpec.describe Webhookdb::Http do
     end
   end
 
+  describe "chunked_download" do
+    def readbody(resp)
+      body = +""
+      resp.body.each { |ch| body << ch }
+      return body
+    end
+
+    it "opens a stream" do
+      body = "abc" * 3000
+      req = stub_request(:get, "https://a.b").
+        with(
+          headers: {
+            "Accept" => "*/*",
+            "Accept-Encoding" => "gzip, deflate",
+            "User-Agent" => %r{WebhookDB/},
+          },
+        ).to_return(status: 200, body:)
+      resp = described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      expect(req).to have_been_made
+      expect(resp).to be_a(HTTP::Response)
+      expect { resp.body.to_s }.to raise_error(HTTP::StateError)
+      expect(readbody(resp)).to eq(body)
+    end
+
+    it "raises without an http url" do
+      expect do
+        described_class.chunked_download("webcal://a.b", logger: nil, timeout: nil)
+      end.to raise_error(URI::InvalidURIError, "webcal://a.b must be an http/s url")
+
+      expect do
+        described_class.chunked_download("httpss://a.b", logger: nil, timeout: nil)
+      end.to raise_error(URI::InvalidURIError, "httpss://a.b must be an http/s url")
+    end
+
+    it "follows redirects" do
+      req1 = stub_request(:get, "https://a.b").
+        to_return(status: 301, headers: {"Location" => "https://a.b2"})
+      req2 = stub_request(:get, "https://a.b2").
+        to_return(status: 200)
+      described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      expect(req1).to have_been_made
+      expect(req2).to have_been_made
+    end
+
+    it "raises for too many redirects" do
+      req = stub_request(:get, "https://a.b").
+        to_return({status: 301, headers: {"Location" => "https://a.b"}})
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::TooManyRedirects)
+      expect(req).to have_been_made.times(2)
+    end
+
+    it "requires a :timeout" do
+      expect do
+        described_class.chunked_download("https://x.y", logger: nil)
+      end.to raise_error(ArgumentError, "must pass :timeout keyword")
+    end
+
+    it "requires a :logger" do
+      expect do
+        described_class.chunked_download("https://x.y", timeout: nil)
+      end.to raise_error(ArgumentError, "must pass :logger keyword")
+    end
+
+    it "logs to the logger" do
+      req = stub_request(:get, "https://x.y").to_return(status: 200)
+      lg = SemanticLogger["mytest"]
+      logs = capture_logs_from(lg, level: :debug, formatter: :json) do
+        described_class.chunked_download("https://x.y", timeout: nil, logger: lg)
+      end
+      expect(req).to have_been_made
+      expect(logs).to have_a_line_matching("\"http_method\":\"GET\"")
+    end
+
+    it "raises NotModified for a 304" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 304)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::NotModified)
+      expect(req).to have_been_made
+    end
+
+    it "raises for 4xx errors" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 400)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::ClientError)
+      expect(req).to have_been_made
+    end
+
+    it "raises for 5xx errors" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 500)
+      expect do
+        described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      end.to raise_error(described_class::ServerError)
+      expect(req).to have_been_made
+    end
+
+    it "patches headers with #fetch" do
+      req = stub_request(:get, "https://a.b").
+        to_return(status: 200, headers: [["Single", "a"], ["Double", "x"], ["Double", "y"]])
+      resp = described_class.chunked_download("https://a.b", logger: nil, timeout: nil)
+      expect(req).to have_been_made
+      expect(resp.headers.fetch("Single")).to eq("a")
+      expect(resp.headers.fetch("Single", 5)).to eq("a")
+      expect(resp.headers.fetch("Double")).to eq("y")
+      expect { resp.headers.fetch("Nope") }.to raise_error(KeyError)
+      expect(resp.headers.fetch("Nope", 5)).to eq(5)
+    end
+
+    describe "body encoding" do
+      include Webhookdb::SpecHelpers::Http::TestServer
+
+      [
+        ["explicit charset", "fakecontenttype;charset=utf-32", Encoding::UTF_32],
+        ["explicit (malformed) charset", "fakecontenttype;charset=utf8", Encoding::UTF_8],
+        ["implicit utf8 charset", "text/plain", Encoding::UTF_8],
+        ["implicit binary charset", "image/jpeg", Encoding::BINARY],
+        ["unknown content type", "fakecontenttype", Encoding::BINARY],
+        ["unknown charset (text content)", "text/plain;charset=nope", Encoding::UTF_8],
+        ["unknown charset (binary content)", "image/png;charset=nope", Encoding::BINARY],
+      ].each do |(desc, ct, enc)|
+        it "decodes #{desc}" do
+          test_server_responses << [200, {"Content-Type" => ct}, ["abc".encode(enc)]]
+          resp = described_class.chunked_download(test_server_url + "/testfile", logger: nil, timeout: nil)
+          expect(test_server_calls).to have_length(1)
+          expect(resp.body.encoding).to eq(enc)
+          expect(readbody(resp)).to eq("abc".encode(enc))
+        end
+      end
+    end
+  end
+
   describe "Error" do
     it "is rendered nicely" do
       stub_request(:get, "https://a.b/").
@@ -223,6 +360,51 @@ RSpec.describe Webhookdb::Http do
     end
   end
 
+  describe "HeaderHash" do
+    it "downcases keys" do
+      h = described_class::HeaderHash.new
+      h["Content-Type"] = "x"
+      expect(h).to eq("content-type" => "x")
+
+      h = described_class::HeaderHash.new
+      h["X"] = "2"
+      expect(h).to eq({"x" => "2"})
+      h.update("X" => "2")
+      expect(h).to eq({"x" => "2"})
+
+      h = described_class::HeaderHash.from_h({"Content-Type" => "x"})
+      expect(h).to eq("content-type" => "x")
+    end
+
+    it "converts nils to empty strings" do
+      h = described_class::HeaderHash.from_h({"y" => nil})
+      h["x"] = nil
+      expect(h).to eq("x" => "", "y" => "")
+    end
+
+    it "errors for non-string values" do
+      h = described_class::HeaderHash.new
+      expect { h["x"] = 1 }.to raise_error(TypeError)
+    end
+
+    it "errors for non-lowercased key lookup" do
+      h = described_class::HeaderHash.new
+      expect { h["X"] }.to raise_error(TypeError)
+      expect { h[1] }.to raise_error(TypeError)
+      expect { h["x"] }.to_not raise_error
+
+      expect { h.fetch(1, nil) }.to raise_error(TypeError)
+      expect { h.fetch("x", nil) }.to_not raise_error
+    end
+
+    it "works for non mutating methods" do
+      h = described_class::HeaderHash.new
+      h2 = h.merge({"x" => "1"})
+      expect(h2).to eq({"x" => "1"})
+      expect(h2).to be_a(described_class::HeaderHash)
+    end
+  end
+
   describe "logging" do
     it "logs structured request information" do
       logger = SemanticLogger["http_spec_logging_test"]
@@ -231,7 +413,7 @@ RSpec.describe Webhookdb::Http do
         described_class.post("https://foo/bar", {x: 1}, logger:, timeout: nil)
       end
       expect(logs.map { |j| JSON.parse(j) }).to contain_exactly(
-        include("message" => "httparty_request", "context" => include("http_method" => "POST")),
+        include("message" => "httparty_request", "context" => include("http_method" => "POST"), "level" => "debug"),
       )
     end
   end

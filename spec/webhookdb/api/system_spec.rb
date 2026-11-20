@@ -15,10 +15,40 @@ RSpec.describe Webhookdb::API::System do
     end
   end
 
-  describe "GET /health" do
+  describe "GET /healthz" do
     it "returns 200" do
       get "/healthz"
       expect(last_response).to have_status(200)
+      expect(last_response_json_body).to eq({o: "k"})
+    end
+  end
+
+  describe "GET /service_health" do
+    it "returns status about services" do
+      get "/service_health"
+      expect(last_response).to have_status(200)
+      expect(last_response_json_body).to include(
+        autoscale_depth: be_a(Integer),
+        autoscale_started: have_length("1970-01-01T00:00:00Z".length),
+        web_autoscale_started: have_length("1970-01-01T00:00:00Z".length),
+        web_autoscale_depth: be_a(Integer),
+        db: be_a(Float),
+        redis: be_a(Float),
+        redis_cache: be_a(Float),
+      )
+    end
+
+    it "handles services that are down" do
+      expect(Webhookdb::Customer.db).to receive(:[]).and_raise(RuntimeError)
+      expect(Sidekiq).to receive(:redis).and_raise(RuntimeError)
+      get "/service_health"
+      expect(last_response).to have_status(200)
+      expect(last_response_json_body).to include(
+        autoscale_depth: -1,
+        autoscale_started: Time.at(0),
+        db: -1,
+        redis: -1,
+      )
     end
   end
 
@@ -36,6 +66,13 @@ RSpec.describe Webhookdb::API::System do
         get "/debug/echo", x: 1
       end.to output(/example\.org/).to_stdout
       expect(last_response).to have_status(200)
+    end
+  end
+
+  describe "POST /sink" do
+    it "204s" do
+      post "/sink"
+      expect(last_response).to have_status(204)
     end
   end
 end

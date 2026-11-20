@@ -25,30 +25,19 @@ class Webhookdb::Replicator::IntercomMarketplaceRootV1 < Webhookdb::Replicator::
     return []
   end
 
-  def _upsert_webhook(**_kwargs)
-    raise NotImplementedError("This is a stub integration only for auth purposes.")
-  end
+  def _upsert_webhook(**_kwargs) = raise NotImplementedError("This is a stub integration only for auth purposes.")
 
   def _fetch_backfill_page(*)
     return [], nil
   end
 
-  def webhook_response(_request)
-    raise NotImplementedError("This is a stub integration only for auth purposes.")
-  end
+  def webhook_response(_request) = raise NotImplementedError("This is a stub integration only for auth purposes.")
 
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     step.output = "This integration cannot be modified through the command line."
     step.completed
     return step
-  end
-
-  def get_auth_headers
-    return {
-      "Authorization" => "Bearer #{self.service_integration.backfill_key}",
-      "Accept" => "application/json",
-    }
   end
 
   def build_dependents

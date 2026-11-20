@@ -8,27 +8,14 @@ module Webhookdb::DBAdapter::DefaultSql
     return s
   end
 
-  def create_table_sql(table, columns, if_not_exists: false)
-    createtable = +"CREATE TABLE "
-    createtable << "IF NOT EXISTS " if if_not_exists
-    createtable << self.qualify_table(table)
-    lines = ["#{createtable} ("]
-    columns[0...-1]&.each { |c| lines << "  #{self.column_create_sql(c)}," }
-    lines << "  #{self.column_create_sql(columns.last)}"
-    lines << ")"
-    return lines.join("\n")
-  end
-
-  def identifier_quote_char
-    raise NotImplementedError
-  end
+  def identifier_quote_char = raise NotImplementedError
 
   # We write our own escaper because we want to only escape what's needed;
   # otherwise we want to avoid quoting identifiers.
   def escape_identifier(s)
     s = s.to_s
     raise ArgumentError, "#{s} is an invalid identifier and should have been validated previously" unless
-      Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(s)
+      Webhookdb::DBAdapter.valid_identifier?(s)
 
     quo = self.identifier_quote_char
     return "#{quo}#{s}#{quo}" if RESERVED_KEYWORDS.include?(s.upcase) ||

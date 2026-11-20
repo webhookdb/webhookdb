@@ -62,7 +62,7 @@ class Webhookdb::Replicator::Base
   # and the arguments used to upsert it (arguments to upsert_webhook),
   # and should return the body string to respond back with.
   #
-  # @param [Hash] upserted
+  # @param [Hash,Array] upserted
   # @param [Webhookdb::Replicator::WebhookRequest] request
   # @return [String]
   def synchronous_processing_response_body(upserted:, request:)
@@ -159,6 +159,7 @@ class Webhookdb::Replicator::Base
   def process_state_change(field, value, attr: nil)
     attr ||= field
     desc = self.descriptor
+    value = value.strip if value.respond_to?(:strip)
     case field
       when *self._webhook_state_change_fields
         # If we don't support webhooks, then the backfill state machine may be using it.
@@ -317,10 +318,12 @@ for information on how to refresh data.)
   # Find a dependent service integration with the given service name.
   # If none are found, return nil. If multiple are found, raise,
   # as this should only be used for automatically managed integrations.
+  # @param service_name [String,Array<String>]
   # @return [Webhookdb::ServiceIntegration,nil]
   def find_dependent(service_name)
-    sints = self.service_integration.dependents.filter { |si| si.service_name == service_name }
-    raise Webhookdb::InvalidPrecondition, "there are multiple #{service_name} integrations in dependents" if
+    names = service_name.respond_to?(:to_ary) ? service_name : [service_name]
+    sints = self.service_integration.dependents.filter { |si| names.include?(si.service_name) }
+    raise Webhookdb::InvalidPrecondition, "there are multiple #{names.join('/')} integrations in dependents" if
       sints.length > 1
     return sints.first
   end
@@ -355,48 +358,84 @@ for information on how to refresh data.)
     columns << self.data_column
     adapter = Webhookdb::DBAdapter::PG.new
     result = Webhookdb::Replicator::SchemaModification.new
-    result.transaction_statements << adapter.create_table_sql(table, columns, if_not_exists:)
-    self.indices(table).each do |dbindex|
+    create_table = adapter.create_table_sql(table, columns, if_not_exists:, partition: self.partitioning)
+    result.transaction_statements << create_table
+    result.transaction_statements.concat(self.create_table_partitions(adapter))
+    self.indexes(table).each do |dbindex|
       result.transaction_statements << adapter.create_index_sql(dbindex, concurrently: false)
     end
     result.application_database_statements << self.service_integration.ensure_sequence_sql if self.requires_sequence?
     return result
   end
 
-  # We need to give indices a persistent name, unique across the schema,
-  # since multiple indices within a schema cannot share a name.
+  # True if the replicator uses partitioning.
+  def partition? = false
+  # Non-nil only if +partition?+ is true.
+  # @return [Webhookdb::DBAdapter::Partitioning,nil]
+  def partitioning = nil
+
+  # Return the partitions belonging to the table.
+  # Return an empty array if this replicator is not partitioned.
+  # @return [Array<Webhookdb::DBAdapter::Partition>]
+  def existing_partitions(_db)
+    raise NotImplementedError if self.partition?
+    return []
+  end
+
+  def create_table_partitions(adapter)
+    return [] unless self.partition?
+    # We only need create_table partitions when we create the table.
+    # Range partitions would be created on demand, when inserting rows and the partition doesn't exist.
+    return [] unless self.partitioning.by == Webhookdb::DBAdapter::Partitioning::HASH
+
+    max_partition = self.service_integration.partition_value
+    raise Webhookdb::InvalidPrecondition, "partition value must be positive" unless max_partition.positive?
+    stmts = (0...max_partition).map do |i|
+      adapter.create_hash_partition_sql(self.dbadapter_table, max_partition, i)
+    end
+    return stmts
+  end
+
+  # We need to give indexes a persistent name, unique across the schema,
+  # since multiple indexes within a schema cannot share a name.
   #
   # Note that in certain RDBMS (Postgres) index names cannot exceed a certian length;
   # Postgres will silently truncate them. This can result in an index not being created
-  # if it shares the same name as another index and we use 'CREATE INDEX IF NOT EXISTS.'
+  # if it shares the same name as another index, and we use 'CREATE INDEX IF NOT EXISTS.'
   #
   # To avoid this, if the generated name exceeds a certain size, an md5 hash of the column names is used.
   #
   # @param columns [Array<Webhookdb::DBAdapter::Column, Webhookdb::Replicator::Column>] Must respond to :name.
+  # @param identifier [String,nil] Use this instead of a combination of column names.
+  #   Only use this where multiple indexes are needed for the same columns, but something like the 'where'
+  #   condition is different.
   # @return [String]
-  protected def index_name(columns)
+  protected def index_name(columns, identifier: nil)
     raise Webhookdb::InvalidPrecondition, "sint needs an opaque id" if self.service_integration.opaque_id.blank?
     colnames = columns.map(&:name).join("_")
     opaque_id = self.service_integration.opaque_id
     # Handle old IDs without the leading 'svi_'.
     opaque_id = "idx#{opaque_id}" if /\d/.match?(opaque_id[0])
-    name = "#{opaque_id}_#{colnames}_idx"
-    if name.size > MAX_INDEX_NAME_LENGTH
-      # We don't have the 32 extra chars for a full md5 hash.
-      # We can't convert to Base64 or whatever, since we don't want to depend on case sensitivity.
-      # So just lop off a few characters (normally 2) from the end of the md5.
-      # The collision space is so small (some combination of column names would need to have the
-      # same md5, which is unfathomable), we're not really worried about it.
-      colnames_md5 = Digest::MD5.hexdigest(colnames)
-      available_chars = MAX_INDEX_NAME_LENGTH - "#{opaque_id}__idx".size
-      name = "#{opaque_id}_#{colnames_md5[...available_chars]}_idx"
+
+    if identifier
+      name = "#{opaque_id}_#{identifier}_idx"
+    else
+      name = "#{opaque_id}_#{colnames}_idx"
+      if name.size > Webhookdb::DBAdapter::MAX_IDENTIFIER_LENGTH
+        # We don't have the 32 extra chars for a full md5 hash.
+        # We can't convert to Base64 or whatever, since we don't want to depend on case sensitivity.
+        # So just lop off a few characters (normally 2) from the end of the md5.
+        # The collision space is so small (some combination of column names would need to have the
+        # same md5, which is unfathomable), we're not really worried about it.
+        colnames_md5 = Digest::MD5.hexdigest(colnames)
+        available_chars = Webhookdb::DBAdapter::MAX_IDENTIFIER_LENGTH - "#{opaque_id}__idx".size
+        name = "#{opaque_id}_#{colnames_md5[...available_chars]}_idx"
+      end
     end
     raise Webhookdb::InvariantViolation, "index names cannot exceed 63 chars, got #{name.size} in '#{name}'" if
       name.size > 63
     return name
   end
-
-  MAX_INDEX_NAME_LENGTH = 63
 
   # @return [Webhookdb::DBAdapter::Column]
   def primary_key_column
@@ -405,7 +444,12 @@ for information on how to refresh data.)
 
   # @return [Webhookdb::DBAdapter::Column]
   def remote_key_column
-    return self._remote_key_column.to_dbadapter(unique: true, nullable: false)
+    c = self._remote_key_column
+    if c.index?
+      msg = "_remote_key_column index:true should not be set, since it automatically gets a unique index"
+      Kernel.warn msg
+    end
+    return c.to_dbadapter(unique: true, nullable: false, index: false)
   end
 
   # @return [Webhookdb::DBAdapter::Column]
@@ -425,7 +469,7 @@ for information on how to refresh data.)
     return self._denormalized_columns.map(&:to_dbadapter)
   end
 
-  # Names of columns for multi-column indices.
+  # Names of columns for multi-column indexes.
   # Each one must be in +denormalized_columns+.
   # @return [Array<Webhook::Replicator::IndexSpec>]
   def _extra_index_specs
@@ -464,6 +508,9 @@ for information on how to refresh data.)
   # Each integration needs a single remote key, like the Shopify order id for shopify orders,
   # or sid for Twilio resources. This column must be unique for the table, like a primary key.
   #
+  # NOTE: Do not set index:true. The remote key column always must be unique,
+  # so it gets a unique index automatically.
+  #
   # @abstract
   # @return [Webhookdb::Replicator::Column]
   def _remote_key_column
@@ -471,7 +518,7 @@ for information on how to refresh data.)
   end
 
   # When an integration needs denormalized columns, specify them here.
-  # Indices are created for each column.
+  # Indexes are created for each column.
   # Modifiers can be used if columns should have a default or whatever.
   # See +Webhookdb::Replicator::Column+ for more details about column fields.
   #
@@ -481,7 +528,7 @@ for information on how to refresh data.)
   end
 
   # @return [Array<Webhookdb::DBAdapter::Index>]
-  def indices(table)
+  def indexes(table)
     dba_columns = [self.primary_key_column, self.remote_key_column]
     dba_columns.concat(self.storable_columns)
     dba_cols_by_name = dba_columns.index_by(&:name)
@@ -494,9 +541,16 @@ for information on how to refresh data.)
     end
     self._extra_index_specs.each do |spec|
       targets = spec.columns.map { |n| dba_cols_by_name.fetch(n) }
-      idx_name = self.index_name(targets)
+      idx_name = self.index_name(targets, identifier: spec.identifier)
       result << Webhookdb::DBAdapter::Index.new(name: idx_name.to_sym, table:, targets:, where: spec.where)
     end
+    index_names = result.map(&:name)
+    if (dupes = index_names.find_all.with_index { |n, idx| idx != index_names.rindex(n) }).any?
+      msg = "Duplicate index names detected. Use the 'name' attribute to differentiate: " +
+        dupes.map(&:to_s).join(", ")
+      raise Webhookdb::Replicator::BrokenSpecification, msg
+    end
+
     return result
   end
 
@@ -504,7 +558,7 @@ for information on how to refresh data.)
   # changing types, or removing/renaming columns, is not supported and should bump the version
   # or must be handled out-of-band (like deleting the integration then backfilling).
   # To figure out what columns we need to add, we can check what are currently defined,
-  # check what exists, and add denormalized columns and indices for those that are missing.
+  # check what exists, and add denormalized columns and indexes for those that are missing.
   def ensure_all_columns
     modification = self.ensure_all_columns_modification
     return if modification.noop?
@@ -519,20 +573,17 @@ for information on how to refresh data.)
 
   # @return [Webhookdb::Replicator::SchemaModification]
   def ensure_all_columns_modification
-    existing_cols, existing_indices = nil
-    max_pk = 0
+    existing_cols, existing_indexes, existing_partitions = nil
+    adapter = Webhookdb::DBAdapter::PG.new
     sint = self.service_integration
+    table = self.dbadapter_table
     self.admin_dataset do |ds|
       return self.create_table_modification unless ds.db.table_exists?(self.qualified_table_sequel_identifier)
       existing_cols = ds.columns.to_set
-      existing_indices = ds.db[:pg_indexes].where(
-        schemaname: sint.organization.replication_schema,
-        tablename: sint.table_name,
-      ).select_map(:indexname).to_set
-      max_pk = ds.max(:pk) || 0
+      adapter.delete_invalid_indexes(ds.db, table)
+      existing_indexes = adapter.select_existing_indexes(ds.db, table).map { |n| Sequel[table.name][n] }
+      existing_partitions = self.existing_partitions(ds.db)
     end
-    adapter = Webhookdb::DBAdapter::PG.new
-    table = self.dbadapter_table
     result = Webhookdb::Replicator::SchemaModification.new
 
     missing_columns = self._denormalized_columns.delete_if { |c| existing_cols.include?(c.name) }
@@ -563,6 +614,12 @@ for information on how to refresh data.)
       result.nontransaction_statements.concat(missing_columns.filter_map(&:backfill_statement))
       update_expr = missing_columns.to_h { |c| [c.name, c.backfill_expr || c.to_sql_expr] }
       self.admin_dataset do |ds|
+        # Calculate the maximum pk only if we need it.
+        # We cannot just do `ds.max(:pk) || 0`, since it is very slow for large tables;
+        # in fact, it does an index-only scan of potentially billions of rows!
+        # Instead, take advantage of the fact that this is a sequence, not a normal row,
+        # and peek at the next value for the pk sequence.
+        max_pk = adapter.get_serial_sequence_last_value(ds.db, sint.table_name, "pk")
         chunks = Webhookdb::Replicator::Base.chunked_row_update_bounds(max_pk)
         chunks[...-1].each do |(lower, upper)|
           update_query = ds.where { pk > lower }.where { pk <= upper }.update_sql(update_expr)
@@ -573,14 +630,35 @@ for information on how to refresh data.)
       end
     end
 
-    # Add missing indices. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indices.
-    self.indices(table).map do |index|
-      next if existing_indices.include?(index.name.to_s)
-      result.nontransaction_statements << adapter.create_index_sql(index, concurrently: true)
+    # Add missing indexes. This should happen AFTER the UPDATE calls so the UPDATEs don't have to update indexes.
+    self.indexes(table).map do |index|
+      next if Webhookdb::Replicator.refers_to_any_same_index?(Sequel[table.name][index.name], existing_indexes)
+      result.nontransaction_statements.concat(
+        adapter.create_index_sqls(index, concurrently: true, partitions: existing_partitions),
+      )
     end
 
     result.application_database_statements << sint.ensure_sequence_sql if self.requires_sequence?
     return result
+  end
+
+  def align_index_names
+    regex = /^svi_[0-9a-z]+/
+    opaqueid = self.service_integration.opaque_id
+    org = self.service_integration.organization
+    org.admin_connection do |db|
+      records = db[Sequel[:pg_indexes]].
+        where(schemaname: org.replication_schema, tablename: self.service_integration.table_name).
+        select_map([:schemaname, :indexname])
+      records.each do |(sch, idx)|
+        next if idx.start_with?(opaqueid) # Does not need to be aligned
+        match = idx.match(regex)
+        next unless match # Ignore non-opaque id indexes
+        base_name = idx[match.to_s.length..]
+        new_name = "#{opaqueid}#{base_name}"
+        db << "ALTER INDEX #{sch}.#{idx} RENAME TO #{new_name}"
+      end
+    end
   end
 
   # Return an array of tuples used for splitting UPDATE queries so locks are not held on the entire table
@@ -640,6 +718,7 @@ for information on how to refresh data.)
   # like when we have to take different action based on a request method.
   #
   # @param body [Hash]
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook_body(body, **kw)
     return self.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(body:), **kw)
   end
@@ -648,10 +727,14 @@ for information on how to refresh data.)
   # NOT a Rack::Request.
   #
   # @param [Webhookdb::Replicator::WebhookRequest] request
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def upsert_webhook(request, **kw)
     return self._upsert_webhook(request, **kw)
+  rescue Amigo::Retry::Error
+    # Do not log this since it's expected/handled by Amigo
+    raise
   rescue StandardError => e
-    self.logger.error("upsert_webhook_error", request: request.as_json, error: e)
+    self.logger.error("upsert_webhook_error", {request: request.as_json}, e)
     raise
   end
 
@@ -660,9 +743,23 @@ for information on how to refresh data.)
   #
   # @param request [Webhookdb::Replicator::WebhookRequest]
   # @param upsert [Boolean] If false, just return what would be upserted.
+  # @return [Array,Hash] Inserted rows, or array of inserted rows if many.
   def _upsert_webhook(request, upsert: true)
-    resource, event = self._resource_and_event(request)
-    return nil if resource.nil?
+    resource_or_list, event = self._resource_and_event(request)
+    return nil if resource_or_list.nil?
+    if resource_or_list.is_a?(Array)
+      unless event.nil?
+        msg = "resource_and_event cannot return an array of resources with a non-nil event"
+        raise Webhookdb::InvalidPostcondition, msg
+      end
+      return resource_or_list.map do |resource|
+        self._upsert_webhook_single_resource(request, resource:, event:, upsert:)
+      end
+    end
+    return self._upsert_webhook_single_resource(request, resource: resource_or_list, event:, upsert:)
+  end
+
+  def _upsert_webhook_single_resource(request, resource:, event:, upsert:)
     enrichment = self._fetch_enrichment(resource, event, request)
     prepared = self._prepare_for_insert(resource, event, request, enrichment)
     raise Webhookdb::InvalidPostcondition if prepared.key?(:data)
@@ -672,12 +769,11 @@ for information on how to refresh data.)
     inserting[:enrichment] = self._to_json(enrichment) if self._store_enrichment_body?
     inserting.merge!(prepared)
     return inserting unless upsert
-    remote_key_col = self._remote_key_column
     updating = self._upsert_update_expr(inserting, enrichment:)
     update_where = self._update_where_expr
     upserted_rows = self.admin_dataset(timeout: :fast) do |ds|
       ds.insert_conflict(
-        target: remote_key_col.name,
+        target: self._upsert_conflict_target,
         update: updating,
         update_where:,
       ).insert(inserting)
@@ -687,6 +783,12 @@ for information on how to refresh data.)
     self._publish_rowupsert(inserting) if row_changed
     return inserting
   end
+
+  # The target for ON CONFLICT. Usually the remote key column name,
+  # except if the remote id is a compound unique index, like for partitioned tables.
+  # Can be a symbol, array of symbols representing the column names, a +Sequel.lit+, etc.
+  # See +Sequel::Dataset.insert_conflict+ :target option for details.
+  def _upsert_conflict_target = self._remote_key_column.name
 
   # The NULL ASCII character (\u0000), when present in a string ("\u0000"),
   # and then encoded into JSON ("\\u0000") is invalid in PG JSONB- its strings cannot contain NULLs
@@ -702,10 +804,14 @@ for information on how to refresh data.)
   # This is valid for PG, because it's not a NULL- it's an escaped "\", followed by "u0000".
   # If we were to remove the string "\\u0000", we'd end up with '{"x":"\\"}'. This creates an invalid document.
   #
-  # So we remove only "\\u0000" by not replacing "\\\\u0000"- replace all occurences of
-  # "<any one character except backslash>\\u0000" with "<character before backslash>".
+  # So we remove only "\\u0000" by detecting the numebrn of slashes before the u0000:
+  # if there is an odd amount ('\u0000', '\\\u0000'), remove the '\u0000' and keep the prefix (so, '', and '\\').
+  # if there is an event amount ('\\u0000', '\\\\u0000'), keep it all ('\\u0000', '\\\\u0000').
   def _to_json(v)
-    return v.to_json.gsub(/(\\\\u0000|\\u0000)/, {"\\\\u0000" => "\\\\u0000", "\\u0000" => ""})
+    return v.to_json.gsub(/(\\+)u0000/) do
+      run = Regexp.last_match(1)
+      run&.length&.odd? ? run[0...-1] : "#{run}u0000"
+    end
   end
 
   # @param changed [Boolean]
@@ -792,7 +898,7 @@ for information on how to refresh data.)
   #
   # @abstract
   # @param [Webhookdb::Replicator::WebhookRequest] request
-  # @return [Array<Hash>,nil]
+  # @return [Array<Hash,Array>,nil]
   def _resource_and_event(request)
     raise NotImplementedError
   end
@@ -853,13 +959,6 @@ for information on how to refresh data.)
     return result
   end
 
-  # The string 'null' in a json column still represents 'null' but we'd rather have an actual NULL value,
-  # represented by 'nil'. So, return nil if the arg is nil (so we get NULL),
-  # otherwise return the argument.
-  protected def _nil_or_json(x)
-    return x.nil? ? nil : x.to_json
-  end
-
   # Have a column set itself only on insert or if nil.
   #
   # Given the payload to DO UPDATE, mutate it so that
@@ -902,22 +1001,50 @@ for information on how to refresh data.)
   # - The table OID for this replicator
   # - The given key
   #
-  # Note this this establishes a new DB connection for the advisory lock;
+  # Note this establishes a new DB connection for the advisory lock;
   # we have had issues with advisory locks on reused connections,
   # and this is safer than having a lock that is never released.
-  protected def with_advisory_lock(key, &)
+  def with_advisory_lock(key, &)
     url = self.service_integration.organization.admin_connection_url_raw
     got = nil
+
+    # We use the (int, int) version of advisory lock, with the table id as the 'namespace'.
+    # However, the second key is often a row PK, which can be a bigint on a very large table.
+    # In these cases, we can relatively safely turn that into an integer.
+    key2 = key
+    # If the key is greater than 4B (max unsigned integer), put it between 0 and 4B.
+    key2 %= Sequel::AdvisoryLock::MAX_UINT if
+      key2 > Sequel::AdvisoryLock::MAX_UINT
+    key2 = self._uint_to_intkey(key2) if
+      key2 > Sequel::AdvisoryLock::MAX_INT
+    raise ArgumentError, "key #{key} cannot be less than MIN_INT, use something else or change this code" if
+      key2 < Sequel::AdvisoryLock::MIN_INT
+
     Webhookdb::Dbutil.borrow_conn(url) do |conn|
-      table_oid = conn.select(
-        Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
-      ).first[:table_id]
-      self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key)
-      Sequel::AdvisoryLock.new(conn, table_oid, key).with_lock? do
+      table_oid = self._select_table_oid(conn)
+      # oids are always a 4 byte uint, so if it's between 2B and 4B, move it to between -2B and 0.
+      table_oid = self._uint_to_intkey(table_oid) if
+        table_oid > Sequel::AdvisoryLock::MAX_INT
+      self.logger.debug("taking_replicator_advisory_lock", table_oid:, key_id: key2)
+      Sequel::AdvisoryLock.new(conn, table_oid, key2).with_lock? do
         got = yield
       end
     end
     return got
+  end
+
+  def _select_table_oid(conn)
+    table_oid = conn.select(
+      Sequel.function(:to_regclass, self.schema_and_table_symbols.join(".")).cast(:oid).as(:table_id),
+    ).first[:table_id]
+    return table_oid
+  end
+
+  # If the key is greater than 2B (so between max signed and unsigned integers),
+  # we can bias it into a 'signed' integer. Use the ID space between -2B and 0 for this purpose,
+  # since it is otherwise likely unused.
+  def _uint_to_intkey(key2)
+    (key2 - Sequel::AdvisoryLock::MAX_INT) * -1
   end
 
   # Some replicators support 'instant sync', because they are upserted en-masse
@@ -932,16 +1059,16 @@ for information on how to refresh data.)
   end
 
   class CredentialVerificationResult < Webhookdb::TypedStruct
-    attr_reader :verified, :message
+    attr_reader :verified, :http_error_status
+
+    def verified? = self.verified
   end
 
   # Try to verify backfill credentials, by fetching the first page of items.
   # Only relevant for integrations supporting backfilling.
   #
-  # If an error is received, return `_verify_backfill_<http status>_err_msg`
-  # as the error message, if defined. So for example, a 401 will call the method
-  # +_verify_backfill_401_err_msg+ if defined. If such a method is not defined,
-  # call and return +_verify_backfill_err_msg+.
+  # If an error is received, return the result with +http_error_status+ set.
+  # Callers can use this error status to figure out the message to display to the user.
   #
   # @return [Webhookdb::CredentialVerificationResult]
   def verify_backfill_credentials
@@ -956,23 +1083,14 @@ for information on how to refresh data.)
       # begin backfill attempt but do not return backfill result
       backfiller.fetch_backfill_page(nil, last_backfilled: nil)
     rescue Webhookdb::Http::Error => e
-      msg = if self.respond_to?(:"_verify_backfill_#{e.status}_err_msg")
-              self.send(:"_verify_backfill_#{e.status}_err_msg")
-      else
-        self._verify_backfill_err_msg
-      end
-      return CredentialVerificationResult.new(verified: false, message: msg)
+      return CredentialVerificationResult.new(verified: false, http_error_status: e.status)
     rescue TypeError, NoMethodError => e
       # if we don't incur an HTTP error, but do incur an Error due to differences in the shapes of anticipated
       # response data in the `fetch_backfill_page` function, we can assume that the credentials are okay
-      self.logger.info "verify_backfill_credentials_expected_failure", error: e
-      return CredentialVerificationResult.new(verified: true, message: "")
+      self.logger.info "verify_backfill_credentials_expected_failure", e
+      return CredentialVerificationResult.new(verified: true)
     end
-    return CredentialVerificationResult.new(verified: true, message: "")
-  end
-
-  def _verify_backfill_err_msg
-    raise NotImplementedError, "each integration must provide an error message for unanticipated errors"
+    return CredentialVerificationResult.new(verified: true)
   end
 
   def documentation_url = nil
@@ -998,48 +1116,73 @@ for information on how to refresh data.)
     job.update(started_at: Time.now)
 
     backfillers = self._backfillers(**job.criteria.symbolize_keys)
-    if self._parallel_backfill && self._parallel_backfill > 1
-      # Create a dedicated threadpool for these backfillers,
-      # with max parallelism determined by the replicator.
-      pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
-      # Record any errors that occur, since they won't raise otherwise.
-      # Initialize a sized array to avoid any potential race conditions (though GIL should make it not an issue?).
-      errors = Array.new(backfillers.size)
-      backfillers.each_with_index do |bf, idx|
-        pool.post do
-          bf.backfill(last_backfilled)
-        rescue StandardError => e
-          errors[idx] = e
-        end
+    begin
+      if self._parallel_backfill && self._parallel_backfill > 1
+        _do_parallel_backfill(backfillers, last_backfilled)
+      else
+        _do_serial_backfill(backfillers, last_backfilled)
       end
-      # We've enqueued all backfillers; do not accept anymore work.
-      pool.shutdown
-      loop do
-        # We want to stop early if we find an error, so check for errors every 10 seconds.
-        completed = pool.wait_for_termination(10)
-        first_error = errors.find { |e| !e.nil? }
-        if first_error.nil?
-          # No error, and wait_for_termination returned true, so all work is done.
-          break if completed
-          # No error, but work is still going on, so loop again.
-          next
-        end
-        # We have an error; don't run any more backfillers.
-        pool.kill
-        # Wait for all ongoing backfills before raising.
-        pool.wait_for_termination
-        raise first_error
+    rescue StandardError => e
+      if self.on_backfill_error(e)
+        job.update(finished_at: Time.now)
+        return
       end
-    else
-      backfillers.each do |backfiller|
-        backfiller.backfill(last_backfilled)
-      end
+      raise e
     end
 
     sint.update(last_backfilled_at: new_last_backfilled) if job.incremental?
     job.update(finished_at: Time.now)
     job.enqueue_children
   end
+
+  protected def _do_parallel_backfill(backfillers, last_backfilled)
+    # Create a dedicated threadpool for these backfillers,
+    # with max parallelism determined by the replicator.
+    pool = Concurrent::FixedThreadPool.new(self._parallel_backfill)
+    # Record any errors that occur, since they won't raise otherwise.
+    # Initialize a sized array to avoid any potential race conditions (though GIL should make it not an issue?).
+    errors = Array.new(backfillers.size)
+    backfillers.each_with_index do |bf, idx|
+      pool.post do
+        bf.backfill(last_backfilled)
+      rescue StandardError => e
+        errors[idx] = e
+      end
+    end
+    # We've enqueued all backfillers; do not accept anymore work.
+    pool.shutdown
+    loop do
+      # We want to stop early if we find an error, so check for errors every 10 seconds.
+      completed = pool.wait_for_termination(10)
+      first_error = errors.find { |e| !e.nil? }
+      if first_error.nil?
+        # No error, and wait_for_termination returned true, so all work is done.
+        break if completed
+        # No error, but work is still going on, so loop again.
+        next
+      end
+      # We have an error; don't run any more backfillers.
+      pool.kill
+      # Wait for all ongoing backfills before raising.
+      pool.wait_for_termination
+      raise first_error
+    end
+  end
+
+  protected def _do_serial_backfill(backfillers, last_backfilled)
+    backfillers.each do |backfiller|
+      backfiller.backfill(last_backfilled)
+    end
+  end
+
+  # Called when the #backfill method errors.
+  # This can do something like dispatch a developer alert.
+  # The handler must raise in order to stop the job from processing-
+  # if nothing is raised, the original exception will be raised instead.
+  # By default, this method noops, so the original exception is raised.
+  # @param e [Exception]
+  # @return [true,false]
+  def on_backfill_error(e) = false
 
   # If this replicator supports backfilling in parallel (running multiple backfillers at a time),
   # return the degree of paralellism (or nil if not running in parallel).
@@ -1095,15 +1238,15 @@ for information on how to refresh data.)
 
     def fetch_backfill_page(pagination_token, last_backfilled:)
       return @svc._fetch_backfill_page(pagination_token, last_backfilled:)
-    rescue ::Timeout::Error, ::SocketError
-      self.__retryordie
+    rescue ::Timeout::Error, ::SocketError => e
+      self.__retryordie(e)
     rescue Webhookdb::Http::Error => e
-      self.__retryordie if e.status >= 500
+      self.__retryordie(e) if e.status >= 500
       raise
     end
 
-    def __retryordie
-      raise Amigo::Retry::OrDie.new(self.server_error_retries, self.server_error_backoff)
+    def __retryordie(e)
+      raise Amigo::Retry::OrDie.new(self.server_error_retries, self.server_error_backoff, e)
     end
   end
 
@@ -1147,7 +1290,7 @@ to keep going.
       map { |si, idx| "#{idx + 1} - #{si.table_name}" }.
       join("\n")
     step.output = %(This integration requires #{dep_descr.resource_name_plural} to sync.
-#{dependency_help.blank? ? '' : "\n#{dependency_help}\n"}
+#{"\n#{dependency_help}\n" unless dependency_help.blank?}
 Enter the number for the #{dep_descr.resource_name_singular} integration you want to use,
 or leave blank to choose the first option.
 
@@ -1160,6 +1303,34 @@ or leave blank to choose the first option.
 
   def webhook_endpoint
     return self._webhook_endpoint
+  end
+
+  # Avoid writes under the following conditions:
+  #
+  # - A table lock is taken on the table
+  # - A vacuum is in progress on the table
+  #
+  # Of course, in most situations we want to write anyway,
+  # but there are some cases (lower-priority replicators for example)
+  # where we can reschedule the job to happen in the future instead.
+  def avoid_writes?
+    # We will need to handle this differently when not under Postgres, but for now,
+    # just assume Postgres.
+    # Find the admin URL for the organization's server (NOT the organization admin url, it can't see system processes).
+    # Then check for 1) vacuums in progress, 2) locks.
+    self.service_integration.organization.readonly_connection do |db|
+      count = db[:pg_locks].
+        join(:pg_class, {oid: :relation}).
+        join(:pg_namespace, {oid: :relnamespace}).
+        where(
+          locktype: "relation",
+          nspname: self.service_integration.organization.replication_schema,
+          relname: self.service_integration.table_name,
+          mode: ["ShareUpdateExclusiveLock", "ExclusiveLock", "AccessExclusiveLock"],
+        ).select(1).limit(1).first
+      return true if count.present?
+    end
+    return false
   end
 
   protected def _webhook_endpoint

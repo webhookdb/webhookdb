@@ -20,6 +20,11 @@ module Webhookdb::Fixtures::Organizations
     Webhookdb::Fixtures.organization_membership.verified.create(customer: c, organization: self)
   end
 
+  decorator :with_admin, presave: true do |c={}|
+    c = Webhookdb::Fixtures.customer.create(c) unless c.is_a?(Webhookdb::Customer)
+    Webhookdb::Fixtures.organization_membership.verified.admin.create(customer: c, organization: self)
+  end
+
   decorator :with_invite, presave: true do |c={}|
     c = Webhookdb::Fixtures.customer.create(c) unless c.is_a?(Webhookdb::Customer)
     Webhookdb::Fixtures.organization_membership.invite.create(customer: c, organization: self)

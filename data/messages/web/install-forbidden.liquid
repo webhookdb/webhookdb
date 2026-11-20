@@ -1,0 +1,25 @@
+<html lang="en-US">
+<head>
+    <title>WebhookDB | Sync {{ app_name }} | Error</title>
+    {% include 'web/partials/head' %}
+</head>
+<body>
+<div class="layout">
+    <div class="flex column align-items-center content">
+        {% partial 'web/partials/header' %}
+        <div class="flex column">
+            <p>
+                Sorry, something went wrong installing your sync to {{ app_name }}.
+            </p>
+            <p>
+                If your installation finished successfully, head to <a href="{{ terminal_url }}">{{ terminal_url }}</a>
+                and run <code>webhookdb auth login</code> and <code>webhookdb db connection</code> to get your connection string.
+            </p>
+            <p>Or head to <a href="{{ install_url }}">{{ install_url }}</a> to go back through setup.</p>
+            <p>If you need any help, you can email <a href="mailto:hello@webhookdb.com">hello@webhookdb.com</a>.</p>
+        </div>
+        {% partial 'web/partials/footer' %}
+    </div>
+</div>
+</body>
+</html>

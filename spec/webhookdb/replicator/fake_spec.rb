@@ -5,16 +5,16 @@ require "support/shared_examples_for_replicators"
 # rubocop:disable Layout/LineLength
 
 RSpec.describe "fake implementations", :db do
+  before(:each) do
+    Webhookdb::Replicator::Fake.reset
+  end
+
+  after(:each) do
+    Webhookdb::Replicator::Fake.reset
+  end
+
   describe Webhookdb::Replicator::Fake do
-    before(:each) do
-      described_class.reset
-    end
-
-    after(:each) do
-      described_class.reset
-    end
-
-    it_behaves_like "a replicator", "fake_v1" do
+    it_behaves_like "a replicator" do
       let(:body) do
         {
           "my_id" => "abc",
@@ -23,7 +23,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that prevents overwriting new data with old", "fake_v1" do
+    it_behaves_like "a replicator that prevents overwriting new data with old" do
       let(:old_body) do
         {
           "my_id" => "abc",
@@ -38,7 +38,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that can backfill", "fake_v1" do
+    it_behaves_like "a replicator that can backfill" do
       let(:page1_items) do
         [
           {"my_id" => "1", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"},
@@ -74,7 +74,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator that upserts webhooks only under specific conditions", "fake_v1" do
+    it_behaves_like "a replicator that upserts webhooks only under specific conditions" do
       before(:each) do
         described_class.resource_and_event_hook = ->(_h) {}
       end
@@ -87,7 +87,7 @@ RSpec.describe "fake implementations", :db do
       end
     end
 
-    it_behaves_like "a replicator with dependents", "fake_v1", "fake_dependent_v1" do
+    it_behaves_like "a replicator with dependents", "fake_dependent_v1" do
       let(:body) do
         {
           "my_id" => "abc",
@@ -96,13 +96,6 @@ RSpec.describe "fake implementations", :db do
       end
       let(:expected_insert) do
         {data: body.to_json, my_id: "abc", at: Time.parse(body["at"])}
-      end
-      before(:each) do
-        Webhookdb::Replicator::FakeDependent.reset
-      end
-
-      after(:each) do
-        Webhookdb::Replicator::FakeDependent.reset
       end
     end
 
@@ -159,15 +152,7 @@ RSpec.describe "fake implementations", :db do
   end
 
   describe Webhookdb::Replicator::FakeWithEnrichments do
-    before(:each) do
-      described_class.reset
-    end
-
-    after(:each) do
-      described_class.reset
-    end
-
-    it_behaves_like "a replicator that uses enrichments", "fake_with_enrichments_v1" do
+    it_behaves_like "a replicator that uses enrichments" do
       let(:body) { {"my_id" => "abc", "at" => "Thu, 30 Jul 2015 21:12:33 +0000"} }
       let(:enrichment_body) { {extra: "abc"}.to_json }
       let(:expected_enrichment_data) { JSON.parse(enrichment_body) }
@@ -189,30 +174,14 @@ RSpec.describe "fake implementations", :db do
   end
 
   describe Webhookdb::Replicator::FakeDependent do
-    before(:each) do
-      described_class.reset
-    end
-
-    after(:each) do
-      described_class.reset
-    end
-
-    it_behaves_like "a replicator dependent on another", "fake_dependent_v1", "fake_v1" do
+    it_behaves_like "a replicator dependent on another", "fake_v1" do
       let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
     end
   end
 
   describe Webhookdb::Replicator::FakeDependentDependent do
-    before(:each) do
-      described_class.reset
-    end
-
-    after(:each) do
-      described_class.reset
-    end
-
-    it_behaves_like "a replicator dependent on another", "fake_dependent_v1", "fake_v1" do
-      let(:no_dependencies_message) { "You don't have any Fake integrations yet. You can run:" }
+    it_behaves_like "a replicator dependent on another", "fake_dependent_v1" do
+      let(:no_dependencies_message) { "You don't have any FakeDependent integrations yet. You can run:" }
     end
   end
 
@@ -221,31 +190,16 @@ RSpec.describe "fake implementations", :db do
     let(:fake) { sint.replicator }
 
     describe "verify_backfill_credentials" do
-      before(:each) do
-        fake.define_singleton_method(:_verify_backfill_408_err_msg) do
-          "custom 408 message"
-        end
-        fake.define_singleton_method(:_verify_backfill_err_msg) do
-          "default message"
-        end
-      end
-
       it "verifies on success" do
         Webhookdb::Replicator::Fake.stub_backfill_request([])
         result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: true, message: "")
+        expect(result).to have_attributes(verified: true, http_error_status: nil)
       end
 
-      it "uses a default error message" do
-        Webhookdb::Replicator::Fake.stub_backfill_request([], status: 401)
-        result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: false, message: "default message")
-      end
-
-      it "can use code-specific error messages" do
+      it "sets the http error status" do
         Webhookdb::Replicator::Fake.stub_backfill_request([], status: 408)
         result = fake.verify_backfill_credentials
-        expect(result).to have_attributes(verified: false, message: "custom 408 message")
+        expect(result).to have_attributes(verified: false, http_error_status: 408)
       end
     end
 
@@ -429,12 +383,12 @@ RSpec.describe "fake implementations", :db do
         end
       end
 
-      it "can use more index options,such as :where" do
+      it "can use more index options, such as :where" do
         fake.service_integration.opaque_id = "svi_xyz"
         fake.define_singleton_method(:_extra_index_specs) do
           [
             Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at] > nil),
-            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at].is_distinct_from(nil)),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id], where: Sequel[:at].is_distinct_from(nil)),
           ]
         end
         table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
@@ -448,7 +402,46 @@ RSpec.describe "fake implementations", :db do
           );
           CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
           CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" > NULL);
-          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id) WHERE ("at" IS DISTINCT FROM NULL);
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_my_id_idx ON #{table_str} (at, my_id) WHERE ("at" IS DISTINCT FROM NULL);
+        SQL
+
+        fake.create_table
+      end
+
+      it "errors if multiple indices have the same name" do
+        fake.service_integration.opaque_id = "svi_xyz"
+        fake.define_singleton_method(:_extra_index_specs) do
+          [
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at] > nil),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], where: Sequel[:at].is_distinct_from(nil)),
+          ]
+        end
+
+        expect do
+          fake.ensure_all_columns_modification
+        end.to raise_error(Webhookdb::Replicator::BrokenSpecification, /to differentiate: svi_xyz_my_id_idx/)
+      end
+
+      it "can use explicit index spec name suffixes" do
+        fake.service_integration.opaque_id = "svi_xyz"
+        fake.define_singleton_method(:_extra_index_specs) do
+          [
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id]),
+            Webhookdb::Replicator::IndexSpec.new(columns: [:my_id], identifier: "v2"),
+          ]
+        end
+        table_str = fake.schema_and_table_symbols.map(&:to_s).join(".")
+
+        expect(fake.ensure_all_columns_modification.to_s.strip).to eq(<<~SQL.strip)
+          CREATE TABLE #{table_str} (
+            pk bigserial PRIMARY KEY,
+            my_id text UNIQUE NOT NULL,
+            at timestamptz,
+            data jsonb NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS svi_xyz_at_idx ON #{table_str} (at);
+          CREATE INDEX IF NOT EXISTS svi_xyz_my_id_idx ON #{table_str} (my_id);
+          CREATE INDEX IF NOT EXISTS svi_xyz_v2_idx ON #{table_str} (my_id);
         SQL
 
         fake.create_table
@@ -613,6 +606,13 @@ or leave blank to choose the first option.
         end.to raise_error(ArgumentError)
       end
 
+      it "always strips whitespace from the value" do
+        sint = Webhookdb::Fixtures.service_integration.create
+        sint.replicator.process_state_change("backfill_secret", " ab cd ")
+        sint.replicator.process_state_change("webhook_secret", "\nxy zw\n")
+        expect(sint).to have_attributes(backfill_secret: "ab cd", webhook_secret: "xy zw")
+      end
+
       describe "setting dependency_choice" do
         let(:org) { Webhookdb::Fixtures.organization.create }
         let(:fac) { Webhookdb::Fixtures.service_integration(organization: org) }
@@ -679,44 +679,101 @@ or leave blank to choose the first option.
     end
 
     describe "upsert_webhook" do
+      Webhookdb::SpecHelpers::Whdb.setup_upsert_webhook_example(self)
+
+      before(:each) do
+        sint.organization.prepare_database_connections
+        fake.create_table
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      it "returns the upserted value" do
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"})
+        expect(got).to include(my_id: "abc", at: match_time("2024-01-15T12:00:00Z"))
+        expect(fake.readonly_dataset(&:all)).to contain_exactly(include(my_id: "abc"))
+      end
+
+      it "returns nil and does no insert if upsert is false" do
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"}, upsert: false)
+        expect(got).to include(my_id: "abc", at: match_time("2024-01-15T12:00:00Z"))
+        expect(fake.readonly_dataset(&:all)).to be_empty
+      end
+
+      it "noops if resource_and_event returns nil" do
+        Webhookdb::Replicator::Fake.resource_and_event_hook = ->(_) { [nil, nil] }
+        got = fake.upsert_webhook_body({"my_id" => "abc", "at" => "2024-01-15T12:00:00Z"})
+        expect(got).to be_nil
+        expect(fake.readonly_dataset(&:all)).to be_empty
+      end
+
       it "logs errors" do
         err = RuntimeError.new("hi")
         expect(fake).to receive(:_upsert_webhook).and_raise(err)
         logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
           expect do
-            fake.upsert_webhook(Webhookdb::Replicator::WebhookRequest.new(
-                                  body: {"a" => 1}, headers: {"X" => "1"}, path: "/hi", method: "POST",
-                                ))
+            upsert_webhook(fake, body: {"a" => 1}, headers: {"X-Yz" => "1"}, path: "/hi", method: "POST")
           end.to raise_error(err)
         end
         expect(logs).to contain_exactly(
           include_json(
             message: eq("upsert_webhook_error"),
             name: eq("Webhookdb::Replicator::Fake"),
+            exception: include("name" => "RuntimeError", "message" => "hi"),
             context: {
-              error: "hi",
-              request: {body: {a: 1}, headers: {X: "1"}, path: "/hi", method: "POST"},
+              request: {body: {a: 1}, headers: {"x-yz" => "1"}, path: "/hi", method: "POST"},
             },
           ),
         )
       end
 
-      describe "" do
-        before(:each) do
-          sint.organization.prepare_database_connections
+      it "does not log Amigo errors" do
+        err = Amigo::Retry::OrDie.new(1, 1)
+        expect(fake).to receive(:_upsert_webhook).and_raise(err)
+        logs = capture_logs_from(fake.logger, level: :info, formatter: :json) do
+          expect do
+            upsert_webhook(fake, body: {"a" => 1})
+          end.to raise_error(err)
+        end
+        expect(logs).to be_empty
+      end
+
+      it "strips null unicode codepoints from JSON" do
+        # See \u0000 in base.rb for more info
+        fake.upsert_webhook_body(
+          {
+            "my_id" => "abc",
+            "at" => Time.now.to_s,
+            "has_u0" => "b\u0000\u00004\u0000\\u0000 u\\\u0000z",
+          },
+        )
+        expect(fake.readonly_dataset(&:all)).to contain_exactly(
+          include(data: hash_including("has_u0" => "b4\\u0000 u\\z")),
+        )
+      end
+
+      describe "when the _resource_and_event returns an array" do
+        it "upserts multiple rows" do
+          Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |r|
+            [[r.body.merge("my_id" => "def"), r.body.merge("my_id" => "xyz")], nil]
+          }
+          got = fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s})
+          expect(got).to be_an(Array).and(have_length(2))
+          expect(fake.readonly_dataset(&:all)).to contain_exactly(
+            include(my_id: "def"),
+            include(my_id: "xyz"),
+          )
         end
 
-        after(:each) do
-          sint.organization.remove_related_database
-        end
-
-        it "strips null unicode codepoints from JSON" do
-          fake.create_table
-          # See \u0000 in base.rb for more info
-          fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s, "has_u0" => "b\u0000\u00004\u0000\\u0000 u"})
-          fake.readonly_dataset do |ds|
-            expect(ds.first).to include(data: hash_including("has_u0" => "b4\\u0000 u"))
-          end
+        it "errors if the returned event is not nil" do
+          Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |_|
+            [[], {}]
+          }
+          expect do
+            fake.upsert_webhook_body({"my_id" => "abc", "at" => Time.now.to_s})
+          end.to raise_error(Webhookdb::InvalidPostcondition, /array of resources with a non-nil event/)
         end
       end
     end
@@ -730,6 +787,13 @@ or leave blank to choose the first option.
         child_sint = Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
         expect(root_sint.dependents.first).to eq(child_sint)
         result = root_sint.replicator.find_dependent("fake_v1")
+        expect(result).to eq(child_sint)
+      end
+
+      it "can search an array of names" do
+        child_sint = Webhookdb::Fixtures.service_integration.depending_on(root_sint).create
+        expect(root_sint.dependents.first).to eq(child_sint)
+        result = root_sint.replicator.find_dependent(["abc", "fake_v1"])
         expect(result).to eq(child_sint)
       end
 
@@ -862,6 +926,128 @@ or leave blank to choose the first option.
           my_id: "x",
         ),
       )
+    end
+  end
+
+  describe "partitioning" do
+    describe Webhookdb::Replicator::FakeHashPartition do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_hash_partition_v1") }
+      let(:svc) { sint.replicator }
+
+      it_behaves_like "a replicator that supports hash partitioning" do
+        def body(i)
+          {
+            "my_id" => i.to_s,
+            "at" => "Thu, 30 Jul 2015 21:12:33 +0000",
+          }
+        end
+      end
+    end
+
+    describe Webhookdb::Replicator::FakeRangePartition do
+      let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "fake_range_partition_v1") }
+      let(:svc) { sint.replicator }
+
+      it_behaves_like "a replicator that supports range partitioning" do
+        def body(i)
+          {
+            "my_id" => i.to_s,
+            "at" => "Thu, #{i + 1} Jul 2015 21:12:33 +0000",
+          }
+        end
+      end
+    end
+
+    describe "schema management" do
+      let(:sint) do
+        Webhookdb::Fixtures.service_integration.create(service_name: "fake_hash_partition_v1", partition_value: 2)
+      end
+
+      before(:each) do
+        sint.organization.prepare_database_connections
+      end
+
+      after(:each) do
+        sint.organization.remove_related_database
+      end
+
+      it "can align partition names to a different parent table name" do
+        sint.update(table_name: "original")
+        sint.replicator.create_table
+        getnames = lambda do
+          sint.replicator.admin_dataset { |ds| sint.replicator.existing_partitions(ds.db).map(&:partition_name) }
+        end
+        # rubocop:disable Naming/VariableNumber
+        expect(getnames.call).to contain_exactly(:original_0, :original_1)
+        sint.rename_table(to: "other")
+        expect(getnames.call).to contain_exactly(:original_0, :original_1)
+        sint.replicator.partition_align_name
+        expect(getnames.call).to contain_exactly(:other_0, :other_1)
+        # rubocop:enable Naming/VariableNumber
+      end
+
+      it "can add indexes to existing table and partitions" do
+        sint.replicator.create_table
+        Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [
+          Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id]),
+        ]
+        mod_sql = sint.replicator.ensure_all_columns_modification.to_s.strip
+        expect(mod_sql).to include(<<~SQL.strip)
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS #{sint.opaque_id}_at_my_id_idx_0 ON public.#{sint.table_name}_0 (at, my_id);
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS #{sint.opaque_id}_at_my_id_idx_1 ON public.#{sint.table_name}_1 (at, my_id);
+          BEGIN;
+          CREATE INDEX IF NOT EXISTS #{sint.opaque_id}_at_my_id_idx ON ONLY public.#{sint.table_name} (at, my_id);
+          ALTER INDEX #{sint.opaque_id}_at_my_id_idx ATTACH PARTITION #{sint.opaque_id}_at_my_id_idx_0;
+          ALTER INDEX #{sint.opaque_id}_at_my_id_idx ATTACH PARTITION #{sint.opaque_id}_at_my_id_idx_1;
+          COMMIT;
+        SQL
+        expect { sint.organization.migrate_replication_tables }.to_not raise_error
+      end
+
+      it "uses index names of the appropriate length" do
+        sint.update(opaque_id: "svi_5borjkosbnoyyk7l0o0wg2eaq", table_name: "fhp_v1_77a9")
+        sint.replicator.create_table
+        Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [
+          Webhookdb::Replicator::IndexSpec.new(columns: [:at] * 20),
+        ]
+        mod_sql = sint.replicator.ensure_all_columns_modification.to_s.strip
+        expect(mod_sql).to include(<<~SQL.strip)
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_0 ON public.fhp_v1_77a9_0 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          CREATE INDEX CONCURRENTLY IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_1 ON public.fhp_v1_77a9_1 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          BEGIN;
+          CREATE INDEX IF NOT EXISTS svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ON ONLY public.fhp_v1_77a9 (at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at, at);
+          ALTER INDEX svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ATTACH PARTITION svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_0;
+          ALTER INDEX svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d1866e_idx ATTACH PARTITION svi_5borjkosbnoyyk7l0o0wg2eaq_9a98b93f4017cd0bd701d72d186_idx_1;
+          COMMIT;
+        SQL
+        expect { sint.organization.migrate_replication_tables }.to_not raise_error
+      end
+
+      it "deletes and recreates invalid indices" do
+        sint.replicator.create_table
+        Webhookdb::Replicator::FakeHashPartition.extra_index_specs = [
+          Webhookdb::Replicator::IndexSpec.new(columns: [:at, :my_id]),
+        ]
+        ad = Webhookdb::DBAdapter::PG.new
+        Sequel.connect(sint.organization.superuser_url_to_database!) do |db|
+          expect(ad.invalid_indexes_dataset(db, sint.replicator.dbadapter_table).all).to be_empty
+          db << <<~SQL
+            BEGIN;
+            CREATE INDEX #{sint.opaque_id}_at_my_id_idx_0 ON #{sint.table_name} (at, my_id);
+            UPDATE pg_index
+            SET indisvalid = false
+            WHERE indexrelid = '#{sint.opaque_id}_at_my_id_idx_0'::regclass;
+            COMMIT;
+          SQL
+          expect(ad.invalid_indexes_dataset(db, sint.replicator.dbadapter_table).all).to contain_exactly(
+            include(index_name: "#{sint.opaque_id}_at_my_id_idx_0", indisvalid: false),
+          )
+        end
+        expect { sint.organization.migrate_replication_tables }.to_not raise_error
+        sint.organization.admin_connection do |db|
+          expect(ad.invalid_indexes_dataset(db, sint.replicator.dbadapter_table).all).to be_empty
+        end
+      end
     end
   end
 end

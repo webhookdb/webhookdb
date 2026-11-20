@@ -5,7 +5,7 @@ require "webhookdb"
 module Webhookdb::Console
   extend Webhookdb::MethodUtilities
 
-  class Error < StandardError; end
+  class Error < Webhookdb::WebhookdbError; end
 
   class UnsafeOperation < Error; end
 

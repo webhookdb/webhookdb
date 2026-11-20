@@ -4,6 +4,7 @@ require "appydays/configurable"
 require "grape"
 require "appydays/loggable"
 require "pg"
+require "rack/session"
 require "sentry-ruby"
 require "sequel"
 require "sequel/adapters/postgres"
@@ -75,13 +76,24 @@ class Webhookdb::Service < Grape::API
 
   def self.decode_cookie(s)
     cfg = self.cookie_config
+    s = s.split(";").first
     s = s.delete_prefix(cfg[:key] + "=")
-    return cfg[:coder].decode(Rack::Utils.unescape(s))
+    s = Rack::Utils.unescape(s)
+    cookie_app = Rack::Session::Cookie.new(nil, cfg)
+    dc = cookie_app.encryptors.first
+    ds = dc.decrypt(s)
+    return ds
   end
 
-  ### Build the Rack app according to the configured environment.
-  def self.build_app
+  # Build the Rack app according to the configured environment.
+  # If +compile+ is true, make a fake request to the API which will precompile it.
+  # Using compile! alone does not work properly; most of the memory ends up being allocated later.
+  def self.build_app(compile: false)
     inner_app = self
+    if compile
+      inner_app.compile!
+      Rack::MockRequest.new(inner_app).get("/prewarm")
+    end
     builder = Rack::Builder.new do
       Webhookdb::Service::Middleware.add_middlewares(self)
       run inner_app
@@ -163,6 +175,10 @@ class Webhookdb::Service < Grape::API
     error!(e.message, 405)
   end
 
+  rescue_from Webhookdb::ExceptionCarrier do |e|
+    merror!(e.status, e.message, code: e.code, more: e.more, headers: e.headers)
+  end
+
   rescue_from Webhookdb::LockFailed do |_e|
     merror!(
       409,
@@ -191,17 +207,7 @@ class Webhookdb::Service < Grape::API
     status = e.respond_to?(:status) ? e.status : 500
     error_id = SecureRandom.uuid
     error_signature = Digest::MD5.hexdigest("#{e.class}: #{e.message}")
-
-    Webhookdb::Service.logger.error "[%s] Uncaught %p in service: %s" %
-      [error_id, e.class, e.message]
-    Webhookdb::Service.logger.debug { e.backtrace.join("\n") }
-    if ENV["PRINT_API_ERROR"]
-      puts e
-      puts e.backtrace
-    end
-
     more = {error_id:, error_signature:}
-
     if Webhookdb::Service.devmode
       msg = e.message
       more[:backtrace] = e.backtrace.join("\n")
@@ -210,6 +216,12 @@ class Webhookdb::Service < Grape::API
       msg = "An internal error occurred of type #{error_signature}. Error ID: #{error_id}"
     end
     Webhookdb::Service.logger.error("api_exception", {error_id:, error_signature:}, e)
+    Webhookdb::Service.logger.debug { e.backtrace.join("\n") }
+    if ENV["PRINT_API_ERROR"]
+      puts e
+      puts e.backtrace
+    end
+
     merror!(status, msg, code: "api_error", more:)
   end
 

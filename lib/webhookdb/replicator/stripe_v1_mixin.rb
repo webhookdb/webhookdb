@@ -66,10 +66,20 @@ Submit, then copy the key when Stripe shows it to you:
       return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
     end
 
-    unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("Restricted Key").backfill_key(self.service_integration)
+    unless (result = self.verify_backfill_credentials).verified?
+      msg = case result.http_error_status
+        when 403
+          self.service_integration.update(backfill_key: nil)
+          "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
+            "Please check the permissions by going to the list of restricted keys and " \
+            "hovering over the information icon in the entry for this key. " \
+            "Once you've verified or corrected the permissions for this key, " \
+            "please reenter the API Key you just created:"
+          else
+          self.clear_backfill_information
+          "Something is wrong with your configuration. Please look over the instructions and try again."
+      end
+      return self.calculate_backfill_state_machine.with_output(msg)
     end
 
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
@@ -79,22 +89,6 @@ Submit, then copy the key when Stripe shows it to you:
   end
 
   def restricted_key_resource_name = self.resource_name_plural.gsub(/^Stripe /, "")
-
-  def _verify_backfill_403_err_msg
-    return "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
-           "Please check the permissions by going to the list of restricted keys and " \
-           "hovering over the information icon in the entry for this key. " \
-           "Once you've verified or corrected the permissions for this key, " \
-           "please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Key is invalid. Please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Key you just created:"
-  end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)
     url = self._mixin_backfill_url

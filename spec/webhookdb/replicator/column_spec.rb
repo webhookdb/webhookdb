@@ -100,7 +100,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
-    it "will use nil if an intermediate key is missing and optional" do
+    it "uses nil if an intermediate key is missing and optional" do
       col = described_class.new(
         :end_date,
         described_class::DATE,
@@ -684,6 +684,57 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
       end
     end
 
+    describe "CONV_STR2HASH" do
+      let(:db) { Webhookdb::Postgres::Model.db }
+
+      it "converts the value" do
+        conv = described_class::CONV_STR2HASH
+        expect(conv.ruby.call("xyz")).to eq(-1_761_921_296)
+        expect(conv.ruby.call("a" * 200)).to eq(133_368_643)
+        expect(conv.ruby.call("")).to eq(-1_042_756_200)
+        expect(conv.ruby.call(nil)).to eq(-1_042_756_200)
+      end
+
+      it "converts SQL values" do
+        conv = described_class::CONV_STR2HASH
+        e = conv.sql.call("xyz")
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_761_921_296)
+        e = conv.sql.call("a" * 200)
+        expect(db.select(e).first.to_a[0][1]).to eq(133_368_643)
+        e = conv.sql.call("")
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_042_756_200)
+        e = conv.sql.call(nil)
+        expect(db.select(e).first.to_a[0][1]).to eq(-1_042_756_200)
+      end
+
+      it "matches Ruby and SQL conversions" do
+        Array.new(100) do
+          words = Faker::Lorem.words(number: Faker::Number.between(from: 1, to: 200))
+          s = words.join
+          e = described_class::CONV_STR2HASH.sql.call(s)
+          dbval = db.select(e).first.to_a[0][1]
+          rubyval = described_class::CONV_STR2HASH.ruby.call(s)
+          expect(rubyval).to eq(dbval)
+        end
+      end
+
+      it "matches conversions listed in the spec file" do
+        hashes = JSON.parse(File.read("spec/data/str2hashconv_spec.json"))
+        hashes.each do |h|
+          input = h.fetch("input")
+          output = h.fetch("output")
+          output_msg = "#{output}|#{input}"
+
+          rubyval = described_class::CONV_STR2HASH.ruby.call(input)
+          expect("#{rubyval}|#{input}").to eq(output_msg)
+
+          sql_expr = described_class::CONV_STR2HASH.sql.call(input)
+          dbval = db.select(sql_expr).first.to_a[0][1]
+          expect("#{dbval}|#{input}").to eq(output_msg)
+        end
+      end
+    end
+
     describe "converter_array_element" do
       let(:db) { Webhookdb::Postgres::Model.db }
 
@@ -880,6 +931,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
           to_utc_date: Date.new(2013, 1, 2),
           unix_ts: Time.parse("1970-01-01 01:40:00Z"),
           using_backfill_expr: "1",
+          using_null_backfill_expr: "1",
           using_backfill_statement: "1",
         )
       end
@@ -914,6 +966,7 @@ RSpec.describe Webhookdb::Replicator::Column, :db do
           to_utc_date: Date.new(2013, 1, 2),
           unix_ts: Time.parse("1970-01-01 01:40:00Z"),
           using_backfill_expr: "hi there",
+          using_null_backfill_expr: nil,
           using_backfill_statement: "11",
         )
       end

@@ -39,7 +39,7 @@ class Webhookdb::Webterm
         html.sub!("/* REPLACE_WHDB_ENV */", "window.whdbEnv = [['WEBHOOKDB_API_HOST', '#{Webhookdb.api_url}']]")
         @cached_html = html.chars
       end
-      return [200, {"Content-Type" => "text/html"}, @cached_html]
+      return [200, {Rack::CONTENT_TYPE => "text/html"}, @cached_html]
     end
   end
 end

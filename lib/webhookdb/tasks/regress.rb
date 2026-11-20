@@ -9,7 +9,7 @@ require "webhookdb/postgres"
 module Webhookdb::Tasks
   class Regress < Rake::TaskLib
     def initialize
-      super()
+      super
       namespace :regress do
         desc "Creates databases for all orgs that do not have them."
         task :prepare do

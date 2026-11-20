@@ -175,7 +175,7 @@ RSpec.describe Webhookdb::SpecHelpers::Service do
       it "fails for a valid JSON response that doesn't include the specified member" do
         expect do
           expect(array_response).to have_json_body.of_length(2)
-        end.to fail_with(/:length => 2/i)
+        end.to fail_with(/length: 2/i)
       end
     end
 
@@ -248,7 +248,7 @@ RSpec.describe Webhookdb::SpecHelpers::Service do
       it "fails for a valid JSON response that is of the correct type but a different length" do
         expect do
           expect(array_response).to have_json_body(Array).of_length(2)
-        end.to fail_with(/length => 2/i)
+        end.to fail_with(/length: 2/i)
       end
     end
 

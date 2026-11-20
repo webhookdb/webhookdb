@@ -7,10 +7,13 @@ require "webhookdb/stripe"
 require "webhookdb/jobs/replication_migration"
 
 class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
-  class SchemaMigrationError < StandardError; end
+  include Webhookdb::Admin::Linked
+
+  class SchemaMigrationError < Webhookdb::ProgrammingError; end
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:name, :key, :billing_email]
   plugin :column_encryption do |enc|
     enc.column :readonly_connection_url_raw
     enc.column :admin_connection_url_raw
@@ -34,6 +37,9 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
               adder: ->(om) { om.update(organization_id: id, verified: false) },
               order: :id
   one_to_many :service_integrations, class: "Webhookdb::ServiceIntegration", order: :id
+  one_to_many :error_handlers, class: "Webhookdb::Organization::ErrorHandler", order: :id
+  one_to_many :saved_queries, class: "Webhookdb::SavedQuery", order: :id
+  one_to_many :saved_views, class: "Webhookdb::SavedView", order: :id
   one_to_many :webhook_subscriptions, class: "Webhookdb::WebhookSubscription", order: :id
   many_to_many :feature_roles, class: "Webhookdb::Role", join_table: :feature_roles_organizations, right_key: :role_id
   one_to_many :all_webhook_subscriptions,
@@ -124,6 +130,19 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ConnectionCache.borrow(self.admin_connection_url_raw, **kw, &)
   end
 
+  def superuser_url_raw!
+    org_uri = URI(self.admin_connection_url_raw)
+    superuser_url = Webhookdb::Organization::DbBuilder.available_server_urls.find { |u| URI(u).host == org_uri.host }
+    raise Webhookdb::InvalidPrecondition, "cannot find superuser url for #{org_uri.host}" if superuser_url.nil?
+    return superuser_url
+  end
+
+  def superuser_url_to_database!
+    u = URI(superuser_url_raw!)
+    u.path = URI(self.admin_connection_url_raw).path
+    return u.to_s
+  end
+
   def execute_readonly_query(sql)
     max_rows = self.max_query_rows || self.class.max_query_rows
     return self.readonly_connection do |conn|
@@ -142,6 +161,33 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       end
       return r
     end
+  end
+
+  # Run the given SQL inside the org, and use special error handling if it fails.
+  # @return [Array<Webhookdb::Organization::QueryResult,String,nil>] Tuple of query result, and optional message.
+  #   On query success, return <QueryResult, nil>.
+  #   On DatabaseError, return <nil, message>.
+  #   On other types of errors, raise.
+  def execute_readonly_query_with_help(sql)
+    result = self.execute_readonly_query(sql)
+    return result, nil
+  rescue Sequel::DatabaseError => e
+    self.logger.error("db_query_database_error", e)
+    # We want to handle InsufficientPrivileges and UndefinedTable explicitly
+    # since we can hint the user at what to do.
+    # Otherwise, we should just return the Postgres exception.
+    msg = ""
+    case e.wrapped_exception
+      when PG::UndefinedTable
+        missing_table = e.wrapped_exception.message.match(/relation (.+) does not/)&.captures&.first
+        msg = "The table #{missing_table} does not exist. Run `webhookdb db tables` to see available tables." if
+          missing_table
+      when PG::InsufficientPrivilege
+        msg = "You do not have permission to perform this query. Queries must be read-only."
+      else
+        msg = e.wrapped_exception.message
+    end
+    return [nil, msg]
   end
 
   class QueryResult
@@ -199,9 +245,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return "#{self.name} (#{self.key})"
   end
 
-  def prepare_database_connections?
-    return self.prepare_database_connections(safe: true)
-  end
+  # @return [Webhookdb::Organization::DbBuilder]
+  def db_builder = Webhookdb::Organization::DbBuilder.new(self)
+
+  def prepare_database_connections? = self.prepare_database_connections(safe: true)
 
   # Build the org-specific users, database, and set our connection URLs to it.
   # @param safe [*] If true, noop if connection urls are set.
@@ -212,7 +259,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         return if safe
         raise Webhookdb::InvalidPrecondition, "connections already set"
       end
-      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder = self.db_builder
       builder.prepare_database_connections
       self.admin_connection_url_raw = builder.admin_url
       self.readonly_connection_url_raw = builder.readonly_url
@@ -234,7 +281,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       end
       # Use the raw URL, even though we know at this point
       # public_host is empty so raw and public host urls are the same.
-      Webhookdb::Organization::DbBuilder.new(self).create_public_host_cname(self.readonly_connection_url_raw)
+      self.db_builder.create_public_host_cname(self.readonly_connection_url_raw)
       self.save_changes
     end
   end
@@ -244,7 +291,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def remove_related_database
     self.db.transaction do
       self.lock!
-      Webhookdb::Organization::DbBuilder.new(self).remove_related_database
+      self.db_builder.remove_related_database
       self.admin_connection_url_raw = ""
       self.readonly_connection_url_raw = ""
       self.save_changes
@@ -307,7 +354,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       select_map(:sequence_name).
       to_set
     cols_in_org_db = {}
-    indices_in_org_db = Set.new
+    indexes_in_org_db = []
     self.admin_connection do |db|
       cols_in_org_db = db[Sequel[:information_schema][:columns]].
         where(table_schema: self.replication_schema, table_name: tables).
@@ -318,10 +365,12 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
         group_by(:table_name).
         all.
         to_h { |c| [c[:table_name], c[:columns]] }
-      indices_in_org_db = db[Sequel[:pg_indexes]].
+      db[Sequel[:pg_indexes]].
         where(schemaname: self.replication_schema, tablename: tables).
-        select_map(:indexname).
-        to_set
+        select_map([:tablename, :indexname]).
+        each do |(tbl, idx)|
+          indexes_in_org_db << Sequel[tbl.to_sym][idx.to_sym]
+        end
     end
 
     self.service_integrations.each do |sint|
@@ -330,11 +379,11 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       cols_for_sint = svc.storable_columns.map { |c| c.name.to_s }
       all_sint_cols_exist = (cols_for_sint - existing_columns).empty?
 
-      all_indices_exist = svc.indices(svc.dbadapter_table).all? do |ind|
-        indices_in_org_db.include?(ind.name.to_s)
+      all_indexes_exist = svc.indexes(svc.dbadapter_table).all? do |ind|
+        Webhookdb::Replicator.refers_to_any_same_index?(Sequel[svc.dbadapter_table.name][ind.name], indexes_in_org_db)
       end
 
-      svc.ensure_all_columns unless all_sint_cols_exist && all_indices_exist
+      svc.ensure_all_columns unless all_sint_cols_exist && all_indexes_exist
       if svc.requires_sequence? && !sequences_in_app_db.include?(sint.sequence_name)
         sint.ensure_sequence(skip_check: true)
       end
@@ -345,7 +394,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   def roll_database_credentials
     self.db.transaction do
       self.lock!
-      builder = Webhookdb::Organization::DbBuilder.new(self)
+      builder = self.db_builder
       builder.roll_connection_credentials
       self.admin_connection_url_raw = builder.admin_url
       self.readonly_connection_url_raw = builder.readonly_url
@@ -354,13 +403,10 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
   end
 
   def migrate_replication_schema(schema)
-    unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(schema)
-      msg = "Sorry, this is not a valid schema name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
-      raise SchemaMigrationError, msg
-    end
+    Webhookdb::DBAdapter.validate_identifier!(schema, type: "schema")
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self)
     raise SchemaMigrationError, "destination and target schema are the same" if schema == self.replication_schema
-    builder = Webhookdb::Organization::DbBuilder.new(self)
+    builder = self.db_builder
     sql = builder.migration_replication_schema_sql(self.replication_schema, schema)
     self.admin_connection(transaction: true) do |db|
       db << sql
@@ -427,6 +473,17 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return self.add_all_membership(opts)
   end
 
+  def close(confirm:)
+    raise Webhookdb::InvalidPrecondition, "confirm must be true to close the org" unless confirm
+    unless self.service_integrations_dataset.empty?
+      msg = "Organization[#{self.key} cannot close with active service integrations"
+      raise Webhookdb::InvalidPrecondition, msg
+    end
+    memberships = self.all_memberships_dataset.all.each(&:destroy)
+    self.destroy
+    return [self, memberships]
+  end
+
   # SUBSCRIPTION PERMISSIONS
 
   def active_subscription?
@@ -445,7 +502,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
     return Webhookdb::ServiceIntegration.where(organization: self).count < limit
   end
 
-  def available_replicator_names
+  def available_replicators
     available = Webhookdb::Replicator.registry.values.filter do |desc|
       # The org must have any of the flags required for the service. In other words,
       # the intersection of desc[:feature_roles] & org.feature_roles must
@@ -455,7 +512,7 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
       org_has_access = (self.feature_roles.map(&:name) & desc.feature_roles).present?
       org_has_access
     end
-    return available.map(&:name)
+    return available
   end
 
   #
@@ -472,6 +529,57 @@ class Webhookdb::Organization < Webhookdb::Postgres::Model(:organizations)
 
   # @!attribute service_integrations
   #   @return [Array<Webhookdb::ServiceIntegration>]
+
+  # @!attribute created_at
+  #   @return [Time,nil]
+
+  # @!attribute updated_at
+  #   @return [Time,nil]
+
+  # @!attribute soft_deleted_at
+  #   @return [Time,nil]
+
+  # @!attribute name
+  #   @return [String]
+
+  # @!attribute key
+  #   @return [String]
+
+  # @!attribute billing_email
+  #   @return [String]
+
+  # @!attribute stripe_customer_id
+  #   @return [String]
+
+  # @!attribute readonly_connection_url_raw
+  #   @return [String]
+
+  # @!attribute admin_connection_url_raw
+  #   @return [String]
+
+  # @!attribute public_host
+  #   @return [String]
+
+  # @!attribute cloudflare_dns_record_json
+  #   @return [Hash]
+
+  # @!attribute replication_schema
+  #   @return [String]
+
+  # @!attribute organization_job_semaphore_size
+  #   @return [Integer]
+
+  # @!attribute minimum_sync_seconds
+  #   @return [Integer]
+
+  # @!attribute sync_target_timeout
+  #   @return [Integer]
+
+  # @!attribute max_query_rows
+  #   @return [Integer]
+
+  # @!attribute priority_backfill
+  #   @return [true,false]
 end
 
 require "webhookdb/organization/alerting"
@@ -497,6 +605,8 @@ require "webhookdb/organization/db_builder"
 #  minimum_sync_seconds        | integer                  | NOT NULL
 #  sync_target_timeout         | integer                  | NOT NULL DEFAULT 30
 #  max_query_rows              | integer                  |
+#  priority_backfill           | boolean                  | NOT NULL DEFAULT false
+#  text_search                 | tsvector                 |
 # Indexes:
 #  organizations_pkey     | PRIMARY KEY btree (id)
 #  organizations_key_key  | UNIQUE btree (key)
@@ -504,8 +614,11 @@ require "webhookdb/organization/db_builder"
 # Referenced By:
 #  feature_roles_organizations      | feature_roles_organizations_organization_id_fkey      | (organization_id) REFERENCES organizations(id)
 #  logged_webhooks                  | logged_webhooks_organization_id_fkey                  | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+#  oauth_sessions                   | oauth_sessions_organization_id_fkey                   | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  organization_database_migrations | organization_database_migrations_organization_id_fkey | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  organization_memberships         | organization_memberships_organization_id_fkey         | (organization_id) REFERENCES organizations(id)
+#  saved_queries                    | saved_queries_organization_id_fkey                    | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
+#  saved_views                      | saved_views_organization_id_fkey                      | (organization_id) REFERENCES organizations(id) ON DELETE CASCADE
 #  service_integrations             | service_integrations_organization_id_fkey             | (organization_id) REFERENCES organizations(id)
 #  webhook_subscriptions            | webhook_subscriptions_organization_id_fkey            | (organization_id) REFERENCES organizations(id)
 # ------------------------------------------------------------------------------------------------------------------------------------------------------------

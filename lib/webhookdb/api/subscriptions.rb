@@ -6,6 +6,8 @@ require "webhookdb/api"
 require "webhookdb/admin_api"
 
 class Webhookdb::API::Subscriptions < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   resource :organizations do
     route_param :org_identifier, type: String do
       resource :subscriptions do
@@ -19,7 +21,7 @@ class Webhookdb::API::Subscriptions < Webhookdb::API::V1
 
         desc "Authenticates stripe user and returns stripe checkout session or billing portal url"
         params do
-          optional :plan, type: String
+          optional :plan, type: TrimmedString
           optional :guard_confirm
         end
         post :open_portal do

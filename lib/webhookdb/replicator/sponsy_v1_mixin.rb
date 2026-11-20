@@ -24,10 +24,6 @@ module Webhookdb::Replicator::SponsyV1Mixin
     ]
   end
 
-  def _verify_backfill_err_msg
-    return "Looks like your API key is invalid."
-  end
-
   def api_url
     return "https://api.getsponsy.com"
   end
@@ -99,12 +95,12 @@ module Webhookdb::Replicator::SponsyV1Mixin
       )
     rescue Webhookdb::Http::Error => e
       raise e unless e.status == 404
-      self.logger.warn("sponsy_404", error: e)
+      self.logger.warn("sponsy_404", e)
       return [], nil
     end
 
     data = response.parsed_response.fetch("data")
-    after_cursor = response.parsed_response.fetch("cursor", {}).fetch("afterCursor", nil)
+    after_cursor = response.parsed_response.dig("cursor", "afterCursor")
     return data, nil if after_cursor.nil?
     return [], nil if data.empty?
     last_updated = data.last.fetch("updatedAt")
@@ -117,7 +113,7 @@ module Webhookdb::Replicator::SponsyV1Mixin
       self.find_api_key.blank?
 
     publications_svc = self.service_integration.depends_on.replicator
-    backfillers = publications_svc.readonly_dataset(timeout: :fast) do |pub_ds|
+    backfillers = publications_svc.admin_dataset(timeout: :fast) do |pub_ds|
       pub_ds = Webhookdb::Dbutil.reduce_expr(
         pub_ds,
         :|,

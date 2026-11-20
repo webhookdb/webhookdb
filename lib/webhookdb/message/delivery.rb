@@ -7,6 +7,7 @@ require "webhookdb/message"
 class Webhookdb::Message::Delivery < Webhookdb::Postgres::Model(:message_deliveries)
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:template, :to, :recipient]
 
   many_to_one :recipient, class: "Webhookdb::Customer"
   one_to_many :bodies, class: "Webhookdb::Message::Body"
@@ -115,6 +116,7 @@ end
 #  recipient_id         | integer                  |
 #  extra_fields         | jsonb                    | NOT NULL DEFAULT '{}'::jsonb
 #  soft_deleted_at      | timestamp with time zone |
+#  text_search          | tsvector                 |
 # Indexes:
 #  message_deliveries_pkey                     | PRIMARY KEY btree (id)
 #  message_deliveries_transport_message_id_key | UNIQUE btree (transport_message_id)

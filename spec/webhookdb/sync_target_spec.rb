@@ -1,8 +1,22 @@
 # frozen_string_literal: true
 
-RSpec.describe "Webhookdb::SyncTarget", :db do
+RSpec.describe "Webhookdb::SyncTarget", :db, reset_configuration: Webhookdb::SyncTarget do
   let(:described_class) { Webhookdb::SyncTarget }
   let(:sint) { Webhookdb::Fixtures.service_integration.create }
+
+  transport_errors = [
+    # These errors happen when DNS can't resolve, but the error isn't consistent.
+    SocketError.new(
+      "Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: nodename nor servname provided, or not known",
+    ),
+    Class.new(StandardError) do
+      def self.name = "Socket::ResolutionError"
+      def error_code = "123"
+    end.new("Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: Name or service not known)"),
+    Errno::ENETUNREACH.new("Failed to open TCP connection to a.b.zyxw:443 (getaddrinfo: blah)"),
+    # This is a really common transport error, sort of like an http timeout but not raised by http
+    Errno::ECONNRESET.new("Connection reset", 2),
+  ]
 
   describe "association" do
     it "returns its associated type and id" do
@@ -32,6 +46,61 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
     end
   end
 
+  describe "sync_stats" do
+    let(:syt) { Webhookdb::Fixtures.sync_target.create(page_size: 100) }
+
+    def add_sync_stat(t, **kw) = syt.add_sync_stat(call_start: t, remote_start: t, **kw)
+
+    it "can summarize stats" do
+      expect(syt.sync_stat_summary).to eq({})
+      Timecop.freeze("2024-10-21T13:27:29Z") do
+        add_sync_stat(12.seconds.ago)
+        add_sync_stat(9.seconds.ago, response_status: 503)
+        add_sync_stat(6.seconds.ago, exception: RuntimeError.new("hi"))
+        add_sync_stat(3.seconds.ago, remote_start: 1.second.ago)
+        expect(syt.sync_stat_summary).to include(
+          avg_call_latency: 7.5,
+          avg_remote_latency: 7.0,
+          errors: 2,
+        )
+      end
+    end
+
+    it "includes calls per minute" do
+      Timecop.freeze("2024-10-10T00:00:00Z") do
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 2, avg_rows_minute: 200)
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 4)
+        Timecop.freeze(30.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(avg_calls_minute: 6)
+      end
+    end
+
+    it "includes earliest and latest calls" do
+      Timecop.freeze("2024-10-10T00:00:00Z") do
+        Timecop.freeze(12.seconds.ago) { add_sync_stat(Time.now) }
+        Timecop.freeze(3.seconds.ago) { add_sync_stat(Time.now) }
+        expect(syt.sync_stat_summary).to include(
+          earliest: match_time(12.seconds.ago),
+          latest: match_time(3.seconds.ago),
+        )
+      end
+    end
+
+    it "ignores missing keys" do
+      syt.sync_stats = [{"x" => 1}, {"t" => 5}]
+      expect(syt.sync_stat_summary).to include(
+        avg_remote_latency: 0,
+        avg_call_latency: 0,
+        avg_rows_minute: 0,
+        earliest: match_time(0),
+        errors: 0,
+        latest: match_time(0),
+      )
+    end
+  end
+
   describe "schema_and_table_string" do
     it "displays" do
       described_class.default_schema = "defaultschema"
@@ -42,8 +111,6 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(st.schema_and_table_string).to eq("foo.xyz")
       st.table = "bar"
       expect(st.schema_and_table_string).to eq("foo.bar")
-    ensure
-      described_class.reset_configuration
     end
   end
 
@@ -65,7 +132,6 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       Timecop.freeze do
         example.run
       end
-      described_class.reset_configuration
     end
 
     it "returns now if the sync has not run" do
@@ -120,7 +186,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(stgt.jitter).to eq(15)
     end
 
-    it "will never use a jitter greater than 1/4 of the period" do
+    it "nevers use a jitter greater than 1/4 of the period" do
       stgt = Webhookdb::Fixtures.sync_target(period_seconds: 0).instance
       expect(stgt.jitter).to eq(1)
       stgt.period_seconds = 1
@@ -246,7 +312,7 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(req).to have_been_made
     end
 
-    it "raises error if http connection is invalid" do
+    it "raises invalid connection on http error" do
       req = stub_request(:post, "https://a.b/").
         to_return(status: 403, body: "", headers: {})
 
@@ -259,16 +325,55 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       expect(req).to have_been_made
     end
 
-    it "raises error if http times out" do
+    it "raises invalid connection on http timeout" do
       req = stub_request(:post, "https://a.b/").to_timeout
 
       expect do
         described_class.verify_http_connection("https://u:p@a.b")
       end.to raise_error(
         described_class::InvalidConnection,
-        include("POST to https://a.b timed out: execution expired"),
+        include("POST to https://a.b failed: execution expired"),
       )
       expect(req).to have_been_made
+    end
+
+    transport_errors.each do |e|
+      it "raises invalid connection for transport errors (#{e.class.name})" do
+        # To make sure this works as expected, you can allow_net_connect and comment out the request stubs.
+        # Socket errors are raised much lower down than webmock, so we can't use normal rspec stubs.
+        # WebMock.allow_net_connect!
+        req = stub_request(:post, "https://a.b.zyxw").and_raise(e)
+        expect do
+          described_class.verify_http_connection("https://a.b.zyxw")
+        end.to raise_error(described_class::InvalidConnection, include("POST to https://a.b.zyxw failed: "))
+        expect(req).to have_been_made
+      end
+    end
+
+    it "reraises unhandled errors" do
+      err = ArgumentError.new("hello")
+      req = stub_request(:post, "https://a.b/").and_raise(err)
+
+      expect do
+        described_class.verify_http_connection("https://u:p@a.b")
+      end.to raise_error(err)
+      expect(req).to have_been_made
+    end
+  end
+
+  describe "latency" do
+    it "returns the duration between now and the last sync" do
+      Timecop.freeze do
+        syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: Time.now - 35.seconds)
+        expect(syt).to have_attributes(latency: be_within(0.1).of(35.seconds))
+      end
+    end
+
+    it "uses 0 for a future or missing last sync time" do
+      syt = Webhookdb::Fixtures.sync_target.create(last_synced_at: nil)
+      expect(syt).to have_attributes(latency: 0)
+      syt.last_synced_at = 10.minutes.from_now
+      expect(syt).to have_attributes(latency: 0)
     end
   end
 
@@ -317,6 +422,11 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: Time.parse("Thu, 30 Aug 2017 21:12:33 +0000"))
       end.to raise_error(RuntimeError)
       expect(sync_tgt.db[:pg_locks].where(classid: described_class::ADVISORY_LOCK_KEYSPACE).all).to be_empty
+    end
+
+    it "noops if disabled" do
+      sync_tgt = Webhookdb::Fixtures.sync_target.create(disabled: true)
+      expect(sync_tgt.run_sync(now: Time.now)).to be(false)
     end
 
     describe "with a postgres target" do
@@ -427,9 +537,9 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       end
     end
 
-    describe "with an https target" do
+    shared_examples_for "an https sync target" do |**params|
       url = "https://user:pass@sync-target-webhook/xyz"
-      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).https(url).create }
+      let(:sync_tgt) { Webhookdb::Fixtures.sync_target(service_integration: sint).https(url).create(**params) }
 
       it "incrementally POSTs to the webhook and sets last synced" do
         t1 = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
@@ -484,6 +594,10 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: t2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time(t2))
         expect(sync2_req).to have_been_made
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("dr", "t"),
+          hash_including("dr", "t"),
+        )
       end
 
       it "records timestamp of last successful synced item, logs, and ignores http errors" do
@@ -494,14 +608,20 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
         sync_tgt.run_sync(now: Time.now)
         expect(reqs).to have_been_made.times(2)
         expect(sync_tgt).to have_attributes(last_synced_at: match_time("Thu, 30 Jul 2017 21:12:33 +0000"))
+        expect(sync_tgt.refresh.sync_stats.to_a).to contain_exactly(
+          hash_including("dr", "t"),
+          hash_including("dr", "t", "rs" => 413),
+        )
       end
 
-      it "logs and does not reraise ECONNRESET" do
-        sync_tgt.update(page_size: 2)
-        reqs = stub_request(:post, "https://sync-target-webhook/xyz").and_raise(Errno::ECONNRESET)
-        sync_tgt.run_sync(now: Time.now)
-        expect(reqs).to have_been_made
-        expect(sync_tgt).to have_attributes(last_synced_at: be_nil)
+      transport_errors.each do |e|
+        it "logs and does not reraise transport errors (#{e.class.name})" do
+          sync_tgt.update(page_size: 2)
+          reqs = stub_request(:post, "https://sync-target-webhook/xyz").and_raise(e)
+          sync_tgt.run_sync(now: Time.now)
+          expect(reqs).to have_been_made
+          expect(sync_tgt).to have_attributes(last_synced_at: be_nil)
+        end
       end
 
       it "records timestamp of last successful synced item and raises if a non-http error occurs" do
@@ -520,13 +640,69 @@ RSpec.describe "Webhookdb::SyncTarget", :db do
       it "raises a Deleted error if the sync target is destroyed during the sync" do
         req = stub_request(:post, "https://sync-target-webhook/xyz").
           to_return do
-            # Destroy this while the sync is running
-            Webhookdb::SyncTarget[sync_tgt.id]&.destroy
-            {status: 200, body: "", headers: {}}
-          end
+          # Destroy this while the sync is running
+          Webhookdb::SyncTarget[sync_tgt.id]&.destroy
+          {status: 200, body: "", headers: {}}
+        end
         expect { sync_tgt.run_sync(now: Time.now) }.to raise_error(Webhookdb::SyncTarget::Deleted)
         expect(req).to have_been_made
       end
+
+      it "records only up to MAX_STATS" do
+        stub_const("Webhookdb::SyncTarget::MAX_STATS", 13)
+        sync_tgt.update(page_size: 1)
+        Array.new(20) do |i|
+          sint.replicator.upsert_webhook_body({"my_id" => "a-#{i}", "at" => "Thu, 30 Jul 2016 21:12:33 +0000"})
+        end
+        req = stub_request(:post, "https://sync-target-webhook/xyz").
+          to_return(status: 200, body: "", headers: {})
+        sync_tgt.run_sync(now: Time.now)
+        expect(req).to have_been_made.times(23) # new rows, plus the 3 original
+        expect(sync_tgt.refresh.sync_stats).to have_length(13)
+      end
+
+      describe "when the max transaction timeout is reached" do
+        before(:each) do
+          described_class.max_transaction_seconds = 0
+          sync_tgt.update(page_size: 1)
+        end
+
+        final_synced_row_ts = Time.parse("Thu, 30 Jul 2016 21:12:33 +0000")
+        now = Time.parse("Thu, 30 Aug 2017 21:12:33 +0000")
+
+        it "has no special behavior if not already in a job" do
+          Thread.current[:sidekiq_context] = nil
+          sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+            to_return(status: 200, body: "", headers: {})
+          expect(Webhookdb::Jobs::SyncTargetRunSync).to_not receive(:perform_async)
+
+          sync_tgt.run_sync(now:)
+          expect(sync_tgt).to have_attributes(last_synced_at: match_time(now))
+          expect(sync1_req).to have_been_made.times(2)
+        end
+
+        it "stops and reschedules itself if there is a sidekiq context" do
+          Thread.current[:sidekiq_context] = {}
+          sync1_req = stub_request(:post, "https://sync-target-webhook/xyz").
+            to_return(status: 200, body: "", headers: {})
+          expect(Webhookdb::Jobs::SyncTargetRunSync).to receive(:perform_async).with(sync_tgt.id)
+
+          sync_tgt.run_sync(now:)
+          # Last synced should be the row timestamp, not 'now', since we stopped early.
+          expect(sync_tgt).to have_attributes(last_synced_at: match_time(final_synced_row_ts))
+          expect(sync1_req).to have_been_made
+        ensure
+          Thread.current[:sidekiq_context] = nil
+        end
+      end
+    end
+
+    describe "with a single threaded https target" do
+      it_behaves_like "an https sync target"
+    end
+
+    describe "with a multi-threaded https sync target", db: :no_transaction do
+      it_behaves_like "an https sync target", {parallelism: 3}
     end
   end
 end

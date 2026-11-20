@@ -3,8 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
-  it_behaves_like "a replicator", "github_release_v1" do
-    let(:supports_row_diff) { false }
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -35,9 +34,9 @@ RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
   end
 
   # Not supported for releases, we always stomp
-  # it_behaves_like "a replicator that prevents overwriting new data with old", "github_release_v1"
+  # it_behaves_like "a replicator that prevents overwriting new data with old"
 
-  it_behaves_like "a replicator that may have a minimal body", "github_release_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -55,7 +54,7 @@ RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
       JSON
     end
   end
-  it_behaves_like "a replicator that deals with resources and wrapped events", "github_release_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_json) { resource_in_envelope_json.fetch("release") }
     let(:resource_in_envelope_headers) { {"X-Github-Hook-Id" => "1"} }
     let(:resource_in_envelope_json) do
@@ -94,7 +93,7 @@ RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
   # This is tested through github_issue_v1
   # it_behaves_like "a replicator that verifies backfill secrets"
 
-  it_behaves_like "a replicator that can backfill", "github_release_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:api_url) { "my/code" }
     let(:page1_response) do
       <<~JSON
@@ -175,7 +174,7 @@ RSpec.describe Webhookdb::Replicator::GithubReleaseV1, :db do
   end
 
   # Not supported for releases
-  # it_behaves_like "a replicator that can backfill incrementally", "github_release_v1"
+  # it_behaves_like "a replicator that can backfill incrementally"
 
   # Tested through github_issue
   # describe "webhook validation"

@@ -6,7 +6,18 @@ require "rack/ssl-enforcer"
 require "sentry-ruby"
 require "appydays/loggable/request_logger"
 
+require "webhookdb/redis"
+require "webhookdb/async/web_autoscaler"
 require "webhookdb/service" unless defined?(Webhookdb::Service)
+
+class Rack::SslEnforcer
+  alias original_call call
+  def call(env)
+    resp = original_call(env)
+    resp[1].transform_keys!(&:downcase)
+    return resp
+  end
+end
 
 module Webhookdb::Service::Middleware
   def self.add_middlewares(builder)
@@ -30,13 +41,37 @@ module Webhookdb::Service::Middleware
                  credentials: true,
                  expose: ["ETag", Webhookdb::Service::AUTH_TOKEN_HEADER]
       end
+      allow do
+        origins("*")
+        resource "/v1/saved_queries/*",
+                 headers: :any,
+                 methods: [:get],
+                 credentials: false,
+                 expose: "*"
+      end
+      allow do
+        origins("*")
+        resource "/v1/db/run_sql",
+                 headers: :any,
+                 methods: [:get, :post],
+                 credentials: false,
+                 expose: "*"
+      end
     end
   end
 
   def self.add_common_middleware(builder)
-    builder.use(Rack::ContentLength)
-    builder.use(Rack::Chunked)
     builder.use(Sentry::Rack::CaptureExceptions)
+    if Webhookdb::Async::WebAutoscaler.enabled
+      builder.use(
+        Amigo::Autoscaler::Checkers::WebLatency::Middleware,
+        redis: Webhookdb::Redis.cache,
+        namespace: Webhookdb::Async::WebAutoscaler::NAMESPACE,
+      )
+    end
+
+    builder.use(Rack::ContentLength)
+    builder.use(Rack::Deflater)
   end
 
   def self.add_dev_middleware(builder)
@@ -111,12 +146,16 @@ module Webhookdb::Service::Middleware
     def request_tags(env)
       tags = super
       begin
-        tags[:customer_id] = env["warden"].user(:customer)&.id || 0
+        c = env["warden"].user(:customer)
       rescue Sequel::DatabaseError
         # If we cant hit the database, ignore this for now.
         # We run this code on all code paths, including those that don't need the customer,
         # and we want those to run even if the DB is down (like health checks, for example).
-        nil
+        c = nil
+      end
+      if c
+        tags[:customer_id] = c.id || 0
+        tags[:customer] = c.email
       end
       return tags
     end

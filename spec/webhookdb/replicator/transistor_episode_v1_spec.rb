@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
-  it_behaves_like "a replicator", "transistor_episode_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -50,7 +50,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     let(:expected_data) { body["data"] }
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "transistor_episode_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -176,7 +176,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "transistor_episode_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {
@@ -333,7 +333,7 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "transistor_episode_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:page1_response) do
       <<~R
         {
@@ -454,6 +454,93 @@ RSpec.describe Webhookdb::Replicator::TransistorEpisodeV1, :db do
           to_return(status: 200, body: page2_response, headers: {"Content-Type" => "application/json"}),
       ]
       return old_reqs + new_reqs
+    end
+  end
+
+  it_behaves_like "a replicator that uses enrichments", stores_enrichment_column: false do
+    let(:body) do
+      JSON.parse(<<~JSON)
+        {
+           "data":{
+              "id":"655205",
+              "type":"episode",
+              "attributes":{
+                 "title":"THE SHOW",
+                 "number":1,
+                 "season":1,
+                 "status":"published",
+                 "published_at":"2021-09-20T10:51:45.707-07:00",
+                 "duration":236,
+                 "explicit":false,
+                 "keywords":"",
+                 "alternate_url":"",
+                 "media_url":"https://media.transistor.fm/70562b4e/83984906.mp3",
+                 "image_url":null,
+                 "author":"",
+                 "summary":"readgssfdctwadg",
+                 "description":"",
+                 "created_at":"2021-09-20T10:06:08.582-07:00",
+                 "updated_at":"2021-09-20T10:51:45.708-07:00",
+                 "formatted_published_at":"September 20, 2021",
+                 "duration_in_mmss":"03:56",
+                 "share_url":"https://share.transistor.fm/s/70562b4e",
+                 "transcript_url":"https://share.transistor.fm/s/1dde3f66/transcript",
+                 "formatted_summary":"readgssfdctwadg",
+                 "audio_processing":false,
+                 "type":"full",
+                 "email_notifications":null
+              },
+              "relationships":{
+                 "show":{
+                    "data":{
+                       "id":"24204",
+                       "type":"show"
+                    }
+                 }
+              }
+           }
+        }
+      JSON
+    end
+
+    let(:transcript) { "me: hi there!\n\nyou: hello!\n" }
+
+    def stub_service_request
+      return stub_request(:get, "https://share.transistor.fm/s/1dde3f66/transcript.txt").
+          to_return(status: 200, body: transcript)
+    end
+
+    def stub_service_request_error(status: 500)
+      return stub_request(:get, "https://share.transistor.fm/s/1dde3f66/transcript.txt").to_return(status:)
+    end
+
+    def assert_is_enriched(row)
+      expect(row).to include(transcript_text: transcript)
+    end
+
+    it "can handle transcript urls that already have a .txt extension" do
+      body["data"]["attributes"]["transcript_url"] += ".txt"
+      req = stub_service_request
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made
+      row = svc.readonly_dataset(&:first)
+      assert_is_enriched(row)
+    end
+
+    it "noops if there is no transcript url" do
+      body["data"]["attributes"]["transcript_url"] = nil
+      upsert_webhook(svc, body:)
+      row = svc.readonly_dataset(&:first)
+      expect(row).to include(transcript_text: nil)
+    end
+
+    it "ignores 404s on the transcript" do
+      body["data"]["attributes"]["transcript_url"] += ".txt"
+      req = stub_service_request_error(status: 404)
+      upsert_webhook(svc, body:)
+      expect(req).to have_been_made
+      row = svc.readonly_dataset(&:first)
+      expect(row).to include(transcript_text: nil)
     end
   end
 

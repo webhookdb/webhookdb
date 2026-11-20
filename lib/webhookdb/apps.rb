@@ -2,6 +2,8 @@
 
 require "grape"
 require "grape-swagger"
+require "rack/dynamic_config_writer"
+require "rack/spa_app"
 require "sidekiq/web"
 require "sidekiq/cron/web"
 
@@ -13,10 +15,14 @@ require "webhookdb/service"
 require "webhookdb/api/auth"
 require "webhookdb/api/db"
 require "webhookdb/api/demo"
+require "webhookdb/api/error_handlers"
+require "webhookdb/api/icalproxy"
 require "webhookdb/api/install"
 require "webhookdb/api/me"
 require "webhookdb/api/organizations"
 require "webhookdb/api/replay"
+require "webhookdb/api/saved_queries"
+require "webhookdb/api/saved_views"
 require "webhookdb/api/service_integrations"
 require "webhookdb/api/services"
 require "webhookdb/api/stripe"
@@ -26,14 +32,16 @@ require "webhookdb/api/system"
 require "webhookdb/api/webhook_subscriptions"
 
 require "webhookdb/admin_api/auth"
-require "webhookdb/admin_api/customers"
 require "webhookdb/admin_api/database_documents"
-require "webhookdb/admin_api/message_deliveries"
-require "webhookdb/admin_api/roles"
+require "webhookdb/admin_api/data_provider"
 
 require "webterm/apps"
 
 module Webhookdb::Apps
+  REDIRECTS = {
+    "/increase" => "/v1/install/increase",
+  }.freeze
+
   # Call this from your rackup file, like config.ru.
   #
   # @example
@@ -47,8 +55,11 @@ module Webhookdb::Apps
   def self.rack_up(config_ru)
     Webhookdb::Async.setup_web
     config_ru.instance_exec do
+      map "/admin_api" do
+        run Webhookdb::Apps::AdminAPI.build_app(compile: true)
+      end
       map "/admin" do
-        run Webhookdb::Apps::AdminAPI.build_app
+        run Webhookdb::Apps::Admin.to_app
       end
       map "/sidekiq" do
         run Webhookdb::Apps::SidekiqWeb.to_app
@@ -56,7 +67,11 @@ module Webhookdb::Apps
       map "/terminal" do
         run Webhookdb::Apps::Webterm.to_app
       end
-      run Webhookdb::Apps::API.build_app
+      use Rack::SimpleRedirect, routes: (REDIRECTS.each_with_object({}) do |(k, v), memo|
+        memo[k] = v
+        memo["#{k}/"] = v
+      end)
+      run Webhookdb::Apps::API.build_app(compile: true)
     end
   end
 
@@ -64,10 +79,14 @@ module Webhookdb::Apps
     mount Webhookdb::API::Auth
     mount Webhookdb::API::Db
     mount Webhookdb::API::Demo
+    mount Webhookdb::API::ErrorHandlers
+    mount Webhookdb::API::Icalproxy
     mount Webhookdb::API::Install
     mount Webhookdb::API::Me
     mount Webhookdb::API::Organizations
     mount Webhookdb::API::Replay
+    mount Webhookdb::API::SavedQueries
+    mount Webhookdb::API::SavedViews
     mount Webhookdb::API::ServiceIntegrations
     mount Webhookdb::API::Services
     mount Webhookdb::API::Stripe
@@ -81,14 +100,23 @@ module Webhookdb::Apps
   class AdminAPI < Webhookdb::Service
     mount Webhookdb::AdminAPI::Auth
     mount Webhookdb::AdminAPI::DatabaseDocuments
-    mount Webhookdb::AdminAPI::MessageDeliveries
-    mount Webhookdb::AdminAPI::Roles
-    mount Webhookdb::AdminAPI::Customers
+    mount Webhookdb::AdminAPI::DataProvider
     add_swagger_documentation if ENV["RACK_ENV"] == "development"
   end
 
+  Admin = Rack::Builder.new do
+    build_dir = Pathname(__FILE__).dirname.parent.parent + "admin-dist"
+    dw = Rack::DynamicConfigWriter.new(build_dir + "index.html", global_assign: "window.whdbDynamicEnv")
+    env = {
+      "VITE_API_ROOT" => "/",
+      "VITE_RELEASE" => "admin@1.0.0",
+      "NODE_ENV" => "production",
+    }.merge(Rack::DynamicConfigWriter.pick_env("VITE_"))
+    index_bytes = dw.as_string(env)
+    Rack::SpaApp.run_spa_app(self, build_dir, enforce_ssl: Webhookdb::Service.enforce_ssl, index_bytes:)
+  end
+
   SidekiqWeb = Rack::Builder.new do
-    use Sentry::Rack::CaptureExceptions if Webhookdb::Sentry.enabled?
     use Rack::Auth::Basic, "Protected Area" do |username, password|
       # Protect against timing attacks: (https://codahale.com/a-lesson-in-timing-attacks/)
       # - Use & (do not use &&) so that it doesn't short circuit.

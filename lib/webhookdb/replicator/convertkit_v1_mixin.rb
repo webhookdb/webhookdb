@@ -29,10 +29,10 @@ we need to use the API to make requests, which requires your API Secret.
       return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
     end
 
-    unless (result = self.verify_backfill_credentials).verified
+    unless self.verify_backfill_credentials.verified?
       self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Secret").backfill_secret(self.service_integration)
+      return self.calculate_backfill_state_machine.
+          with_output("It looks like that API Secret is invalid. Please reenter the API Secret:")
     end
 
     step.output = %(We'll start backfilling your #{self.resource_name_plural} now,
@@ -40,14 +40,6 @@ and they will show up in your database momentarily.
 #{self._query_help_output}
     )
     return step.completed
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Secret is invalid. Please reenter the API Secret:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Secret:"
   end
 
   # Converter for use with the denormalized columns

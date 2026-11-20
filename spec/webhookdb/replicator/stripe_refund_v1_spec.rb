@@ -6,7 +6,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
   let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "stripe_refund_v1") }
   let(:svc) { Webhookdb::Replicator.create(sint) }
 
-  it_behaves_like "a replicator", "stripe_refund_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -197,7 +197,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
     end
     let(:expected_data) { body["data"]["object"]["refunds"]["data"][0] }
   end
-  it_behaves_like "a replicator that prevents overwriting new data with old", "stripe_refund_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -579,7 +579,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
     let(:expected_new_data) { new_body["data"]["object"]["refunds"]["data"][0] }
   end
 
-  it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_refund_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_in_envelope_json) { refund_event_from_charge }
     let(:resource_json) { refund_event_from_charge["data"]["object"]["refunds"]["data"][0] }
     let(:refund_event_from_charge) do
@@ -772,7 +772,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that deals with resources and wrapped events", "stripe_refund_v1" do
+  it_behaves_like "a replicator that deals with resources and wrapped events" do
     let(:resource_in_envelope_json) { refund_event }
     let(:resource_json) { refund_event["data"]["object"] }
     let(:refund_event) do
@@ -865,7 +865,7 @@ RSpec.describe Webhookdb::Replicator::StripeRefundV1, :db do
           to_return(status: 403, body: "", headers: {})
     end
   end
-  it_behaves_like "a replicator that can backfill", "stripe_refund_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {

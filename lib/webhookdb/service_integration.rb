@@ -6,6 +6,8 @@ require "webhookdb/postgres/model"
 require "sequel/plugins/soft_deletes"
 
 class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integrations)
+  include Webhookdb::Admin::Linked
+
   class TableRenameError < Webhookdb::InvalidInput; end
 
   # We limit the information that a user can access through the CLI to these fields.
@@ -20,6 +22,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   }.freeze
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:service_name, :table_name, :organization]
   plugin :column_encryption do |enc|
     enc.column :data_encryption_secret
     enc.column :webhook_secret
@@ -69,7 +72,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
                 end)
 
   many_to_one :depends_on, class: self
-  one_to_many :dependents, key: :depends_on_id, class: self
+  one_to_many :dependents, key: :depends_on_id, class: self, order: :id
   one_to_many :sync_targets, class: "Webhookdb::SyncTarget"
 
   # @return [Webhookdb::ServiceIntegration]
@@ -113,6 +116,27 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return Webhookdb.api_url + self.unauthed_webhook_path
   end
 
+  # Return the semaphore size to use for +Amigo::SemaphoreBackoffJob+ jobs.
+  # By default, use the organization's job semaphore size (10 by default),
+  # to make sure a single organization does not saturate workers.
+  # This can be overridden on specific integrations to throttle it.
+  # For example, this can ensure that adding an integration which includes a massive backfill
+  # (like going from a non-partitioned to partitioned replicator) does not overload the database.
+  # Note: semaphore jobs should also use +job_semaphore_identifier+,
+  # which will include the integration id if +integration_job_semaphore_size+ is non-zero,
+  # or the organization id otherwise. This ensures the semaphore for the integration
+  # is scoped to the integration, or integration, as needed.
+  def job_semaphore_size
+    return self.integration_job_semaphore_size if self.integration_job_semaphore_size.nonzero?
+    return self.organization.organization_job_semaphore_size
+  end
+
+  # See +job_semaphore_size+.
+  def job_semaphore_identifier
+    return "sint-#{self.id}" if self.integration_job_semaphore_size.nonzero?
+    return "org-#{self.organization_id}"
+  end
+
   def plan_supports_integration?
     # if the sint's organization has an active subscription, return true
     return true if self.organization.active_subscription?
@@ -138,17 +162,30 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
         select { |si| si.service_name == dep_descr.name }
   end
 
+  # Return all dependents (integrations that depend on this one), breadth-first
+  # (that is, all children before grandchildren).
+  # @return [Array<Webhookdb::ServiceIntegration>]
   def recursive_dependents
     return self.dependents + self.dependents.flat_map(&:recursive_dependents)
+  end
+
+  # Return all service integrations this one depends on,
+  # in closest-ancestor order (that is, parent before grandparent).
+  # @return [Array<Webhookdb::ServiceIntegration>]
+  def recursive_dependencies
+    return [] if self.depends_on.nil?
+    return [self.depends_on].concat(self.depends_on.recursive_dependencies)
   end
 
   def destroy_self_and_all_dependents
     self.dependents.each(&:destroy_self_and_all_dependents)
 
-    begin
-      self.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{self.table_name}" }
-    rescue Sequel::DatabaseError => e
-      raise unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+    if self.organization.admin_connection_url.present?
+      begin
+        self.replicator.admin_dataset(timeout: :fast) { |ds| ds.db << "DROP TABLE #{self.table_name}" }
+      rescue Sequel::DatabaseError => e
+        raise e unless e.wrapped_exception.is_a?(PG::UndefinedTable)
+      end
     end
     self.destroy
   end
@@ -222,11 +259,7 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
 
   def rename_table(to:)
     Webhookdb::Organization::DatabaseMigration.guard_ongoing!(self.organization)
-    unless Webhookdb::DBAdapter::VALID_IDENTIFIER.match?(to)
-      msg = "Sorry, this is not a valid table name. " + Webhookdb::DBAdapter::INVALID_IDENTIFIER_MESSAGE
-      msg += " And we see you what you did there ;)" if to.include?(";") && to.downcase.include?("drop")
-      raise TableRenameError, msg
-    end
+    Webhookdb::DBAdapter.validate_identifier!(to, type: "table")
     self.db.transaction do
       begin
         self.organization.admin_connection { |db| db << "ALTER TABLE #{self.table_name} RENAME TO #{to}" }
@@ -268,9 +301,9 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
     return self.db.select(Sequel.function(:nextval, self.sequence_name)).single_value
   end
 
-  def new_opaque_id = Webhookdb::Id.new_opaque_id("svi")
+  def self.new_opaque_id = Webhookdb::Id.new_opaque_id("svi")
 
-  def ensure_opaque_id = self[:opaque_id] ||= self.new_opaque_id
+  def ensure_opaque_id = self[:opaque_id] ||= self.class.new_opaque_id
 
   def new_api_key
     k = +"sk/"
@@ -330,10 +363,18 @@ class Webhookdb::ServiceIntegration < Webhookdb::Postgres::Model(:service_integr
   # @!attribute skip_webhook_verification
   #   @return [Boolean] Set this to disable webhook verification on this integration.
   #                     Useful when replaying logged webhooks.
+
+  # @!attribute integration_job_semaphore_size
+  #   @return [Integer]
+
+  # @!attribute partition_value
+  #   @return [Integer] Value to control partitioning. For replicators that use hash partitioning,
+  #                     this defines the number of partitions. For other partition types, like range,
+  #                     the meaning of this value depends on the replicator itself.
 end
 
 # Table: service_integrations
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Columns:
 #  id                        | integer                  | PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY
 #  created_at                | timestamp with time zone | NOT NULL DEFAULT now()
@@ -350,6 +391,8 @@ end
 #  depends_on_id             | integer                  |
 #  data_encryption_secret    | text                     |
 #  skip_webhook_verification | boolean                  | NOT NULL DEFAULT false
+#  webhookdb_api_key         | text                     |
+#  text_search               | tsvector                 |
 # Indexes:
 #  service_integrations_pkey          | PRIMARY KEY btree (id)
 #  service_integrations_opaque_id_key | UNIQUE btree (opaque_id)
@@ -358,8 +401,9 @@ end
 #  service_integrations_depends_on_id_fkey   | (depends_on_id) REFERENCES service_integrations(id) ON DELETE RESTRICT
 #  service_integrations_organization_id_fkey | (organization_id) REFERENCES organizations(id)
 # Referenced By:
-#  backfill_jobs         | backfill_jobs_service_integration_id_fkey         | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
-#  service_integrations  | service_integrations_depends_on_id_fkey           | (depends_on_id) REFERENCES service_integrations(id) ON DELETE RESTRICT
-#  sync_targets          | sync_targets_service_integration_id_fkey          | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
-#  webhook_subscriptions | webhook_subscriptions_service_integration_id_fkey | (service_integration_id) REFERENCES service_integrations(id)
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------
+#  backfill_jobs                          | backfill_jobs_service_integration_id_fkey                       | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
+#  backfill_job_service_integration_locks | backfill_job_service_integration_lo_service_integration_id_fkey | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
+#  service_integrations                   | service_integrations_depends_on_id_fkey                         | (depends_on_id) REFERENCES service_integrations(id) ON DELETE RESTRICT
+#  sync_targets                           | sync_targets_service_integration_id_fkey                        | (service_integration_id) REFERENCES service_integrations(id) ON DELETE CASCADE
+#  webhook_subscriptions                  | webhook_subscriptions_service_integration_id_fkey               | (service_integration_id) REFERENCES service_integrations(id)
+# ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

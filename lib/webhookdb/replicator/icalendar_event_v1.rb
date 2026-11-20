@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "webhookdb/icalendar"
-require "webhookdb/windows_tz"
+require "webhookdb/timezone"
+require "webhookdb/replicator/base_stale_row_deleter"
 
 class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
   include Appydays::Loggable
@@ -49,7 +50,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     raise ArgumentError, "do not pass a date string" if self.value_is_date_str?(value)
     return [Time.strptime(value, "%Y%m%dT%H%M%S%Z"), true] if value.end_with?("Z")
     if (tzid = entry["TZID"])
-      return self._parse_time_with_tzid(value, tzid)
+      return Webhookdb::Timezone.parse_time_with_tzid(value, tzid)
     end
     return [Time.find_zone!("UTC").parse(value), false]
   end
@@ -65,7 +66,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     ruby: lambda do |entry, **|
       self.entry_to_date(entry) if entry.is_a?(Hash) && self.entry_is_date_str?(entry)
     end,
-    sql: ->(_) { raise NotImplementedError },
+    sql: Webhookdb::Replicator::Column::NOT_IMPLEMENTED,
   )
   CONV_DATETIME = Webhookdb::Replicator::Column::IsomorphicProc.new(
     ruby: lambda do |entry, **|
@@ -108,12 +109,13 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     sql: ->(_) { raise NotImplementedError },
   )
 
+  def _webhook_response(_request) = Webhookdb::WebhookResponse.ok
+
   def _remote_key_column
     return Webhookdb::Replicator::Column.new(
       :compound_identity,
       TEXT,
       data_key: "<compound key, see converter>",
-      index: true,
       converter: CONV_REMOTE_KEY,
       optional: true, # This is done via the converter, data_key never exists
     )
@@ -126,7 +128,7 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     return [
       col.new(:calendar_external_id, TEXT, index: true),
       col.new(:uid, TEXT, data_key: ["UID", "v"], index: true),
-      col.new(:row_updated_at, TIMESTAMP, index: true, defaulter: :now, optional: true),
+      col.new(:row_updated_at, TIMESTAMP, index: true),
       col.new(:last_modified_at,
               TIMESTAMP,
               index: true,
@@ -153,6 +155,8 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     ]
   end
 
+  def _timestamp_column_name = :last_modified_at
+
   def _resource_and_event(request)
     return request.body, nil
   end
@@ -162,7 +166,55 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     data.delete("calendar_external_id")
     data.delete("recurring_event_id")
     data.delete("recurring_event_sequence")
+    data.delete("row_updated_at")
     return data
+  end
+
+  def _prepare_for_insert(resource, event, request, enrichment)
+    h = super
+    # Events can have a DTSTART, but no DTEND.
+    # https://icalendar.org/iCalendar-RFC-5545/3-6-1-event-component.html
+    # In these cases, we need to:
+    # - Use the duration, given.
+    # - Dates default to the next day.
+    # - Times default to start time.
+    if (_implicit_end_time = h[:start_at] && !h[:end_at])
+      self._set_implicit_end_at(resource, h)
+    elsif (_implicit_end_date = h[:start_date] && !h[:end_date])
+      self._set_implicit_end_date(resource, h)
+    end
+    return h
+  end
+
+  def _set_implicit_end_date(resource, h)
+    if (d = resource["DURATION"])
+      # See https://icalendar.org/iCalendar-RFC-5545/3-3-6-duration.html
+      begin
+        dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      rescue ActiveSupport::Duration::ISO8601Parser::ParsingError
+        # Assume invalid durations are a day; nothing we can really do about this.
+        # We already prefer DTEND if given, we need something,
+        # and this default seems reasonable.
+        dur = 1
+      end
+      h[:end_date] = h[:start_date] + dur
+      return
+    end
+    h[:end_date] = h[:start_date] + 1.day
+  end
+
+  def _set_implicit_end_at(resource, h)
+    # See above for duration parsing explanation.
+    if (d = resource["DURATION"])
+      begin
+        dur = ActiveSupport::Duration.parse(d.fetch("v"))
+      rescue ActiveSupport::Duration::ISO8601Parser::ParsingError
+        dur = 1.hour
+      end
+      h[:end_at] = h[:start_at] + dur
+      return
+    end
+    h[:end_at] = h[:start_at]
   end
 
   # @return [Array<Webhookdb::Replicator::IndexSpec>]
@@ -176,11 +228,29 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
         columns: [:calendar_external_id, :start_date, :end_date],
         where: Sequel[:status].is_distinct_from("CANCELLED") & (Sequel[:start_date] !~ nil),
       ),
+      Webhookdb::Replicator::IndexSpec.new(
+        columns: [:row_updated_at],
+        where: Sequel[status: "CANCELLED"],
+        identifier: "cancelled_row_updated_at",
+      ),
+      # Needed for the STATUS = 'CANCELLED' bulk-cancellation.
+      # See the query that generates; but it uses `~Sequel[status: "CANCELLED"])`,
+      # which won't hit the compound CANCELLED indices.
+      Webhookdb::Replicator::IndexSpec.new(
+        columns: [:calendar_external_id],
+        where: Sequel[:status].is_distinct_from("CANCELLED"),
+        identifier: "uncancelled_cal_external_id",
+      ),
     ]
   end
 
   def _update_where_expr
-    return self.qualified_table_sequel_identifier[:last_modified_at] < Sequel[:excluded][:last_modified_at]
+    # Compare against data to avoid the constant writes. JSONB != operations are very fast,
+    # so this should not be any real performance issue.
+    # last_modified_at is unreliable because LAST-MODIFIED is unreliable,
+    # even in feeds it is set. There are cases, such as adding an EXDATE to an RRULE,
+    # that do not trigger LAST-MODIFIED changes.
+    return self.qualified_table_sequel_identifier[:data] !~ Sequel[:excluded][:data]
   end
 
   # @param [Array<String>] lines
@@ -220,6 +290,21 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
         value.gsub!("\\r\\n", "\r\n")
         value.gsub!("\\n", "\n")
         value.gsub!("\\t", "\t")
+        # This line is not tested, since replicating issues with HTTP body encoding
+        # is really tricky (while I love Ruby's unicode handling, trying to replicate
+        # invalid data from other sources is a pain).
+        # However we do get invalid unicode sequences, like:
+        #   DESCRIPTION:\r\nNFL regional registration opens 9/25 and ends 11/20\XAOwww.nflflag.com
+        # which cannot be encoded in JSON:
+        #   Invalid Unicode [a0 77 77 77 2e] at 52 (JSON::GeneratorError)
+        # The only way I can think to handle this is with replacing invalid utf-8 chars
+        # (with the unicode questionmark icon), so they can be represented as JSON.
+        # This fix is here, and not in `Base#_to_json` (like the null char fixes),
+        # since I think this is an issue with feeds like icalendar,
+        # and not something to handle generally
+        # (we may also see this in something like Atom, but perhaps because
+        # atom is XML, not a 'plain' text format, it'll be more rare).
+        value.encode!("UTF-8", invalid: :replace, undef: :replace)
       end
       entry = {"v" => value}
       entry.merge!(params)
@@ -277,39 +362,23 @@ class Webhookdb::Replicator::IcalendarEventV1 < Webhookdb::Replicator::Base
     return parts[:name], parts[:value], params
   end
 
-  # Given a tzid and value for a timestamp, return a Time (with a timezone).
-  # While there's no formal naming scheme, we see the following forms:
-  # - valid names like America/Los_Angeles, US/Eastern
-  # - dashes, like America-Los_Angeles, US-Eastern
-  # - Offsets, like GMT-0700'
-  #
-  # In theory this can be any value, and must be given in the calendar feed (VTIMEZONE).
-  # However that is extremely difficult; even the icalendar gem doesn't seem to do it 100% right.
-  # We can solve for this if needed; in the meantime, log it in Sentry and use UTC.
-  #
-  # If the zone cannot be parsed, assume UTC.
-  #
-  # Return a tuple of [Time, true if the zone could be parsed].
-  # If the zone cannot be parsed, you usually want to log or store it.
-  def self._parse_time_with_tzid(value, tzid)
-    if (zone = Time.find_zone(tzid.tr("-", "/")))
-      return [zone.parse(value), true]
-    end
-    if /^(GMT|UTC)[+-]\d\d\d\d$/.match?(tzid)
-      offset = tzid[3..]
-      return [Time.parse(value + offset), true]
-    end
-    if (zone = Webhookdb::WindowsTZ.windows_name_to_tz[tzid])
-      return [zone.parse(value), true]
-    end
-    zone = Time.find_zone!("UTC")
-    return [zone.parse(value), false]
-  end
-
   def on_dependency_webhook_upsert(_ical_svc, _ical_row, **)
     # We use an async job to sync when the dependency syncs
     return
   end
+
+  # Delete CANCELLED events last updated (+row_updated_at+)' in the window between
+  # +stale_at+ to +age_cutoff+. This avoids endlessly adding to the icalendar events table
+  # due to feeds that change UIDs each fetch- events with changed UIDs will become CANCELLED,
+  # and then deleted over time.
+  class StaleRowDeleter < Webhookdb::Replicator::BaseStaleRowDeleter
+    def stale_at = Webhookdb::Icalendar.stale_cancelled_event_threshold_days.days
+    def lookback_window = Webhookdb::Icalendar.stale_cancelled_event_lookback_days.days
+    def updated_at_column = :row_updated_at
+    def stale_condition = {status: "CANCELLED"}
+  end
+
+  def stale_row_deleter = StaleRowDeleter.new(self)
 
   def calculate_webhook_state_machine
     if (step = self.calculate_dependency_state_machine_step(dependency_help: ""))

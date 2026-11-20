@@ -92,6 +92,17 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
     end
   end
 
+  describe "remote_key_column" do
+    it "warns if index:true is specified" do
+      r = Webhookdb::Fixtures.service_integration.create.replicator
+      expect(r).to receive(:_remote_key_column).
+        and_return(Webhookdb::Replicator::Column.new(:my_id, :text, index: true))
+      expect(Kernel).to receive(:warn).with(/_remote_key_column index:true/)
+      c = r.remote_key_column
+      expect(c).to_not be_index
+    end
+  end
+
   describe "_prepare_for_insert" do
     svc_cls = Class.new(described_class) do
       def _remote_key_column
@@ -236,6 +247,28 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
         end.to raise_error(RuntimeError, "hello")
       end
     end
+
+    describe "when an error occurs" do
+      it "calls the error handler and finishes the job (but does not modify the integration)" do
+        stub_request(:get, "https://fake-integration/?token=").
+          to_return(status: 500, body: "Error")
+        replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
+        expect(replicator).to receive(:on_backfill_error).and_return(true)
+        job = backfill(sint)
+        expect(sint).to have_attributes(last_backfilled_at: nil)
+        expect(job).to have_attributes(finished_at: match_time(:now).within(1))
+      end
+
+      it "raises the original error if not handled" do
+        stub_request(:get, "https://fake-integration/?token=").
+          to_return(status: 500, body: "Error")
+        replicator = sint.replicator
+        expect(sint).to receive(:replicator).and_return(replicator)
+        expect(replicator).to receive(:on_backfill_error).and_return(false)
+        expect { backfill(replicator) }.to raise_error(Amigo::Retry::OrDie, /status: 500, method: GET/)
+      end
+    end
   end
 
   describe "ServiceBackfiller" do
@@ -297,6 +330,118 @@ RSpec.describe Webhookdb::Replicator::Base, :db do
         expect { bf.backfill(nil) }.to raise_error(Webhookdb::Http::Error)
         expect(req).to have_been_made.times(3)
       end
+    end
+  end
+
+  describe "avoid_writes?" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(backfill_key: "abc") }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "is true if the table has an exclusive lock" do
+      Sequel.connect(sint.organization.admin_connection_url) do |db|
+        # expect(sint.replicator).to_not be_avoid_writes
+        # Find the locked table and tell us to not write.
+        db.transaction do
+          db << "LOCK TABLE #{sint.table_name}"
+          expect(sint.replicator).to be_avoid_writes
+        end
+        expect(sint.replicator).to_not be_avoid_writes
+        # Make sure we don't find the wrong locked table.
+        db.transaction do
+          db << "CREATE TABLE IF NOT EXISTS placeholder_fake_test_table(pk INTEGER)"
+          db << "LOCK TABLE placeholder_fake_test_table"
+          expect(sint.replicator).to_not be_avoid_writes
+        ensure
+          db << "DROP TABLE IF EXISTS placeholder_fake_test_table;"
+        end
+      end
+    end
+
+    it "is false if not" do
+      expect(sint.replicator).to_not be_avoid_writes
+    end
+  end
+
+  describe "with_advisory_lock" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(backfill_key: "abc") }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "takes an advisory lock" do
+      x = sint.replicator.with_advisory_lock(123) { 1 }
+      expect(x).to eq(1)
+    end
+
+    it "inverts the key if it is between max int and max uint" do
+      x = sint.replicator.with_advisory_lock(4_294_967_000) { 1 }
+      expect(x).to eq(1)
+    end
+
+    it "modulos the key if it is larger than max uint" do
+      x = sint.replicator.with_advisory_lock(999_294_967_000) { 1 }
+      expect(x).to eq(1)
+    end
+
+    it "raises if key is less than min integer" do
+      expect do
+        sint.replicator.with_advisory_lock(-4_294_967_000)
+      end.to raise_error(ArgumentError, /cannot be less than/)
+    end
+
+    it "converts a non-integer table oid to an integer" do
+      repl = sint.replicator
+      expect(repl).to receive(:_select_table_oid).and_return(3_478_187_829)
+      x = repl.with_advisory_lock(5) { 1 }
+      expect(x).to eq(1)
+    end
+  end
+
+  describe "align_index_names" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create }
+
+    before(:each) do
+      sint.organization.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) do
+      sint.organization.remove_related_database
+    end
+
+    it "updates all svi_ prefixed indices pointing to this table to use the current opaque id" do
+      index_names = sint.organization.admin_connection do |db|
+        db[Sequel[:pg_indexes]].
+          where(schemaname: "public").
+          select_map(:indexname)
+      end
+      old_id = sint.opaque_id
+      new_id = Webhookdb::ServiceIntegration.new_opaque_id
+      expect(index_names).to have_length(3)
+      expect(index_names).to include("#{old_id}_at_idx")
+      sint.update(opaque_id: new_id)
+      sint.replicator.align_index_names
+      index_names = sint.organization.admin_connection do |db|
+        db[Sequel[:pg_indexes]].
+          where(schemaname: "public").
+          select_map(:indexname)
+      end
+      expect(index_names).to have_length(3)
+      expect(index_names).to include("#{new_id}_at_idx")
     end
   end
 end

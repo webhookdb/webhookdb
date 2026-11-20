@@ -88,7 +88,7 @@ RSpec.describe Webhookdb::Replicator::PostmarkInboundMessageV1, :db do
     J
   end
 
-  it_behaves_like "a replicator", "postmark_inbound_message_v1" do
+  it_behaves_like "a replicator" do
     let(:body) { bod }
     let(:expected_data) { bod }
   end

@@ -1,6 +1,7 @@
 <html lang="en-US">
 <head>
-    {% include 'web/styles' %}
+    <title>WebhookDB | Sync {{ app_name }} | Login</title>
+    {% include 'web/partials/head' %}
 </head>
 <body>
 <div class="layout">
@@ -11,12 +12,12 @@
             <form method="POST" action="{{ action_url }}">
                 {% if view == "email" %}
                     <p>
-                        Welcome to WebhookDB! In order to complete this integration, we need your email address so that
-                        we can associate your information with an organization.
+                        Welcome to WebhookDB! In order to finish your sync with {{ app_name }},
+                        you need to sign up or log in.
                     </p>
                     <p>Enter your email:</p>
                     <div class="input-group">
-                        <input class="input-inline" type="text" id="email" name="email"/>
+                        <input class="input-inline" type="text" id="email" name="email" autofocus/>
                         <input class="input-inline-button" type="submit" value="Log in"/>
                     </div>
                     {% partial 'web/partials/form_error' %}
@@ -31,7 +32,7 @@
                     </p>
                     <p>Enter the token from your email:</p>
                     <div class="input-group">
-                        <input class="input-inline" type="text" id="otp_token" name="otp_token"/>
+                        <input class="input-inline" type="text" id="otp_token" name="otp_token" autofocus/>
                         <input class="input-inline-button" type="submit" value="Log in"/>
                     </div>
                     {% partial 'web/partials/form_error' %}

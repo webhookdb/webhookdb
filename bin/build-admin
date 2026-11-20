@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+cd admin
+npm install --production=false
+export NODE_ENV=production
+npm run build
+rm -r ../admin-dist
+mv dist/ ../admin-dist

@@ -25,6 +25,11 @@ class Webhookdb::Replicator::StateMachineStep
 
   def successful? = return self.complete && self.error_code.blank?
 
+  def with_output(o)
+    @output = o
+    return self
+  end
+
   # @return [Webhookdb::Replicator::StateMachineStep]
   def completed
     self.complete = true

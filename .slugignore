@@ -1,0 +1,5 @@
+.run/
+admin/
+bin/
+spec/suma/
+spec/data/

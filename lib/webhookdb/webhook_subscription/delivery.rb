@@ -8,6 +8,7 @@ require "webhookdb/webhook_subscription"
 # See WebhookSubscription for more details.
 class Webhookdb::WebhookSubscription::Delivery < Webhookdb::Postgres::Model(:webhook_subscription_deliveries)
   plugin :timestamps
+  plugin :text_searchable, terms: [:webhook_subscription]
 
   many_to_one :webhook_subscription, class: "Webhookdb::WebhookSubscription"
 
@@ -72,6 +73,7 @@ end
 #  attempt_http_response_statuses | smallint[]                 | NOT NULL DEFAULT ARRAY[]::smallint[]
 #  payload                        | jsonb                      | NOT NULL
 #  webhook_subscription_id        | integer                    | NOT NULL
+#  text_search                    | tsvector                   |
 # Indexes:
 #  webhook_subscription_deliveries_pkey                          | PRIMARY KEY btree (id)
 #  webhook_subscription_deliveries_webhook_subscription_id_index | btree (webhook_subscription_id)

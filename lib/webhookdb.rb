@@ -19,6 +19,8 @@ Money.locale_backend = :i18n
 Money.default_currency = "USD"
 Money.rounding_mode = BigDecimal::ROUND_HALF_UP
 
+ActiveSupport.to_time_preserves_timezone = :zone
+
 module Appydays::Configurable
   def self.fetch_env(keys, default=:__keyerror, env: ENV)
     keys = [keys] unless keys.respond_to?(:to_ary)
@@ -35,27 +37,33 @@ module Webhookdb
   include Appydays::Configurable
   extend Webhookdb::MethodUtilities
 
+  # Base class for all WebhookDB errors.
+  class WebhookdbError < StandardError; end
+
+  # Class for errors that usually should not be rescued from.
+  class ProgrammingError < WebhookdbError; end
+
   # Error raised when we cannot take an action
   # because some condition has not been set up right.
-  class InvalidPrecondition < StandardError; end
+  class InvalidPrecondition < ProgrammingError; end
 
   # Error raised when, after we take an action,
   # something we expect to have changed has not changed.
-  class InvalidPostcondition < StandardError; end
+  class InvalidPostcondition < ProgrammingError; end
 
   # Some invariant has been violated, which we never expect to see.
-  class InvariantViolation < StandardError; end
+  class InvariantViolation < ProgrammingError; end
 
   # Error raised when a customer gives us some invalid input.
   # Allows the library to raise the error with the message,
   # and is caught automatically by the service as a 400.
-  class InvalidInput < StandardError; end
+  class InvalidInput < WebhookdbError; end
 
   # Raised when an organization's database cannot be modified.
-  class DatabaseLocked < StandardError; end
+  class DatabaseLocked < WebhookdbError; end
 
   # Used in various places that need to short-circuit code in regression mode.
-  class RegressionModeSkip < StandardError; end
+  class RegressionModeSkip < WebhookdbError; end
 
   APPLICATION_NAME = "Webhookdb"
   RACK_ENV = Appydays::Configurable.fetch_env(["RACK_ENV", "RUBY_ENV"], "development")
@@ -78,7 +86,7 @@ module Webhookdb
             nil,
             key: "LOG_LEVEL",
             side_effect: ->(v) { Appydays::Loggable.default_level = v if v }
-    setting :log_format, nil
+    setting :log_format, :json_trunc
     setting :app_url, "http://localhost:18002"
     setting :api_url, "http://localhost:#{ENV.fetch('PORT', 18_001)}"
     setting :bust_idempotency, false
@@ -93,6 +101,8 @@ module Webhookdb
     end
   end
 
+  def self.admin_url = self.api_url
+
   # Regression mode is true when we re replaying webhooks locally,
   # or for some other reason, want to disable certain checks we use in production.
   # For example, we may want to ignore certain errors (like if integrations are missing dependency rows),
@@ -106,6 +116,7 @@ module Webhookdb
   def self.load_app
     $stdout.sync = true
     $stderr.sync = true
+    Webhookdb::Signals.install
 
     Appydays::Loggable.configure_12factor(format: self.log_format, application: APPLICATION_NAME)
 
@@ -134,7 +145,23 @@ module Webhookdb
   # :section: Errors
   #
 
-  class LockFailed < StandardError; end
+  class LockFailed < WebhookdbError; end
+
+  # This exception is rescued in the API and returned to the caller via +merror!+.
+  # This is mostly used in synchronously-processed replicators that need to return
+  # very specific types of errors during processing.
+  # This is very rare.
+  class ExceptionCarrier < WebhookdbError
+    attr_reader :status, :code, :more, :headers
+
+    def initialize(status, message, code: nil, more: {}, headers: {})
+      super(message)
+      @status = status
+      @code = code
+      @more = more
+      @headers = headers
+    end
+  end
 
   ### Generate a key for the specified Sequel model +instance+ and
   ### any additional +parts+ that can be used for idempotent requests.
@@ -179,6 +206,17 @@ module Webhookdb
     "9" => "nine",
   }.freeze
 
+  def self.parse_bool(s)
+    # rubocop:disable Style/NumericPredicate
+    return false if s == nil? || s.blank? || s == 0
+    # rubocop:enable Style/NumericPredicate
+    return true if s.is_a?(Integer)
+    sb = s.to_s.downcase
+    return true if ["true", "t", "yes", "y", "on", "1"].include?(sb)
+    return false if ["false", "f", "no", "n", "off", "0"].include?(sb)
+    raise ArgumentError, "unparseable bool: #{s.inspect}"
+  end
+
   # Return the request user and admin stored in TLS. See service.rb for implementation.
   #
   # Note that the second return value (the admin) will be nil if not authed as an admin,
@@ -216,11 +254,12 @@ module Webhookdb
   end
 end
 
-require "webhookdb/aggregate_result"
+require "webhookdb/async"
 require "webhookdb/dbutil"
 require "webhookdb/developer_alert"
 require "webhookdb/http"
 require "webhookdb/phone_number"
 require "webhookdb/replicator"
+require "webhookdb/signals"
 require "webhookdb/typed_struct"
 require "webhookdb/webhook_response"

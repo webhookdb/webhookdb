@@ -1,27 +1,36 @@
 # frozen_string_literal: true
 
+require "appydays/configurable"
+require "appydays/loggable/httparty_formatter"
+require "http"
+require "http/features/logging_ext"
 require "httparty"
 
-require "appydays/loggable/httparty_formatter"
-
 module Webhookdb::Http
+  include Appydays::Configurable
+  configurable(:http) do
+    # The level at which the HTTP loggers run.
+    # WebhookDB makes a LOT of external requests so we default to debug.
+    setting :log_level, :debug
+  end
+
   # Error raised when some API has rate limited us.
-  class BaseError < StandardError; end
+  class BaseError < Webhookdb::WebhookdbError; end
 
   class Error < BaseError
     attr_reader :response, :body, :uri, :status, :http_method
 
-    def initialize(response, msg=nil)
+    def initialize(response, msg=nil, uri: nil, http_method: nil)
       @response = response
       @body = response.body
       @headers = response.headers.to_h
       @status = response.code
-      @uri = response.request.last_uri.dup
+      @uri = uri || response.request.last_uri.dup
       if @uri.query.present?
         cleaned_params = CGI.parse(@uri.query).map { |k, v| k.include?("secret") ? [k, ".snip."] : [k, v] }
         @uri.query = HTTParty::Request::NON_RAILS_QUERY_STRING_NORMALIZER.call(cleaned_params)
       end
-      @http_method = response.request.http_method::METHOD
+      @http_method = http_method || response.request.http_method::METHOD
       super(msg || self.to_s)
     end
 
@@ -30,6 +39,68 @@ module Webhookdb::Http
     end
 
     alias inspect to_s
+  end
+
+  class ClientError < Error; end
+  class ServerError < Error; end
+  class NotModified < Error; end
+  class TooManyRedirects < BaseError; end
+
+  # Hash that downcases keys when set (ie, NOT case insensitive on lookup),
+  # and errors if setting a non-nil value.
+  class HeaderHash < Hash
+    def self.from_h(h)
+      hh = self.new
+      hh.update(h)
+      return hh
+    end
+
+    def initialize(*)
+      super
+      transform_and_check
+    end
+
+    def []=(key, value)
+      super(normalize_key(key), normalize_value(value))
+    end
+
+    def update(*)
+      super
+      transform_and_check
+    end
+
+    alias merge! update
+
+    if Webhookdb::RACK_ENV == "test"
+      def [](k)
+        check_key(k)
+        return super
+      end
+
+      def fetch(k, *)
+        check_key(k)
+        return super
+      end
+
+      private def check_key(k)
+        raise TypeError, "key #{k.inspect} must be lowercase" unless normalize_key(k.to_s) == k
+      end
+    end
+
+    private def transform_and_check
+      self.transform_keys! { |k| normalize_key(k) }
+      self.transform_values! { |v| normalize_value(v) }
+    end
+
+    private def normalize_key(k)
+      return k.downcase
+    end
+
+    private def normalize_value(value)
+      return "" if value.nil?
+      raise TypeError, "value #{value.inspect} must be a string" unless value.is_a?(String)
+      return value
+    end
   end
 
   def self.user_agent
@@ -52,21 +123,23 @@ module Webhookdb::Http
   end
 
   def self.check!(response, **options)
-    # All oks are ok
-    return if response.code < 300
-    # We expect 300s if we aren't following redirects
-    return if response.code < 400 && !options[:follow_redirects]
-    # Raise for 400s, or 300s if we were meant to follow redirects
-    raise Error, response
+    return if response.code <= 299
+    raise ServerError, response if response.code >= 500
+    raise ClientError, response if response.code >= 400
+    # If we followed redirects, we should not see a 300
+    raise TooManyRedirects, response if response.code >= 300 && options[:follow_redirects]
+    # We got a 300, but are not following redirects, so we're ok.
+    return
   end
 
   def self.get(url, query={}, **options, &)
     self._setup_required_args(options)
     opts = {query:, headers: {}}.merge(**options)
-    opts[:headers]["User-Agent"] = self.user_agent
+    opts[:headers] = HeaderHash.from_h(opts[:headers])
+    opts[:headers]["user-agent"] = self.user_agent
     # See https://github.com/jnunemaker/httparty/issues/784#issuecomment-1585714745
     # I *think* this should be safe to always use.
-    opts[:headers]["Connection"] ||= "keep-alive"
+    opts[:headers]["connection"] ||= "keep-alive"
     r = HTTParty.get(url, **opts, &)
     self.check!(r, **opts)
     return r
@@ -74,10 +147,12 @@ module Webhookdb::Http
 
   def self.post(url, body={}, headers: {}, method: nil, check: true, **options, &)
     self._setup_required_args(options)
-    headers["Content-Type"] ||= "application/json"
-    headers["User-Agent"] = self.user_agent
-    body = body.to_json if !body.is_a?(String) && headers["Content-Type"].include?("json")
-    opts = {body:, headers:}.merge(**options)
+    hhash = HeaderHash.new
+    hhash.update(headers)
+    hhash["content-type"] ||= "application/json"
+    hhash["user-agent"] = self.user_agent
+    body = body.to_json if !body.is_a?(String) && hhash["content-type"].include?("json")
+    opts = {body:, headers: hhash}.merge(**options)
     r = HTTParty.send(method || :post, url, **opts, &)
     self.check!(r, **options) if check
     return r
@@ -88,27 +163,90 @@ module Webhookdb::Http
 
     raise ArgumentError, "must pass :logger keyword" unless options.key?(:logger)
     options[:log_format] = :appydays
+    options[:log_level] = self.log_level
   end
 
-  # Convenience wrapper around Down that handles gzip.
-  # @return Array<Down::ChunkedIO, IO> Tuple
-  def self.chunked_download(request_url, rewindable: false, **down_kw)
-    io = Down::NetHttp.open(request_url, rewindable:, **down_kw)
-    if io.data[:headers].fetch("Content-Encoding", "").include?("gzip")
-      # If the response is gzipped, Down doesn't handle it properly.
-      # Wrap it with gzip reader, and force the encoding to binary
-      # the server may send back a header like Content-Type: text/plain; UTF-8,
-      # so each line Down yields via #gets will have force_encoding('utf-8').
-      # https://github.com/janko/down/issues/87
-      io.instance_variable_set(:@encoding, "binary")
-      io = Zlib::GzipReader.wrap(io)
+  # Convenience wrapper since downloading a stream isn't so simple.
+  # See commit history for more info, including going from Down, to Down/HTTPX, to HTTP.
+  # @return [HTTP::Response]
+  def self.chunked_download(url, headers: {}, **options)
+    self._setup_required_args(options)
+    uri = URI(url)
+    raise URI::InvalidURIError, "#{url} must be an http/s url" unless ["http", "https"].include?(uri.scheme)
+    hhash = HeaderHash.from_h(headers)
+    hhash["user-agent"] ||= self.user_agent
+    hhash["accept"] ||= "*/*"
+    hhash["accept-encoding"] ||= "gzip, deflate"
+    req = HTTP
+    if options[:logger]
+      req = req.use(
+        logging_ext: {
+          logger: options[:logger],
+          level: self.log_level,
+          dump_response: false, # Body is streamed so never dump it.
+        },
+      )
     end
-    return io
+    req = req.timeout(options[:timeout]) if options[:timeout]
+    req = req.follow
+    begin
+      response = req.get(url, headers: hhash)
+    rescue HTTP::Redirector::TooManyRedirectsError => e
+      raise TooManyRedirects, e
+    end
+    http_method = response.request.verb
+    raise ServerError.new(response, uri:, http_method:) if response.code >= 500
+    raise ClientError.new(response, uri:, http_method:) if response.code >= 400
+    raise NotModified.new(response, uri:, http_method:) if response.code == 304
+    response.body.stream!
+    return response
   end
 
-  def self.gzipped?(string)
-    return false if string.length < 3
-    b = string[..2].bytes
-    return b[0] == 0x1f && b[1] == 0x8b
+  def self.rewind_request_body(request)
+    if request.body.instance_of?(::Rack::Lint::Wrapper::InputWrapper)
+      request.body.instance_variable_get(:@input).rewind
+    else
+      request.body&.rewind
+    end
+    return request.body
+  end
+end
+
+class HTTP::Headers
+  def fetch(k, *default)
+    vals = self.get(k)
+    return vals.first unless vals.empty?
+    raise KeyError, k if default.empty?
+    return default.first
+  end
+end
+
+class HTTP::Response::Body
+  attr_accessor :encoding
+end
+
+class HTTP::Response
+  alias _orig_initialize initialize
+  def initialize(opts)
+    # Make how we handle encoding more flexible. Gross but needed for things like icalendar hosts.
+
+    _orig_initialize(opts)
+
+    # If we have an explicit body, don't do anything.
+    return if opts.include?(:body)
+    # If we have detected a non-default encoding, use it.
+    return unless body.encoding == Encoding::BINARY
+    # If the charset was invalid, let's try to fix it.
+    if charset && (md = charset.match(/^(utf)(\d+)$/))
+      body.encoding = Encoding.find("#{md[1]}-#{md[2]}")
+      return
+    end
+    # If we are using a text type, use utf-8.
+    if mime_type&.start_with?("text/") || mime_type == "application/json"
+      body.encoding = Encoding::UTF_8
+      return
+    end
+    # We can't figure out a better encoding, so use binary.
+    return
   end
 end

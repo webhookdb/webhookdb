@@ -15,7 +15,8 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     # Space-separated URLs to use for resilient/high availability writes.
     setting :resilient_database_urls, [], convert: ->(s) { s.split.map(&:strip) }
     setting :resilient_database_env_vars, [], convert: ->(s) { s.split.map(&:strip) }
-    setting :resilient_table_name, "_logged_webhooks_resilient_writes"
+    setting :resilient_webhooks_table_name, "_resilient_logged_webhooks_writes"
+    setting :resilient_jobs_table_name, "_resilient_sidekiq_jobs_writes"
     # Using /replay can send this many webhooks in one request.
     # Making this too high can cause timeouts- the caller may have to make multiple calls instead.
     setting :maximum_replay_interval_hours, 4
@@ -41,27 +42,27 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   DELETE_FAILURES = 90.days
   TRUNCATE_FAILURES = 30.days
   # When we retry a request, set this so we know not to re-log it.
-  RETRY_HEADER = "Whdb-Logged-Webhook-Retry"
+  RETRY_HEADER = "whdb-logged-webhook-retry"
   # When we retry a request, these headers
   # must come from the Ruby client, NOT the original request.
   NONOVERRIDABLE_HEADERS = [
-    "Accept-Encoding",
-    "Accept",
-    "Host",
-    "Version",
+    "accept-encoding",
+    "accept",
+    "host",
+    "version",
   ].to_set
   # These headers have been added by Heroku/our web host,
   # so should not be part of the retry.
   WEBHOST_HEADERS = [
-    "Connection",
-    "Connect-Time",
-    "X-Request-Id",
-    "X-Forwarded-For",
-    "X-Request-Start",
-    "Total-Route-Time",
-    "X-Forwarded-Port",
-    "X-Forwarded-Proto",
-    "Via",
+    "connection",
+    "connect-time",
+    "x-request-id",
+    "x-forwarded-for",
+    "x-request-start",
+    "total-route-time",
+    "x-forwarded-port",
+    "x-forwarded-proto",
+    "via",
   ].to_set
 
   # Trim logged webhooks to keep this table to a reasonable size.
@@ -88,13 +89,26 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
     unowned = self.where(organization_id: nil)
     successes = owned.where { response_status < 400 }
     failures = owned.where { response_status >= 400 }
+    # NOTE: This code is tightly coupled with indices created in 050_logged_webhooks_indices.rb
+    # We create a separate index for each operation; the indices (5 in total) cover the full combination of:
+    # - rows without an organization (idx 1)
+    # - rows with an organization
+    #   - rows already truncated
+    #     - rows with status < 400 (idx 2)
+    #     - rows with status >= 400 (idx 3)
+    #   - rows not truncated
+    #     - rows with status < 400 (idx 4)
+    #     - rows with status >= 400 (idx 5)
+    # Note that we only delete already-truncated rows so we can keep our indices smaller;
+    # since deletion ages are always older than truncation ages, this should not be a problem.
+
     # Delete old unowned
     unowned.where { inserted_at < now - DELETE_UNOWNED }.delete
     # Delete successes first so they don't have to be truncated
-    successes.where { inserted_at < now - DELETE_SUCCESSES }.delete
+    successes.where { inserted_at < now - DELETE_SUCCESSES }.exclude(truncated_at: nil).delete
     self.truncate_dataset(successes.where { inserted_at < now - TRUNCATE_SUCCESSES })
     # Delete failures
-    failures.where { inserted_at < now - DELETE_FAILURES }.delete
+    failures.where { inserted_at < now - DELETE_FAILURES }.exclude(truncated_at: nil).delete
     self.truncate_dataset(failures.where { inserted_at < now - TRUNCATE_FAILURES })
   end
 
@@ -105,7 +119,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   def self.retry_logs(instances, truncate_successful: false)
     successes, failures = instances.partition do |lw|
       uri = URI(Webhookdb.api_url + lw.request_path)
-      req = Net::HTTP::Post.new(uri.path, {"Content-Type" => "application/json"})
+      req = Net::HTTP::Post.new(uri.path, {"content-type" => "application/json"})
       req.body = lw.request_body
       # This is going to have these headers:
       # ["content-type", "accept-encoding", "accept", "user-agent", "host"]
@@ -113,12 +127,12 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
       # in the original request; then we want to use those.
       # Additionally, there are a whole set of headers we'll find on our webserver
       # that are added by our web platform, which we do NOT want to include.
-      lw.request_headers.each do |k, v|
+      Webhookdb::Http::HeaderHash.from_h(lw.request_headers).each do |k, v|
         next if Webhookdb::LoggedWebhook::WEBHOST_HEADERS.include?(k)
         next if Webhookdb::LoggedWebhook::NONOVERRIDABLE_HEADERS.include?(k)
         req[k] = v
       end
-      req[Webhookdb::LoggedWebhook::RETRY_HEADER] = lw.id
+      req[Webhookdb::LoggedWebhook::RETRY_HEADER] = lw.id.to_s
       resp = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https") do |http|
         http.request(req)
       end
@@ -145,6 +159,7 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   end
 
   def self.truncate_dataset(ds)
+    ds = ds.where(truncated_at: nil)
     return ds.update(request_body: "", request_headers: "{}", truncated_at: Time.now)
   end
 
@@ -159,13 +174,18 @@ class Webhookdb::LoggedWebhook < Webhookdb::Postgres::Model(:logged_webhooks)
   # Note that these resilient inserts are MUCH slower than normal inserts;
   # they require a separate database connection, CREATE TABLE call, etc.
   # But it's a reasonable way to handle when the database is down.
-  def self.resilient_insert(**kwargs)
-    Resilient.new.insert(kwargs)
+  def self.resilient_insert(service_integration_opaque_id:, **kwargs)
+    Resilient.new.insert(kwargs, {service_integration_opaque_id:})
   end
 
   # Replay and delete all rows in the resilient database tables.
   def self.resilient_replay
     Resilient.new.replay
+  end
+
+  def before_save
+    (self[:request_headers] || {}).transform_keys!(&:downcase)
+    super
   end
 end
 

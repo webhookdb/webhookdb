@@ -12,29 +12,32 @@ require "simplecov-cobertura"
 (SimpleCov.formatter = SimpleCov::Formatter::CoberturaFormatter) if ENV["CI"]
 SimpleCov.start if ENV["CI"] || ENV["COVERAGE"]
 
+require "rspec"
+
+require "appydays/configurable/spec_helpers"
+require "appydays/loggable/spec_helpers"
+require "appydays/spec_helpers"
+require "dotenv/autorestore"
 require "httparty"
 require "rack/test"
 require "rack/test/methods"
-require "rspec"
+require "rspec/eventually"
 require "rspec/json_expectations"
 require "timecop"
 require "webmock/rspec"
-require "appydays/spec_helpers"
-require "appydays/configurable/spec_helpers"
-require "appydays/loggable/spec_helpers"
 
 require "webhookdb"
 require "webhookdb/spec_helpers"
-require "webhookdb/spec_helpers/postgres"
 require "webhookdb/fixtures"
 
 Webhookdb.load_app
 Webhookdb::Fixtures.load_all
 
 RSpec.configure do |config|
-  # config.full_backtrace = true
+  # Set this in .env.test.local if you want to show full error messages
+  config.full_backtrace = ENV.fetch("RSPEC_FULL_BACKTRACE", nil) ? true : false
 
-  RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 600
+  RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 3000
 
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
@@ -70,9 +73,13 @@ RSpec.configure do |config|
     config.include(Webhookdb::SpecHelpers)
     require "webhookdb/spec_helpers/async"
     config.include(Webhookdb::SpecHelpers::Async)
+    require "webhookdb/spec_helpers/http"
     require "webhookdb/spec_helpers/message"
     config.include(Webhookdb::SpecHelpers::Message)
+    require "webhookdb/spec_helpers/postgres"
     config.include(Webhookdb::SpecHelpers::Postgres)
+    require "webhookdb/spec_helpers/sentry"
+    config.include(Webhookdb::SpecHelpers::Sentry)
     require "webhookdb/spec_helpers/service"
     config.include(Webhookdb::SpecHelpers::Service)
     require "webhookdb/spec_helpers/whdb"

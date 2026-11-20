@@ -6,7 +6,7 @@ require "webhookdb/postgres"
 require "webhookdb/customer"
 
 class Webhookdb::Customer::ResetCode < Webhookdb::Postgres::Model(:customer_reset_codes)
-  class Unusable < StandardError; end
+  class Unusable < Webhookdb::WebhookdbError; end
 
   TOKEN_LENGTH = 6
 

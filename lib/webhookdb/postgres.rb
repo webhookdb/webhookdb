@@ -13,7 +13,7 @@ module Webhookdb::Postgres
   extend Webhookdb::MethodUtilities
   include Appydays::Loggable
 
-  class InTransaction < StandardError; end
+  class InTransaction < Webhookdb::ProgrammingError; end
 
   singleton_attr_accessor :unsafe_skip_transaction_check
   @unsafe_skip_transaction_check = false
@@ -48,6 +48,7 @@ module Webhookdb::Postgres
   # Require paths for all Sequel models used by the app.
   MODELS = [
     "webhookdb/backfill_job",
+    "webhookdb/backfill_job/service_integration_lock",
     "webhookdb/customer",
     "webhookdb/customer/reset_code",
     "webhookdb/database_document",
@@ -58,11 +59,15 @@ module Webhookdb::Postgres
     "webhookdb/oauth/session",
     "webhookdb/organization",
     "webhookdb/organization/database_migration",
+    "webhookdb/organization/error_handler",
     "webhookdb/organization_membership",
     "webhookdb/role",
+    "webhookdb/saved_query",
+    "webhookdb/saved_view",
     "webhookdb/service_integration",
     "webhookdb/subscription",
     "webhookdb/sync_target",
+    "webhookdb/system_log_event",
     "webhookdb/webhook_subscription",
     "webhookdb/webhook_subscription/delivery",
   ].freeze
@@ -78,7 +83,6 @@ module Webhookdb::Postgres
   ### Register the given +superclass+ as a base class for a set of models, for operations
   ### which should happen on all the current database connections.
   def self.register_model_superclass(superclass)
-    self.logger.debug "Registered model superclass: %p" % [superclass]
     self.model_superclasses << superclass
   end
 
@@ -89,8 +93,6 @@ module Webhookdb::Postgres
 
   ### Add a +path+ to require once the database connection is set.
   def self.register_model(path)
-    self.logger.debug "Registered model for requiring: %s" % [path]
-
     # If the connection's set, require the path immediately.
     if self.model_superclasses.any?(&:db)
       Appydays::Loggable[self].silence(:fatal) do

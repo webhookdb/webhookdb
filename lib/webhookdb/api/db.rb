@@ -6,15 +6,17 @@ require "webhookdb/api"
 require "webhookdb/replicator"
 
 class Webhookdb::API::Db < Webhookdb::API::V1
+  include Webhookdb::Service::Types
+
   helpers do
     params :fdw do
       optional :message_fdw, type: Boolean
       optional :message_views, type: Boolean
       optional :message_all, type: Boolean
-      requires :remote_server_name, type: String
-      requires :fetch_size, type: String
-      requires :local_schema, type: String
-      requires :view_schema, type: String
+      requires :remote_server_name, type: TrimmedString
+      requires :fetch_size, type: TrimmedString
+      requires :local_schema, type: TrimmedString
+      requires :view_schema, type: TrimmedString
     end
 
     def run_fdw
@@ -38,6 +40,29 @@ class Webhookdb::API::Db < Webhookdb::API::V1
   end
 
   resource :db do
+    [:get, :post].each do |httpmethod|
+      desc "Execute an arbitrary query in a replication database. Same as /db/<org>/sql but safe for CORS usage." do
+        headers Webhookdb::API::ConnstrAuth.headers_desc
+      end
+      params do
+        requires :org_identifier, type: TrimmedString
+        optional :query, type: String, desc: "SQL to run."
+        optional :query_base64, type: TrimmedString, desc: "Base64 encoded SQL. Mostly used for GET requests."
+        exactly_one_of :query, :query_base64
+      end
+      send(httpmethod, :run_sql) do
+        use_http_expires_caching(5.minutes)
+        org = lookup_org!(allow_connstr_auth: true)
+        unless (query = params[:query])
+          query = Base64.urlsafe_decode64(params[:query_base64])
+        end
+        r, msg = execute_readonly_query(org, query)
+        merror!(403, msg, code: "invalid_query") if r.nil?
+        status 200
+        present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
+      end
+    end
+
     route_param :org_identifier, type: String do
       desc "Returns the connection string"
       get :connection do
@@ -64,7 +89,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
 
       desc "Enqueues a database migration."
       params do
-        optional :admin_url, type: String, prompt: {
+        optional :admin_url, type: TrimmedString, prompt: {
           message: "ADMIN Postgres connection URL, in the form 'postgres://user:password@host:port/dbname',\n" \
                    "that is capable of administrative operations on your database,\n" \
                    "such as creating and dropping schemas and tables.\n" \
@@ -73,7 +98,7 @@ class Webhookdb::API::Db < Webhookdb::API::V1
           disable: ->(_) { !Webhookdb::Organization::DbBuilder.allow_public_migrations },
         }
 
-        optional :readonly_url, type: String, prompt: {
+        optional :readonly_url, type: TrimmedString, prompt: {
           message: "READONLY Postgres connection URL.\n" \
                    "This string is displayed when you ask for your organization's connection information.\n" \
                    "If you are okay with this being your ADMIN URL, leave it blank.\n" \
@@ -124,25 +149,8 @@ class Webhookdb::API::Db < Webhookdb::API::V1
       end
       post :sql do
         org = lookup_org!(allow_connstr_auth: true)
-        begin
-          r = org.execute_readonly_query(params[:query])
-        rescue Sequel::DatabaseError => e
-          self.logger.error("db_query_database_error", error: e)
-          # We want to handle InsufficientPrivileges and UndefinedTable explicitly
-          # since we can hint the user at what to do.
-          # Otherwise, we should just return the Postgres exception.
-          case e.wrapped_exception
-            when PG::UndefinedTable
-              missing_table = e.wrapped_exception.message.match(/relation (.+) does not/)&.captures&.first
-              msg = "The table #{missing_table} does not exist. Run `webhookdb db tables` to see available tables." if
-                missing_table
-            when PG::InsufficientPrivilege
-              msg = "You do not have permission to perform this query. Queries must be read-only."
-          else
-              msg = e.wrapped_exception.message
-          end
-          merror!(403, msg, code: "invalid_query")
-        end
+        r, msg = execute_readonly_query(org, params[:query])
+        merror!(403, msg, code: "invalid_query") if r.nil?
         status 200
         present({rows: r.rows, headers: r.columns, max_rows_reached: r.max_rows_reached})
       end

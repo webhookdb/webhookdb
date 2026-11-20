@@ -4,9 +4,10 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
   include Webhookdb::Dbutil
 
   class MigrationInProgress < Webhookdb::DatabaseLocked; end
-  class MigrationAlreadyFinished < StandardError; end
+  class MigrationAlreadyFinished < Webhookdb::WebhookdbError; end
 
   plugin :timestamps
+  plugin :text_searchable, terms: [:organization, :started_by]
   plugin :column_encryption do |enc|
     enc.column :source_admin_connection_url
     enc.column :destination_admin_connection_url
@@ -14,6 +15,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
 
   many_to_one :started_by, class: "Webhookdb::Customer"
   many_to_one :organization, class: "Webhookdb::Organization"
+  many_to_one :last_migrated_service_integration, class: "Webhookdb::ServiceIntegration"
 
   dataset_module do
     def ongoing
@@ -96,7 +98,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
       if chunk.size >= chunksize
         self.upsert_chunk(service_integration, dstdb, chunk)
         chunk.clear
-        Amigo::DurableJob.heartbeat
+        Webhookdb::Async.long_running_job_heartbeat!
       end
     end
     self.upsert_chunk(service_integration, dstdb, chunk)
@@ -110,7 +112,7 @@ class Webhookdb::Organization::DatabaseMigration < Webhookdb::Postgres::Model(:o
     tscol = svc.timestamp_column.name
     dstdb[svc.qualified_table_sequel_identifier].
       insert_conflict(
-        target: svc.remote_key_column.name,
+        target: svc._upsert_conflict_target,
         update_where: svc._update_where_expr,
       ).multi_insert(chunk)
     self.update(last_migrated_timestamp: chunk.last[tscol])
@@ -141,6 +143,7 @@ end
 #  organization_schema                  | text                     |
 #  last_migrated_service_integration_id | integer                  | NOT NULL DEFAULT 0
 #  last_migrated_timestamp              | timestamp with time zone |
+#  text_search                          | tsvector                 |
 # Indexes:
 #  organization_database_migrations_pkey                  | PRIMARY KEY btree (id)
 #  one_inprogress_migration_per_org                       | UNIQUE btree (organization_id) WHERE finished_at IS NULL

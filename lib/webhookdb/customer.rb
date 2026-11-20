@@ -10,14 +10,15 @@ require "webhookdb/demo_mode"
 class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
   extend Webhookdb::MethodUtilities
   include Appydays::Configurable
+  include Webhookdb::Admin::Linked
 
-  class InvalidPassword < StandardError; end
-  class SignupDisabled < StandardError; end
+  class InvalidPassword < Webhookdb::WebhookdbError; end
+  class SignupDisabled < Webhookdb::WebhookdbError; end
 
   configurable(:customer) do
-    setting :signup_email_allowlist, ["*"], convert: ->(s) { s.split }
+    setting :signup_email_allowlist, ["*"], convert: lambda(&:split)
     setting :skip_authentication, false
-    setting :skip_authentication_allowlist, [], convert: ->(s) { s.split }
+    setting :skip_authentication_allowlist, [], convert: lambda(&:split)
   end
 
   # The bcrypt hash cost. Changing this would invalidate all passwords!
@@ -37,6 +38,7 @@ class Webhookdb::Customer < Webhookdb::Postgres::Model(:customers)
 
   plugin :timestamps
   plugin :soft_deletes
+  plugin :text_searchable, terms: [:name, :email]
 
   one_to_many :all_memberships, class: "Webhookdb::OrganizationMembership"
   one_to_many :invited_memberships,
@@ -250,9 +252,9 @@ our docs at https://docs.webhookdb.com.
     end
   end
 
-  ### Attempt to authenticate the user with the specified +unencrypted+ password. Returns
-  ### +true+ if the password matched.
-  def authenticate(unencrypted)
+  # Attempt to authenticate the user with the specified +unencrypted+ password. Returns
+  # +true+ if the password matched.
+  def authenticate?(unencrypted)
     return false unless unencrypted
     return false if self.soft_deleted?
     return self.encrypted_password == unencrypted
@@ -329,6 +331,7 @@ end
 #  name            | text                     | NOT NULL DEFAULT ''::text
 #  note            | text                     | NOT NULL DEFAULT ''::text
 #  opaque_id       | text                     | NOT NULL
+#  text_search     | tsvector                 |
 # Indexes:
 #  customers_pkey          | PRIMARY KEY btree (id)
 #  customers_email_key     | UNIQUE btree (email)
@@ -339,9 +342,12 @@ end
 #  backfill_jobs                    | backfill_jobs_created_by_id_fkey                    | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  customer_reset_codes             | customer_reset_codes_customer_id_fkey               | (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 #  message_deliveries               | message_deliveries_recipient_id_fkey                | (recipient_id) REFERENCES customers(id) ON DELETE SET NULL
+#  oauth_sessions                   | oauth_sessions_customer_id_fkey                     | (customer_id) REFERENCES customers(id) ON DELETE CASCADE
 #  organization_database_migrations | organization_database_migrations_started_by_id_fkey | (started_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  organization_memberships         | organization_memberships_customer_id_fkey           | (customer_id) REFERENCES customers(id)
 #  roles_customers                  | roles_customers_customer_id_fkey                    | (customer_id) REFERENCES customers(id)
+#  saved_queries                    | saved_queries_created_by_id_fkey                    | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
+#  saved_views                      | saved_views_created_by_id_fkey                      | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  sync_targets                     | sync_targets_created_by_id_fkey                     | (created_by_id) REFERENCES customers(id) ON DELETE SET NULL
 #  webhook_subscriptions            | webhook_subscriptions_created_by_id_fkey            | (created_by_id) REFERENCES customers(id)
 # -----------------------------------------------------------------------------------------------------------------------------------------------------

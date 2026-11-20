@@ -177,7 +177,7 @@ RSpec.describe Webhookdb::Replicator::PostmarkOutboundMessageEventV1, :db do
 
   events.each do |(name, bod, _tsfield)|
     describe name do
-      it_behaves_like "a replicator", "postmark_outbound_message_event_v1" do
+      it_behaves_like "a replicator" do
         let(:body) { bod }
         let(:expected_data) { bod }
       end

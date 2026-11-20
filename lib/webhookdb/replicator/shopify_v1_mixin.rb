@@ -31,8 +31,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
     self.logger.debug "webhook hit shopify endpoint", log_params
 
     return Webhookdb::WebhookResponse.error("missing hmac") if shopify_auth.nil?
-    request.body.rewind
-    request_data = request.body.read
+    request_data = Webhookdb::Http.rewind_request_body(request).read
     verified = Webhookdb::Shopify.verify_webhook(request_data, shopify_auth, self.service_integration.webhook_secret)
     return Webhookdb::WebhookResponse.ok if verified
     return Webhookdb::WebhookResponse.error("invalid hmac")
@@ -45,7 +44,7 @@ module Webhookdb::Replicator::ShopifyV1Mixin
       field = "api_url"
       value = "https://#{value}.myshopify.com"
     end
-    return super(field, value)
+    return super
   end
 
   def calculate_webhook_state_machine
@@ -80,7 +79,7 @@ In order to backfill existing #{self.resource_name_plural}, run this from a shel
   def calculate_backfill_state_machine
     step = Webhookdb::Replicator::StateMachineStep.new
     unless self.service_integration.backfill_key.present?
-      step.output = \
+      step.output =
         %(In order to backfill #{self.resource_name_plural}, we need an API key and password
 (file an issue at #{Webhookdb.oss_repo_url} if you need token support).
 
@@ -108,33 +107,33 @@ It should be in the top left corner of your Admin Dashboard next to the Shopify 
     end
 
     # we check backfill credentials *after* entering the api_url because it is required to establish the auth connection
-    unless (result = self.verify_backfill_credentials).verified
-      self.service_integration.replicator.clear_backfill_information
-      step.output = result.message
-      return step.secret_prompt("API Key").backfill_key(self.service_integration)
+    unless (result = self.verify_backfill_credentials).verified?
+      msg = case result.http_error_status
+        when 401
+          # For a 401, reset the whole thing and try again.
+          self.service_integration.replicator.clear_backfill_information
+          "It looks like that API Key/Access Token combination is invalid. " \
+            "Please check over instructions and try again."
+        when 403
+          # For a 403, we just need a new access token with better permissions.
+          self.service_integration.update(backfill_key: nil)
+          "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
+            "Please check the permissions by going to your private app page and " \
+            "looking at the list of active permissions. " \
+            "Once you've verified or corrected the permissions for this key, " \
+            "please reenter the API Key you just created."
+        else
+          # For an unhandled error, ask them to try again.
+          self.service_integration.update(backfill_key: nil)
+          "An error occurred. Please reenter the API Key you just created and try again."
+      end
+      return self.calculate_backfill_state_machine.with_output(msg)
     end
 
     step.output = %(Great! We are going to start backfilling your #{self.resource_name_plural}.
 #{self._mixin_backfill_warning}
 #{self._query_help_output})
     return step.completed
-  end
-
-  def _verify_backfill_403_err_msg
-    return "It looks like that API Key does not have permission to access #{self.resource_name_singular} Records. " \
-           "Please check the permissions by going to your private app page and " \
-           "looking at the list of active permissions. " \
-           "Once you've verified or corrected the permissions for this key, " \
-           "please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_401_err_msg
-    return "It looks like that API Key/Access Token combination is invalid. " \
-           "Please reenter the API Key you just created:"
-  end
-
-  def _verify_backfill_err_msg
-    return "An error occurred. Please reenter the API Key you just created:"
   end
 
   def _fetch_backfill_page(pagination_token, **_kwargs)

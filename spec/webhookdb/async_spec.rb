@@ -5,6 +5,8 @@ require "webhookdb/async/job"
 require "webhookdb/async/scheduled_job"
 
 RSpec.describe "Webhookdb::Async", :async, :db do
+  let(:described_class) { Webhookdb::Async }
+
   before(:all) do
     Webhookdb::Async.setup_tests
   end
@@ -53,6 +55,73 @@ RSpec.describe "Webhookdb::Async", :async, :db do
       orig_json = event_json.deep_dup
       Webhookdb::Async::AuditLogger.new.perform(event_json)
       expect(event_json).to eq(orig_json)
+    end
+  end
+
+  describe "Sidekiq" do
+    before(:each) do
+      @old_config = Sidekiq.default_configuration
+      @config = Sidekiq::Config.new
+      Sidekiq.instance_variable_set(:@config, @config)
+    end
+
+    after(:each) do
+      described_class.reset_configuration
+      Sidekiq.instance_variable_set(:@config, @old_config)
+      described_class.run_after_configured_hooks
+    end
+
+    it "can configure the client" do
+      cfg = Sidekiq::Config.new
+      described_class._configure_client(cfg)
+      expect(cfg.client_middleware.entries).to include(
+        have_attributes(klass: Amigo::DurableJob::ClientMiddleware),
+      )
+    end
+
+    it "can configure the server" do
+      cfg = Sidekiq::Config.new
+      described_class._configure_server(cfg)
+      expect(cfg.server_middleware.entries).to include(
+        have_attributes(klass: Amigo::JobInContext::ServerMiddleware),
+      )
+    end
+  end
+
+  describe "open_web" do
+    it "opens a browser" do
+      expect(described_class).to receive(:`).with(%r{open http://.+:.+@localhost:18001/sidekiq})
+      described_class.open_web
+    end
+  end
+
+  describe "setup method calls" do
+    it "requires jobs when setup_web is called" do
+      Amigo.structured_logging = false # Reset so we can call another #setup
+      expect(Amigo).to receive(:install_amigo_jobs)
+      expect(Amigo).to_not receive(:start_scheduler)
+      described_class.setup_web
+    end
+
+    it "starts the scheduler when setup_workers is called" do
+      Amigo.structured_logging = false # Reset so we can call another #setup
+      expect(Amigo).to receive(:install_amigo_jobs)
+      expect(Amigo).to receive(:start_scheduler)
+      described_class.setup_workers
+    end
+  end
+
+  describe "SpecHelpers", sidekiq: :fake do
+    cls = Class.new do
+      include Sidekiq::Worker
+    end
+
+    describe "have_empty_queues" do
+      it "succeeds if queues are empty" do
+        expect(Sidekiq).to have_empty_queues
+        cls.perform_async
+        expect { expect(Sidekiq).to have_empty_queues }.to raise_error(/Sidekiq queues have jobs:/)
+      end
     end
   end
 end

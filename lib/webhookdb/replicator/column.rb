@@ -66,6 +66,29 @@ class Webhookdb::Replicator::Column
     end,
   )
 
+  # rubocop:disable Layout/LineLength
+  # Converter using +Webhookdb::Replicator::PartitionableMixin.str2inthash+ logic in Ruby and the DB.
+  # In SQL, this expression looks like:
+  #     SELECT CAST(((CAST(CAST(substring(concat('x', md5(coalesce("external_owner_id", ''))), 1, 10) AS bit(36)) AS bigint) & 4294967295) - 2147483648) AS int)
+  # In Ruby, this expression looks like:
+  #     (Digest::MD5.hexdigest(s)[..8].to_i(16) & 0xFFFFFFFF) - 2**31
+  # See `spec/data/str2hashconv_spec.json` for test inputs and outputs.
+  # rubocop:enable Layout/LineLength
+  CONV_STR2HASH = IsomorphicProc.new(
+    ruby: ->(value, **_) { Webhookdb::Replicator::PartitionableMixin.str2inthash(value || "") },
+    sql: lambda do |i|
+      makestr = Sequel.function(:coalesce, i, "")
+      digest = Sequel.function(:md5, makestr)
+      hex_str = Sequel.function(:concat, "x", digest)
+      bit36_str = Sequel.function(:substring, hex_str, 1, 10)
+      bigint = bit36_str.cast(Sequel.lit("bit(36)")).cast(:bigint)
+      masked_bigint = bigint & 4_294_967_295
+      biased_bigint = masked_bigint - 2_147_483_648
+      hash_int = biased_bigint.cast(:int)
+      return hash_int
+    end,
+  )
+
   # Return a converter that parses a value using the given regex,
   # and returns the capture group at index.
   # The 'coerce' function can be applied to, for example,
@@ -349,6 +372,8 @@ class Webhookdb::Replicator::Column
 
   # If provided, use this expression as the UPDATE value when adding the column
   # to an existing table.
+  # To explicitly backfill using NULL, use the value +Sequel[nil]+
+  # rather than +nil+.
   # @return [String,Sequel,Sequel::SQL::Expression]
   attr_reader :backfill_expr
 

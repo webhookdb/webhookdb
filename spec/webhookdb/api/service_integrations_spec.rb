@@ -222,12 +222,11 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
     end
   end
 
-  describe "POST /v1/service_integrations/:opaque_id" do
+  describe "POST /v1/service_integrations/:opaque_id", sidekiq: :fake do
     before(:each) do
       # this endpoint should be unauthed, so we will test it unauthed
       logout
       _ = sint
-      Sidekiq::Testing.fake! # We don't want to process the jobs
     end
 
     it "runs the ProcessWebhook job with the data for the webhook", :async do
@@ -240,7 +239,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("X-My-Test" => "abc", "Content-Type" => "application/json"),
+                  "headers" => hash_including("x-my-test" => "abc", "content-type" => "application/json"),
                   "body" => {"foo" => 1},
                   "request_path" => "/v1/service_integrations/xyz",
                   "request_method" => "POST",
@@ -266,7 +265,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("Content-Type" => "application/x-www-form-urlencoded"),
+                  "headers" => hash_including("content-type" => "application/x-www-form-urlencoded"),
                   "body" => "Key1=a&Key2=10",
                   "request_path" => "/v1/service_integrations/xyz",
                   "request_method" => "POST",
@@ -287,12 +286,18 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       org.prepare_database_connections
       sint.replicator.create_table
       Webhookdb::Replicator::Fake.process_webhooks_synchronously = {x: 1}.to_json
+      wh_req = nil
+      Webhookdb::Replicator::Fake.resource_and_event_hook = lambda { |req|
+        wh_req = req
+        req.body
+      }
       header "X-My-Test", "abc"
       post "/v1/service_integrations/xyz", my_id: "myid", at: Time.at(5)
 
       expect(last_response).to have_status(202)
       expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(my_id: "myid"))
       expect(last_response).to have_json_body.that_includes(x: 1)
+      expect(wh_req).to have_attributes(rack_request: be_a(Rack::Request))
     ensure
       org.remove_related_database
     end
@@ -415,7 +420,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
               "payload" => contain_exactly(
                 sint.id,
                 hash_including(
-                  "headers" => hash_including("X-My-Test" => "abc"),
+                  "headers" => hash_including("x-my-test" => "abc"),
                   "body" => {},
                   "request_path" => "/v1/service_integrations/xyz/v2/listings",
                   "request_method" => "DELETE",
@@ -435,7 +440,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
           request_body: "{}",
-          request_headers: hash_including("Host" => "example.org"),
+          request_headers: hash_including("host" => "example.org"),
           request_path: "/v1/service_integrations/xyz/v2/listings",
           request_method: "DELETE",
           response_status: 202,
@@ -452,13 +457,13 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.first.request_headers.to_h).to match(
-        "Content-Type" => "application/json",
-        "Cookie" => "",
-        "Host" => "example.org",
-        "Trace-Id" => be_a(String),
-        "Version" => "HTTP/1.0",
-        "X-Bar" => "1",
-        "X-Foo" => "***",
+        "content-type" => "application/json",
+        "cookie" => "",
+        "host" => "example.org",
+        "trace-id" => be_a(String),
+        "x-request-id" => be_a(String),
+        "x-bar" => "1",
+        "x-foo" => "***",
       )
     end
 
@@ -470,9 +475,9 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       }
       expect(Webhookdb::Jobs::ProcessWebhook).to receive(:client_push).with(
         include(
-          "args" => contain_exactly(include(
-                                      "payload" => contain_exactly(other_sint.id, hash_including),
-                                    )),
+          "args" => contain_exactly(
+            include("payload" => contain_exactly(other_sint.id, hash_including)),
+          ),
         ),
       )
 
@@ -490,7 +495,7 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
           inserted_at: match_time(Time.now).within(5),
           organization_id: sint.organization_id,
           request_body: '{"a":1}',
-          request_headers: hash_including("Host" => "example.org"),
+          request_headers: hash_including("host" => "example.org"),
           request_path: "/v1/service_integrations/xyz",
           request_method: "POST",
           response_status: 202,
@@ -543,6 +548,63 @@ RSpec.describe Webhookdb::API::ServiceIntegrations,
       post "/v1/service_integrations/xyz", a: 1
       expect(last_response).to have_status(202)
       expect(Webhookdb::LoggedWebhook.all).to be_empty
+    end
+
+    describe "using a bot user agent" do
+      before(:each) do
+        header "User-Agent", "Slackbot"
+      end
+
+      it "blocks bots from GET requests" do
+        get "/v1/service_integrations/xyz"
+        expect(last_response).to have_status(403)
+        expect(last_response.body).to include("This route is for receiving webhooks and HTTP calls")
+        expect(last_response.headers).to include("Content-Type" => "text/plain")
+      end
+
+      it "bypasses the botcheck if skipbotcheck is set" do
+        get "/v1/service_integrations/xyz?skipbotcheck=1"
+        expect(last_response).to have_status(202)
+      end
+
+      it "does not check non-GET" do
+        delete "/v1/service_integrations/xyz"
+        expect(last_response).to have_status(202)
+      end
+    end
+
+    describe "when the primary Redis and/or Postgres are unavailable" do
+      include Webhookdb::SpecHelpers::Async::ResilientAction
+
+      it "logs a resilient webhook if Postgres is unavailable" do
+        expect(Webhookdb::ServiceIntegration).to receive(:[]).with(opaque_id: "xyz").and_raise(Sequel::DatabaseError)
+        expect(Webhookdb::LoggedWebhook).to receive(:dataset).and_raise(Sequel::DatabaseError)
+
+        post "/v1/service_integrations/xyz", foo: 1
+
+        # The database is down, so we can't return a useful response,
+        # since for example this webhook may require synchronous processing.
+        # We still want to log it for replaying later though, in case it isn't retried
+        # (webhook processing is idempotent).
+        expect(last_response).to have_status(500)
+        expect(resilient_webhooks_dataset(&:all)).to contain_exactly(
+          include(json_meta: '{"service_integration_opaque_id":"xyz"}'),
+        )
+      end
+
+      it "logs a resilient job and succeeds if Redis is unavailable" do
+        Sidekiq::Testing.disable! do
+          expect(Sidekiq.redis_pool).to receive(:with) { raise RedisClient::ConnectionError, "from testing" }
+
+          post "/v1/service_integrations/xyz", foo: 1
+
+          # Everything but the async job worked, so it's okay to pretend this suceeded, since we'll try again later.
+          expect(last_response).to have_status(202)
+        end
+        expect(resilient_jobs_dataset(&:all)).to contain_exactly(
+          include(json_payload: include('"request_method":"POST"}]}],"class":"Webhookdb::Jobs::ProcessWebhook"')),
+        )
+      end
     end
   end
 

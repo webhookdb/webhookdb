@@ -3,7 +3,6 @@
 require "amigo/durable_job"
 require "webhookdb/async"
 require "webhookdb/messages/specs"
-require "rspec/eventually"
 
 RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_transaction_check do
   before(:all) do
@@ -41,43 +40,39 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create(finished_at: Time.now)
       expect do
-        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
-          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
-        end
+        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      expect(@logs).to include(match(/skipping_finished_backfill_job/))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "skipped_finished_backfill_job")
     end
 
     it "noops if the job does not exist" do
       expect do
-        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
-          Amigo.publish("webhookdb.backfilljob.run", 0)
-        end
+        Amigo.publish("webhookdb.backfilljob.run", 0)
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      expect(@logs).to include(match(/skipping_missing_backfill_job/))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "skipped_missing_backfill_job")
     end
 
     it "noops if credentials are missing" do
       sint = Webhookdb::Fixtures.service_integration.create
       bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
       expect do
-        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
-          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
-        end
+        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
-      expect(@logs).to include(match(/skipping_backfill_job_without_credentials/))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "skipped_backfill_job_without_credentials")
       expect(bfjob.refresh).to be_finished
     end
 
-    it "noops if the row is locked", db: :no_transaction do
+    it "finishes if the service integration is being backfilled", db: :no_transaction do
       sint = Webhookdb::Fixtures.service_integration.create(backfill_key: "bfkey", backfill_secret: "bfsek")
       bfjob = Webhookdb::Fixtures.backfill_job.for(sint).create
       thread_took_lock_event = Concurrent::Event.new
       thread_can_finish_event = Concurrent::Event.new
+      bfjob.ensure_service_integration_lock
       t = Thread.new do
         Sequel.connect(Webhookdb::Postgres::Model.uri) do |conn|
           conn.transaction do
-            conn << "SELECT * FROM backfill_jobs WHERE id = #{bfjob.id} FOR UPDATE"
+            conn << "SELECT * FROM backfill_job_service_integration_locks " \
+                    "WHERE service_integration_id = #{sint.id} FOR UPDATE"
             thread_took_lock_event.set
             thread_can_finish_event.wait
           end
@@ -85,13 +80,12 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       end
       thread_took_lock_event.wait
       expect do
-        @logs = capture_logs_from(Sidekiq.logger, level: :info, formatter: :json) do
-          Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
-        end
+        Amigo.publish("webhookdb.backfilljob.run", bfjob.id)
       end.to perform_async_job(Webhookdb::Jobs::Backfill)
       thread_can_finish_event.set
       t.join
-      expect(@logs).to include(match(/skipping_locked_backfill_job/))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "skipped_locked_backfill_job")
+      expect(bfjob.refresh).to be_finished
     end
   end
 
@@ -134,21 +128,20 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "CustomerCreatedNotifyInternal" do
-    it "publishes a developer alert" do
-      expect do
-        Webhookdb::Fixtures.customer.create
-      end.to perform_async_job(Webhookdb::Jobs::CustomerCreatedNotifyInternal).
-        and(publish("webhookdb.developeralert.emitted").with_payload(
-              contain_exactly(include("subsystem" => "Customer Created")),
-            ))
-    end
-  end
-
   describe "deprecated jobs" do
     it "exist as job classes" do
       expect(defined? Webhookdb::Jobs::Test::DeprecatedJob).to be_truthy
       expect(Webhookdb::Jobs::Test::DeprecatedJob).to respond_to(:perform_async)
+    end
+  end
+
+  describe "DatabaseDocumentCleaner" do
+    it "sends unsent messages" do
+      d1 = Webhookdb::Fixtures.database_document.create
+      d2 = Webhookdb::Fixtures.database_document.create(delete_at: 3.minutes.ago)
+      d3 = Webhookdb::Fixtures.database_document.create(delete_at: 3.hours.from_now)
+      Webhookdb::Jobs::DatabaseDocumentCleaner.new.perform
+      expect(Webhookdb::DatabaseDocument.all).to contain_exactly(be === d1, be === d3)
     end
   end
 
@@ -212,6 +205,37 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "Emailer" do
+    it "sends unsent messages" do
+      d = Webhookdb::Fixtures.message_delivery.create
+      Webhookdb::Jobs::Emailer.new.perform
+      expect(d.refresh).to have_attributes(sent_at: match_time(:now))
+    end
+  end
+
+  describe "IcalendarDeleteStaleCancelledEvents" do
+    let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "icalendar_event_v1") }
+    let(:org) { sint.organization }
+
+    before(:each) do
+      org.prepare_database_connections
+      sint.replicator.create_table
+    end
+
+    after(:each) { org.remove_related_database }
+
+    it "deletes stale events" do
+      sint.replicator.admin_dataset do |ds|
+        ds.insert(data: "{}", compound_identity: "new", uid: "new", row_updated_at: Time.now, status: "CANCELLED")
+        ds.insert(
+          data: "{}", compound_identity: "stale", uid: "stale", row_updated_at: 21.days.ago, status: "CANCELLED",
+        )
+      end
+      Webhookdb::Jobs::IcalendarDeleteStaleCancelledEvents.new.perform(true)
+      expect(sint.replicator.admin_dataset(&:all)).to contain_exactly(include(uid: "new"))
+    end
+  end
+
   describe "IcalendarEnqueueSyncs" do
     let(:org) { Webhookdb::Fixtures.organization.create }
     let(:sint) do
@@ -227,7 +251,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       org.remove_related_database
     end
 
-    it "enqueues a splayed calendar sync for integration row needing a sync", sidekiq: :fake do
+    it "enqueues a calendar sync for integration row needing a sync", sidekiq: :fake do
       sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
@@ -243,9 +267,70 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         )
       end
       Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
-      expect(Sidekiq).to have_queue.consisting_of(
+      expect(Sidekiq).to have_queue("netout").consisting_of(
         job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "abc"], at: be > Time.now.to_f),
         job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint.id, "xyz"], at: be > Time.now.to_f),
+      )
+    end
+
+    it "skips unchanged feeds", sidekiq: :fake do
+      req = stub_request(:get, "https://feed.me/").
+        to_return(status: 304, body: nil)
+
+      sint.replicator.admin_dataset do |ds|
+        ds.insert(
+          data: "{}",
+          external_id: "abc",
+          ics_url: "https://feed.me",
+          last_fetch_context: {
+            parser_version: Webhookdb::Replicator::IcalendarCalendarV1::PARSER_VERSION,
+          }.to_json,
+        )
+      end
+      Webhookdb::Jobs::IcalendarEnqueueSyncs.new.perform(true)
+      expect(Sidekiq::Queues["netout"]).to have_attributes(size: 0)
+      expect(req).to have_been_made
+    end
+  end
+
+  describe "IcalendarEnqueueSyncsForUrls" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint1) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+    let(:sint2) do
+      Webhookdb::Fixtures.service_integration(organization: org).create(service_name: "icalendar_calendar_v1")
+    end
+
+    before(:each) do
+      org.prepare_database_connections
+      sint1.replicator.create_table
+      sint2.replicator.create_table
+    end
+
+    after(:each) do
+      org.remove_related_database
+    end
+
+    it "enqueues a sync for rows in any service integration that use the given url", sidekiq: :fake do
+      urls = ["url1", "url2", "url3"]
+      [sint1, sint2].each_with_index do |sint, sint_idx|
+        sint.replicator.admin_dataset do |ds|
+          urls.each_with_index do |url, url_idx|
+            ds.insert(
+              data: "{}",
+              row_created_at: Time.now,
+              row_updated_at: Time.now,
+              ics_url: url,
+              external_id: "row-#{sint_idx + 1}-#{url_idx + 1}",
+            )
+          end
+        end
+      end
+      Webhookdb::Jobs::IcalendarEnqueueSyncsForUrls.new.perform(["url2"])
+      expect(Sidekiq).to have_queue("netout").consisting_of(
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint1.id, "row-1-2"]),
+        job_hash(Webhookdb::Jobs::IcalendarSync, args: [sint2.id, "row-2-2"]),
       )
     end
   end
@@ -266,18 +351,58 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
 
     it "syncs the row" do
+      # Old and never synced should both sync
+      last_synced_at = [nil, 20.hours.ago].sample
       row = sint.replicator.admin_dataset do |ds|
         ds.insert(
           data: "{}",
           row_created_at: Time.now,
           row_updated_at: Time.now,
           external_id: "abc",
+          last_synced_at:,
         )
         ds.first
       end
-      expect(row).to include(last_synced_at: nil)
       Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, row.fetch(:external_id))
       expect(sint.replicator.admin_dataset(&:first)).to include(last_synced_at: match_time(:now))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "icalendar_synced")
+    end
+
+    it "noops a missing row" do
+      Webhookdb::Jobs::IcalendarSync.new.perform(sint.id, "0")
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "icalendar_sync_row_miss")
+    end
+  end
+
+  describe "IncreaseEventHandler" do
+    it "handles the oauth disconnect event" do
+      event = {
+        associated_object_id: "connection_wxzktzxykrixfr0twahd",
+        associated_object_type: "oauth_connection",
+        category: "oauth_connection.deactivated",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }.as_json
+      expect(Webhookdb::Oauth::IncreaseProvider).to receive(:disconnect_oauth).with("connection_wxzktzxykrixfr0twahd")
+      expect do
+        Amigo.publish("increase.oauth_connection.deactivated", event)
+      end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)
+    end
+
+    it "noops other events" do
+      event = {
+        associated_object_id: "account_in71c4amph0vgo2qllky",
+        associated_object_type: "account",
+        category: "account.created",
+        created_at: "2020-01-31T23:59:59Z",
+        id: "event_001dzz0r20rzr4zrhrr1364hy80",
+        type: "event",
+      }.as_json
+      expect(Webhookdb::Oauth::IncreaseProvider).to_not receive(:disconnect_oauth)
+      expect do
+        Amigo.publish("increase.account.create", event)
+      end.to perform_async_job(Webhookdb::Jobs::IncreaseEventHandler)
     end
   end
 
@@ -293,8 +418,9 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
   end
 
   describe "LoggedWebhookResilientReplay" do
-    it "calls the method" do
+    it "calls the replay method" do
       expect(Webhookdb::LoggedWebhook).to receive(:resilient_replay)
+      expect(Webhookdb::Async::ResilientSidekiqClient).to receive(:resilient_replay)
       # Use mocking because setting this up for real is painful
       Webhookdb::Jobs::LoggedWebhooksResilientReplay.new.perform
     end
@@ -313,6 +439,78 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "ModelEventSystemLogTracker" do
+    it "notifies on customer create" do
+      expect do
+        Webhookdb::Fixtures.customer.create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Customer Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Customer Created"),
+      )
+    end
+
+    it "notifies on org create" do
+      expect do
+        Webhookdb::Fixtures.organization.create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Organization Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Organization Created"),
+      )
+    end
+
+    it "notifies on integraiton create" do
+      org = Webhookdb::Fixtures.organization.create
+      expect do
+        Webhookdb::Fixtures.service_integration(organization: org).create
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Integration Created")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Integration Created"),
+      )
+    end
+
+    it "notifies on integration destroy" do
+      sint = Webhookdb::Fixtures.service_integration.create
+      expect do
+        sint.destroy
+      end.to perform_async_job(Webhookdb::Jobs::ModelEventSystemLogTracker).
+        and(publish("webhookdb.developeralert.emitted").with_payload(
+              contain_exactly(include("subsystem" => "Integration Deleted")),
+            ))
+
+      expect(Webhookdb::SystemLogEvent.all).to contain_exactly(
+        have_attributes(title: "Integration Deleted"),
+      )
+    end
+  end
+
+  describe "MonitorMetrics" do
+    it "logs queue latency" do
+      q = instance_double(Sidekiq::Queue)
+      expect(q).to receive(:name).twice.and_return("q1")
+      expect(q).to receive(:latency).and_return(5)
+      expect(q).to receive(:size).and_return(2)
+      expect(Sidekiq::Queue).to receive(:all).and_return([q])
+      Webhookdb::Jobs::MonitorMetrics.new.perform
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(
+        action: "metrics_monitor_queue",
+        "q1_size" => 2,
+        "q1_latency" => 5,
+      )
+    end
+  end
+
   describe "PrepareDatabaseConnections" do
     let(:org) { Webhookdb::Fixtures.organization.create }
 
@@ -324,7 +522,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     it "creates the database urls for the organization" do
       expect do
-        org.publish_immediate("create", org.id, org.values)
+        org.publish_immediate("create", org.id, org.values.as_json)
       end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
 
       org.refresh
@@ -343,7 +541,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       Webhookdb::Organization::DbBuilder.create_cname_for_connection_urls = true
 
       expect do
-        org.publish_immediate("create", org.id, org.values)
+        org.publish_immediate("create", org.id, org.values.as_json)
       end.to perform_async_job(Webhookdb::Jobs::PrepareDatabaseConnections)
 
       expect(req).to have_been_made
@@ -383,10 +581,10 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
 
     it "can calculate semaphore details" do
       sint = Webhookdb::Fixtures.service_integration.create
-      sint.organization.update(job_semaphore_size: 6)
+      sint.update(integration_job_semaphore_size: 6)
       j = Webhookdb::Jobs::ProcessWebhook.new
       j.before_perform({"id" => "1", "name" => "topic", "payload" => [sint.id]})
-      expect(j).to have_attributes(semaphore_key: "semaphore-procwebhook-#{sint.organization_id}", semaphore_size: 6)
+      expect(j).to have_attributes(semaphore_key: "semaphore-procwebhook-sint-#{sint.id}", semaphore_size: 6)
     end
   end
 
@@ -427,7 +625,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
-  describe "OrganizationDatabaseMigrationNotifyStarted" do
+  describe "OrganizationDatabaseMigrationNotify" do
     it "sends an email when the migration has started" do
       org = Webhookdb::Fixtures.organization.create
       admin1 = Webhookdb::Fixtures.customer.admin_in_org(org).create
@@ -436,7 +634,8 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       dbm = Webhookdb::Fixtures.organization_database_migration(organization: org).with_urls.create
       expect do
         dbm.update(started_at: Time.now)
-      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotifyStarted)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotify)
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "started_message_sent")
       expect(Webhookdb::Message::Delivery.all).to contain_exactly(
         have_attributes(
           template: "org_database_migration_started",
@@ -448,9 +647,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         ),
       )
     end
-  end
 
-  describe "OrganizationDatabaseMigrationFinished" do
     it "sends an email when the migration has finished" do
       org = Webhookdb::Fixtures.organization.create
       admin1 = Webhookdb::Fixtures.customer.admin_in_org(org).create
@@ -459,7 +656,8 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       dbm = Webhookdb::Fixtures.organization_database_migration(organization: org).with_urls.create
       expect do
         dbm.update(finished_at: Time.now)
-      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotifyFinished)
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotify)
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "finished_message_sent")
       expect(Webhookdb::Message::Delivery.all).to contain_exactly(
         have_attributes(
           template: "org_database_migration_finished",
@@ -469,6 +667,47 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
           template: "org_database_migration_finished",
           to: admin2.email,
         ),
+      )
+    end
+
+    it "noops on other changes" do
+      dbm = Webhookdb::Fixtures.organization_database_migration.with_urls.create
+      expect do
+        dbm.update(organization_schema: "foo")
+      end.to perform_async_job(Webhookdb::Jobs::OrganizationDatabaseMigrationNotify)
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "noop")
+    end
+  end
+
+  describe "OrganizationErrorHandlerDispatch" do
+    let(:eh) { Webhookdb::Fixtures.organization_error_handler.create(url: "https://fake.webhookdb.com/error") }
+
+    it "dispatches the payload" do
+      req = stub_request(:post, "https://fake.webhookdb.com/error").
+        to_return(status: 200, body: "", headers: {})
+      Webhookdb::Jobs::OrganizationErrorHandlerDispatch.new.perform(eh.id, {"x" => 1})
+      expect(req).to have_been_made
+    end
+
+    it "raises a retry or die on any error" do
+      req = stub_request(:post, "https://fake.webhookdb.com/error").
+        and_raise(Errno::ECONNRESET)
+      expect do
+        Webhookdb::Jobs::OrganizationErrorHandlerDispatch.new.perform(eh.id, {"x" => 1})
+      end.to raise_error(Amigo::Retry::OrDie)
+      expect(req).to have_been_made
+    end
+  end
+
+  describe "RenewWatchChannel", :fake_replicator do
+    it "renews the watch using the given criteria" do
+      sint = Webhookdb::Fixtures.service_integration.create(service_name: "fake_with_watch_channel_v1")
+      Webhookdb::Jobs::RenewWatchChannel.new.perform(
+        sint.id,
+        {row_pk: 1, expiring_before: "2020-01-24T00:00:00Z"}.as_json,
+      )
+      expect(Webhookdb::Replicator::FakeWithWatchChannel.renew_calls).to contain_exactly(
+        {row_pk: 1, expiring_before: Time.parse("2020-01-24T00:00:00Z")},
       )
     end
   end
@@ -592,6 +831,52 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
     end
   end
 
+  describe "StaleRowDeleter" do
+    let(:org) { Webhookdb::Fixtures.organization.create }
+    let(:sint_fac) { Webhookdb::Fixtures.service_integration(service_name: "fake_stale_row_v1", organization: org) }
+    let(:sint1) { sint_fac.create }
+    let(:sint2) { sint_fac.create }
+    let(:sint3) { sint_fac.create }
+    let(:sints) { [sint1, sint2, sint3] }
+
+    before(:each) do
+      # Make sure the queries don't hit anything extra
+      Webhookdb::Fixtures.service_integration(organization: org).create
+      org.prepare_database_connections
+      sints.each { |s| s.replicator.create_table }
+    end
+
+    after(:each) { org.remove_related_database }
+
+    it "runs the stale row deleter using the given where/exclude criteria" do
+      sints.each do |s|
+        s.replicator.upsert_webhook_body({my_id: "stale", at: 7.days.ago, textcol: "cancelled"}.stringify_keys)
+        s.replicator.upsert_webhook_body({my_id: "new", at: Time.now, textcol: "cancelled"}.stringify_keys)
+      end
+      Webhookdb::Jobs::StaleRowDeleter.new.perform(
+        {
+          where: {table_name: [sint1.table_name, sint2.table_name]},
+          exclude: {table_name: sint1.table_name},
+        }.deep_stringify_keys!,
+      )
+      expect(sint1.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "new")
+      expect(sint2.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("new")
+      expect(sint3.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "new")
+    end
+
+    it "calls run_initial if initial=true" do
+      sints.each do |s|
+        s.replicator.upsert_webhook_body({my_id: "stale", at: 7.days.ago, textcol: "cancelled"}.stringify_keys)
+        s.replicator.upsert_webhook_body({my_id: "old", at: 100.days.ago, textcol: "cancelled"}.stringify_keys)
+      end
+      Webhookdb::Jobs::StaleRowDeleter.new.
+        perform({initial: true, where: {table_name: [sint1.table_name]}}.deep_stringify_keys!)
+      expect(sint1.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to be_empty
+      expect(sint2.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "old")
+      expect(sint3.replicator.admin_dataset { |ds| ds.select_map(:my_id) }).to contain_exactly("stale", "old")
+    end
+  end
+
   describe "SyncTargetEnqueueScheduled" do
     it "runs sync targets that are due", sidekiq: :fake do
       never_run = Webhookdb::Fixtures.sync_target.create
@@ -620,6 +905,7 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
       stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create
       Webhookdb::Jobs::SyncTargetRunSync.new.perform(stgt.id)
       expect(stgt.refresh).to have_attributes(last_synced_at: be_within(5).of(Time.now))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "sync_target_synced")
     end
 
     it "noops if a sync is in progress" do
@@ -631,12 +917,27 @@ RSpec.describe "webhookdb async jobs", :async, :db, :do_not_defer_events, :no_tr
         end
       end
       expect(stgt.refresh).to have_attributes(last_synced_at: match_time(orig_sync))
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "sync_target_already_in_progress")
     end
 
     it "noops if the sync target does not exist" do
       expect do
         Webhookdb::Jobs::SyncTargetRunSync.new.perform(0)
       end.to_not raise_error
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "missing_sync_target")
+    end
+
+    it "noops if the sync target is deleted during the sync" do
+      stgt = Webhookdb::Fixtures.sync_target(service_integration: sint).postgres.create
+      j = Webhookdb::Jobs::SyncTargetRunSync.new
+      expect(j).to receive(:set_job_tags).and_wrap_original do |m, *args|
+        Webhookdb::SyncTarget.where(id: stgt.id).delete
+        m.call(*args)
+      end.twice
+      expect do
+        j.perform(stgt.id)
+      end.to_not raise_error
+      expect(Webhookdb::Async::JobLogger.job_tags).to include(result: "sync_target_deleted")
     end
   end
 

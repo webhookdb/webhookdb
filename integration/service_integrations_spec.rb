@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "rspec/eventually"
-
 RSpec.describe "service integrations", :integration do
   def catch_missing_db(default)
     yield

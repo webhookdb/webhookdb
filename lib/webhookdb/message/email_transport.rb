@@ -12,7 +12,7 @@ class Webhookdb::Message::EmailTransport < Webhookdb::Message::Transport
   register_transport(:email)
 
   configurable(:email) do
-    setting :allowlist, ["*@lithic.tech", "*@webhookdb.com"], convert: ->(s) { s.split }
+    setting :allowlist, ["*@lithic.tech", "*@webhookdb.com"], convert: lambda(&:split)
     setting :from, "WebhookDB <hello@webhookdb.com>"
 
     setting :smtp_host, "localhost"

@@ -3,13 +3,16 @@
 require "grape_entity"
 
 require "webhookdb/service/entities"
-require "webhookdb/api" unless defined? Webhookdb::API
 
 module Webhookdb::API
   MoneyEntity = Webhookdb::Service::Entities::Money
   TimeRangeEntity = Webhookdb::Service::Entities::TimeRange
 
-  class BaseEntity < Webhookdb::Service::Entities::Base; end
+  class BaseEntity < Webhookdb::Service::Entities::Base
+    expose :message do |_instance, options|
+      options[:message] || ""
+    end
+  end
 
   class OrganizationEntity < BaseEntity
     expose :id
@@ -43,11 +46,13 @@ module Webhookdb::API
     expose :verified_memberships, with: OrganizationMembershipEntity
     expose :verified_memberships_formatted do |instance|
       lines = instance.verified_memberships.map { |m| "#{m.organization.display_string}: #{m.status}" }
+      lines.sort!
       lines.join("\n")
     end
     expose :invited_memberships, as: :invitations, with: OrganizationMembershipEntity
     expose :invitations_formatted do |instance|
       lines = instance.invited_memberships.map { |m| "#{m.organization.display_string}: #{m.invitation_code}" }
+      lines.sort!
       lines.join("\n")
     end
     expose :display_headers do |_|
@@ -130,10 +135,12 @@ module Webhookdb::API
     expose :opaque_id
     expose :service_integration, with: ServiceIntegrationEntity
     expose :period_seconds
+    expose :page_size
     expose :displaysafe_connection_url, as: :connection_url
     expose :table
     expose :schema
     expose :last_synced_at
+    expose :latency, &self.delegate_to(:latency, :to_i)
     expose :associated_type
     expose :associated_id
     expose :associated_object_display
@@ -149,8 +156,9 @@ module Webhookdb::API
         [:associated_object_display, "Associated"],
         [:schema_and_table_string, "Table"],
         [:last_synced_at, "Last Synced"],
+        [:latency, "Latency"],
         [:period_seconds, "Period"],
-        [:page_size, "Page"],
+        [:page_size, "Page Size"],
       ]
     end
   end
@@ -162,8 +170,9 @@ module Webhookdb::API
         [:connection_url, "URL"],
         [:associated_object_display, "Associated"],
         [:last_synced_at, "Last Synced"],
+        [:latency, "Latency"],
         [:period_seconds, "Period"],
-        [:page_size, "Page"],
+        [:page_size, "Page Size"],
       ]
     end
   end

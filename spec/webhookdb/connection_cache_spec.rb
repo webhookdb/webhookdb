@@ -133,6 +133,42 @@ RSpec.describe Webhookdb::ConnectionCache do
       end
     end
 
+    def connpid(c)
+      return c.select(Sequel.function(:pg_backend_pid)).first[:pg_backend_pid]
+    end
+
+    it "validates connections idle more than the idle timeout, and does not use ones that fail" do
+      conn = nil
+      pid = nil
+      instance.borrow(db1_url) do |c|
+        conn = c
+        pid = connpid(c)
+        c.execute("SET application_name TO 'validationtest'")
+      end
+      instance.borrow(db1_url) do |c|
+        expect(conn).to be(c)
+      end
+      t1 = 2.hours.from_now
+      t2 = 4.hours.from_now
+      # This should validate, and reuse the original connection reused because it is still valid.
+      Timecop.travel(t1) do
+        instance.borrow(db1_url) do |c|
+          expect(connpid(c)).to eq(pid)
+          expect(conn).to be(c)
+        end
+      end
+      # This should validate, and a new conneciton opened because validation failed.
+      Timecop.travel(t2) do
+        Sequel.connect(db1_url) do |c|
+          c << "SELECT pg_terminate_backend(#{pid})"
+        end
+        instance.borrow(db1_url) do |c|
+          expect(connpid(c)).to_not eq(pid)
+          expect(conn).to_not be(c)
+        end
+      end
+    end
+
     it "prunes available connections once it has been prune_seconds since the last prune" do
       Timecop.freeze do
         instance.borrow(db1_url) do |_|
@@ -175,6 +211,46 @@ RSpec.describe Webhookdb::ConnectionCache do
           end
         end
       end
+    end
+
+    it "returns the connection to the pool after a normal error" do
+      expect do
+        instance.borrow(db1_url) do
+          raise ArgumentError, "test error"
+        end
+      end.to raise_error(/test error/)
+      expect(instance.summarize).to include(
+        db1_url => {available: 1, loaned: 0},
+      )
+    end
+
+    it "trashes the connection after a database disconnect error" do
+      expect do
+        instance.borrow(db1_url) do |c|
+          c << "SELECT pg_terminate_backend(pg_backend_pid())"
+        end
+      end.to raise_error(Sequel::DatabaseDisconnectError)
+      expect(instance.summarize).to include(
+        db1_url => {available: 0, loaned: 0},
+      )
+    end
+
+    it "trashes the connection and reraises an error that occurs while restoring the timeout" do
+      # Kill the first connection so it dies when we restore the timeout
+      # (if the connection kills itself, we'll get an error even without the timeout restore,
+      # which we don't want).
+      expect do
+        instance.borrow(db1_url, timeout: 9) do |c1|
+          pid = c1.select(Sequel.function(:pg_backend_pid).as(:pid)).first[:pid]
+          instance.borrow(db2_url, timeout: 9) do |c2|
+            c2 << "SELECT pg_terminate_backend(#{pid})"
+          end
+        end
+      end.to raise_error(Sequel::DatabaseDisconnectError)
+      expect(instance.summarize).to include(
+        db1_url => {available: 0, loaned: 0},
+        db2_url => {available: 1, loaned: 0},
+      )
     end
 
     describe "transaction handling" do

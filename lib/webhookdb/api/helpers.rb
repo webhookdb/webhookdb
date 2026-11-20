@@ -81,7 +81,7 @@ module Webhookdb::API::Helpers
     end
 
     protected def needs_prompt?(attr_name, request, options)
-      if (disable_proc = options[:disable]) && (disable_proc[request])
+      if (disable_proc = options[:disable]) && disable_proc[request]
         return false
       end
       options[:demo_mode_proc][request] if Webhookdb::DemoMode.client_enabled? && options[:demo_mode_proc]
@@ -122,7 +122,14 @@ module Webhookdb::API::Helpers
     sints = org.service_integrations_dataset.
       where(Sequel[service_name: identifier] | Sequel[table_name: identifier] | Sequel[opaque_id: identifier]).
       limit(2).all
-    return sints.first if sints.size == 1
+    if sints.size == 1
+      sint = sints.first
+      set_request_tags(
+        service_integration_service_name: sint.service_name,
+        service_integration_table_name: sint.table_name,
+      )
+      return sint
+    end
     merror!(403, "There is no service integration with that identifier.") if sints.empty?
     dupe_attr = nil
     alternative = nil
@@ -164,15 +171,32 @@ module Webhookdb::API::Helpers
     request_headers = {}
     raise LocalJumpError unless block_given?
     begin
+      request_headers = request.headers.dup
+      if (content_type = env["CONTENT_TYPE"])
+        request_headers[Rack::CONTENT_TYPE] = content_type
+      end
       sint = yield
       return if sint == :pass
       raise "error instead of return nil if there is no service integration" if sint.nil?
+      # If this is a valid GET request (ie, the replicator doesn't do useful auth),
+      # and it's from a bot, we want to block it, otherwise we'd process invalid webhooks.
+      #
+      # This is almost never a problem, because almost all services perform some validation,
+      # and the auth info isn't in a GET URL; but in some cases, that won't be the case,
+      # and we protect against it here.
+      #
+      # An example would be a bot getting a link preview.
+      if request.get? && !request.GET["skipbotcheck"] && Browser.new(request.user_agent).bot?
+        # IMPORTANT: Run the Browser code last since it has to run a bunch of regexes to detect a bot.
+        env["api.format"] = :binary
+        header Rack::CONTENT_TYPE, "text/plain"
+        body("This route is for receiving webhooks and HTTP calls, not for bots. " \
+             "Call this endpoint with the query param 'skipbotcheck=true' to bypass this check.")
+        status 403
+        return
+      end
       opaque_id = sint.opaque_id
       organization_id = sint.organization_id
-      request_headers = request.headers.dup
-      if (content_type = env["CONTENT_TYPE"])
-        request_headers["Content-Type"] = content_type
-      end
       svc = Webhookdb::Replicator.create(sint).dispatch_request_to(request)
       svc.preprocess_headers_for_logging(request_headers)
       handling_sint = svc.service_integration
@@ -184,7 +208,11 @@ module Webhookdb::API::Helpers
         logger.warn "rejected_webhook", webhook_headers: request_headers, webhook_body: env["api.request.body"]
         header "Whdb-Rejected-Reason", whresp.reason
       else
-        req_body = env.key?("api.request.body") ? env["api.request.body"] : env["rack.input"].read
+        req_body = if env.key?("api.request.body")
+                     env["api.request.body"]
+        else
+          Webhookdb::Http.rewind_request_body(request)&.read || ""
+        end
         req_body = {} if req_body.blank?
         process_kwargs = {
           headers: request_headers,
@@ -205,6 +233,7 @@ module Webhookdb::API::Helpers
             path: process_kwargs[:request_path],
             headers: process_kwargs[:headers],
             body: process_kwargs[:body],
+            rack_request: request,
           )
           inserted = svc.upsert_webhook(whreq)
           s_body = svc.synchronous_processing_response_body(upserted: inserted, request: whreq)
@@ -215,7 +244,7 @@ module Webhookdb::API::Helpers
       end
 
       s_headers.each { |k, v| header k, v }
-      if s_headers["Content-Type"] == "application/json"
+      if s_headers[Rack::CONTENT_TYPE] == "application/json"
         body Oj.load(s_body)
       else
         env["api.format"] = :binary
@@ -239,9 +268,8 @@ module Webhookdb::API::Helpers
     # - Must handle error! calls
     # Anyway, this is all pretty confusing, but it's all tested.
     rstatus = status == 201 ? (sstatus || 0) : status
-    request.body.rewind
     Webhookdb::LoggedWebhook.resilient_insert(
-      request_body: request.body.read,
+      request_body: Webhookdb::Http.rewind_request_body(request)&.read || "",
       request_headers: request_headers.to_json,
       request_method: request.request_method,
       request_path: request.path_info,
@@ -250,4 +278,11 @@ module Webhookdb::API::Helpers
       service_integration_opaque_id: opaque_id,
     )
   end
+
+  # Run the given SQL inside the org, and use special error handling if it fails.
+  # @return [Array<Webhookdb::Organization::QueryResult,String,nil>] Tuple of query result, and optional message.
+  #   On query success, return <QueryResult, nil>.
+  #   On DatabaseError, return <nil, message>.
+  #   On other types of errors, raise.
+  def execute_readonly_query(org, sql) = org.execute_readonly_query_with_help(sql)
 end

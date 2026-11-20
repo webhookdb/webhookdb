@@ -4,11 +4,9 @@ require "grape"
 
 require "webhookdb"
 require "webhookdb/service"
+require "webhookdb/service/helpers"
 
-# API is the namespace module for API resources.
 module Webhookdb::API
-  require "webhookdb/api/entities"
-
   class V1 < Webhookdb::Service
     def self.inherited(subclass)
       super
@@ -16,11 +14,8 @@ module Webhookdb::API
         version "v1", using: :path
         format :json
 
-        require "webhookdb/service/helpers"
         helpers Webhookdb::Service::Helpers
-        require "webhookdb/api/helpers"
         helpers Webhookdb::API::Helpers
-        require "webhookdb/api/connstr_auth"
 
         helpers do
           def verified_customer!
@@ -52,21 +47,31 @@ module Webhookdb::API
               memberships = customer.verified_memberships_dataset.where(organization: orgs).limit(2).all
               permission_error!("You don't have permissions with that organization.") if memberships.empty?
               merror!(500, "ambiguous", alert: true) if memberships.size > 1 # TODO: better message, tests
-              return memberships.first.organization
+              org = memberships.first.organization
+              set_request_tags(organization: org.key)
+              return org
             end
             raise "something went wrong" unless allow_connstr_auth
             org = Webhookdb::API::ConnstrAuth.find_authed(orgs, request)
             unauthenticated! if org.nil?
+            set_request_tags(organization: org.key)
             return org
           end
 
-          def ensure_admin!(org=nil, customer: nil)
+          def has_admin?(org=nil, customer: nil)
             customer ||= current_customer
             org ||= lookup_org!
             has_no_admin = org.verified_memberships_dataset.
               where(customer:, membership_role: Webhookdb::Role.admin_role).
               empty?
-            permission_error!("You don't have admin privileges with #{org.name}.") if has_no_admin
+            return !has_no_admin
+          end
+
+          def ensure_admin!(org=nil, customer: nil)
+            org ||= lookup_org!
+            admin = has_admin?(org, customer:)
+            # noinspection RubyNilAnalysis
+            permission_error!("You don't have admin privileges with #{org.name}.") unless admin
           end
         end
 
@@ -90,3 +95,7 @@ module Webhookdb::API
     end
   end
 end
+
+require "webhookdb/api/entities"
+require "webhookdb/api/connstr_auth"
+require "webhookdb/api/helpers"

@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
-  it_behaves_like "a replicator", "twilio_sms_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -34,7 +34,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that prevents overwriting new data with old", "twilio_sms_v1" do
+  it_behaves_like "a replicator that prevents overwriting new data with old" do
     let(:old_body) do
       JSON.parse(<<~J)
         {
@@ -146,7 +146,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R
@@ -302,7 +302,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "twilio_sms_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
       <<~R
@@ -454,6 +454,26 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
     end
   end
 
+  describe "backfilling" do
+    let(:sint) do
+      Webhookdb::Fixtures.service_integration.create(
+        service_name: "twilio_sms_v1", backfill_key: "bkey", backfill_secret: "bsek",
+      )
+    end
+    let(:svc) { Webhookdb::Replicator.create(sint) }
+
+    it "sends a dev alert on 401" do
+      req = stub_request(:get, "https://api.twilio.com/2010-04-01/Accounts/bkey/Messages.json?DateSend%3C=2024-11-17&PageSize=100").
+        to_return(status: 401, body: "", headers: {})
+
+      Timecop.travel("2024-11-15T18:00:00Z") do
+        expect { backfill(sint) }.to_not raise_error
+      end
+
+      expect(req).to have_been_made
+    end
+  end
+
   describe "webhook validation" do
     let(:sint) { Webhookdb::Fixtures.service_integration.create(service_name: "twilio_sms_v1") }
     let(:svc) { Webhookdb::Replicator.create(sint) }
@@ -462,7 +482,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
       req = Rack::Request.new({})
       status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
-      expect(headers).to include("WWW-Authenticate" => 'Basic realm="Webhookdb"')
+      expect(headers).to include("www-authenticate" => 'Basic realm="Webhookdb"')
     end
 
     it "returns a 401 for an invalid Authorization header" do
@@ -471,7 +491,7 @@ RSpec.describe Webhookdb::Replicator::TwilioSmsV1, :db do
       req.add_header("Authorization", "Basic " + Base64.encode64("user:pass"))
       status, headers, _body = svc.webhook_response(req).to_rack
       expect(status).to eq(401)
-      expect(headers).to_not include("WWW-Authenticate")
+      expect(headers).to_not include("www-authenticate")
     end
 
     it "returns a 202 with a valid Authorization header" do

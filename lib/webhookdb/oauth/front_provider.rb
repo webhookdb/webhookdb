@@ -5,13 +5,11 @@ require "webhookdb/front"
 class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
   include Appydays::Loggable
 
-  # Override these for custom OAuth of different apps
   def key = "front"
   def app_name = "Front"
   def client_id = Webhookdb::Front.client_id
   def client_secret = Webhookdb::Front.client_secret
 
-  def requires_webhookdb_auth? = true
   def supports_webhooks? = true
 
   def authorization_url(state:)
@@ -60,6 +58,7 @@ class Webhookdb::Oauth::FrontProvider < Webhookdb::Oauth::Provider
       backfill_key: tokens.refresh_token,
     )
     root_sint.replicator.build_dependents
+    return root_sint
   end
 end
 

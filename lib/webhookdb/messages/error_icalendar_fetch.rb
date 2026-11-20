@@ -9,6 +9,8 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
                     response_status: 403, request_url: "/foo", request_method: "GET", response_body: "hi",)
   end
 
+  attr_accessor :service_integration
+
   def initialize(service_integration, external_calendar_id, request_url:, request_method:, response_status:,
     response_body:)
     @service_integration = service_integration
@@ -21,8 +23,7 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
   end
 
   def signature
-    ehash = Digest::MD5.hexdigest(@kw.to_s)
-    return "msg-#{self.full_template_name}-sint:#{@service_integration.id}-eid:#{@external_calendar_id}-err:#{ehash}"
+    return "msg-#{self.full_template_name}-sint:#{@service_integration.id}-eid:#{@external_calendar_id}"
   end
 
   def template_folder = "errors"
@@ -37,6 +38,9 @@ class Webhookdb::Messages::ErrorIcalendarFetch < Webhookdb::Message::Template
       response_status: @response_status,
       response_body: @response_body,
       external_calendar_id: @external_calendar_id,
+      webhook_endpoint: @service_integration.replicator.webhook_endpoint,
+      org_name: @service_integration.organization.name,
+      org_key: @service_integration.organization.key,
     )
   end
 end

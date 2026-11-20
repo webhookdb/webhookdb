@@ -7,7 +7,7 @@ require "webhookdb"
 module Webhookdb::Tasks
   class Release < Rake::TaskLib
     def initialize
-      super()
+      super
       desc "Migrate replication tables for each integration, ensure all columns and backfill new columns."
       task :migrate_replication_tables do
         Webhookdb.load_app
@@ -18,6 +18,7 @@ module Webhookdb::Tasks
       task :release do
         Rake::Task["db:migrate"].invoke
         Rake::Task["migrate_replication_tables"].invoke
+        Rake::Task["sidekiq:release"].invoke
         if ENV["HEROKU_APP_ID"] && (ENV["RUN_INTEGRATION_TESTS_ON_RELEASE"] == "true")
           Rake::Task["specs:heroku_integration_step1"].invoke
         end

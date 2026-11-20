@@ -3,7 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::StripeSubscriptionItemV1, :db do
-  it_behaves_like "a replicator", "stripe_subscription_item_v1" do
+  it_behaves_like "a replicator" do
     let(:body) do
       JSON.parse(<<~J)
         {
@@ -270,7 +270,7 @@ RSpec.describe Webhookdb::Replicator::StripeSubscriptionItemV1, :db do
           to_return(status: 403, body: "", headers: {})
     end
   end
-  it_behaves_like "a replicator that can backfill", "stripe_subscription_item_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:page1_response) do
       <<~R
         {

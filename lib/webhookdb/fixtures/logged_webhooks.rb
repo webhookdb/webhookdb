@@ -35,6 +35,10 @@ module Webhookdb::Fixtures::LoggedWebhooks
     self.response_status = rand(400..599)
   end
 
+  decorator :truncated do |t=Time.now|
+    self.truncated_at = t
+  end
+
   decorator :with_organization do |org={}|
     org = Webhookdb::Fixtures.organization.create(org) unless org.is_a?(Webhookdb::Organization)
     self.organization = org

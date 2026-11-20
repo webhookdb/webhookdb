@@ -24,4 +24,4 @@ class Webhookdb::Liquid::Expose < Liquid::Block
   end
 end
 
-Liquid::Template.register_tag("expose", Webhookdb::Liquid::Expose)
+Liquid::Environment.default.register_tag("expose", Webhookdb::Liquid::Expose)

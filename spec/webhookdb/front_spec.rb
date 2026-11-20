@@ -26,11 +26,11 @@ RSpec.describe Webhookdb::Front do
 
   describe "verify_signature" do
     it "returns false for invalid auth headers" do
-      expect(described_class.verify_signature(invalid_req, described_class.app_secret)).to be(false)
+      expect(described_class.verify_signature?(invalid_req, described_class.app_secret)).to be(false)
     end
 
     it "returns true for valid auth headers" do
-      expect(described_class.verify_signature(valid_req, described_class.app_secret)).to be(true)
+      expect(described_class.verify_signature?(valid_req, described_class.app_secret)).to be(true)
     end
   end
 

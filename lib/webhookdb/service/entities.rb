@@ -54,10 +54,6 @@ module Webhookdb::Service::Entities
         end
       end
     end
-
-    expose :message do |_instance, options|
-      options[:message] || ""
-    end
   end
 
   class Image < Base

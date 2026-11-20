@@ -22,7 +22,7 @@ class Webhookdb::Service::Auth
         fail!("No customer with that email")
         return nil
       end
-      return customer if customer.authenticate(params["password"])
+      return customer if customer.authenticate?(params["password"])
       fail!("Incorrect password")
       return nil
     end
@@ -48,7 +48,7 @@ class Webhookdb::Service::Auth
       warden_opts = env.fetch("warden.options", {})
       msg = warden_opts[:message] || env["webhookdb.authfailuremessage"] || "Unauthorized"
       body = Webhookdb::Service.error_body(401, msg)
-      return 401, {"Content-Type" => "application/json"}, [body.to_json]
+      return 401, {Rack::CONTENT_TYPE => "application/json"}, [body.to_json]
     end
   end
 
@@ -67,7 +67,7 @@ class Webhookdb::Service::Auth
 
       unless customer.admin?
         body = Webhookdb::Service.error_body(401, "Unauthorized")
-        return 401, {"Content-Type" => "application/json"}, [body.to_json]
+        return 401, {Rack::CONTENT_TYPE => "application/json"}, [body.to_json]
       end
       return @app.call(env)
     end

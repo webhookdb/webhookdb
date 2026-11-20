@@ -12,4 +12,10 @@ RSpec.describe Webhookdb::Crypto do
     expect(dec.raw).to eq("hello Boom")
     expect(dec.base64).to eq("aGVsbG8gQm9vbQ==")
   end
+
+  it "can generate a random encryption key" do
+    k1 = described_class.encryption_key.base64
+    k2 = described_class.encryption_key.base64
+    expect(k1).to_not eq(k2)
+  end
 end

@@ -16,8 +16,6 @@ module Webhookdb::AdminAPI
         version "v1", using: :path
         format :json
 
-        content_type :csv, "text/csv"
-
         require "webhookdb/service/helpers"
         helpers Webhookdb::Service::Helpers
 

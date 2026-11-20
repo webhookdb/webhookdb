@@ -3,8 +3,7 @@
 require "support/shared_examples_for_replicators"
 
 RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
-  it_behaves_like "a replicator", "github_repository_event_v1" do
-    let(:supports_row_diff) { false }
+  it_behaves_like "a replicator", supports_row_diff: false do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -37,9 +36,9 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
   end
 
   # Events are (I think) immutable
-  # it_behaves_like "a replicator that prevents overwriting new data with old", "github_repository_event_v1"
+  # it_behaves_like "a replicator that prevents overwriting new data with old"
 
-  it_behaves_like "a replicator that may have a minimal body", "github_repository_event_v1" do
+  it_behaves_like "a replicator that may have a minimal body" do
     let(:body) do
       JSON.parse(<<~JSON)
         {
@@ -53,12 +52,12 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
   end
 
   # Activity events are backfill-only
-  # it_behaves_like "a replicator that deals with resources and wrapped events", "github_repository_event_v1"
+  # it_behaves_like "a replicator that deals with resources and wrapped events"
 
   # This is tested through github_issue_v1
   # it_behaves_like "a replicator that verifies backfill secrets"
 
-  it_behaves_like "a replicator that can backfill", "github_repository_event_v1" do
+  it_behaves_like "a replicator that can backfill" do
     let(:api_url) { "my/code" }
     let(:page1_response) do
       <<~JSON
@@ -177,7 +176,7 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
     end
   end
 
-  it_behaves_like "a replicator that can backfill incrementally", "github_repository_event_v1" do
+  it_behaves_like "a replicator that can backfill incrementally" do
     let(:api_url) { "my/code" }
     let(:today) { Time.parse("2020-11-22T18:00:00Z") }
     let(:page1_response) do
@@ -312,6 +311,25 @@ RSpec.describe Webhookdb::Replicator::GithubRepositoryEventV1, :db do
         stub_request(:get, "https://api.github.com/repos/my/code/events?page=3").
             to_return(status: 200, body: page3_response, headers: json_headers),
       ]
+    end
+  end
+
+  it_behaves_like "a replicator that alerts on backfill auth errors" do
+    let(:sint_params) { {api_url: "my/code"} }
+    let(:template_name) { "errors/generic_backfill" }
+
+    def stub_service_request
+      return stub_request(:get, "https://api.github.com/repos/my/code/events?per_page=100")
+    end
+
+    def handled_responses
+      return [
+        [:and_return, {status: 401, body: "Unauthorized"}],
+      ]
+    end
+
+    def unhandled_response
+      return [:and_return, {status: 500, body: "Error"}]
     end
   end
 
